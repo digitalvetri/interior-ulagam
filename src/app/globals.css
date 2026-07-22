@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* ── Brown / Wood + Glassmorphism Theme ─────────────────────────────────── */
+:root {
+  /* Warm wood palette */
+  --background: #f5ede3;
+  --foreground: #2c1a0e;
+
+  /* Glass cards — semi-transparent warm white */
+  --card: rgba(255, 248, 240, 0.72);
+  --card-foreground: #2c1a0e;
+  --popover: rgba(255, 248, 240, 0.95);
+  --popover-foreground: #2c1a0e;
+
+  /* Espresso brown primary */
+  --primary: #6b3a1f;
+  --primary-foreground: #faf7f4;
+
+  /* Warm beige secondary */
+  --secondary: #e8d5c0;
+  --secondary-foreground: #2c1a0e;
+
+  /* Muted sand */
+  --muted: #ede0d4;
+  --muted-foreground: #8b6347;
+
+  /* Gold / amber accent */
+  --accent: #c8a45a;
+  --accent-foreground: #2c1a0e;
+
+  --destructive: #b91c1c;
+  --destructive-foreground: #faf7f4;
+
+  --border: rgba(107, 58, 31, 0.18);
+  --input: rgba(107, 58, 31, 0.12);
+  --ring: #c8a45a;
+  --radius: 0.75rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --radius: var(--radius);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ── Glassmorphism utilities ─────────────────────────────────────────────── */
+
+/* Frosted glass card */
+.glass-card {
+  background: rgba(255, 248, 240, 0.65);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
+  border: 1px solid rgba(200, 164, 90, 0.25);
+  box-shadow: 0 8px 32px rgba(44, 26, 14, 0.12), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+}
+
+/* Sidebar glass panel */
+.glass-sidebar {
+  background: rgba(107, 58, 31, 0.88);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  border-right: 1px solid rgba(200, 164, 90, 0.3);
+}
+
+/* Topbar glass strip */
+.glass-topbar {
+  background: rgba(255, 248, 240, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(200, 164, 90, 0.2);
+}
+
+/* Warm wood background gradient */
+.wood-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(180, 100, 40, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(200, 164, 90, 0.10) 0%, transparent 50%),
+    linear-gradient(135deg, #f5ede3 0%, #ede0d4 50%, #f0e6d8 100%);
+}
+
+/* Input with glass tint */
+.glass-input {
+  background: rgba(255, 248, 240, 0.5);
+  border: 1px solid rgba(107, 58, 31, 0.2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.glass-input:focus {
+  border-color: rgba(200, 164, 90, 0.6);
+  box-shadow: 0 0 0 3px rgba(200, 164, 90, 0.15);
+  outline: none;
+}
+
+/* Amber / gold primary button */
+.btn-primary {
+  background: linear-gradient(135deg, #6b3a1f 0%, #8b4e2a 100%);
+  color: #faf7f4;
+  box-shadow: 0 4px 14px rgba(107, 58, 31, 0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(107, 58, 31, 0.45);
+}
+.btn-primary:disabled {
+  opacity: 0.55;
+}
