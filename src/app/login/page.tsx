@@ -1,38 +1,89 @@
 import { LoginForm } from '@/components/auth/LoginForm';
+import { LoginScene3D } from '@/components/auth/LoginScene3D';
 
 export default function LoginPage() {
   return (
-    <div className="login-bg flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm animate-fade-in">
-        <div className="login-card px-8 py-10">
-          {/* Brand */}
-          <div className="mb-8 flex flex-col items-center gap-3">
+    <div className="login-shell">
+      {/* ── Left: brand / architectural showcase panel ─────────────────── */}
+      <div className="login-hero">
+        <div className="login-hero-grid" aria-hidden="true" />
+        <div className="login-hero-glow" aria-hidden="true" />
+
+        <div className="login-hero-content">
+          <div className="login-hero-brand">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="https://theinteriorstudios.in/wp-content/uploads/2025/09/cropped-intlogo.png"
               alt="The Interior Studio"
-              className="h-16 w-16 rounded-xl object-contain"
-              width={64} height={64}
+              className="h-10 w-10 rounded-lg object-contain"
+              width={40}
+              height={40}
+            />
+            <span>The Interior Studio</span>
+          </div>
+
+          <div className="login-hero-illustration">
+            <LoginScene3D />
+          </div>
+
+          <div className="login-hero-copy">
+            <h2>Where blueprints become homes.</h2>
+            <p>
+              Design, track, and deliver every interior project — from the first
+              concept sketch to final handover — inside one studio workspace.
+            </p>
+          </div>
+
+          <div className="login-hero-stats">
+            <div>
+              <strong>250+</strong>
+              <span>Projects delivered</span>
+            </div>
+            <div>
+              <strong>4.9★</strong>
+              <span>Client rating</span>
+            </div>
+            <div>
+              <strong>12+</strong>
+              <span>Cities served</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right: sign-in form panel (glassmorphism) ───────────────────── */}
+      <div className="login-form-panel">
+        <div className="login-form-blob login-form-blob--a" aria-hidden="true" />
+        <div className="login-form-blob login-form-blob--b" aria-hidden="true" />
+        <div className="login-form-blob login-form-blob--c" aria-hidden="true" />
+
+        <div className="w-full max-w-sm animate-fade-in login-glass-card">
+          {/* Brand mark — mobile only, hero panel is hidden below lg */}
+          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://theinteriorstudios.in/wp-content/uploads/2025/09/cropped-intlogo.png"
+              alt="The Interior Studio"
+              className="h-14 w-14 rounded-xl object-contain"
+              width={56}
+              height={56}
             />
             <div className="text-center">
-              <h1
-                className="text-xl font-bold"
-                style={{ color: '#3D2314' }}
-              >
+              <h1 className="text-lg font-bold" style={{ color: '#1C1916' }}>
                 The Interior Studio
               </h1>
-              <p className="mt-0.5 text-sm" style={{ color: '#6B6B6B' }}>
-                Studio workspace
-              </p>
             </div>
+          </div>
+
+          <div className="mb-9">
+            <h1 className="login-form-title">Welcome back</h1>
+            <p className="login-form-subtitle">Sign in to your studio workspace</p>
           </div>
 
           <LoginForm />
         </div>
 
-        <p className="mt-5 text-center text-xs" style={{ color: '#A8927F' }}>
-          Built by DigitalVetri
-        </p>
+        <p className="login-form-footer">Built by DigitalVetri</p>
       </div>
     </div>
   );

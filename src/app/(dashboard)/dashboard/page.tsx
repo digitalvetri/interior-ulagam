@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Users, FolderKanban, IndianRupee, TrendingUp,
-  Plus, ArrowRight, AlertCircle, CheckCircle2, Clock,
+  Plus, ChevronRight, AlertCircle, CheckCircle2, Clock, Target,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -19,29 +19,55 @@ function fmt(paise: number) {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
+/* Decorative sparkline — a static wave shape in the metric's accent color.
+   There's no time-series history API for these metrics, so this is a purely
+   stylistic flourish (no fabricated numbers are plotted on it). */
+function Sparkline({ color }: { color: string }) {
+  return (
+    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-7 mt-3">
+      <path
+        d="M0,20 C10,8 18,24 28,16 C38,8 46,22 56,14 C66,6 74,18 84,10 C90,6 96,10 100,6"
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /* ── KPI Card ───────────────────────────────────────────────────────────── */
+/* Circular pastel icon badge + colored sparkline per metric. */
+const KPI_ACCENTS = {
+  purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
+  blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)' },
+  orange: { bg: 'var(--accent-orange-bg)', fg: 'var(--accent-orange)' },
+  green:  { bg: 'var(--accent-green-bg)',  fg: 'var(--accent-green)' },
+} as const;
+
 function KpiCard({
-  label, value, sub, icon: Icon, gold = false, loading,
+  label, value, sub, icon: Icon, accent = 'purple', loading,
 }: {
-  label: string; value: string; sub?: string; icon: React.ElementType; gold?: boolean; loading: boolean;
+  label: string; value: string; sub?: string; icon: React.ElementType;
+  accent?: keyof typeof KPI_ACCENTS; loading: boolean;
 }) {
+  const a = KPI_ACCENTS[accent];
   return (
     <div className="premium-card p-5">
-      <div className="flex items-start justify-between mb-4">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl"
-          style={{ backgroundColor: gold ? 'rgba(200,155,60,0.12)' : 'rgba(111,78,55,0.10)' }}
-        >
-          <Icon className="h-5 w-5" style={{ color: gold ? '#C89B3C' : '#6F4E37' }} />
-        </div>
+      <div
+        className="stat-badge mb-4"
+        style={{ backgroundColor: a.bg }}
+      >
+        <Icon className="h-5 w-5" style={{ color: a.fg }} strokeWidth={2} />
       </div>
       {loading ? (
         <div className="skeleton h-8 w-24 mb-1" />
       ) : (
-        <p className="kpi-value" style={gold ? { color: '#C89B3C' } : {}}>{value}</p>
+        <p className="kpi-value">{value}</p>
       )}
-      <p className="mt-1 text-sm font-medium" style={{ color: '#3D2314' }}>{label}</p>
-      {sub && <p className="mt-0.5 text-xs" style={{ color: '#6B6B6B' }}>{sub}</p>}
+      <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{label}</p>
+      {sub && <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{sub}</p>}
+      <Sparkline color={a.fg} />
     </div>
   );
 }
@@ -49,13 +75,13 @@ function KpiCard({
 /* ── Stage Badge ────────────────────────────────────────────────────────── */
 function StageBadge({ stage }: { stage: string }) {
   const map: Record<string, { label: string; bg: string; text: string }> = {
-    planning:     { label: 'Planning',     bg: '#F8F5F2', text: '#6F4E37' },
-    design:       { label: 'Design',       bg: 'rgba(200,155,60,0.12)', text: '#C89B3C' },
-    procurement:  { label: 'Procurement',  bg: 'rgba(111,78,55,0.10)', text: '#5A3E2B' },
-    execution:    { label: 'Execution',    bg: 'rgba(200,155,60,0.18)', text: '#6F4E37' },
-    complete:     { label: 'Complete',     bg: 'rgba(34,197,94,0.10)',  text: '#15803D' },
+    planning:     { label: 'Planning',     bg: 'var(--surface-app)', text: 'var(--violet-primary)' },
+    design:       { label: 'Design',       bg: 'var(--accent-orange-bg)', text: '#C2410C' },
+    procurement:  { label: 'Procurement',  bg: 'var(--accent-blue-bg)', text: '#1D4ED8' },
+    execution:    { label: 'Execution',    bg: 'var(--violet-soft)', text: 'var(--violet-primary)' },
+    complete:     { label: 'Complete',     bg: 'var(--accent-green-bg)',  text: '#15803D' },
   };
-  const s = map[stage] ?? { label: stage, bg: '#E9DFD3', text: '#6F4E37' };
+  const s = map[stage] ?? { label: stage, bg: 'var(--surface-muted)', text: 'var(--text-heading)' };
   return (
     <span
       className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
@@ -67,29 +93,44 @@ function StageBadge({ stage }: { stage: string }) {
 }
 
 /* ── Quick Action ───────────────────────────────────────────────────────── */
-function QuickAction({ href, label, icon: Icon }: { href: string; label: string; icon: React.ElementType }) {
+function QuickAction({
+  href, label, icon: Icon, accent = 'purple',
+}: { href: string; label: string; icon: React.ElementType; accent?: keyof typeof KPI_ACCENTS }) {
+  const a = KPI_ACCENTS[accent];
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-xl border p-4 transition-all hover:-translate-y-0.5"
+      className="group flex items-center gap-3 rounded-xl border p-4 transition-all duration-150 hover:-translate-y-0.5"
       style={{
         backgroundColor: '#FFFFFF',
-        borderColor: '#C8B7A6',
-        boxShadow: '0 1px 4px rgba(75,46,43,0.06)',
-        color: '#3D2314',
+        borderColor: 'var(--border-subtle)',
+        boxShadow: '0 1px 4px rgba(22,20,15,0.05)',
+        color: 'var(--text-heading)',
       }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = a.fg)}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
     >
       <div
         className="flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
-        style={{ backgroundColor: 'rgba(111,78,55,0.10)' }}
+        style={{ backgroundColor: a.bg }}
       >
-        <Icon className="h-4 w-4" style={{ color: '#6F4E37' }} />
+        <Icon className="h-4 w-4" style={{ color: a.fg }} />
       </div>
       <span className="text-sm font-semibold">{label}</span>
-      <ArrowRight className="ml-auto h-4 w-4 opacity-40" />
+      <ChevronRight className="ml-auto h-4 w-4 opacity-40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:opacity-70" />
     </Link>
   );
 }
+
+/* ── Funnel ─────────────────────────────────────────────────────────────── */
+const FUNNEL_STAGES: { key: keyof LeadStats; label: string }[] = [
+  { key: 'new',                  label: 'New' },
+  { key: 'site_visit_scheduled', label: 'Site Visit' },
+  { key: 'consultation_done',    label: 'Consultation' },
+  { key: 'proposal_sent',        label: 'Proposal Sent' },
+  { key: 'negotiation',          label: 'Negotiation' },
+  { key: 'won',                  label: 'Won' },
+];
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
@@ -127,14 +168,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Dashboard</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>
-            Complete overview of The Interior Studio
-          </p>
-        </div>
+      {/* Action row */}
+      <div className="flex items-center justify-end">
         <Link
           href="/leads"
           className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-lg"
@@ -146,10 +181,10 @@ export default function DashboardPage() {
 
       {/* KPI grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Active Leads"    value={String(activeLeads)}  sub={`${totalLeads} total`}          icon={Users}        loading={loading} />
-        <KpiCard label="Active Projects" value={String(activeProj)}   sub={`${projects.length} total`}     icon={FolderKanban} loading={loading} />
-        <KpiCard label="Pending Receivables" value={fmt(totalRec)}    sub={`${receivables.length} invoices`} icon={IndianRupee} gold loading={loading} />
-        <KpiCard label="Conversion Rate" value={`${conversionPct}%`}  sub={`${leadStats?.won ?? 0} won`}   icon={TrendingUp}   gold loading={loading} />
+        <KpiCard label="Active Leads"    value={String(activeLeads)}  sub={`${totalLeads} total`}          icon={Users}        accent="purple" loading={loading} />
+        <KpiCard label="Active Projects" value={String(activeProj)}   sub={`${projects.length} total`}     icon={FolderKanban} accent="blue"   loading={loading} />
+        <KpiCard label="Pending Receivables" value={fmt(totalRec)}    sub={`${receivables.length} invoices`} icon={IndianRupee} accent="orange" loading={loading} />
+        <KpiCard label="Conversion Rate" value={`${conversionPct}%`}  sub={`${leadStats?.won ?? 0} won`}   icon={TrendingUp}   accent="green"  loading={loading} />
       </div>
 
       {/* Lead funnel + Projects side by side */}
@@ -159,40 +194,46 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Lead Funnel</h3>
-            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: '#6F4E37' }}>
+            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
               View all →
             </Link>
           </div>
           {loading ? (
             <div className="space-y-3">
-              {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-7 w-full" />)}
+              {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-9 w-full" />)}
             </div>
           ) : !leadStats || totalLeads === 0 ? (
-            <EmptyState icon={Users} message="No leads yet." action={{ href: '/leads', label: 'Add your first lead' }} />
+            <EmptyState icon={Target} message="No leads in your funnel yet." action={{ href: '/leads', label: 'Add Lead' }} />
           ) : (
-            <div className="space-y-2">
-              {([
-                ['New',               leadStats.new],
-                ['Site Visit',        leadStats.site_visit_scheduled],
-                ['Consultation Done', leadStats.consultation_done],
-                ['Proposal Sent',     leadStats.proposal_sent],
-                ['Negotiation',       leadStats.negotiation],
-                ['Won',               leadStats.won],
-                ['Lost',              leadStats.lost],
-              ] as [string, number][]).map(([label, count]) => (
-                <div key={label} className="flex items-center gap-3">
-                  <span className="w-32 text-xs" style={{ color: '#6B6B6B' }}>{label}</span>
-                  <div className="flex-1 progress-bar-track">
-                    <div
-                      className="progress-bar-fill"
-                      style={{ width: totalLeads > 0 ? `${(count / totalLeads) * 100}%` : '0%' }}
-                    />
+            <div className="flex gap-4">
+              <div className="flex-1 min-w-0 space-y-1.5">
+                {FUNNEL_STAGES.map((s, i, arr) => {
+                  const base = leadStats.new || Math.max(...arr.map(x => leadStats[x.key]), 1);
+                  const pct = Math.min(100 - i * 2, Math.max(16, base > 0 ? (leadStats[s.key] / base) * 100 : 100 - i * 14));
+                  return (
+                    <div key={s.key} className="h-9 flex items-center">
+                      <div
+                        className="h-9"
+                        style={{
+                          width: `${pct}%`,
+                          background: 'var(--violet-primary)',
+                          opacity: 1 - i * 0.11,
+                          clipPath: 'polygon(6% 0%, 94% 0%, 100% 100%, 0% 100%)',
+                          borderRadius: '4px',
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex-shrink-0 space-y-1.5">
+                {FUNNEL_STAGES.map(s => (
+                  <div key={s.key} className="h-9 flex items-center justify-between gap-4 min-w-[9rem]">
+                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>{leadStats[s.key]}</span>
                   </div>
-                  <span className="w-6 text-right text-xs font-semibold" style={{ color: '#3D2314' }}>
-                    {count}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -201,7 +242,7 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Active Projects</h3>
-            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: '#6F4E37' }}>
+            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
               View all →
             </Link>
           </div>
@@ -210,14 +251,14 @@ export default function DashboardPage() {
               {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-12 w-full" />)}
             </div>
           ) : projects.length === 0 ? (
-            <EmptyState icon={FolderKanban} message="No projects yet." action={{ href: '/projects', label: 'Start a project' }} />
+            <EmptyState icon={FolderKanban} message="No active projects" detail="Create a new project to get started." action={{ href: '/projects', label: 'New Project' }} large />
           ) : (
-            <div className="divide-y" style={{ borderColor: '#E9DFD3' }}>
+            <div className="divide-y" style={{ borderColor: 'var(--surface-muted)' }}>
               {projects.map(p => (
                 <div key={p.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>{p.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#6B6B6B' }}>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                       {fmt(p.totalContractPaise ?? 0)}
                     </p>
                   </div>
@@ -236,7 +277,7 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Pending Payments</h3>
-            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: '#6F4E37' }}>
+            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
               View all →
             </Link>
           </div>
@@ -245,23 +286,34 @@ export default function DashboardPage() {
               {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-12 w-full" />)}
             </div>
           ) : receivables.length === 0 ? (
-            <EmptyState icon={CheckCircle2} message="All payments up to date." />
+            <div
+              className="flex items-center gap-4 rounded-xl p-5"
+              style={{ backgroundColor: 'var(--accent-green-bg)' }}
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full flex-shrink-0" style={{ backgroundColor: '#FFFFFF' }}>
+                <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--accent-green)' }} />
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: '#15803D' }}>All payments up to date.</p>
+                <p className="text-xs mt-0.5" style={{ color: '#166534' }}>Great job! No pending payments.</p>
+              </div>
+            </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: '#E9DFD3' }}>
+            <div className="divide-y" style={{ borderColor: 'var(--surface-muted)' }}>
               {receivables.map((r, i) => (
                 <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2.5 min-w-0">
                     {r.dueDays > 7
                       ? <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
-                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: '#C89B3C' }} />}
+                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--accent-orange)' }} />}
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: '#1C1C1C' }}>
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                         {r.projectName}
                       </p>
-                      <p className="text-xs truncate" style={{ color: '#6B6B6B' }}>{r.milestoneName}</p>
+                      <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{r.milestoneName}</p>
                     </div>
                   </div>
-                  <p className="text-sm font-bold ml-3 flex-shrink-0 kpi-gold">{fmt(r.amountPaise)}</p>
+                  <p className="text-sm font-bold ml-3 flex-shrink-0" style={{ color: 'var(--accent-orange)' }}>{fmt(r.amountPaise)}</p>
                 </div>
               ))}
             </div>
@@ -271,11 +323,11 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="premium-card p-5">
           <h3 className="section-title mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 gap-3">
-            <QuickAction href="/leads"           label="Add New Lead"       icon={Users} />
-            <QuickAction href="/projects"        label="Create Project"     icon={FolderKanban} />
-            <QuickAction href="/quotes"          label="New Quotation"      icon={Plus} />
-            <QuickAction href="/purchase-orders" label="Raise Purchase Order" icon={IndianRupee} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <QuickAction href="/leads"           label="Add New Lead"         icon={Users}        accent="purple" />
+            <QuickAction href="/quotes"          label="Create Quotation"    icon={Plus}         accent="orange" />
+            <QuickAction href="/projects"        label="Create Project"      icon={FolderKanban} accent="blue" />
+            <QuickAction href="/analytics/designers" label="View Reports"    icon={TrendingUp}   accent="green" />
           </div>
         </div>
       </div>
@@ -285,28 +337,57 @@ export default function DashboardPage() {
 
 /* ── Empty State helper ─────────────────────────────────────────────────── */
 function EmptyState({
-  icon: Icon, message, action,
+  icon: Icon, message, detail, action, large = false,
 }: {
   icon: React.ElementType;
   message: string;
+  detail?: string;
   action?: { href: string; label: string };
+  large?: boolean;
 }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <div
-        className="flex h-12 w-12 items-center justify-center rounded-xl mb-3"
-        style={{ backgroundColor: 'rgba(111,78,55,0.08)' }}
-      >
-        <Icon className="h-6 w-6" style={{ color: '#C8B7A6' }} />
+  if (large) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-center">
+        <div className="relative mb-4" style={{ width: 72, height: 72 }}>
+          <div className="absolute inset-0 rounded-2xl rotate-6" style={{ backgroundColor: 'var(--violet-soft)' }} />
+          <div className="absolute inset-0 rounded-2xl -rotate-3 flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', border: '1px solid var(--border-subtle)' }}>
+            <Icon className="h-7 w-7" style={{ color: 'var(--violet-primary)' }} />
+          </div>
+        </div>
+        <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{message}</p>
+        {detail && <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{detail}</p>}
+        {action && (
+          <Link
+            href={action.href}
+            className="btn-primary mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {action.label}
+          </Link>
+        )}
       </div>
-      <p className="text-sm" style={{ color: '#6B6B6B' }}>{message}</p>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl p-4" style={{ backgroundColor: 'var(--surface-app)' }}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
+          style={{ backgroundColor: 'var(--violet-soft)' }}
+        >
+          <Icon className="h-4 w-4" style={{ color: 'var(--violet-primary)' }} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{message}</p>
+          {detail && <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{detail}</p>}
+        </div>
+      </div>
       {action && (
         <Link
           href={action.href}
-          className="mt-3 text-xs font-semibold hover:underline"
-          style={{ color: '#6F4E37' }}
+          className="btn-primary flex-shrink-0 px-3 py-1.5 text-xs rounded-lg"
         >
-          {action.label} →
+          {action.label}
         </Link>
       )}
     </div>

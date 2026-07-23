@@ -3,7 +3,7 @@ import { TopBar } from '@/components/layout/TopBar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#F8F5F2' }}>
+    <div className="flex h-screen" style={{ backgroundColor: '#FAF9F6' }}>
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <TopBar />

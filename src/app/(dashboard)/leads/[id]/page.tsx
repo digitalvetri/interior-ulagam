@@ -31,7 +31,7 @@ function ActivityIcon({ type }: { type: LeadActivity['type'] }) {
     note:         { icon: FileText,       bg: '#FFF7ED', color: '#EA580C' },
     site_visit:   { icon: Home,           bg: '#F5F3FF', color: '#7C3AED' },
     meeting:      { icon: Calendar,       bg: '#FDF2F8', color: '#BE185D' },
-    stage_change: { icon: ArrowLeft,      bg: '#F8F5F2', color: '#6F4E37' },
+    stage_change: { icon: ArrowLeft,      bg: '#FAF9F6', color: '#24211E' },
     follow_up:    { icon: Clock,          bg: '#FFFBEB', color: '#D97706' },
   };
   const cfg = iconCfg[type];
@@ -127,7 +127,7 @@ export default function LeadDetailPage() {
   if (notFound || !lead) {
     return (
       <div className="p-6">
-        <p className="mb-4 text-sm" style={{ color: '#6B6B6B' }}>Lead not found.</p>
+        <p className="mb-4 text-sm" style={{ color: '#6B6459' }}>Lead not found.</p>
         <button
           type="button"
           className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm"
@@ -154,7 +154,7 @@ export default function LeadDetailPage() {
       <Link
         href="/leads"
         className="inline-flex items-center gap-1.5 text-sm mb-5 hover:opacity-75"
-        style={{ color: '#6F4E37' }}
+        style={{ color: '#24211E' }}
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Pipeline
@@ -186,12 +186,12 @@ export default function LeadDetailPage() {
             <div className="flex items-start gap-3 mb-4">
               <div
                 className="h-12 w-12 rounded-full flex items-center justify-center text-base font-bold text-white flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #A07048 0%, #6F4E37 100%)' }}
+                style={{ background: 'linear-gradient(135deg, #4A443C 0%, #24211E 100%)' }}
               >
                 {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
               </div>
               <div>
-                <h2 className="text-base font-bold" style={{ color: '#1C1C1C' }}>
+                <h2 className="text-base font-bold" style={{ color: '#221F1B' }}>
                   {lead.contactName}
                 </h2>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -214,47 +214,47 @@ export default function LeadDetailPage() {
             {/* Contact details */}
             <div className="space-y-3 text-sm">
               <div className="flex items-center gap-2.5">
-                <Phone className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
-                <a href={`tel:${lead.contactPhone}`} className="hover:underline" style={{ color: '#1C1C1C' }}>
+                <Phone className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+                <a href={`tel:${lead.contactPhone}`} className="hover:underline" style={{ color: '#221F1B' }}>
                   {lead.contactPhone}
                 </a>
               </div>
               {lead.contactEmail && (
                 <div className="flex items-center gap-2.5">
-                  <ExternalLink className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
-                  <span style={{ color: '#1C1C1C' }}>{lead.contactEmail}</span>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+                  <span style={{ color: '#221F1B' }}>{lead.contactEmail}</span>
                 </div>
               )}
               {lead.propertyType && (
                 <div className="flex items-center gap-2.5">
-                  <Home className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
-                  <span style={{ color: '#1C1C1C' }}>{lead.propertyType}</span>
+                  <Home className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+                  <span style={{ color: '#221F1B' }}>{lead.propertyType}</span>
                 </div>
               )}
               {lead.projectLocation && (
                 <div className="flex items-center gap-2.5">
-                  <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
-                  <span style={{ color: '#1C1C1C' }}>{lead.projectLocation}</span>
+                  <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+                  <span style={{ color: '#221F1B' }}>{lead.projectLocation}</span>
                 </div>
               )}
               {lead.budgetBand && (
                 <div className="flex items-center gap-2.5">
-                  <IndianRupee className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
-                  <span style={{ color: '#1C1C1C' }}>{lead.budgetBand}</span>
+                  <IndianRupee className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+                  <span style={{ color: '#221F1B' }}>{lead.budgetBand}</span>
                 </div>
               )}
               {(lead.projectValuePaise ?? 0) > 0 && (
                 <div className="flex items-center gap-2.5">
-                  <IndianRupee className="h-4 w-4 flex-shrink-0" style={{ color: '#C89B3C' }} />
-                  <span className="font-semibold" style={{ color: '#C89B3C' }}>
+                  <IndianRupee className="h-4 w-4 flex-shrink-0" style={{ color: '#8F6F2E' }} />
+                  <span className="font-semibold" style={{ color: '#8F6F2E' }}>
                     {fmt(lead.projectValuePaise ?? 0)} estimated
                   </span>
                 </div>
               )}
               {lead.designerName && (
                 <div className="flex items-center gap-2.5">
-                  <User className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
-                  <span style={{ color: '#1C1C1C' }}>{lead.designerName}</span>
+                  <User className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+                  <span style={{ color: '#221F1B' }}>{lead.designerName}</span>
                 </div>
               )}
               {lead.followUpDate && (
@@ -274,16 +274,16 @@ export default function LeadDetailPage() {
             </div>
 
             {/* Source + dates */}
-            <div className="pt-4 mt-4 space-y-1.5" style={{ borderTop: '1px solid #E9DFD3' }}>
-              <p className="text-xs" style={{ color: '#6B6B6B' }}>
-                Source: <span className="font-medium" style={{ color: '#6F4E37' }}>
+            <div className="pt-4 mt-4 space-y-1.5" style={{ borderTop: '1px solid #F0EEE9' }}>
+              <p className="text-xs" style={{ color: '#6B6459' }}>
+                Source: <span className="font-medium" style={{ color: '#24211E' }}>
                   {lead.source.replace('_', ' ')}
                 </span>
               </p>
-              <p className="text-xs" style={{ color: '#6B6B6B' }}>
+              <p className="text-xs" style={{ color: '#6B6459' }}>
                 Added: {fmtDate(lead.createdAt)}
               </p>
-              <p className="text-xs" style={{ color: '#6B6B6B' }}>
+              <p className="text-xs" style={{ color: '#6B6459' }}>
                 Last activity: {fmtDate(lead.lastActivityAt)}
               </p>
             </div>
@@ -291,13 +291,13 @@ export default function LeadDetailPage() {
 
           {/* Quick actions */}
           <div className="premium-card p-4 space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A8927F' }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>
               Quick Actions
             </p>
             <a
               href={`tel:${lead.contactPhone}`}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#E9DFD3] w-full"
-              style={{ color: '#6F4E37' }}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#F0EEE9] w-full"
+              style={{ color: '#24211E' }}
             >
               <Phone className="h-4 w-4" /> Call {lead.contactName.split(' ')[0]}
             </a>
@@ -305,15 +305,15 @@ export default function LeadDetailPage() {
               href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '')}`}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#E9DFD3] w-full"
-              style={{ color: '#6F4E37' }}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#F0EEE9] w-full"
+              style={{ color: '#24211E' }}
             >
               <MessageCircle className="h-4 w-4" /> WhatsApp
             </a>
             <Link
               href={`/leads/${id}/site-visit`}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#E9DFD3] w-full"
-              style={{ color: '#6F4E37' }}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors hover:bg-[#F0EEE9] w-full"
+              style={{ color: '#24211E' }}
             >
               <Home className="h-4 w-4" /> Schedule Site Visit
             </Link>
@@ -330,10 +330,10 @@ export default function LeadDetailPage() {
           {/* Notes */}
           {lead.notes && (
             <div className="premium-card p-4">
-              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#A8927F' }}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#A79E8E' }}>
                 Notes
               </p>
-              <p className="text-sm" style={{ color: '#1C1C1C', lineHeight: '1.6' }}>{lead.notes}</p>
+              <p className="text-sm" style={{ color: '#221F1B', lineHeight: '1.6' }}>{lead.notes}</p>
             </div>
           )}
         </div>
@@ -342,15 +342,15 @@ export default function LeadDetailPage() {
         <div className="lg:col-span-2">
           <div className="premium-card overflow-hidden">
             {/* Tab bar */}
-            <div className="flex border-b" style={{ borderColor: '#E9DFD3' }}>
+            <div className="flex border-b" style={{ borderColor: '#F0EEE9' }}>
               {tabs.map(tab => (
                 <button
                   key={tab.key}
                   type="button"
                   className="flex-1 px-4 py-3 text-sm font-medium transition-colors"
                   style={{
-                    color:        activeTab === tab.key ? '#6F4E37' : '#6B6B6B',
-                    borderBottom: activeTab === tab.key ? '2px solid #C89B3C' : '2px solid transparent',
+                    color:        activeTab === tab.key ? '#24211E' : '#6B6459',
+                    borderBottom: activeTab === tab.key ? '2px solid #8F6F2E' : '2px solid transparent',
                     background:   activeTab === tab.key ? '#FDFCFB' : 'transparent',
                   }}
                   onClick={() => setActiveTab(tab.key)}
@@ -368,12 +368,12 @@ export default function LeadDetailPage() {
                     <div className="text-center py-12">
                       <div
                         className="h-12 w-12 rounded-xl flex items-center justify-center mx-auto mb-3"
-                        style={{ background: 'rgba(111,78,55,0.08)' }}
+                        style={{ background: 'rgba(36,33,30,0.08)' }}
                       >
-                        <Clock className="h-6 w-6" style={{ color: '#C8B7A6' }} />
+                        <Clock className="h-6 w-6" style={{ color: '#E2DED5' }} />
                       </div>
-                      <p className="text-sm" style={{ color: '#6B6B6B' }}>No activity yet.</p>
-                      <p className="text-xs mt-1" style={{ color: '#A8927F' }}>
+                      <p className="text-sm" style={{ color: '#6B6459' }}>No activity yet.</p>
+                      <p className="text-xs mt-1" style={{ color: '#A79E8E' }}>
                         Log a call or note to start the timeline.
                       </p>
                     </div>
@@ -381,7 +381,7 @@ export default function LeadDetailPage() {
                     <div className="relative">
                       <div
                         className="absolute left-4 top-0 bottom-0 w-0.5"
-                        style={{ background: '#E9DFD3' }}
+                        style={{ background: '#F0EEE9' }}
                       />
                       <div className="space-y-5 ml-4">
                         {activities.map(activity => (
@@ -391,15 +391,15 @@ export default function LeadDetailPage() {
                             </div>
                             <div className="premium-card p-3">
                               <div className="flex items-start justify-between gap-2">
-                                <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>
+                                <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>
                                   {activity.title}
                                 </p>
-                                <span className="text-[10px] flex-shrink-0" style={{ color: '#6B6B6B' }}>
+                                <span className="text-[10px] flex-shrink-0" style={{ color: '#6B6459' }}>
                                   {fmtDate(activity.createdAt)} · {fmtTime(activity.createdAt)}
                                 </span>
                               </div>
                               {activity.description && (
-                                <p className="text-xs mt-1" style={{ color: '#6B6B6B', lineHeight: '1.5' }}>
+                                <p className="text-xs mt-1" style={{ color: '#6B6459', lineHeight: '1.5' }}>
                                   {activity.description}
                                 </p>
                               )}
@@ -474,7 +474,7 @@ export default function LeadDetailPage() {
 
                   {/* Urgency presets */}
                   <div>
-                    <p className="text-xs mb-2" style={{ color: '#6B6B6B' }}>Quick set:</p>
+                    <p className="text-xs mb-2" style={{ color: '#6B6459' }}>Quick set:</p>
                     <div className="flex gap-2 flex-wrap">
                       {[
                         { label: 'Tomorrow',  days: 1 },
@@ -510,11 +510,11 @@ export default function LeadDetailPage() {
                   {lead.followUpDate && (
                     <div
                       className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
-                      style={{ background: '#F8F5F2', borderLeft: '3px solid #C89B3C' }}
+                      style={{ background: '#FAF9F6', borderLeft: '3px solid #8F6F2E' }}
                     >
-                      <Calendar className="h-4 w-4 flex-shrink-0" style={{ color: '#C89B3C' }} />
-                      <span style={{ color: '#6B6B6B' }}>
-                        Current follow-up: <strong style={{ color: '#3D2314' }}>{fmtDate(lead.followUpDate)}</strong>
+                      <Calendar className="h-4 w-4 flex-shrink-0" style={{ color: '#8F6F2E' }} />
+                      <span style={{ color: '#6B6459' }}>
+                        Current follow-up: <strong style={{ color: '#1C1916' }}>{fmtDate(lead.followUpDate)}</strong>
                       </span>
                     </div>
                   )}

@@ -65,7 +65,7 @@ export default function LeadsPage() {
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[200px]">
-        <p className="text-sm" style={{ color: '#6B6B6B' }}>Loading pipeline…</p>
+        <p className="text-sm" style={{ color: '#6B6459' }}>Loading pipeline…</p>
       </div>
     );
   }
@@ -75,8 +75,8 @@ export default function LeadsPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Lead Pipeline</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Lead Pipeline</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
             {leads.length} total · {filteredLeads.length} shown
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function LeadsPage() {
       {/* ── Filter bar ──────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#A8927F' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#A79E8E' }} />
           <input
             type="text"
             value={search}
@@ -97,7 +97,7 @@ export default function LeadsPage() {
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Filter className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
+          <Filter className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
           <select
             value={filterPriority}
             onChange={e => setFilterPriority(e.target.value as LeadPriority | 'all')}
@@ -125,7 +125,7 @@ export default function LeadsPage() {
         </select>
 
         <div className="flex items-center gap-1.5">
-          <SortAsc className="h-4 w-4 flex-shrink-0" style={{ color: '#6F4E37' }} />
+          <SortAsc className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as 'latest' | 'followup' | 'budget')}
