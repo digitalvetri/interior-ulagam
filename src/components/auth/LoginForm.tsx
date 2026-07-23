@@ -3,16 +3,6 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
-function getRoleRedirect(role: string | undefined): string {
-  switch (role) {
-    case 'owner':      return '/leads';
-    case 'designer':   return '/projects';
-    case 'accountant': return '/accounts';
-    case 'supervisor': return '/field/site-log';
-    default:           return '/leads';
-  }
-}
-
 export function LoginForm() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
@@ -25,8 +15,7 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: authError } = await createClient().auth.signInWithPassword({ email, password });
 
     if (authError) {
       setError('Invalid email or password. Please try again.');
@@ -34,15 +23,15 @@ export function LoginForm() {
       return;
     }
 
-    const role = data.user?.user_metadata?.role as string | undefined;
-    router.push(getRoleRedirect(role));
+    /* All roles land on Dashboard as per spec */
+    router.push('/dashboard');
     router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-[#2c1a0e] mb-1.5">
+        <label htmlFor="email" className="studio-label block mb-1.5">
           Email address
         </label>
         <input
@@ -51,14 +40,14 @@ export function LoginForm() {
           required
           autoComplete="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="glass-input w-full rounded-lg px-3.5 py-2.5 text-sm text-[#2c1a0e] placeholder:text-[#8b6347]/60"
+          onChange={e => setEmail(e.target.value)}
+          className="studio-input w-full text-sm"
           placeholder="you@studio.com"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-[#2c1a0e] mb-1.5">
+        <label htmlFor="password" className="studio-label block mb-1.5">
           Password
         </label>
         <input
@@ -67,14 +56,14 @@ export function LoginForm() {
           required
           autoComplete="current-password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="glass-input w-full rounded-lg px-3.5 py-2.5 text-sm text-[#2c1a0e] placeholder:text-[#8b6347]/60"
+          onChange={e => setPassword(e.target.value)}
+          className="studio-input w-full text-sm"
           placeholder="••••••••"
         />
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-200">
+        <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
@@ -82,7 +71,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="btn-primary w-full rounded-lg px-4 py-2.5 text-sm font-semibold mt-2"
+        className="btn-primary w-full py-2.5 text-sm mt-1"
       >
         {loading ? 'Signing in…' : 'Login'}
       </button>

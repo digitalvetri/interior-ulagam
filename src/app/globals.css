@@ -1,131 +1,263 @@
 @import "tailwindcss";
 
-/* ── Brown / Wood + Glassmorphism Theme ─────────────────────────────────── */
+/* ── Premium Walnut Brown Theme — The Interior Studio ───────────────────── */
+/* Exact palette from design spec                                             */
+
 :root {
-  /* Warm wood palette */
-  --background: #f5ede3;
-  --foreground: #2c1a0e;
+  /* ── Core palette ─────────────────────────────────────── */
+  --brown-primary:   #6F4E37;   /* Primary Brown  — buttons, active text    */
+  --brown-dark:      #4B2E2B;   /* Dark Walnut    — sidebar background      */
+  --brown-coffee:    #5A3E2B;   /* Rich Coffee    — sidebar hover           */
+  --cream-soft:      #F8F5F2;   /* Soft Cream     — main app background     */
+  --ivory-white:     #FCFBF8;   /* Ivory White    — card / panel bg         */
+  --beige-warm:      #E9DFD3;   /* Warm Beige     — alternate rows / muted  */
+  --border-brown:    #C8B7A6;   /* Light Brown Border                       */
+  --gold-accent:     #C89B3C;   /* Gold Accent    — KPIs, active nav        */
 
-  /* Glass cards — semi-transparent warm white */
-  --card: rgba(255, 248, 240, 0.72);
-  --card-foreground: #2c1a0e;
-  --popover: rgba(255, 248, 240, 0.95);
-  --popover-foreground: #2c1a0e;
+  /* ── Text ─────────────────────────────────────────────── */
+  --text-primary:    #1C1C1C;   /* Dark charcoal — body text                */
+  --text-secondary:  #6B6B6B;   /* Medium gray   — labels, captions        */
+  --text-heading:    #3D2314;   /* Dark walnut   — section headings         */
+  --text-gold:       #C89B3C;   /* Gold          — important values         */
 
-  /* Espresso brown primary */
-  --primary: #6b3a1f;
-  --primary-foreground: #faf7f4;
-
-  /* Warm beige secondary */
-  --secondary: #e8d5c0;
-  --secondary-foreground: #2c1a0e;
-
-  /* Muted sand */
-  --muted: #ede0d4;
-  --muted-foreground: #8b6347;
-
-  /* Gold / amber accent */
-  --accent: #c8a45a;
-  --accent-foreground: #2c1a0e;
-
-  --destructive: #b91c1c;
-  --destructive-foreground: #faf7f4;
-
-  --border: rgba(107, 58, 31, 0.18);
-  --input: rgba(107, 58, 31, 0.12);
-  --ring: #c8a45a;
-  --radius: 0.75rem;
+  /* ── shadcn/ui tokens (mapped to palette) ─────────────── */
+  --background:          var(--cream-soft);
+  --foreground:          var(--text-primary);
+  --card:                var(--ivory-white);
+  --card-foreground:     var(--text-primary);
+  --popover:             #FFFFFF;
+  --popover-foreground:  var(--text-primary);
+  --primary:             var(--brown-primary);
+  --primary-foreground:  #FFFFFF;
+  --secondary:           var(--beige-warm);
+  --secondary-foreground: var(--text-primary);
+  --muted:               var(--beige-warm);
+  --muted-foreground:    var(--text-secondary);
+  --accent:              var(--gold-accent);
+  --accent-foreground:   #FFFFFF;
+  --destructive:         #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border:              var(--border-brown);
+  --input:               var(--beige-warm);
+  --ring:                var(--brown-primary);
+  --radius:              0.75rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
+  --color-background:          var(--background);
+  --color-foreground:          var(--foreground);
+  --color-card:                var(--card);
+  --color-card-foreground:     var(--card-foreground);
+  --color-popover:             var(--popover);
+  --color-popover-foreground:  var(--popover-foreground);
+  --color-primary:             var(--primary);
+  --color-primary-foreground:  var(--primary-foreground);
+  --color-secondary:           var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
+  --color-muted:               var(--muted);
+  --color-muted-foreground:    var(--muted-foreground);
+  --color-accent:              var(--accent);
+  --color-accent-foreground:   var(--accent-foreground);
+  --color-destructive:         var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --radius: var(--radius);
+  --color-border:              var(--border);
+  --color-input:               var(--input);
+  --color-ring:                var(--ring);
+  --font-sans:                 var(--font-geist-sans);
+  --font-mono:                 var(--font-geist-mono);
+  --radius:                    var(--radius);
 }
 
+/* ── Base ────────────────────────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--cream-soft);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── Glassmorphism utilities ─────────────────────────────────────────────── */
-
-/* Frosted glass card */
-.glass-card {
-  background: rgba(255, 248, 240, 0.65);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-  border: 1px solid rgba(200, 164, 90, 0.25);
-  box-shadow: 0 8px 32px rgba(44, 26, 14, 0.12), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+/* ── Premium Card ────────────────────────────────────────────────────────── */
+/* White bg, beige border, soft shadow, hover lift */
+.premium-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-brown);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(75, 46, 43, 0.06), 0 4px 16px rgba(75, 46, 43, 0.04);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.premium-card:hover {
+  box-shadow: 0 4px 16px rgba(75, 46, 43, 0.12), 0 8px 32px rgba(75, 46, 43, 0.08);
+  transform: translateY(-2px);
 }
 
-/* Sidebar glass panel */
-.glass-sidebar {
-  background: rgba(107, 58, 31, 0.88);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border-right: 1px solid rgba(200, 164, 90, 0.3);
-}
-
-/* Topbar glass strip */
-.glass-topbar {
-  background: rgba(255, 248, 240, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(200, 164, 90, 0.2);
-}
-
-/* Warm wood background gradient */
-.wood-bg {
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* Copper-gold mix — lighter warm metallic brown with subtle texture gradient */
+.studio-sidebar {
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(180, 100, 40, 0.12) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(200, 164, 90, 0.10) 0%, transparent 50%),
-    linear-gradient(135deg, #f5ede3 0%, #ede0d4 50%, #f0e6d8 100%);
+    /* Gold sheen overlay — top catch-light */
+    radial-gradient(ellipse at 60% 0%, rgba(210, 165, 80, 0.18) 0%, transparent 55%),
+    /* Warm highlight on left edge */
+    linear-gradient(180deg, rgba(200, 155, 60, 0.12) 0%, transparent 40%, rgba(180, 120, 50, 0.08) 100%),
+    /* Subtle diagonal grain for texture feel */
+    repeating-linear-gradient(
+      118deg,
+      transparent 0px, transparent 18px,
+      rgba(255, 220, 140, 0.025) 18px, rgba(255, 220, 140, 0.025) 19px
+    ),
+    /* Copper-gold base — lighter than old walnut */
+    linear-gradient(160deg, #A07048 0%, #8B5835 45%, #9A6840 100%);
+  border-right: 1px solid rgba(200, 155, 60, 0.25);
 }
 
-/* Input with glass tint */
-.glass-input {
-  background: rgba(255, 248, 240, 0.5);
-  border: 1px solid rgba(107, 58, 31, 0.2);
+/* ── TopBar ──────────────────────────────────────────────────────────────── */
+/* Pure white with subtle shadow — spec says white background */
+.studio-topbar {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid var(--border-brown);
+  box-shadow: 0 1px 8px rgba(75, 46, 43, 0.06);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+/* Primary — polished walnut brown */
+.btn-primary {
+  background-color: var(--brown-primary);
+  color: #FFFFFF;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(111, 78, 55, 0.3);
+  transition: background-color 0.2s, transform 0.15s, box-shadow 0.15s;
+  font-weight: 600;
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--brown-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(111, 78, 55, 0.4);
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Secondary — white with brown border */
+.btn-secondary {
+  background-color: #FFFFFF;
+  color: var(--brown-primary);
+  border: 1.5px solid var(--brown-primary);
+  border-radius: 8px;
+  transition: background-color 0.2s, color 0.2s;
+  font-weight: 500;
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--beige-warm);
+}
+
+/* Danger */
+.btn-danger {
+  background-color: #DC2626;
+  color: #FFFFFF;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* ── Form Inputs ─────────────────────────────────────────────────────────── */
+/* White bg, beige border, brown focus */
+.studio-input {
+  background-color: #FFFFFF;
+  border: 1.5px solid var(--border-brown);
+  border-radius: 8px;
+  color: var(--text-primary);
+  padding: 10px 14px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.glass-input:focus {
-  border-color: rgba(200, 164, 90, 0.6);
-  box-shadow: 0 0 0 3px rgba(200, 164, 90, 0.15);
+.studio-input::placeholder { color: #A8927F; }
+.studio-input:focus {
+  border-color: var(--brown-primary);
+  box-shadow: 0 0 0 3px rgba(111, 78, 55, 0.12);
   outline: none;
 }
 
-/* Amber / gold primary button */
-.btn-primary {
-  background: linear-gradient(135deg, #6b3a1f 0%, #8b4e2a 100%);
-  color: #faf7f4;
-  box-shadow: 0 4px 14px rgba(107, 58, 31, 0.35);
-  transition: transform 0.15s, box-shadow 0.15s;
+/* Input label */
+.studio-label {
+  color: var(--brown-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(107, 58, 31, 0.45);
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.studio-table th {
+  background-color: var(--brown-primary);
+  color: #FFFFFF;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0.03em;
+  padding: 12px 16px;
 }
-.btn-primary:disabled {
-  opacity: 0.55;
+.studio-table td {
+  padding: 12px 16px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--beige-warm);
+}
+.studio-table tr:nth-child(even) td { background-color: var(--ivory-white); }
+.studio-table tr:hover td { background-color: var(--beige-warm); transition: background 0.15s; }
+.studio-table { border-radius: 12px; overflow: hidden; }
+
+/* ── Login page ──────────────────────────────────────────────────────────── */
+.login-bg {
+  background-color: var(--cream-soft);
+  background-image:
+    radial-gradient(ellipse at 15% 40%, rgba(111, 78, 55, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 20%, rgba(200, 155, 60, 0.07) 0%, transparent 50%);
+}
+
+.login-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-brown);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(75, 46, 43, 0.10), 0 2px 8px rgba(75, 46, 43, 0.06);
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fadeIn 0.3s ease both; }
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--beige-warm) 25%, var(--ivory-white) 50%, var(--beige-warm) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+
+/* ── Gold KPI value ──────────────────────────────────────────────────────── */
+.kpi-value {
+  color: var(--text-heading);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.kpi-gold { color: var(--gold-accent); }
+
+/* ── Section heading ─────────────────────────────────────────────────────── */
+.section-title {
+  color: var(--text-heading);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.progress-bar-track {
+  background-color: var(--beige-warm);
+  border-radius: 9999px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  background: linear-gradient(90deg, var(--brown-primary), var(--gold-accent));
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.6s ease;
 }
