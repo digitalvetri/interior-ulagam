@@ -1,77 +1,208 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Search, Plus, FolderKanban } from 'lucide-react';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { formatRupees } from '@/lib/utils';
 import { Project } from '@/types/quotes';
+import { Lead } from '@/types/leads';
+import { formatRupees } from '@/lib/utils';
 
 type LifecycleStage = Project['lifecycleStage'];
 
-const STAGE_BADGE_VARIANT: Record<
-  LifecycleStage,
-  'default' | 'secondary' | 'outline' | 'destructive'
-> = {
-  design_pending: 'secondary',
-  design_in_progress: 'secondary',
-  design_approved: 'default',
-  procurement: 'default',
-  execution: 'outline',
-  snagging: 'outline',
-  handover: 'destructive',
-  complete: 'destructive',
-};
-
-const STAGE_LABEL: Record<LifecycleStage, string> = {
-  design_pending: 'Design Pending',
-  design_in_progress: 'Design In Progress',
-  design_approved: 'Design Approved',
-  procurement: 'Procurement',
-  execution: 'Execution',
-  snagging: 'Snagging',
-  handover: 'Handover',
-  complete: 'Complete',
+const STAGE_STYLE: Record<LifecycleStage, { bg: string; color: string; label: string }> = {
+  design_pending:     { bg: '#EFF6FF', color: '#1E40AF', label: 'Design Pending' },
+  design_in_progress: { bg: '#FFF7ED', color: '#9A3412', label: 'In Progress' },
+  design_approved:    { bg: '#F0FDF4', color: '#14532D', label: 'Design Approved' },
+  procurement:        { bg: '#FEF3C7', color: '#92400E', label: 'Procurement' },
+  execution:          { bg: '#F5F3FF', color: '#6B21A8', label: 'Execution' },
+  snagging:           { bg: '#FDF2F8', color: '#BE185D', label: 'Snagging' },
+  handover:           { bg: '#FEF2F2', color: '#991B1B', label: 'Handover' },
+  complete:           { bg: '#F0FDF4', color: '#14532D', label: 'Complete' },
 };
 
 interface NewProjectForm {
   leadId: string;
+  leadLabel: string;
   name: string;
   totalContractRupees: string;
 }
 
 const INITIAL_FORM: NewProjectForm = {
   leadId: '',
+  leadLabel: '',
   name: '',
   totalContractRupees: '',
 };
 
+/* ── Lead Search Combobox ─────────────────────────────────────────────────── */
+function LeadSelector({
+  value,
+  onChange,
+}: {
+  value: { id: string; label: string };
+  onChange: (id: string, label: string) => void;
+}) {
+  const [leads, setLeads]         = useState<Lead[]>([]);
+  const [search, setSearch]       = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [open, setOpen]           = useState(false);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/v1/leads')
+      .then(r => r.json())
+      .then(({ data }: { data: Lead[] | null }) => {
+        setLeads(data ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const filtered = leads.filter(l => {
+    const q = search.toLowerCase();
+    return (
+      l.contactName.toLowerCase().includes(q) ||
+      l.contactPhone.includes(q)
+    );
+  });
+
+  function select(lead: Lead) {
+    const label = `${lead.contactName} · ${lead.contactPhone}`;
+    onChange(lead.id, label);
+    setOpen(false);
+    setSearch('');
+  }
+
+  return (
+    <div className="relative">
+      {/* Selected or search input */}
+      <div
+        className="studio-input flex items-center gap-2 cursor-pointer min-h-[40px] text-sm"
+        onClick={() => setOpen(o => !o)}
+      >
+        {value.id ? (
+          <span style={{ color: '#1C1C1C' }}>{value.label}</span>
+        ) : (
+          <span style={{ color: '#A8927F' }}>Search and select a lead…</span>
+        )}
+      </div>
+
+      {open && (
+        <div
+          className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border overflow-hidden"
+          style={{ background: '#FFFFFF', border: '1px solid #C8B7A6', boxShadow: '0 8px 24px rgba(75,46,43,0.12)' }}
+        >
+          {/* Search box inside dropdown */}
+          <div className="p-2 border-b" style={{ borderColor: '#E9DFD3' }}>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#A8927F' }} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Type name or phone…"
+                className="studio-input w-full pl-8 py-1.5 text-sm"
+                autoFocus
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Options */}
+          <div className="max-h-52 overflow-y-auto">
+            {loading ? (
+              <div className="px-4 py-3 text-sm" style={{ color: '#6B6B6B' }}>Loading leads…</div>
+            ) : filtered.length === 0 ? (
+              <div className="px-4 py-3 text-sm" style={{ color: '#6B6B6B' }}>
+                {search ? 'No leads match your search.' : 'No leads found.'}
+              </div>
+            ) : (
+              filtered.map(lead => (
+                <button
+                  key={lead.id}
+                  type="button"
+                  className="w-full text-left px-4 py-3 transition-colors hover:bg-[#F8F5F2]"
+                  style={{ borderBottom: '1px solid #F0EBE5' }}
+                  onClick={() => select(lead)}
+                >
+                  <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>
+                    {lead.contactName}
+                  </p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-xs" style={{ color: '#6B6B6B' }}>{lead.contactPhone}</span>
+                    {lead.budgetBand && (
+                      <span className="text-xs font-medium" style={{ color: '#6F4E37' }}>
+                        {lead.budgetBand}
+                      </span>
+                    )}
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: '#E9DFD3', color: '#6F4E37' }}
+                    >
+                      {lead.stage.replace(/_/g, ' ')}
+                    </span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Project Card ─────────────────────────────────────────────────────────── */
+function ProjectCard({ project }: { project: Project }) {
+  const s = STAGE_STYLE[project.lifecycleStage];
+  return (
+    <Link href={`/projects/${project.id}`}>
+      <div className="premium-card p-5 h-full cursor-pointer group">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <h3 className="text-sm font-bold leading-snug" style={{ color: '#1C1C1C' }}>
+            {project.name}
+          </h3>
+          <span
+            className="text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0"
+            style={{ background: s.bg, color: s.color }}
+          >
+            {s.label}
+          </span>
+        </div>
+
+        {project.totalContractPaise !== undefined && (
+          <p className="text-base font-bold mb-1" style={{ color: '#C89B3C' }}>
+            {formatRupees(project.totalContractPaise)}
+          </p>
+        )}
+        <p className="text-xs" style={{ color: '#6B6B6B' }}>
+          Created {new Date(project.createdAt).toLocaleDateString('en-IN', {
+            day: 'numeric', month: 'short', year: 'numeric',
+          })}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+/* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]   = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<NewProjectForm>(INITIAL_FORM);
+  const [form, setForm]         = useState<NewProjectForm>(INITIAL_FORM);
   const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [errors, setErrors]     = useState<Partial<Record<keyof NewProjectForm, string>>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/projects')
-      .then((r) => r.json())
+      .then(r => r.json())
       .then(({ data }: { data: Project[] }) => {
         setProjects(data ?? []);
         setLoading(false);
@@ -79,188 +210,197 @@ export default function ProjectsPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  function setField<K extends keyof NewProjectForm>(
-    key: K,
-    value: NewProjectForm[K],
-  ) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
   function openDialog() {
     setForm(INITIAL_FORM);
-    setCreateError(null);
+    setErrors({});
+    setApiError(null);
     setDialogOpen(true);
   }
 
-  async function handleCreateProject() {
-    setCreateError(null);
+  function setField<K extends keyof NewProjectForm>(key: K, value: NewProjectForm[K]) {
+    setForm(prev => ({ ...prev, [key]: value }));
+    setErrors(prev => ({ ...prev, [key]: undefined }));
+  }
 
-    if (!form.leadId.trim()) {
-      setCreateError('Lead ID is required');
+  const handleLeadSelect = useCallback((id: string, label: string) => {
+    setForm(prev => ({ ...prev, leadId: id, leadLabel: label }));
+    setErrors(prev => ({ ...prev, leadId: undefined }));
+  }, []);
+
+  async function handleCreate() {
+    const newErrors: Partial<Record<keyof NewProjectForm, string>> = {};
+    if (!form.leadId)      newErrors.leadId = 'Please select a lead.';
+    if (!form.name.trim()) newErrors.name   = 'Project Name is required.';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
-    if (!form.name.trim()) {
-      setCreateError('Project name is required');
-      return;
-    }
 
-    const totalContractPaise =
-      form.totalContractRupees
-        ? Math.round(Number(form.totalContractRupees) * 100)
-        : undefined;
+    const totalContractPaise = form.totalContractRupees
+      ? Math.round(Number(form.totalContractRupees) * 100)
+      : undefined;
 
     setCreating(true);
+    setApiError(null);
     try {
       const res = await fetch('/api/v1/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          leadId: form.leadId.trim(),
+          leadId: form.leadId,
           name: form.name.trim(),
           ...(totalContractPaise !== undefined && { totalContractPaise }),
         }),
       });
 
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setCreateError(body.error ?? 'Failed to create project');
+        const body = await res.json() as { error?: string };
+        setApiError(body.error ?? 'Failed to create project. Please try again.');
         return;
       }
 
-      const { data } = (await res.json()) as { data: Project };
-      setProjects((prev) => [data, ...prev]);
+      const { data } = await res.json() as { data: Project };
+      setProjects(prev => [data, ...prev]);
       setDialogOpen(false);
     } catch {
-      setCreateError('Network error — please try again');
+      setApiError('Network error — please check your connection and try again.');
     } finally {
       setCreating(false);
     }
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
+    <div className="p-6 space-y-6">
+      {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Projects
-        </h2>
-        <Button onClick={openDialog}>+ New Project</Button>
+        <div>
+          <h2 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Projects</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>
+            {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+          </p>
+        </div>
+        <button type="button" onClick={openDialog} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm">
+          <Plus className="h-4 w-4" />New Project
+        </button>
       </div>
 
-      {/* Cards */}
+      {/* ── Projects grid ──────────────────────────────────────────────── */}
       {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading projects…</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-32 rounded-xl" />)}
         </div>
       ) : projects.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-          <p className="text-sm text-gray-500">No projects yet.</p>
-          <Button variant="outline" size="sm" onClick={openDialog}>
+        <div
+          className="flex h-52 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed"
+          style={{ borderColor: '#E9DFD3' }}
+        >
+          <div
+            className="h-14 w-14 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(111,78,55,0.08)' }}
+          >
+            <FolderKanban className="h-7 w-7" style={{ color: '#C8B7A6' }} />
+          </div>
+          <p className="text-sm" style={{ color: '#6B6B6B' }}>No projects yet.</p>
+          <button type="button" onClick={openDialog} className="btn-secondary px-4 py-2 text-sm">
             Create your first project
-          </Button>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="h-full cursor-pointer transition-shadow hover:shadow-md">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base leading-snug text-gray-900 dark:text-white">
-                      {project.name}
-                    </CardTitle>
-                    <Badge
-                      variant={STAGE_BADGE_VARIANT[project.lifecycleStage]}
-                      className="shrink-0"
-                    >
-                      {STAGE_LABEL[project.lifecycleStage]}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
-                  {project.totalContractPaise !== undefined && (
-                    <p>
-                      <span className="font-medium text-gray-700 dark:text-gray-200">
-                        Contract:
-                      </span>{' '}
-                      {formatRupees(project.totalContractPaise)}
-                    </p>
-                  )}
-                  <p>
-                    Created{' '}
-                    {new Date(project.createdAt).toLocaleDateString('en-IN')}
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+          {projects.map(project => <ProjectCard key={project.id} project={project} />)}
         </div>
       )}
 
-      {/* New Project Dialog */}
+      {/* ── New Project Dialog ──────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>New Project</DialogTitle>
+            <DialogTitle style={{ color: '#3D2314' }}>New Project</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="proj-lead">Lead ID</Label>
-              <Input
-                id="proj-lead"
-                placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                value={form.leadId}
-                onChange={(e) => setField('leadId', e.target.value)}
+            {/* Lead selector (no UUID entry) */}
+            <div className="space-y-1.5">
+              <label className="studio-label block">
+                Select Lead <span className="text-red-500">*</span>
+              </label>
+              <LeadSelector
+                value={{ id: form.leadId, label: form.leadLabel }}
+                onChange={handleLeadSelect}
               />
+              {errors.leadId && (
+                <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                  {errors.leadId}
+                </p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="proj-name">Project Name</Label>
-              <Input
+            {/* Project name */}
+            <div className="space-y-1.5">
+              <label className="studio-label block" htmlFor="proj-name">
+                Project Name <span className="text-red-500">*</span>
+              </label>
+              <input
                 id="proj-name"
-                placeholder="Sharma Residence — 3BHK"
+                type="text"
+                placeholder="e.g. Sharma Residence — 3BHK"
                 value={form.name}
-                onChange={(e) => setField('name', e.target.value)}
+                onChange={e => setField('name', e.target.value)}
+                className="studio-input w-full text-sm"
               />
+              {errors.name && (
+                <p className="text-xs text-red-600 mt-1">{errors.name}</p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="proj-contract">
-                Total Contract ₹{' '}
-                <span className="text-xs text-gray-400">(optional)</span>
-              </Label>
-              <Input
+            {/* Contract value */}
+            <div className="space-y-1.5">
+              <label className="studio-label block" htmlFor="proj-contract">
+                Total Contract ₹
+                <span className="ml-1 text-[11px] font-normal" style={{ color: '#A8927F' }}>(optional)</span>
+              </label>
+              <input
                 id="proj-contract"
                 type="number"
                 min={0}
-                step={0.01}
-                placeholder="0.00"
+                step={1}
+                placeholder="e.g. 1500000"
                 value={form.totalContractRupees}
-                onChange={(e) =>
-                  setField('totalContractRupees', e.target.value)
-                }
+                onChange={e => setField('totalContractRupees', e.target.value)}
+                className="studio-input w-full text-sm"
               />
+              {form.totalContractRupees && Number(form.totalContractRupees) > 0 && (
+                <p className="text-xs" style={{ color: '#6F4E37' }}>
+                  = ₹{Number(form.totalContractRupees).toLocaleString('en-IN')}
+                </p>
+              )}
             </div>
 
-            {createError && (
-              <p className="text-xs text-red-600 dark:text-red-400">
-                {createError}
-              </p>
+            {apiError && (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700">
+                {apiError}
+              </div>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              type="button"
+              className="btn-secondary px-4 py-2 text-sm"
               onClick={() => setDialogOpen(false)}
               disabled={creating}
             >
               Cancel
-            </Button>
-            <Button onClick={handleCreateProject} disabled={creating}>
+            </button>
+            <button
+              type="button"
+              onClick={handleCreate}
+              disabled={creating}
+              className="btn-primary px-4 py-2 text-sm"
+            >
               {creating ? 'Creating…' : 'Create Project'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
