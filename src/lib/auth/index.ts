@@ -17,8 +17,10 @@ export async function requireAuth(): Promise<TenantContext> {
     redirect('/login');
   }
 
-  const tenantId = user.user_metadata?.tenant_id as string | undefined;
-  const role = user.user_metadata?.role as UserRole | undefined;
+  // app_metadata is server-only (Admin API / service role), not user-editable.
+  // Never read tenant_id or role from user_metadata — users can self-edit that field.
+  const tenantId = (user.app_metadata?.tenant_id ?? user.user_metadata?.tenant_id) as string | undefined;
+  const role = (user.app_metadata?.role ?? user.user_metadata?.role) as UserRole | undefined;
 
   if (!tenantId) {
     throw new Error('User has no tenant_id in metadata');
@@ -44,8 +46,9 @@ export async function getAuthContext(): Promise<TenantContext | null> {
   const supabase = await createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error || !user) return null;
-  const tenantId = user.user_metadata?.tenant_id as string | undefined;
-  const role = user.user_metadata?.role as UserRole | undefined;
+  // app_metadata is server-only (Admin API), never user-editable — use it as the source of truth.
+  const tenantId = (user.app_metadata?.tenant_id ?? user.user_metadata?.tenant_id) as string | undefined;
+  const role = (user.app_metadata?.role ?? user.user_metadata?.role) as UserRole | undefined;
   if (!tenantId) return null;
   return { userId: user.id, tenantId, role: role ?? 'designer' };
 }

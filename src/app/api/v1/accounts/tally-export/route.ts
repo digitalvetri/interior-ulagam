@@ -10,6 +10,10 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (ctx.role !== 'owner' && ctx.role !== 'accountant') {
+    return NextResponse.json({ error: 'Forbidden: owner or accountant role required' }, { status: 403 });
+  }
+
   try {
     const rows = await db
       .select({

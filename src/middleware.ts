@@ -1,6 +1,20 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Public paths that never require authentication.
+// Everything else under the dashboard group is protected.
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/p/',           // client trust-timeline (magic link, no login)
+  '/api/',         // API routes handle their own auth
+  '/_next/',
+  '/favicon',
+];
+
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -27,13 +41,15 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users away from dashboard
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard') ||
-      !user && request.nextUrl.pathname.startsWith('/leads') ||
-      !user && request.nextUrl.pathname.startsWith('/projects') ||
-      !user && request.nextUrl.pathname.startsWith('/quotes') ||
-      !user && request.nextUrl.pathname.startsWith('/materials') ||
-      !user && request.nextUrl.pathname.startsWith('/accounts')) {
+  const { pathname } = request.nextUrl;
+
+  // Let public paths through unconditionally.
+  if (isPublic(pathname)) {
+    return supabaseResponse;
+  }
+
+  // Redirect unauthenticated users to /login for all other paths.
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

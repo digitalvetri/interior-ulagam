@@ -388,152 +388,94 @@ export default function VendorsPage() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Vendors</h1>
-        <Button onClick={openAdd}>Add Vendor</Button>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Vendors</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>{vendors.length} {vendors.length === 1 ? 'vendor' : 'vendors'}</p>
+        </div>
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm">+ Add Vendor</button>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
+      <div className="premium-card overflow-hidden">
         {loading && (
-          <div className="p-8 text-center text-sm text-gray-500">Loading vendors…</div>
+          <div className="p-10 text-center text-sm" style={{ color: '#6B6B6B' }}>Loading vendors…</div>
         )}
         {fetchError && !loading && (
-          <div className="p-8 text-center text-sm text-red-600">{fetchError}</div>
+          <div className="p-10 text-center text-sm text-red-600">{fetchError}</div>
         )}
         {!loading && !fetchError && vendors.length === 0 && (
-          <div className="p-8 text-center text-sm text-gray-500">
+          <div className="p-10 text-center text-sm" style={{ color: '#6B6B6B' }}>
             No vendors yet. Add your first vendor.
           </div>
         )}
         {!loading && !fetchError && vendors.length > 0 && (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  GSTIN
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {vendors.map((vendor) => {
-                const isExpanded = expandedId === vendor.id;
-                return (
-                  <>
-                    <tr
-                      key={vendor.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-                      onClick={() =>
-                        setExpandedId(isExpanded ? null : vendor.id)
-                      }
-                    >
-                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                        {vendor.name}
-                      </td>
-                      <td className="px-4 py-3">
-                        <CategoryBadge category={vendor.category} />
-                      </td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                        {vendor.phone ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                        {vendor.email ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">
-                        {vendor.gstin ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-xs text-gray-400 select-none">
-                          {isExpanded ? '▲' : '▼'}
-                        </span>
-                      </td>
-                    </tr>
-
-                    {/* Expanded detail row */}
-                    {isExpanded && (
-                      <tr key={`${vendor.id}-detail`}>
-                        <td
-                          colSpan={6}
-                          className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-800/50"
-                        >
-                          <Card className="border-0 shadow-none bg-transparent">
-                            <CardContent className="p-0 space-y-2">
-                              <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
-                                <div>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Address:{' '}
-                                  </span>
-                                  <span className="text-gray-800 dark:text-gray-200">
-                                    {vendor.address ?? '—'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Notes:{' '}
-                                  </span>
-                                  <span className="text-gray-800 dark:text-gray-200">
-                                    {vendor.notes ?? '—'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Added:{' '}
-                                  </span>
-                                  <span className="text-gray-800 dark:text-gray-200">
-                                    {new Date(vendor.createdAt).toLocaleDateString(
-                                      'en-IN',
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex gap-2 pt-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEdit(vendor);
-                                  }}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteError(null);
-                                    setDeleteTarget(vendor);
-                                  }}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead style={{ background: '#FDFAF7', borderBottom: '1px solid #E9DFD3' }}>
+                <tr>
+                  {['Name', 'Category', 'Phone', 'Email', 'GSTIN', ''].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: '#A8927F' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vendors.map((vendor) => {
+                  const isExpanded = expandedId === vendor.id;
+                  return (
+                    <>
+                      <tr
+                        key={vendor.id}
+                        className="cursor-pointer transition-colors hover:bg-[#FDFAF7]"
+                        style={{ borderBottom: '1px solid #F0EBE5' }}
+                        onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
+                      >
+                        <td className="px-4 py-3 font-medium" style={{ color: '#1C1C1C' }}>{vendor.name}</td>
+                        <td className="px-4 py-3"><CategoryBadge category={vendor.category} /></td>
+                        <td className="px-4 py-3" style={{ color: '#6B6B6B' }}>{vendor.phone ?? '—'}</td>
+                        <td className="px-4 py-3" style={{ color: '#6B6B6B' }}>{vendor.email ?? '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: '#6B6B6B' }}>{vendor.gstin ?? '—'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-xs select-none" style={{ color: '#C8B7A6' }}>{isExpanded ? '▲' : '▼'}</span>
                         </td>
                       </tr>
-                    )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
+
+                      {isExpanded && (
+                        <tr key={`${vendor.id}-detail`}>
+                          <td colSpan={6} className="px-4 pb-4 pt-2" style={{ background: '#FDFAF7' }}>
+                            <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2 mb-3">
+                              <div>
+                                <span style={{ color: '#A8927F' }}>Address: </span>
+                                <span style={{ color: '#1C1C1C' }}>{vendor.address ?? '—'}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: '#A8927F' }}>Notes: </span>
+                                <span style={{ color: '#1C1C1C' }}>{vendor.notes ?? '—'}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: '#A8927F' }}>Added: </span>
+                                <span style={{ color: '#1C1C1C' }}>{new Date(vendor.createdAt).toLocaleDateString('en-IN')}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                className="btn-secondary px-3 py-1.5 text-xs"
+                                onClick={(e) => { e.stopPropagation(); openEdit(vendor); }}
+                              >Edit</button>
+                              <button
+                                className="px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteTarget(vendor); }}
+                              >Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

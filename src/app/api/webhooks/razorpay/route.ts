@@ -33,7 +33,12 @@ export async function POST(request: NextRequest) {
     .update(body)
     .digest('hex');
 
-  if (signature !== expectedSig) {
+  // Use timing-safe comparison to prevent timing attacks.
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSig);
+  const signatureValid =
+    sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+  if (!signatureValid) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 

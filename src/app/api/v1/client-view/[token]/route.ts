@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { projects, milestones, deliverables, siteLogs, snagItems } from '@/lib/db/schema';
-import { eq, and, desc, asc, inArray } from 'drizzle-orm';
+import { clientTokens, projects, milestones, deliverables, siteLogs, snagItems } from '@/lib/db/schema';
+import { eq, and, desc, asc, inArray, isNull, gt } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { ClientProjectSnapshot } from '@/types/snag';
 
 export async function GET(
@@ -10,21 +11,37 @@ export async function GET(
 ) {
   const { token } = await params;
 
-  let projectId: string;
-  let tenantId: string;
-
-  try {
-    const decoded = Buffer.from(token, 'base64url').toString('utf-8');
-    const parts = decoded.split(':');
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
-    }
-    [projectId, tenantId] = parts;
-  } catch {
+  // Validate token format — must be a 64-char hex string.
+  if (!/^[0-9a-f]{64}$/.test(token)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
   }
 
   try {
+    // Look up the token in the database — check it exists, hasn't expired, and hasn't been revoked.
+    const now = new Date();
+    const [tokenRow] = await db
+      .select({
+        projectId: clientTokens.projectId,
+        tenantId: clientTokens.tenantId,
+        expiresAt: clientTokens.expiresAt,
+        revokedAt: clientTokens.revokedAt,
+      })
+      .from(clientTokens)
+      .where(
+        and(
+          eq(clientTokens.token, token),
+          isNull(clientTokens.revokedAt),
+          gt(clientTokens.expiresAt, sql`now()`),
+        ),
+      )
+      .limit(1);
+
+    if (!tokenRow) {
+      return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 });
+    }
+
+    const { projectId, tenantId } = tokenRow;
+
     const [project] = await db
       .select({
         id: projects.id,
@@ -37,7 +54,7 @@ export async function GET(
       .where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)));
 
     if (!project) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 });
     }
 
     const [milestonesData, deliverablesData, siteLogsData, snagItemsData] = await Promise.all([

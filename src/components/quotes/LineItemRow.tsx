@@ -19,13 +19,13 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Local edit state — input values in rupees (display), stored in paise
   const [qtyInput, setQtyInput] = useState(String(line.qty));
   const [costInput, setCostInput] = useState(String(line.costRatePaise / 100));
-  const [clientInput, setClientInput] = useState(
-    String(line.clientRatePaise / 100),
-  );
+  const [clientInput, setClientInput] = useState(String(line.clientRatePaise / 100));
 
   const parsedQty = Math.max(1, Math.round(Number(qtyInput) || 1));
   const parsedCostPaise = Math.round((Number(costInput) || 0) * 100);
@@ -36,37 +36,33 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
     setQtyInput(String(line.qty));
     setCostInput(String(line.costRatePaise / 100));
     setClientInput(String(line.clientRatePaise / 100));
+    setSaveError(null);
     setEditing(true);
   }
 
   function handleCancel() {
+    setSaveError(null);
     setEditing(false);
   }
 
   async function handleSave() {
     setSaving(true);
+    setSaveError(null);
     try {
-      const res = await fetch(
-        `/api/v1/quotes/${line.quoteId}/lines/${line.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            qty: parsedQty,
-            costRatePaise: parsedCostPaise,
-            clientRatePaise: parsedClientPaise,
-          }),
-        },
-      );
-      if (!res.ok) throw new Error('Save failed');
-      onUpdate(line.id, {
-        qty: parsedQty,
-        costRatePaise: parsedCostPaise,
-        clientRatePaise: parsedClientPaise,
+      const res = await fetch(`/api/v1/quotes/${line.quoteId}/lines/${line.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qty: parsedQty,
+          costRatePaise: parsedCostPaise,
+          clientRatePaise: parsedClientPaise,
+        }),
       });
+      if (!res.ok) throw new Error('Save failed — please try again.');
+      onUpdate(line.id, { qty: parsedQty, costRatePaise: parsedCostPaise, clientRatePaise: parsedClientPaise });
       setEditing(false);
-    } catch {
-      // Error already surfaced by the failed state — caller will refetch
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed — please try again.');
     } finally {
       setSaving(false);
     }
@@ -74,15 +70,14 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
 
   async function handleDelete() {
     setDeleting(true);
+    setDeleteError(null);
     try {
-      const res = await fetch(
-        `/api/v1/quotes/${line.quoteId}/lines/${line.id}`,
-        { method: 'DELETE' },
-      );
-      if (!res.ok) throw new Error('Delete failed');
+      const res = await fetch(`/api/v1/quotes/${line.quoteId}/lines/${line.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed — please try again.');
       onDelete(line.id);
-    } catch {
-      // Error surfaced by failed state
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed — please try again.');
+      setConfirmDelete(false);
     } finally {
       setDeleting(false);
     }
@@ -91,9 +86,33 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
   const displayMarginPaise = editing ? liveMarginPaise : line.marginPaise;
   const marginPositive = displayMarginPaise >= 0;
 
+  // Confirmation row shown inline instead of the normal row
+  if (confirmDelete) {
+    return (
+      <tr className="bg-red-50">
+        <td colSpan={8} className="px-3 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-red-700 font-medium">
+              Delete &quot;{line.item}&quot; ({line.room})? This cannot be undone.
+            </span>
+            {deleteError && (
+              <span className="text-xs text-red-600">{deleteError}</span>
+            )}
+            <Button size="sm" variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Yes, delete'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setConfirmDelete(false); setDeleteError(null); }} disabled={deleting}>
+              Cancel
+            </Button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <tr
-      className="border-b border-gray-100 text-sm dark:border-gray-800"
+      className="border-b border-gray-100 text-sm"
       onClick={() => !editing && handleEditStart()}
       role="button"
       tabIndex={editing ? -1 : 0}
@@ -101,116 +120,61 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
         if (!editing && (e.key === 'Enter' || e.key === ' ')) handleEditStart();
       }}
     >
-      {/* Room */}
-      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-        {line.room}
-      </td>
-
-      {/* Item */}
-      <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
+      <td className="px-3 py-2 text-gray-700">{line.room}</td>
+      <td className="px-3 py-2 text-gray-700">
         {line.item}
+        {saveError && (
+          <p className="text-xs text-red-600 mt-0.5">{saveError}</p>
+        )}
       </td>
+      <td className="px-3 py-2 text-gray-500">{line.unit}</td>
 
-      {/* Unit */}
-      <td className="px-3 py-2 text-gray-500 dark:text-gray-400">
-        {line.unit}
-      </td>
-
-      {/* Qty */}
       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {editing ? (
-          <Input
-            type="number"
-            min={1}
-            value={qtyInput}
-            onChange={(e) => setQtyInput(e.target.value)}
-            className="w-20"
-          />
+          <Input type="number" min={1} value={qtyInput}
+            onChange={(e) => setQtyInput(e.target.value)} className="w-20" />
         ) : (
-          <span className="text-gray-700 dark:text-gray-300">{line.qty}</span>
+          <span className="text-gray-700">{line.qty}</span>
         )}
       </td>
 
-      {/* Cost Rate */}
       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {editing ? (
-          <Input
-            type="number"
-            min={0}
-            step={0.01}
-            value={costInput}
-            onChange={(e) => setCostInput(e.target.value)}
-            className="w-28"
-          />
+          <Input type="number" min={0} step={0.01} value={costInput}
+            onChange={(e) => setCostInput(e.target.value)} className="w-28" />
         ) : (
-          <span className="text-gray-700 dark:text-gray-300">
-            {formatRupees(line.costRatePaise)}
-          </span>
+          <span className="text-gray-700">{formatRupees(line.costRatePaise)}</span>
         )}
       </td>
 
-      {/* Client Rate */}
       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {editing ? (
-          <Input
-            type="number"
-            min={0}
-            step={0.01}
-            value={clientInput}
-            onChange={(e) => setClientInput(e.target.value)}
-            className="w-28"
-          />
+          <Input type="number" min={0} step={0.01} value={clientInput}
+            onChange={(e) => setClientInput(e.target.value)} className="w-28" />
         ) : (
-          <span className="text-gray-700 dark:text-gray-300">
-            {formatRupees(line.clientRatePaise)}
-          </span>
+          <span className="text-gray-700">{formatRupees(line.clientRatePaise)}</span>
         )}
       </td>
 
-      {/* Margin */}
       <td className="px-3 py-2">
-        <span
-          className={
-            marginPositive
-              ? 'font-medium text-green-600 dark:text-green-400'
-              : 'font-medium text-red-600 dark:text-red-400'
-          }
-        >
+        <span className={marginPositive ? 'font-medium text-green-600' : 'font-medium text-red-600'}>
           {formatRupees(displayMarginPaise)}
         </span>
       </td>
 
-      {/* Actions */}
-      <td
-        className="px-3 py-2"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {editing ? (
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-            >
+            <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? 'Saving…' : 'Save'}
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={saving}
-            >
+            <Button size="sm" variant="ghost" onClick={handleCancel} disabled={saving}>
               Cancel
             </Button>
           </div>
         ) : (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            {deleting ? 'Deleting…' : 'Delete'}
+          <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(true)} disabled={deleting}>
+            Delete
           </Button>
         )}
       </td>

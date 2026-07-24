@@ -367,6 +367,21 @@ export const vendors = pgTable('vendors', {
   index('vendors_tenant_idx').on(t.tenantId),
 ]);
 
+// Secure, revocable, expiring client portal share links.
+// The token column is what goes in the URL — a random 32-byte hex string.
+export const clientTokens = pgTable('client_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [
+  index('client_tokens_token_idx').on(t.token),
+  index('client_tokens_project_idx').on(t.projectId),
+]);
+
 export const portfolios = pgTable('portfolios', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
