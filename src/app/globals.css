@@ -115,10 +115,10 @@ body {
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
-/* Light surface, violet active-pill highlight (see Sidebar.tsx) */
+/* Deep charcoal panel — contrasts with white main content area */
 .studio-sidebar {
-  background: #FFFFFF;
-  border-right: 1px solid var(--border-subtle);
+  background: #1A1523;
+  border-right: 1px solid rgba(255,255,255,0.06);
 }
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
