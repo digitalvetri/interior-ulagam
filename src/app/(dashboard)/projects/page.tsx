@@ -86,21 +86,21 @@ function LeadSelector({
         onClick={() => setOpen(o => !o)}
       >
         {value.id ? (
-          <span style={{ color: '#1C1C1C' }}>{value.label}</span>
+          <span style={{ color: '#221F1B' }}>{value.label}</span>
         ) : (
-          <span style={{ color: '#A8927F' }}>Search and select a lead…</span>
+          <span style={{ color: '#A79E8E' }}>Search and select a lead…</span>
         )}
       </div>
 
       {open && (
         <div
           className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border overflow-hidden"
-          style={{ background: '#FFFFFF', border: '1px solid #C8B7A6', boxShadow: '0 8px 24px rgba(75,46,43,0.12)' }}
+          style={{ background: '#FFFFFF', border: '1px solid #E2DED5', boxShadow: '0 8px 24px rgba(22,20,15,0.12)' }}
         >
           {/* Search box inside dropdown */}
-          <div className="p-2 border-b" style={{ borderColor: '#E9DFD3' }}>
+          <div className="p-2 border-b" style={{ borderColor: '#F0EEE9' }}>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#A8927F' }} />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#A79E8E' }} />
               <input
                 type="text"
                 value={search}
@@ -116,9 +116,9 @@ function LeadSelector({
           {/* Options */}
           <div className="max-h-52 overflow-y-auto">
             {loading ? (
-              <div className="px-4 py-3 text-sm" style={{ color: '#6B6B6B' }}>Loading leads…</div>
+              <div className="px-4 py-3 text-sm" style={{ color: '#6B6459' }}>Loading leads…</div>
             ) : filtered.length === 0 ? (
-              <div className="px-4 py-3 text-sm" style={{ color: '#6B6B6B' }}>
+              <div className="px-4 py-3 text-sm" style={{ color: '#6B6459' }}>
                 {search ? 'No leads match your search.' : 'No leads found.'}
               </div>
             ) : (
@@ -126,23 +126,23 @@ function LeadSelector({
                 <button
                   key={lead.id}
                   type="button"
-                  className="w-full text-left px-4 py-3 transition-colors hover:bg-[#F8F5F2]"
+                  className="w-full text-left px-4 py-3 transition-colors hover:bg-[#FAF9F6]"
                   style={{ borderBottom: '1px solid #F0EBE5' }}
                   onClick={() => select(lead)}
                 >
-                  <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>
+                  <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>
                     {lead.contactName}
                   </p>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs" style={{ color: '#6B6B6B' }}>{lead.contactPhone}</span>
+                    <span className="text-xs" style={{ color: '#6B6459' }}>{lead.contactPhone}</span>
                     {lead.budgetBand && (
-                      <span className="text-xs font-medium" style={{ color: '#6F4E37' }}>
+                      <span className="text-xs font-medium" style={{ color: '#24211E' }}>
                         {lead.budgetBand}
                       </span>
                     )}
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: '#E9DFD3', color: '#6F4E37' }}
+                      style={{ background: '#F0EEE9', color: '#24211E' }}
                     >
                       {lead.stage.replace(/_/g, ' ')}
                     </span>
@@ -164,7 +164,7 @@ function ProjectCard({ project }: { project: Project }) {
     <Link href={`/projects/${project.id}`}>
       <div className="premium-card p-5 h-full cursor-pointer group">
         <div className="flex items-start justify-between gap-2 mb-3">
-          <h3 className="text-sm font-bold leading-snug" style={{ color: '#1C1C1C' }}>
+          <h3 className="text-sm font-bold leading-snug" style={{ color: '#221F1B' }}>
             {project.name}
           </h3>
           <span
@@ -176,11 +176,11 @@ function ProjectCard({ project }: { project: Project }) {
         </div>
 
         {project.totalContractPaise !== undefined && (
-          <p className="text-base font-bold mb-1" style={{ color: '#C89B3C' }}>
+          <p className="text-base font-bold mb-1" style={{ color: '#8F6F2E' }}>
             {formatRupees(project.totalContractPaise)}
           </p>
         )}
-        <p className="text-xs" style={{ color: '#6B6B6B' }}>
+        <p className="text-xs" style={{ color: '#6B6459' }}>
           Created {new Date(project.createdAt).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short', year: 'numeric',
           })}
@@ -275,8 +275,8 @@ export default function ProjectsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Projects</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>
+          <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Projects</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
             {projects.length} {projects.length === 1 ? 'project' : 'projects'}
           </p>
         </div>
@@ -293,15 +293,15 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <div
           className="flex h-52 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed"
-          style={{ borderColor: '#E9DFD3' }}
+          style={{ borderColor: '#F0EEE9' }}
         >
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(111,78,55,0.08)' }}
+            style={{ background: 'rgba(36,33,30,0.08)' }}
           >
-            <FolderKanban className="h-7 w-7" style={{ color: '#C8B7A6' }} />
+            <FolderKanban className="h-7 w-7" style={{ color: '#E2DED5' }} />
           </div>
-          <p className="text-sm" style={{ color: '#6B6B6B' }}>No projects yet.</p>
+          <p className="text-sm" style={{ color: '#6B6459' }}>No projects yet.</p>
           <button type="button" onClick={openDialog} className="btn-secondary px-4 py-2 text-sm">
             Create your first project
           </button>
@@ -316,7 +316,7 @@ export default function ProjectsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle style={{ color: '#3D2314' }}>New Project</DialogTitle>
+            <DialogTitle style={{ color: '#1C1916' }}>New Project</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -358,7 +358,7 @@ export default function ProjectsPage() {
             <div className="space-y-1.5">
               <label className="studio-label block" htmlFor="proj-contract">
                 Total Contract ₹
-                <span className="ml-1 text-[11px] font-normal" style={{ color: '#A8927F' }}>(optional)</span>
+                <span className="ml-1 text-[11px] font-normal" style={{ color: '#A79E8E' }}>(optional)</span>
               </label>
               <input
                 id="proj-contract"
@@ -371,7 +371,7 @@ export default function ProjectsPage() {
                 className="studio-input w-full text-sm"
               />
               {form.totalContractRupees && Number(form.totalContractRupees) > 0 && (
-                <p className="text-xs" style={{ color: '#6F4E37' }}>
+                <p className="text-xs" style={{ color: '#24211E' }}>
                   = ₹{Number(form.totalContractRupees).toLocaleString('en-IN')}
                 </p>
               )}

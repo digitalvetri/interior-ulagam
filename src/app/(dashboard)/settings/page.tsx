@@ -39,7 +39,7 @@ function SaveToast({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg z-50 animate-fade-in"
-      style={{ background: '#1C1C1C', color: '#FFFFFF' }}>
+      style={{ background: '#221F1B', color: '#FFFFFF' }}>
       <Check className="h-4 w-4 text-green-400" />
       <span className="text-sm font-medium">Settings saved!</span>
     </div>
@@ -47,15 +47,15 @@ function SaveToast({ show }: { show: boolean }) {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-base font-bold mb-4" style={{ color: '#3D2314' }}>{children}</h3>;
+  return <h3 className="text-base font-bold mb-4" style={{ color: '#1C1916' }}>{children}</h3>;
 }
 
 function FormRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-3 py-4" style={{ borderBottom: '1px solid #E9DFD3' }}>
+    <div className="flex flex-col sm:flex-row sm:items-start gap-3 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
       <div className="sm:w-48 flex-shrink-0">
-        <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>{label}</p>
-        {hint && <p className="text-xs mt-0.5" style={{ color: '#A8927F' }}>{hint}</p>}
+        <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{label}</p>
+        {hint && <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>{hint}</p>}
       </div>
       <div className="flex-1">{children}</div>
     </div>
@@ -66,12 +66,12 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   return (
     <label className="flex items-center gap-3 cursor-pointer">
       <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-        style={{ background: checked ? '#6F4E37' : '#D1D5DB' }}
+        style={{ background: checked ? '#24211E' : '#D1D5DB' }}
         onClick={() => onChange(!checked)}>
         <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
           style={{ left: checked ? 22 : 4 }} />
       </div>
-      <span className="text-sm" style={{ color: '#1C1C1C' }}>{label}</span>
+      <span className="text-sm" style={{ color: '#221F1B' }}>{label}</span>
     </label>
   );
 }
@@ -147,27 +147,27 @@ function UsersTab() {
           const rs = roleStyle[u.role] ?? roleStyle.owner;
           return (
             <div key={u.email} className="flex items-center gap-4 px-4 py-3 rounded-xl"
-              style={{ border: '1px solid #E9DFD3', background: u.active ? '#FFFFFF' : '#F9FAFB' }}>
+              style={{ border: '1px solid #F0EEE9', background: u.active ? '#FFFFFF' : '#F9FAFB' }}>
               <div className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #A07048, #6F4E37)' }}>
+                style={{ background: 'linear-gradient(135deg, #4A443C, #24211E)' }}>
                 {u.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: u.active ? '#1C1C1C' : '#6B6B6B' }}>{u.name}</p>
-                <p className="text-xs" style={{ color: '#A8927F' }}>{u.email}</p>
+                <p className="text-sm font-semibold" style={{ color: u.active ? '#221F1B' : '#6B6459' }}>{u.name}</p>
+                <p className="text-xs" style={{ color: '#A79E8E' }}>{u.email}</p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0" style={rs}>{u.role}</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
                 style={{ background: u.active ? '#F0FDF4' : '#F3F4F6', color: u.active ? '#14532D' : '#6B7280' }}>
                 {u.active ? 'Active' : 'Inactive'}
               </span>
-              <button type="button" className="text-xs hover:underline flex-shrink-0" style={{ color: '#6F4E37' }}>Edit</button>
+              <button type="button" className="text-xs hover:underline flex-shrink-0" style={{ color: '#24211E' }}>Edit</button>
             </div>
           );
         })}
       </div>
-      <div className="mt-5 p-4 rounded-xl" style={{ background: '#F8F5F2', border: '1px solid #E9DFD3' }}>
-        <p className="text-sm font-semibold mb-3" style={{ color: '#3D2314' }}>Role Permissions</p>
+      <div className="mt-5 p-4 rounded-xl" style={{ background: '#FAF9F6', border: '1px solid #F0EEE9' }}>
+        <p className="text-sm font-semibold mb-3" style={{ color: '#1C1916' }}>Role Permissions</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {[
             { role: 'Owner',      access: 'Full access — all modules, settings, P&L, export' },
@@ -176,8 +176,8 @@ function UsersTab() {
             { role: 'Supervisor', access: 'Field app only — site logs, snag items' },
           ].map(r => (
             <div key={r.role} className="p-3 rounded-lg bg-white">
-              <p className="text-xs font-bold" style={{ color: '#6F4E37' }}>{r.role}</p>
-              <p className="text-xs mt-0.5" style={{ color: '#6B6B6B' }}>{r.access}</p>
+              <p className="text-xs font-bold" style={{ color: '#24211E' }}>{r.role}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#6B6459' }}>{r.access}</p>
             </div>
           ))}
         </div>
@@ -201,7 +201,7 @@ function NotificationsTab({ onSave }: { onSave: () => void }) {
     <div>
       <SectionTitle>Notification Preferences</SectionTitle>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A8927F' }}>WhatsApp</p>
+        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>WhatsApp</p>
         <div className="space-y-3">
           <Toggle checked={waLeadAlert}   onChange={setWaLeadAlert}   label="New lead received alert" />
           <Toggle checked={waPayment}     onChange={setWaPayment}     label="Payment captured notification" />
@@ -210,14 +210,14 @@ function NotificationsTab({ onSave }: { onSave: () => void }) {
         </div>
       </div>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A8927F' }}>Email</p>
+        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>Email</p>
         <div className="space-y-3">
           <Toggle checked={emailDigest}  onChange={setEmailDigest}  label="Weekly digest (every Monday)" />
           <Toggle checked={emailInvoice} onChange={setEmailInvoice} label="Invoice sent confirmation" />
         </div>
       </div>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A8927F' }}>Alerts</p>
+        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>Alerts</p>
         <div className="space-y-3">
           <Toggle checked={overdueAlert} onChange={setOverdueAlert} label="Overdue payment alert (Day 3, 7, 10)" />
           <Toggle checked={mondayBrief}  onChange={setMondayBrief}  label="Monday AI project brief" />
@@ -237,22 +237,22 @@ function BrandingTab({ onSave }: { onSave: () => void }) {
       <SectionTitle>Branding & Theme</SectionTitle>
       <FormRow label="Studio Logo" hint="Used on invoices and client portal">
         <div className="flex items-center gap-3">
-          <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: 'rgba(111,78,55,0.10)' }}>
-            <Building2 className="h-8 w-8" style={{ color: '#C8B7A6' }} />
+          <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: 'rgba(36,33,30,0.10)' }}>
+            <Building2 className="h-8 w-8" style={{ color: '#E2DED5' }} />
           </div>
           <button type="button" className="btn-secondary px-4 py-2 text-sm">Upload Logo</button>
         </div>
       </FormRow>
       <FormRow label="Primary Color" hint="Brand color for buttons and accents">
         <div className="flex items-center gap-3">
-          <input type="color" defaultValue="#6F4E37" className="h-10 w-16 rounded-lg cursor-pointer" style={{ border: '1px solid #C8B7A6' }} />
-          <span className="text-sm" style={{ color: '#6B6B6B' }}>#6F4E37 (Walnut Brown)</span>
+          <input type="color" defaultValue="#24211E" className="h-10 w-16 rounded-lg cursor-pointer" style={{ border: '1px solid #E2DED5' }} />
+          <span className="text-sm" style={{ color: '#6B6459' }}>#24211E (Walnut Brown)</span>
         </div>
       </FormRow>
       <FormRow label="Gold Accent">
         <div className="flex items-center gap-3">
-          <input type="color" defaultValue="#C89B3C" className="h-10 w-16 rounded-lg cursor-pointer" style={{ border: '1px solid #C8B7A6' }} />
-          <span className="text-sm" style={{ color: '#6B6B6B' }}>#C89B3C (Gold)</span>
+          <input type="color" defaultValue="#8F6F2E" className="h-10 w-16 rounded-lg cursor-pointer" style={{ border: '1px solid #E2DED5' }} />
+          <span className="text-sm" style={{ color: '#6B6459' }}>#8F6F2E (Gold)</span>
         </div>
       </FormRow>
       <FormRow label="Client Portal Theme">
@@ -260,7 +260,7 @@ function BrandingTab({ onSave }: { onSave: () => void }) {
           {['Cream & Brown', 'White & Gold', 'Dark & Premium'].map((t, i) => (
             <button key={t} type="button"
               className="px-4 py-2 rounded-xl text-sm font-medium border transition-colors"
-              style={{ borderColor: i === 0 ? '#6F4E37' : '#C8B7A6', background: i === 0 ? '#F8F5F2' : '#FFFFFF', color: '#6F4E37' }}>
+              style={{ borderColor: i === 0 ? '#24211E' : '#E2DED5', background: i === 0 ? '#FAF9F6' : '#FFFFFF', color: '#24211E' }}>
               {t}
             </button>
           ))}
@@ -293,7 +293,7 @@ function InvoiceTab({ onSave }: { onSave: () => void }) {
           {(['works_contract', 'goods'] as const).map(t => (
             <button key={t} type="button" onClick={() => setGstType(t)}
               className="px-4 py-2 rounded-xl text-sm font-medium border transition-colors"
-              style={{ background: gstType === t ? '#6F4E37' : '#FFFFFF', color: gstType === t ? '#FFFFFF' : '#6F4E37', borderColor: '#6F4E37' }}>
+              style={{ background: gstType === t ? '#24211E' : '#FFFFFF', color: gstType === t ? '#FFFFFF' : '#24211E', borderColor: '#24211E' }}>
               {t === 'works_contract' ? 'Works Contract (18%)' : 'Goods (per HSN)'}
             </button>
           ))}
@@ -346,7 +346,7 @@ function SecurityTab({ onSave }: { onSave: () => void }) {
           <input type={showPw ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)}
             placeholder="Confirm new password" className="studio-input w-full text-sm" />
           <button type="button" onClick={() => setShowPw(s => !s)}
-            className="flex items-center gap-1.5 text-xs" style={{ color: '#6F4E37' }}>
+            className="flex items-center gap-1.5 text-xs" style={{ color: '#24211E' }}>
             {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {showPw ? 'Hide' : 'Show'} passwords
           </button>
@@ -362,10 +362,10 @@ function SecurityTab({ onSave }: { onSave: () => void }) {
             { device: 'Safari — iPhone',     location: 'Coimbatore, India', current: false },
           ].map(s => (
             <div key={s.device} className="flex items-center justify-between p-3 rounded-xl"
-              style={{ border: '1px solid #E9DFD3', background: s.current ? '#F8F5F2' : '#FFFFFF' }}>
+              style={{ border: '1px solid #F0EEE9', background: s.current ? '#FAF9F6' : '#FFFFFF' }}>
               <div>
-                <p className="text-xs font-medium" style={{ color: '#1C1C1C' }}>{s.device}</p>
-                <p className="text-[10px]" style={{ color: '#A8927F' }}>{s.location}</p>
+                <p className="text-xs font-medium" style={{ color: '#221F1B' }}>{s.device}</p>
+                <p className="text-[10px]" style={{ color: '#A79E8E' }}>{s.location}</p>
               </div>
               {s.current
                 ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F0FDF4', color: '#14532D' }}>Current</span>
@@ -401,15 +401,15 @@ function IntegrationsTab() {
       <div className="space-y-3">
         {integrations.map(i => (
           <div key={i.name} className="flex items-center justify-between px-4 py-4 rounded-xl"
-            style={{ border: '1px solid #E9DFD3', background: '#FFFFFF' }}>
+            style={{ border: '1px solid #F0EEE9', background: '#FFFFFF' }}>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: i.status === 'connected' ? 'rgba(111,78,55,0.10)' : 'rgba(107,107,107,0.08)' }}>
-                <Plug className="h-5 w-5" style={{ color: i.status === 'connected' ? '#6F4E37' : '#9CA3AF' }} />
+                style={{ background: i.status === 'connected' ? 'rgba(36,33,30,0.10)' : 'rgba(107,107,107,0.08)' }}>
+                <Plug className="h-5 w-5" style={{ color: i.status === 'connected' ? '#24211E' : '#9CA3AF' }} />
               </div>
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>{i.name}</p>
-                <p className="text-xs" style={{ color: '#6B6B6B' }}>{i.desc}</p>
+                <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{i.name}</p>
+                <p className="text-xs" style={{ color: '#6B6459' }}>{i.desc}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -444,16 +444,16 @@ function ExportTab() {
   return (
     <div>
       <SectionTitle>Data Export & Backup</SectionTitle>
-      <p className="text-sm mb-5" style={{ color: '#6B6B6B' }}>
+      <p className="text-sm mb-5" style={{ color: '#6B6459' }}>
         Your data belongs to you. Export anytime in standard formats.
       </p>
       <div className="space-y-3">
         {exports.map(e => (
           <div key={e.label} className="flex items-center justify-between px-4 py-4 rounded-xl"
-            style={{ border: '1px solid #E9DFD3', background: '#FFFFFF' }}>
+            style={{ border: '1px solid #F0EEE9', background: '#FFFFFF' }}>
             <div>
-              <p className="text-sm font-semibold" style={{ color: '#1C1C1C' }}>{e.label}</p>
-              <p className="text-xs" style={{ color: '#6B6B6B' }}>{e.desc}</p>
+              <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{e.label}</p>
+              <p className="text-xs" style={{ color: '#6B6459' }}>{e.desc}</p>
             </div>
             <button type="button" className="btn-secondary flex items-center gap-1.5 px-4 py-2 text-sm flex-shrink-0">
               <Download className="h-3.5 w-3.5" />Export
@@ -496,8 +496,8 @@ export default function SettingsPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Settings</h2>
-        <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>Manage your studio workspace</p>
+        <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Settings</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Manage your studio workspace</p>
       </div>
 
       <div className="flex gap-6 flex-col lg:flex-row">
@@ -511,11 +511,11 @@ export default function SettingsPage() {
                 <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
                   className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors mb-0.5"
                   style={{
-                    background: isActive ? 'rgba(111,78,55,0.10)' : 'transparent',
-                    borderLeft: isActive ? '3px solid #C89B3C' : '3px solid transparent',
+                    background: isActive ? 'rgba(36,33,30,0.10)' : 'transparent',
+                    borderLeft: isActive ? '3px solid #8F6F2E' : '3px solid transparent',
                   }}>
-                  <Icon className="h-4 w-4 flex-shrink-0" style={{ color: isActive ? '#6F4E37' : '#A8927F' }} />
-                  <span className="text-sm font-semibold truncate" style={{ color: isActive ? '#3D2314' : '#6B6B6B' }}>
+                  <Icon className="h-4 w-4 flex-shrink-0" style={{ color: isActive ? '#24211E' : '#A79E8E' }} />
+                  <span className="text-sm font-semibold truncate" style={{ color: isActive ? '#1C1916' : '#6B6459' }}>
                     {tab.label}
                   </span>
                 </button>

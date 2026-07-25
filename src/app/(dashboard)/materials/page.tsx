@@ -56,7 +56,7 @@ const CATEGORY_CONFIG: Record<MaterialCategory, { label: string; emoji: string; 
   paints_finishes:    { label: 'Paints & Finishes',    emoji: '🎨', bg: '#FDF2F8', color: '#BE185D' },
   fabrics_upholstery: { label: 'Fabrics & Upholstery', emoji: '🧵', bg: '#F5F3FF', color: '#6B21A8' },
   lighting:           { label: 'Lighting',             emoji: '💡', bg: '#FEFCE8', color: '#713F12' },
-  other:              { label: 'Other',                emoji: '📦', bg: '#F8F5F2', color: '#6F4E37' },
+  other:              { label: 'Other',                emoji: '📦', bg: '#FAF9F6', color: '#24211E' },
 };
 
 const UNIT_OPTIONS = ['sqft', 'piece', 'running ft', 'box', 'litre', 'kg', 'set', 'pair'];
@@ -92,7 +92,7 @@ function MaterialCard({
           background: material.imageUrl
             ? `url(${material.imageUrl}) center/cover no-repeat`
             : cat.bg,
-          borderBottom: '1px solid #E9DFD3',
+          borderBottom: '1px solid #F0EEE9',
         }}
       >
         {!material.imageUrl && <span className="text-4xl">{cat.emoji}</span>}
@@ -118,20 +118,20 @@ function MaterialCard({
         >
           {cat.emoji} {cat.label}
         </span>
-        <h3 className="text-sm font-bold mb-1 leading-snug" style={{ color: '#1C1C1C' }}>
+        <h3 className="text-sm font-bold mb-1 leading-snug" style={{ color: '#221F1B' }}>
           {material.name}
         </h3>
         {material.description && (
-          <p className="text-xs mb-2" style={{ color: '#6B6B6B', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          <p className="text-xs mb-2" style={{ color: '#6B6459', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
             {material.description}
           </p>
         )}
         <div className="flex items-center justify-between mb-2">
           <div>
-            <p className="text-base font-bold" style={{ color: '#C89B3C' }}>
+            <p className="text-base font-bold" style={{ color: '#8F6F2E' }}>
               {fmt(material.sellPricePaise)}
             </p>
-            <p className="text-[10px]" style={{ color: '#A8927F' }}>
+            <p className="text-[10px]" style={{ color: '#A79E8E' }}>
               per {material.unit} · Cost: {fmt(material.costPricePaise)}
             </p>
           </div>
@@ -142,15 +142,15 @@ function MaterialCard({
           )}
         </div>
         {material.vendorName && (
-          <p className="text-xs mb-3" style={{ color: '#6B6B6B' }}>
-            Vendor: <span className="font-medium" style={{ color: '#6F4E37' }}>{material.vendorName}</span>
+          <p className="text-xs mb-3" style={{ color: '#6B6459' }}>
+            Vendor: <span className="font-medium" style={{ color: '#24211E' }}>{material.vendorName}</span>
           </p>
         )}
         {isOwner && (
-          <div className="flex gap-2 pt-3" style={{ borderTop: '1px solid #E9DFD3' }}>
+          <div className="flex gap-2 pt-3" style={{ borderTop: '1px solid #F0EEE9' }}>
             <button type="button" onClick={() => onEdit(material)}
-              className="flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium hover:bg-[#E9DFD3] transition-colors"
-              style={{ color: '#6F4E37' }}>
+              className="flex flex-1 items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium hover:bg-[#F0EEE9] transition-colors"
+              style={{ color: '#24211E' }}>
               <Edit2 className="h-3.5 w-3.5" />Edit
             </button>
             <button type="button" onClick={() => onDelete(material.id)}
@@ -179,21 +179,21 @@ function MaterialRow({
 
   return (
     <div className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-[#FDFCFB] transition-colors mb-1.5"
-      style={{ border: '1px solid #E9DFD3' }}>
+      style={{ border: '1px solid #F0EEE9' }}>
       <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 text-lg"
         style={{ background: cat.bg }}>
         {cat.emoji}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate" style={{ color: '#1C1C1C' }}>{material.name}</p>
-        <p className="text-xs" style={{ color: '#6B6B6B' }}>
+        <p className="text-sm font-semibold truncate" style={{ color: '#221F1B' }}>{material.name}</p>
+        <p className="text-xs" style={{ color: '#6B6459' }}>
           {cat.label} · {material.unit}
           {material.vendorName && ` · ${material.vendorName}`}
         </p>
       </div>
       <div className="text-right flex-shrink-0 w-32">
-        <p className="text-sm font-bold" style={{ color: '#C89B3C' }}>{fmt(material.sellPricePaise)}</p>
-        <p className="text-xs" style={{ color: '#A8927F' }}>Cost: {fmt(material.costPricePaise)}</p>
+        <p className="text-sm font-bold" style={{ color: '#8F6F2E' }}>{fmt(material.sellPricePaise)}</p>
+        <p className="text-xs" style={{ color: '#A79E8E' }}>Cost: {fmt(material.costPricePaise)}</p>
       </div>
       {margin > 0 && (
         <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
@@ -206,8 +206,8 @@ function MaterialRow({
       {isOwner && (
         <div className="flex gap-1 flex-shrink-0">
           <button type="button" onClick={() => onEdit(material)}
-            className="p-1.5 rounded-lg hover:bg-[#E9DFD3] transition-colors" title="Edit">
-            <Edit2 className="h-3.5 w-3.5" style={{ color: '#6F4E37' }} />
+            className="p-1.5 rounded-lg hover:bg-[#F0EEE9] transition-colors" title="Edit">
+            <Edit2 className="h-3.5 w-3.5" style={{ color: '#24211E' }} />
           </button>
           <button type="button" onClick={() => onDelete(material.id)}
             className="p-1.5 rounded-lg hover:bg-red-50 transition-colors" title="Delete">
@@ -277,12 +277,12 @@ function MaterialModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
       <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#FFFFFF', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #E9DFD3' }}>
-          <h2 className="text-base font-bold" style={{ color: '#3D2314' }}>
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>
             {initial ? 'Edit Material' : 'Add Material'}
           </h2>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#E9DFD3]">
-            <X className="h-4 w-4" style={{ color: '#6B6B6B' }} />
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
@@ -351,18 +351,18 @@ function MaterialModal({
           <label className="flex items-center gap-3 cursor-pointer">
             <div
               className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-              style={{ background: form.inStock ? '#6F4E37' : '#D1D5DB' }}
+              style={{ background: form.inStock ? '#24211E' : '#D1D5DB' }}
               onClick={() => set('inStock', !form.inStock)}
             >
               <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
                 style={{ left: form.inStock ? 22 : 4 }} />
             </div>
-            <span className="text-sm font-medium" style={{ color: '#1C1C1C' }}>
+            <span className="text-sm font-medium" style={{ color: '#221F1B' }}>
               {form.inStock ? 'In Stock' : 'Out of Stock'}
             </span>
           </label>
         </div>
-        <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid #E9DFD3' }}>
+        <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F0EEE9' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
           <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm">
             {saving ? 'Saving…' : initial ? 'Save Changes' : 'Add Material'}
@@ -453,8 +453,8 @@ export default function MaterialsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Material Library</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>
+          <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Material Library</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
             {materials.length} items · {filtered.length} shown
           </p>
         </div>
@@ -468,17 +468,17 @@ export default function MaterialsPage() {
       {/* ── Search + view toggle ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#A8927F' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#A79E8E' }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search materials…" className="studio-input w-full pl-9 text-sm py-2" />
         </div>
-        <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #C8B7A6' }}>
+        <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #E2DED5' }}>
           <button type="button" onClick={() => setViewMode('grid')} className="px-3 py-2 transition-colors"
-            style={{ background: viewMode === 'grid' ? '#6F4E37' : '#FFFFFF', color: viewMode === 'grid' ? '#FFFFFF' : '#6F4E37' }}>
+            style={{ background: viewMode === 'grid' ? '#24211E' : '#FFFFFF', color: viewMode === 'grid' ? '#FFFFFF' : '#24211E' }}>
             <Grid3X3 className="h-4 w-4" />
           </button>
           <button type="button" onClick={() => setViewMode('list')} className="px-3 py-2 transition-colors"
-            style={{ background: viewMode === 'list' ? '#6F4E37' : '#FFFFFF', color: viewMode === 'list' ? '#FFFFFF' : '#6F4E37' }}>
+            style={{ background: viewMode === 'list' ? '#24211E' : '#FFFFFF', color: viewMode === 'list' ? '#FFFFFF' : '#24211E' }}>
             <List className="h-4 w-4" />
           </button>
         </div>
@@ -488,7 +488,7 @@ export default function MaterialsPage() {
       <div className="flex gap-2 overflow-x-auto pb-1">
         <button type="button" onClick={() => setActiveCategory('all')}
           className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors"
-          style={{ background: activeCategory === 'all' ? '#6F4E37' : '#FFFFFF', color: activeCategory === 'all' ? '#FFFFFF' : '#6F4E37', border: '1px solid #C8B7A6' }}>
+          style={{ background: activeCategory === 'all' ? '#24211E' : '#FFFFFF', color: activeCategory === 'all' ? '#FFFFFF' : '#24211E', border: '1px solid #E2DED5' }}>
           All ({materials.length})
         </button>
         {categories.map(cat => {
@@ -515,11 +515,11 @@ export default function MaterialsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed"
-          style={{ borderColor: '#E9DFD3' }}>
-          <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(111,78,55,0.08)' }}>
-            <Package className="h-7 w-7" style={{ color: '#C8B7A6' }} />
+          style={{ borderColor: '#F0EEE9' }}>
+          <div className="h-14 w-14 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(36,33,30,0.08)' }}>
+            <Package className="h-7 w-7" style={{ color: '#E2DED5' }} />
           </div>
-          <p className="text-sm" style={{ color: '#6B6B6B' }}>
+          <p className="text-sm" style={{ color: '#6B6459' }}>
             {search || activeCategory !== 'all' ? 'No materials match your filters.' : 'No materials yet.'}
           </p>
           {isOwner && !search && activeCategory === 'all' && (

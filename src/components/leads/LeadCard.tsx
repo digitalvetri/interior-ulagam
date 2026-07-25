@@ -56,27 +56,27 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
   const fuStyle =
     followUpUrgency === 'overdue' ? { bg: '#FEF2F2', color: '#DC2626' } :
     followUpUrgency === 'today'   ? { bg: '#FFF7ED', color: '#EA580C' } :
-                                    { bg: '#F8F5F2', color: '#6B6B6B' };
+                                    { bg: '#FAF9F6', color: '#6B6459' };
 
   const isStale = daysSince > 7;
 
   return (
     <div
       className="premium-card p-4 mb-3 group transition-all"
-      style={{ borderColor: isStale ? '#FCA5A5' : '#C8B7A6' }}
+      style={{ borderColor: isStale ? '#FCA5A5' : '#E2DED5' }}
     >
       {/* ── Header: Avatar + Name + Priority + External Link ────────────── */}
       <div className="flex items-start gap-2.5 mb-3">
         <div
           className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #A07048 0%, #6F4E37 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #4A443C 0%, #24211E 100%)' }}
         >
           {initials}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-sm font-semibold" style={{ color: '#1C1C1C', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p className="text-sm font-semibold" style={{ color: '#221F1B', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {lead.contactName}
             </p>
             {priorityCfg && (
@@ -89,15 +89,15 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
               </span>
             )}
           </div>
-          <p className="text-xs mt-0.5" style={{ color: '#6B6B6B' }}>{lead.contactPhone}</p>
+          <p className="text-xs mt-0.5" style={{ color: '#6B6459' }}>{lead.contactPhone}</p>
         </div>
 
         <Link
           href={`/leads/${lead.id}`}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-[#E9DFD3]"
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-[#F0EEE9]"
           onClick={e => e.stopPropagation()}
         >
-          <ExternalLink className="h-3.5 w-3.5" style={{ color: '#6B6B6B' }} />
+          <ExternalLink className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
         </Link>
       </div>
 
@@ -105,13 +105,13 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
       {(lead.propertyType || lead.budgetBand) && (
         <div className="flex items-center gap-3 mb-2.5 flex-wrap">
           {lead.propertyType && (
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#6B6B6B' }}>
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#6B6459' }}>
               <Home className="h-3 w-3" />
               {lead.propertyType}
             </span>
           )}
           {lead.budgetBand && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: '#6F4E37' }}>
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: '#24211E' }}>
               <IndianRupee className="h-3 w-3" />
               {lead.budgetBand}
             </span>
@@ -122,10 +122,10 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
       {/* ── Project Value ───────────────────────────────────────────────── */}
       {(lead.projectValuePaise ?? 0) > 0 && (
         <div className="flex items-center gap-1.5 mb-2.5">
-          <span className="text-sm font-bold" style={{ color: '#C89B3C' }}>
+          <span className="text-sm font-bold" style={{ color: '#8F6F2E' }}>
             ₹{((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </span>
-          <span className="text-[10px]" style={{ color: '#6B6B6B' }}>est. value</span>
+          <span className="text-[10px]" style={{ color: '#6B6459' }}>est. value</span>
         </div>
       )}
 
@@ -147,12 +147,12 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-            style={{ background: '#E9DFD3', color: '#6F4E37' }}
+            style={{ background: '#F0EEE9', color: '#24211E' }}
           >
             {SOURCE_LABELS[lead.source] ?? lead.source}
           </span>
           {lead.designerName && (
-            <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: '#6B6B6B' }}>
+            <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: '#6B6459' }}>
               <User className="h-2.5 w-2.5" />
               {lead.designerName}
             </span>
@@ -160,18 +160,18 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
         </div>
         <span
           className="text-[10px] font-medium"
-          style={{ color: isStale ? '#EF4444' : '#6B6B6B' }}
+          style={{ color: isStale ? '#EF4444' : '#6B6459' }}
         >
           {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
         </span>
       </div>
 
       {/* ── Action row ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 pt-2.5" style={{ borderTop: '1px solid #E9DFD3' }}>
+      <div className="flex items-center gap-1 pt-2.5" style={{ borderTop: '1px solid #F0EEE9' }}>
         <a
           href={`tel:${lead.contactPhone}`}
-          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#E9DFD3]"
-          style={{ color: '#6F4E37' }}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+          style={{ color: '#24211E' }}
           onClick={e => e.stopPropagation()}
           title="Call"
         >
@@ -183,8 +183,8 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
           href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '')}`}
           target="_blank"
           rel="noreferrer"
-          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#E9DFD3]"
-          style={{ color: '#6F4E37' }}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+          style={{ color: '#24211E' }}
           onClick={e => e.stopPropagation()}
           title="WhatsApp"
         >
@@ -194,8 +194,8 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
 
         <Link
           href={`/leads/${lead.id}`}
-          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#E9DFD3]"
-          style={{ color: '#6F4E37' }}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+          style={{ color: '#24211E' }}
           onClick={e => e.stopPropagation()}
           title="View Details"
         >
@@ -206,8 +206,8 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
         {nextStage && (
           <button
             type="button"
-            className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#E9DFD3]"
-            style={{ color: '#6F4E37' }}
+            className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+            style={{ color: '#24211E' }}
             onClick={() => onStageChange(lead.id, nextStage)}
             title={`Move to ${STAGE_LABELS[nextStage]}`}
           >

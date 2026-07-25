@@ -2,12 +2,14 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export function LoginForm() {
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [email, setEmail]             = useState('');
+  const [password, setPassword]       = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -34,32 +36,47 @@ export function LoginForm() {
         <label htmlFor="email" className="studio-label block mb-1.5">
           Email address
         </label>
-        <input
-          id="email"
-          type="email"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          className="studio-input w-full text-sm"
-          placeholder="you@studio.com"
-        />
+        <div className="studio-input-group">
+          <Mail className="studio-input-icon" size={17} strokeWidth={1.75} />
+          <input
+            id="email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            className="studio-input studio-input--icon w-full text-sm"
+            placeholder="you@studio.com"
+          />
+        </div>
       </div>
 
       <div>
         <label htmlFor="password" className="studio-label block mb-1.5">
           Password
         </label>
-        <input
-          id="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="studio-input w-full text-sm"
-          placeholder="••••••••"
-        />
+        <div className="studio-input-group">
+          <Lock className="studio-input-icon" size={17} strokeWidth={1.75} />
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="studio-input studio-input--icon studio-input--icon-right w-full text-sm"
+            placeholder="••••••••"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(v => !v)}
+            className="studio-input-toggle"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            tabIndex={-1}
+          >
+            {showPassword ? <EyeOff size={17} strokeWidth={1.75} /> : <Eye size={17} strokeWidth={1.75} />}
+          </button>
+        </div>
       </div>
 
       {error && (
