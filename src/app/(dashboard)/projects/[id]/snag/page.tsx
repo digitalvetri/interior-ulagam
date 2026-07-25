@@ -2,14 +2,6 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -24,13 +16,11 @@ import type { SnagItem, SnagStatus } from '@/types/snag';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
-
-const STATUS_BADGE_VARIANT: Record<SnagStatus, BadgeVariant> = {
-  open: 'destructive',
-  in_progress: 'secondary',
-  resolved: 'outline',
-  client_confirmed: 'default',
+const STATUS_BADGE_STYLE: Record<SnagStatus, { background: string; color: string }> = {
+  open:             { background: '#FEE2E2', color: '#B91C1C' },
+  in_progress:      { background: '#FEF3C7', color: '#92400E' },
+  resolved:         { background: '#DCFCE7', color: '#15803D' },
+  client_confirmed: { background: '#DCFCE7', color: '#15803D' },
 };
 
 const STATUS_LABEL: Record<SnagStatus, string> = {
@@ -108,9 +98,11 @@ export default function SnagPage({
     }
   }, [id]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     void loadSnagItems();
   }, [loadSnagItems]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Add snag ──
   function openDialog() {
@@ -248,13 +240,13 @@ export default function SnagPage({
           >
             &larr; Back to Project
           </Link>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Snag List</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Snag List</h2>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleGenerateClientLink} disabled={linkLoading}>
+          <button className="btn-secondary" onClick={handleGenerateClientLink} disabled={linkLoading}>
             {linkLoading ? 'Generating…' : 'Generate Client Link'}
-          </Button>
-          <Button onClick={openDialog}>+ Add Snag Item</Button>
+          </button>
+          <button className="btn-primary" onClick={openDialog}>+ Add Snag Item</button>
         </div>
       </div>
 
@@ -262,13 +254,13 @@ export default function SnagPage({
       {clientUrl && (
         <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
           <span className="flex-1 truncate font-mono text-gray-700">{clientUrl}</span>
-          <Button size="sm" variant="outline" onClick={handleCopyLink}>
+          <button className="btn-secondary" onClick={handleCopyLink}>
             {copied ? 'Copied!' : 'Copy'}
-          </Button>
+          </button>
         </div>
       )}
       {linkError && (
-        <p className="text-xs text-red-600 dark:text-red-400">{linkError}</p>
+        <p className="text-xs text-red-600">{linkError}</p>
       )}
 
       {/* Snag list */}
@@ -281,27 +273,33 @@ export default function SnagPage({
           <p className="text-sm text-red-600">{loadError}</p>
         </div>
       ) : snagItems.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
           <p className="text-sm text-gray-500">No snag items yet.</p>
-          <Button variant="outline" size="sm" onClick={openDialog}>
+          <button className="btn-secondary" onClick={openDialog}>
             Add the first snag item
-          </Button>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {snagItems.map((snag) => (
-            <Card key={snag.id} className="flex flex-col">
-              <CardHeader className="pb-2">
+            <div key={snag.id} className="premium-card p-5 flex flex-col">
+              <div className="pb-2">
                 <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-sm font-medium leading-snug text-gray-900 dark:text-white">
+                  <h3 className="text-sm font-medium leading-snug text-gray-900">
                     {snag.description}
-                  </CardTitle>
-                  <Badge variant={STATUS_BADGE_VARIANT[snag.status]} className="shrink-0">
+                  </h3>
+                  <span
+                    style={{
+                      background: STATUS_BADGE_STYLE[snag.status].background,
+                      color: STATUS_BADGE_STYLE[snag.status].color,
+                    }}
+                    className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  >
                     {STATUS_LABEL[snag.status]}
-                  </Badge>
+                  </span>
                 </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
+              </div>
+              <div className="flex flex-col gap-3">
                 {/* Photo */}
                 {snag.photoUrl && (
                   <a href={snag.photoUrl} target="_blank" rel="noopener noreferrer">
@@ -315,16 +313,16 @@ export default function SnagPage({
                 )}
 
                 {/* Meta */}
-                <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                <div className="space-y-1 text-xs text-gray-500">
                   {snag.assigneeId && (
                     <p>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">Assignee:</span>{' '}
+                      <span className="font-medium text-gray-700">Assignee:</span>{' '}
                       {snag.assigneeId}
                     </p>
                   )}
                   {snag.clientConfirmedAt && (
                     <p>
-                      <span className="font-medium text-gray-700 dark:text-gray-300">Client confirmed:</span>{' '}
+                      <span className="font-medium text-gray-700">Client confirmed:</span>{' '}
                       {new Date(snag.clientConfirmedAt).toLocaleDateString('en-IN')}
                     </p>
                   )}
@@ -343,7 +341,7 @@ export default function SnagPage({
                     value={snag.status}
                     disabled={updatingStatus[snag.id]}
                     onChange={(e) => void handleStatusChange(snag, e.target.value as SnagStatus)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
                   >
                     {STATUS_OPTIONS.map((s) => (
                       <option key={s} value={s}>
@@ -352,31 +350,31 @@ export default function SnagPage({
                     ))}
                   </select>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
       )}
 
       {/* Handover section */}
       {allClear && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4 dark:border-green-800 dark:bg-green-950">
-          <p className="mb-3 text-sm font-medium text-green-800 dark:text-green-200">
+        <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4">
+          <p className="mb-3 text-sm font-medium text-green-800">
             {snagItems.length === 0
               ? 'No snag items. You can proceed to handover.'
               : 'All snag items are resolved or client-confirmed. You can initiate handover.'}
           </p>
-          <Button
+          <button
+            className="btn-primary"
             onClick={() => void handleInitiateHandover()}
             disabled={handoverLoading}
-            className="bg-green-700 text-white hover:bg-green-800"
           >
             {handoverLoading ? 'Initiating…' : 'Initiate Handover'}
-          </Button>
+          </button>
           {handoverResult && (
             <p
               className={`mt-2 text-xs font-medium ${
-                handoverResult.success ? 'text-green-700 dark:text-green-300' : 'text-red-600 dark:text-red-400'
+                handoverResult.success ? 'text-green-700' : 'text-red-600'
               }`}
             >
               {handoverResult.message}
@@ -432,21 +430,21 @@ export default function SnagPage({
             </div>
 
             {addError && (
-              <p className="text-xs text-red-600 dark:text-red-400">{addError}</p>
+              <p className="text-xs text-red-600">{addError}</p>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              className="btn-secondary"
               onClick={() => setDialogOpen(false)}
               disabled={adding}
             >
               Cancel
-            </Button>
-            <Button onClick={() => void handleAddSnag()} disabled={adding}>
+            </button>
+            <button className="btn-primary" onClick={() => void handleAddSnag()} disabled={adding}>
               {adding ? 'Adding…' : 'Add Snag Item'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

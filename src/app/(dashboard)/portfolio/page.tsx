@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -119,7 +117,7 @@ export default function PortfolioPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold text-gray-900">
           Portfolio
         </h2>
       </div>
@@ -130,7 +128,7 @@ export default function PortfolioPage() {
           <p className="text-sm text-gray-500">Loading portfolios…</p>
         </div>
       ) : portfolios.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
           <p className="text-sm text-gray-500">No portfolios yet.</p>
           <p className="text-xs text-gray-400">
             Portfolios are automatically created when a project reaches handover.
@@ -142,10 +140,10 @@ export default function PortfolioPage() {
           {portfolios.map((portfolio) => (
             <div
               key={portfolio.id}
-              className="mb-4 break-inside-avoid rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900"
+              className="premium-card mb-4 break-inside-avoid overflow-hidden"
             >
               {/* Cover photo */}
-              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-lg bg-gray-100 dark:bg-gray-800">
+              <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-[14px] bg-gray-100">
                 {portfolio.coverPhotoUrl ? (
                   <img
                     src={portfolio.coverPhotoUrl}
@@ -169,56 +167,56 @@ export default function PortfolioPage() {
               <div className="p-3 space-y-3">
                 {/* Badges row */}
                 <div className="flex flex-wrap gap-1.5">
-                  <Badge
-                    variant={portfolio.isPublic ? 'default' : 'secondary'}
-                    className={
+                  <span
+                    style={
                       portfolio.isPublic
-                        ? 'bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                        ? { background: '#D1FAE5', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }
+                        : { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }
                     }
                   >
                     {portfolio.isPublic ? 'Public' : 'Private'}
-                  </Badge>
+                  </span>
 
                   {portfolio.clientConsent && (
-                    <Badge
-                      variant="outline"
-                      className="border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300"
+                    <span
+                      style={{ background: '#FEF3C7', color: '#6F4E37', border: '1px solid #C89B3C', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}
                     >
                       Client Consent
-                    </Badge>
+                    </span>
                   )}
 
-                  <Badge variant="outline" className="text-gray-500">
+                  <span
+                    style={{ background: '#F8F5F2', color: '#6B7280', border: '1px solid #E7E7ED', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}
+                  >
                     {portfolio.photosCount} photo
                     {portfolio.photosCount !== 1 ? 's' : ''}
-                  </Badge>
+                  </span>
                 </div>
 
                 {/* Action buttons */}
                 <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1 text-sm"
                     onClick={() => openModal(portfolio)}
                   >
                     View
-                  </Button>
+                  </button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1 text-sm"
                     disabled={toggling.has(portfolio.id)}
                     onClick={() =>
                       patch(portfolio.id, { isPublic: !portfolio.isPublic })
                     }
                   >
                     {portfolio.isPublic ? 'Make Private' : 'Make Public'}
-                  </Button>
+                  </button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1 text-sm"
                     disabled={toggling.has(portfolio.id)}
                     onClick={() =>
                       patch(portfolio.id, {
@@ -229,11 +227,11 @@ export default function PortfolioPage() {
                     {portfolio.clientConsent
                       ? 'Remove Consent'
                       : 'Mark Consent'}
-                  </Button>
+                  </button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1 text-sm"
                     onClick={() => copyShareLink(portfolio.id)}
                     disabled={!portfolio.isPublic}
                     title={
@@ -243,7 +241,7 @@ export default function PortfolioPage() {
                     }
                   >
                     {copyFeedback === portfolio.id ? 'Copied!' : 'Copy Link'}
-                  </Button>
+                  </button>
                 </div>
               </div>
             </div>

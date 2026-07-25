@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
+import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
 
 // ─── Webhook payload types ─────────────────────────────────────────────────────
 
@@ -88,6 +89,9 @@ export async function GET(request: NextRequest) {
 // ─── POST: Inbound messages and delivery statuses ─────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await checkRateLimit(webhookLimiter, request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const body = await request.text();
 
   // Verify X-Hub-Signature-256

@@ -274,9 +274,11 @@ export default function VendorsPage() {
     }
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     void loadVendors();
   }, [loadVendors]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Add ────────────────────────────────────────────────────────────────────
 

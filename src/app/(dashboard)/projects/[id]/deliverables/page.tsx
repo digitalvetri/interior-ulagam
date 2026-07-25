@@ -2,13 +2,6 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -49,15 +42,12 @@ const DELIVERABLE_STATUS_LABELS: Record<DeliverableStatus, string> = {
   rejected: 'Rejected',
 };
 
-const DELIVERABLE_STATUS_CLASSES: Record<DeliverableStatus, string> = {
-  pending: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  in_progress:
-    'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  in_review:
-    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  approved:
-    'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  rejected: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+const DELIVERABLE_STATUS_STYLES: Record<DeliverableStatus, { background: string; color: string }> = {
+  pending:     { background: '#F3F4F6', color: '#374151' },
+  in_progress: { background: '#DBEAFE', color: '#1D4ED8' },
+  in_review:   { background: '#FEF3C7', color: '#92400E' },
+  approved:    { background: '#DCFCE7', color: '#15803D' },
+  rejected:    { background: '#FEE2E2', color: '#B91C1C' },
 };
 
 const ALL_TYPES: DeliverableType[] = [
@@ -108,39 +98,41 @@ function DeliverableCard({
 
   const overCap = d.revisionCount > d.revisionCap;
   const showChangeOrderWarning = changeOrderIds.has(d.id) || overCap;
+  const statusStyle = DELIVERABLE_STATUS_STYLES[d.status];
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
+    <div className="premium-card p-5">
+      <div className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-base leading-snug text-gray-900 dark:text-white">
+          <h3 className="text-base leading-snug text-gray-900 font-semibold">
             {DELIVERABLE_TYPE_LABELS[d.type]}
-          </CardTitle>
+          </h3>
           <span
-            className={[
-              'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium',
-              DELIVERABLE_STATUS_CLASSES[d.status],
-            ].join(' ')}
+            style={{
+              background: statusStyle.background,
+              color: statusStyle.color,
+            }}
+            className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium"
           >
             {DELIVERABLE_STATUS_LABELS[d.status]}
           </span>
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-3">
+      <div className="space-y-3">
         {/* Change order warning */}
         {showChangeOrderWarning && (
-          <div className="rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800 dark:border-yellow-700 dark:bg-yellow-950 dark:text-yellow-300">
+          <div className="rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
             Revision cap exceeded — a change-order quote is required.
           </div>
         )}
 
         {/* Revision meter */}
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-gray-600">
           <span
             className={
               overCap
-                ? 'font-semibold text-red-600 dark:text-red-400'
+                ? 'font-semibold text-red-600'
                 : 'font-medium'
             }
           >
@@ -155,7 +147,7 @@ function DeliverableCard({
             href={d.latestFileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="block truncate text-sm text-blue-600 underline dark:text-blue-400"
+            className="block truncate text-sm text-blue-600 underline"
           >
             View latest file
           </a>
@@ -163,7 +155,7 @@ function DeliverableCard({
 
         {/* Approved at */}
         {d.approvedAt && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-500">
             Approved on{' '}
             {new Date(d.approvedAt).toLocaleDateString('en-IN')}
           </p>
@@ -192,18 +184,16 @@ function DeliverableCard({
 
         {/* Approve button */}
         {d.status !== 'approved' && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full"
+          <button
+            className="btn-secondary w-full"
             onClick={handleApprove}
             disabled={approving}
           >
             {approving ? 'Approving…' : 'Approve'}
-          </Button>
+          </button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -313,21 +303,21 @@ function AddDeliverableDialog({
           </div>
 
           {error && (
-            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-xs text-red-600">{error}</p>
           )}
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
+          <button
+            className="btn-secondary"
             onClick={() => handleOpenChange(false)}
             disabled={saving}
           >
             Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={saving}>
+          </button>
+          <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
             {saving ? 'Adding…' : 'Add Deliverable'}
-          </Button>
+          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -423,17 +413,17 @@ export default function DeliverablesPage({ params }: PageProps) {
       {/* Back link */}
       <Link
         href={`/projects/${id}`}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
       >
         &larr; Back to Project
       </Link>
 
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-gray-900">
           Deliverables
         </h1>
-        <Button onClick={() => setDialogOpen(true)}>+ Add Deliverable</Button>
+        <button className="btn-primary" onClick={() => setDialogOpen(true)}>+ Add Deliverable</button>
       </div>
 
       {/* Content */}
@@ -442,15 +432,14 @@ export default function DeliverablesPage({ params }: PageProps) {
           <p className="text-sm text-gray-500">Loading deliverables…</p>
         </div>
       ) : deliverables.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
           <p className="text-sm text-gray-500">No deliverables yet.</p>
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            className="btn-secondary"
             onClick={() => setDialogOpen(true)}
           >
             Add first deliverable
-          </Button>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

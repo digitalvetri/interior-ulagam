@@ -30,8 +30,8 @@ test-results/
 # Misc
 .DS_Store
 
-# Local seed scripts (contain hardcoded credentials)
-scripts/create-owner.mjs
+# Local seed/admin scripts (contain hardcoded credentials — never commit)
+scripts/
 
 # Workflow build artifacts
 workflow-*.js

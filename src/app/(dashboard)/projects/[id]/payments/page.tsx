@@ -1,15 +1,7 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -64,23 +56,23 @@ const INITIAL_OVERRIDE_FORM: OverrideForm = {
 
 const STATUS_BADGE: Record<
   MilestonePaymentStatus,
-  { label: string; className: string }
+  { label: string; style: CSSProperties }
 > = {
   pending: {
     label: 'Pending',
-    className: 'bg-gray-100 text-gray-700 border-gray-300',
+    style: { backgroundColor: 'rgba(107,114,128,0.12)', color: '#374151', borderColor: '#d1d5db' },
   },
   link_sent: {
     label: 'Link Sent',
-    className: 'bg-blue-100 text-blue-700 border-blue-300',
+    style: { backgroundColor: 'rgba(59,130,246,0.12)', color: '#1d4ed8', borderColor: '#bfdbfe' },
   },
   paid: {
     label: 'Paid',
-    className: 'bg-green-100 text-green-700 border-green-300',
+    style: { backgroundColor: 'rgba(22,163,74,0.12)', color: '#15803d', borderColor: '#bbf7d0' },
   },
   overdue: {
     label: 'Overdue',
-    className: 'bg-red-100 text-red-700 border-red-300',
+    style: { backgroundColor: 'rgba(220,38,38,0.12)', color: '#b91c1c', borderColor: '#fecaca' },
   },
 };
 
@@ -88,7 +80,8 @@ function PaymentStatusBadge({ status }: { status: MilestonePaymentStatus }) {
   const cfg = STATUS_BADGE[status];
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cfg.className}`}
+      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+      style={cfg.style}
     >
       {cfg.label}
     </span>
@@ -138,9 +131,11 @@ export default function PaymentsPage({
       .catch(() => setLoading(false));
   }, [projectId]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     loadMilestones();
   }, [loadMilestones]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Summary counts ────────────────────────────────────────────────────────
 
@@ -338,14 +333,14 @@ export default function PaymentsPage({
       <div className="flex items-center gap-4">
         <Link
           href={`/projects/${projectId}`}
-          className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="text-sm text-gray-500 hover:text-gray-700"
         >
           &larr; Back to Project
         </Link>
       </div>
 
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold text-gray-900">
           Milestone Payments
         </h2>
       </div>
@@ -353,51 +348,52 @@ export default function PaymentsPage({
       {/* Summary cards */}
       {!loading && milestones.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total Paid</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {formatRupees(totalPaidPaise)}
-                  </p>
-                </div>
-                <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-                  {totalPaidCount} milestone{totalPaidCount !== 1 ? 's' : ''}
-                </span>
+          <div className="premium-card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Paid</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatRupees(totalPaidPaise)}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
+                {totalPaidCount} milestone{totalPaidCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Total Outstanding</p>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-                    {formatRupees(totalOutstandingPaise)}
-                  </p>
-                </div>
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
-                  {totalOutstandingCount} milestone
-                  {totalOutstandingCount !== 1 ? 's' : ''}
-                </span>
+          <div className="premium-card p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Outstanding</p>
+                <p className="text-2xl font-bold text-amber-600">
+                  {formatRupees(totalOutstandingPaise)}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
+                {totalOutstandingCount} milestone
+                {totalOutstandingCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Seed button */}
       {!loading && milestones.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-gray-300 py-16 dark:border-gray-700">
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-gray-300 py-16">
           <p className="text-sm text-gray-500">No milestones yet.</p>
           {seedError && (
-            <p className="text-xs text-red-600 dark:text-red-400">{seedError}</p>
+            <p className="text-xs text-red-600">{seedError}</p>
           )}
-          <Button onClick={handleSeedDefaults} disabled={seeding}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleSeedDefaults}
+            disabled={seeding}
+          >
             {seeding ? 'Seeding…' : 'Seed Default Milestones'}
-          </Button>
+          </button>
           <p className="text-xs text-gray-400">
             Creates 4 milestones at 10% / 40% / 40% / 10% of the contract value.
           </p>
@@ -433,25 +429,25 @@ export default function PaymentsPage({
                           ? 'border-red-500 bg-red-100'
                           : milestone.paymentStatus === 'link_sent'
                             ? 'border-blue-500 bg-blue-100'
-                            : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900'
+                            : 'border-gray-300 bg-white'
                     }`}
                   />
                   {!isLast && (
-                    <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700" />
+                    <div className="w-0.5 flex-1 bg-gray-200" />
                   )}
                 </div>
 
                 {/* Milestone card */}
                 <div className={`flex-1 pb-6 ${isLast ? '' : ''}`}>
-                  <Card className="transition-shadow hover:shadow-sm">
-                    <CardHeader className="pb-3">
+                  <div className="premium-card p-5 transition-shadow hover:shadow-sm">
+                    <div className="pb-3">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="space-y-1">
-                          <CardTitle className="text-base text-gray-900 dark:text-white">
+                          <p className="text-base font-semibold text-gray-900">
                             {milestone.label}
-                          </CardTitle>
+                          </p>
                           <div className="flex items-center gap-3">
-                            <span className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                            <span className="text-lg font-bold text-gray-800">
                               {formatRupees(milestone.amountPaise)}
                             </span>
                             <span className="text-sm text-gray-400">
@@ -461,14 +457,14 @@ export default function PaymentsPage({
                         </div>
                         <PaymentStatusBadge status={milestone.paymentStatus} />
                       </div>
-                    </CardHeader>
+                    </div>
 
-                    <CardContent className="space-y-3">
+                    <div className="space-y-3">
                       {/* Paid date */}
                       {milestone.paidAt && (
                         <p className="text-sm text-gray-500">
                           Paid on{' '}
-                          <span className="font-medium text-green-600 dark:text-green-400">
+                          <span className="font-medium text-green-600">
                             {new Date(milestone.paidAt).toLocaleDateString(
                               'en-IN',
                               { day: '2-digit', month: 'short', year: 'numeric' },
@@ -487,24 +483,24 @@ export default function PaymentsPage({
                       {/* Action buttons */}
                       <div className="flex flex-wrap gap-2 pt-1">
                         {showSendLink && (
-                          <Button
-                            size="sm"
-                            variant="default"
+                          <button
+                            type="button"
+                            className="btn-primary"
                             onClick={() => openSendDialog(milestone)}
                           >
                             Send Payment Link
-                          </Button>
+                          </button>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
+                        <button
+                          type="button"
+                          className="btn-secondary"
                           onClick={() => openOverrideDialog(milestone)}
                         >
                           Manual Override
-                        </Button>
+                        </button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -520,7 +516,7 @@ export default function PaymentsPage({
             {activeMilestone && (
               <p className="text-sm text-gray-500">
                 {activeMilestone.label} —{' '}
-                <span className="font-semibold text-gray-700 dark:text-gray-200">
+                <span className="font-semibold text-gray-700">
                   {formatRupees(activeMilestone.amountPaise)}
                 </span>
               </p>
@@ -530,23 +526,29 @@ export default function PaymentsPage({
           {sendResult ? (
             /* Success state: show the short URL */
             <div className="space-y-4 py-2">
-              <p className="text-sm font-medium text-green-600 dark:text-green-400">
+              <p className="text-sm font-medium text-green-600">
                 Payment link created successfully.
               </p>
-              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
-                <span className="flex-1 break-all text-sm text-gray-700 dark:text-gray-200">
+              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <span className="flex-1 break-all text-sm text-gray-700">
                   {sendResult.shortUrl}
                 </span>
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
+                  type="button"
+                  className="btn-secondary"
                   onClick={() => handleCopy(sendResult.shortUrl)}
                 >
                   {copied ? 'Copied!' : 'Copy'}
-                </Button>
+                </button>
               </div>
               <DialogFooter>
-                <Button onClick={closeSendDialog}>Close</Button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={closeSendDialog}
+                >
+                  Close
+                </button>
               </DialogFooter>
             </div>
           ) : (
@@ -599,22 +601,28 @@ export default function PaymentsPage({
               </div>
 
               {sendError && (
-                <p className="text-xs text-red-600 dark:text-red-400">
+                <p className="text-xs text-red-600">
                   {sendError}
                 </p>
               )}
 
               <DialogFooter>
-                <Button
-                  variant="outline"
+                <button
+                  type="button"
+                  className="btn-secondary"
                   onClick={closeSendDialog}
                   disabled={sending}
                 >
                   Cancel
-                </Button>
-                <Button onClick={handleSendLink} disabled={sending}>
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleSendLink}
+                  disabled={sending}
+                >
                   {sending ? 'Sending…' : 'Send Link'}
-                </Button>
+                </button>
               </DialogFooter>
             </div>
           )}
@@ -632,7 +640,7 @@ export default function PaymentsPage({
             {overrideMilestone && (
               <p className="text-sm text-gray-500">
                 {overrideMilestone.label} —{' '}
-                <span className="font-semibold text-gray-700 dark:text-gray-200">
+                <span className="font-semibold text-gray-700">
                   {formatRupees(overrideMilestone.amountPaise)}
                 </span>
               </p>
@@ -675,27 +683,30 @@ export default function PaymentsPage({
             </div>
 
             {overrideError && (
-              <p className="text-xs text-red-600 dark:text-red-400">
+              <p className="text-xs text-red-600">
                 {overrideError}
               </p>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              type="button"
+              className="btn-secondary"
               onClick={closeOverrideDialog}
               disabled={overriding}
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
+              type="button"
+              className={overrideForm.newStatus === 'overdue' ? 'btn-secondary' : 'btn-primary'}
+              style={overrideForm.newStatus === 'overdue' ? { backgroundColor: '#b91c1c', color: '#fff', borderColor: '#b91c1c' } : undefined}
               onClick={handleOverride}
               disabled={overriding}
-              variant={overrideForm.newStatus === 'overdue' ? 'destructive' : 'default'}
             >
               {overriding ? 'Applying…' : 'Apply Override'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

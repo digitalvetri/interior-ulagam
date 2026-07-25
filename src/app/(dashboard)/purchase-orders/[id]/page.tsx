@@ -2,8 +2,6 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -33,13 +31,13 @@ const PO_STATUSES: POStatus[] = [
   'cancelled',
 ];
 
-const STATUS_COLORS: Record<POStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  sent: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  acknowledged: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  partial: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
-  complete: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+const STATUS_STYLES: Record<POStatus, React.CSSProperties> = {
+  draft:        { background: '#F3F4F6', color: '#374151' },
+  sent:         { background: '#DBEAFE', color: '#1D4ED8' },
+  acknowledged: { background: '#FEF9C3', color: '#92400E' },
+  partial:      { background: '#FFEDD5', color: '#C2410C' },
+  complete:     { background: '#DCFCE7', color: '#15803D' },
+  cancelled:    { background: '#FEE2E2', color: '#B91C1C' },
 };
 
 interface GRNForm {
@@ -93,9 +91,11 @@ export default function PurchaseOrderDetailPage({
     }
   }, [id]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function handleStatusChange(newStatus: string) {
     if (!po || newStatus === po.status) return;
@@ -184,7 +184,7 @@ export default function PurchaseOrderDetailPage({
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <p className="text-sm text-red-500">Purchase order not found.</p>
         <Link href="/purchase-orders">
-          <Button variant="outline" size="sm">Back to Purchase Orders</Button>
+          <button className="btn-secondary">Back to Purchase Orders</button>
         </Link>
       </div>
     );
@@ -198,22 +198,30 @@ export default function PurchaseOrderDetailPage({
       <nav className="flex items-center gap-2 text-sm text-gray-500">
         <Link
           href="/purchase-orders"
-          className="hover:text-gray-700 dark:hover:text-gray-200"
+          className="hover:text-gray-700"
         >
           Purchase Orders
         </Link>
         <span>/</span>
-        <span className="text-gray-900 dark:text-white">{po.poNumber}</span>
+        <span className="text-gray-900">{po.poNumber}</span>
       </nav>
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-gray-900">
             {po.poNumber}
           </h2>
           <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[po.status]}`}
+            style={{
+              ...STATUS_STYLES[po.status],
+              display: 'inline-flex',
+              alignItems: 'center',
+              borderRadius: '9999px',
+              padding: '2px 10px',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+            }}
           >
             {po.status}
           </span>
@@ -222,14 +230,14 @@ export default function PurchaseOrderDetailPage({
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">
             Advance:{' '}
-            <span className="font-semibold text-gray-900 dark:text-white">
+            <span className="font-semibold text-gray-900">
               {formatRupees(po.advancePaidPaise)}
             </span>
           </span>
           {po.expectedDeliveryAt && (
             <span className="text-sm text-gray-500">
               Expected:{' '}
-              <span className="font-semibold text-gray-900 dark:text-white">
+              <span className="font-semibold text-gray-900">
                 {new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN')}
               </span>
             </span>
@@ -238,7 +246,7 @@ export default function PurchaseOrderDetailPage({
       </div>
 
       {/* Status update */}
-      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="premium-card p-5 flex items-center gap-3">
         <Label htmlFor="po-status-select" className="shrink-0 text-sm font-medium">
           Update Status
         </Label>
@@ -265,15 +273,15 @@ export default function PurchaseOrderDetailPage({
 
       {/* Lines table */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Line Items
         </h3>
 
         {parsedLines !== null ? (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3">Description</th>
                   <th className="px-4 py-3">Qty</th>
                   <th className="px-4 py-3">Unit</th>
@@ -295,19 +303,19 @@ export default function PurchaseOrderDetailPage({
                   parsedLines.map((line, idx) => (
                     <tr
                       key={line.id ?? idx}
-                      className="border-b border-gray-100 last:border-0 dark:border-gray-800"
+                      className="border-b border-gray-100 last:border-0"
                     >
-                      <td className="px-4 py-3 text-gray-800 dark:text-gray-200">
+                      <td className="px-4 py-3 text-gray-800">
                         {line.description}
                       </td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      <td className="px-4 py-3 text-gray-700">
                         {line.qty}
                       </td>
                       <td className="px-4 py-3 text-gray-500">{line.unit}</td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                      <td className="px-4 py-3 text-gray-700">
                         {formatRupees(line.unitRatePaise)}
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                      <td className="px-4 py-3 font-medium text-gray-900">
                         {formatRupees(line.totalPaise)}
                       </td>
                     </tr>
@@ -317,7 +325,7 @@ export default function PurchaseOrderDetailPage({
             </table>
           </div>
         ) : (
-          <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+          <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700">
             {typeof po.linesJson === 'string'
               ? po.linesJson
               : JSON.stringify(po.linesJson, null, 2)}
@@ -328,23 +336,23 @@ export default function PurchaseOrderDetailPage({
       {/* GRN Log */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Goods Received Notes ({grns.length})
           </h3>
-          <Button size="sm" onClick={openGrnDialog}>
+          <button className="btn-primary" onClick={openGrnDialog}>
             + Add GRN
-          </Button>
+          </button>
         </div>
 
         {grns.length === 0 ? (
-          <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+          <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300">
             <p className="text-sm text-gray-400">No GRNs recorded yet.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3">Delivered Qty</th>
                   <th className="px-4 py-3">Received At</th>
                   <th className="px-4 py-3">Notes</th>
@@ -354,15 +362,15 @@ export default function PurchaseOrderDetailPage({
                 {grns.map((grn) => (
                   <tr
                     key={grn.id}
-                    className="border-b border-gray-100 last:border-0 dark:border-gray-800"
+                    className="border-b border-gray-100 last:border-0"
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                    <td className="px-4 py-3 font-medium text-gray-900">
                       {grn.deliveredQty}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {new Date(grn.receivedAt).toLocaleDateString('en-IN')}
                     </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
+                    <td className="px-4 py-3 text-gray-600">
                       {grn.notes ?? '—'}
                     </td>
                   </tr>
@@ -410,21 +418,25 @@ export default function PurchaseOrderDetailPage({
             </div>
 
             {grnError && (
-              <p className="text-xs text-red-600 dark:text-red-400">{grnError}</p>
+              <p className="text-xs text-red-600">{grnError}</p>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              className="btn-secondary"
               onClick={() => setGrnDialogOpen(false)}
               disabled={grnSubmitting}
             >
               Cancel
-            </Button>
-            <Button onClick={handleAddGRN} disabled={grnSubmitting}>
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleAddGRN}
+              disabled={grnSubmitting}
+            >
               {grnSubmitting ? 'Saving…' : 'Record GRN'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

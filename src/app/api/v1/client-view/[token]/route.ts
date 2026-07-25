@@ -4,11 +4,15 @@ import { clientTokens, projects, milestones, deliverables, siteLogs, snagItems }
 import { eq, and, desc, asc, inArray, isNull, gt } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import type { ClientProjectSnapshot } from '@/types/snag';
+import { checkRateLimit, clientPortalLimiter } from '@/lib/ratelimit';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
+  const rateLimitResponse = await checkRateLimit(clientPortalLimiter, request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const { token } = await params;
 
   // Validate token format — must be a 64-char hex string.

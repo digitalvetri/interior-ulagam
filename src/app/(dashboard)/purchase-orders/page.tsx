@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -17,13 +15,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatRupees } from '@/lib/utils';
 import type { PurchaseOrder, POStatus } from '@/types/purchase-orders';
 
-const STATUS_COLORS: Record<POStatus, string> = {
-  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
-  sent: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  acknowledged: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  partial: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
-  complete: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  cancelled: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+const STATUS_STYLES: Record<POStatus, React.CSSProperties> = {
+  draft:        { background: '#F3F4F6', color: '#374151' },
+  sent:         { background: '#DBEAFE', color: '#1D4ED8' },
+  acknowledged: { background: '#FEF9C3', color: '#92400E' },
+  partial:      { background: '#FFEDD5', color: '#C2410C' },
+  complete:     { background: '#DCFCE7', color: '#15803D' },
+  cancelled:    { background: '#FEE2E2', color: '#B91C1C' },
 };
 
 interface NewPOForm {
@@ -125,10 +123,10 @@ export default function PurchaseOrdersPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold text-gray-900">
           Purchase Orders
         </h2>
-        <Button onClick={openDialog}>+ New PO</Button>
+        <button className="btn-primary" onClick={openDialog}>+ New PO</button>
       </div>
 
       {/* Table / states */}
@@ -137,17 +135,17 @@ export default function PurchaseOrdersPage() {
           <p className="text-sm text-gray-500">Loading purchase orders…</p>
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
           <p className="text-sm text-gray-500">No purchase orders yet.</p>
-          <Button variant="outline" size="sm" onClick={openDialog}>
+          <button className="btn-secondary" onClick={openDialog}>
             Create your first PO
-          </Button>
+          </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-3">PO Number</th>
                 <th className="px-4 py-3">Project</th>
                 <th className="px-4 py-3">Status</th>
@@ -160,23 +158,31 @@ export default function PurchaseOrdersPage() {
               {orders.map((po) => (
                 <tr
                   key={po.id}
-                  className="cursor-pointer border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                  className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
                   onClick={() => router.push(`/purchase-orders/${po.id}`)}
                 >
-                  <td className="px-4 py-3 font-medium text-blue-600 dark:text-blue-400">
+                  <td className="px-4 py-3 font-medium" style={{ color: '#C89B3C' }}>
                     {po.poNumber}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">
+                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
                     {po.projectId.slice(0, 8)}…
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[po.status]}`}
+                      style={{
+                        ...STATUS_STYLES[po.status],
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        borderRadius: '9999px',
+                        padding: '2px 10px',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                      }}
                     >
                       {po.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                  <td className="px-4 py-3 text-gray-700">
                     {formatRupees(po.advancePaidPaise)}
                   </td>
                   <td className="px-4 py-3 text-gray-500">
@@ -235,21 +241,25 @@ export default function PurchaseOrdersPage() {
             </div>
 
             {submitError && (
-              <p className="text-xs text-red-600 dark:text-red-400">{submitError}</p>
+              <p className="text-xs text-red-600">{submitError}</p>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              className="btn-secondary"
               onClick={() => setDialogOpen(false)}
               disabled={submitting}
             >
               Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
               {submitting ? 'Creating…' : 'Create PO'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

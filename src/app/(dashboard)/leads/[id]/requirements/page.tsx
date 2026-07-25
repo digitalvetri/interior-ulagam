@@ -41,7 +41,9 @@ export default function RequirementsPage({ params }: { params: Promise<{ id: str
     }
   }, [id]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { void fetchData(); }, [fetchData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const rooms: RoomEntry[] = reqRow?.roomsJson ?? [];
 

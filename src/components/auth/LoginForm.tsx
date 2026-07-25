@@ -1,6 +1,5 @@
 'use client';
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
@@ -17,10 +16,19 @@ export function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const { error: authError } = await createClient().auth.signInWithPassword({ email, password });
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-    if (authError) {
-      setError('Invalid email or password. Please try again.');
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      setError(
+        res.status === 429
+          ? 'Too many login attempts. Please wait a minute and try again.'
+          : (body.error ?? 'Invalid email or password. Please try again.'),
+      );
       setLoading(false);
       return;
     }

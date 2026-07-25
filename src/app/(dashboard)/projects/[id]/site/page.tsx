@@ -2,9 +2,6 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -89,10 +86,12 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
       .catch(() => setLoading(false));
   }
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     loadLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function setField<K extends keyof AddLogForm>(key: K, value: AddLogForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -166,15 +165,15 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
         <div className="flex items-center gap-3">
           <Link
             href={`/projects/${projectId}`}
-            className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="text-sm text-gray-500 hover:text-gray-700"
           >
             ← Back
           </Link>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-gray-900">
             Site Execution Tracker
           </h2>
         </div>
-        <Button onClick={openDialog}>+ Add Log Entry</Button>
+        <button className="btn-primary" onClick={openDialog}>+ Add Log Entry</button>
       </div>
 
       {/* Timeline */}
@@ -183,35 +182,47 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
           <p className="text-sm text-gray-500">Loading site logs…</p>
         </div>
       ) : logs.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
           <p className="text-sm text-gray-500">No site logs yet.</p>
-          <Button variant="outline" size="sm" onClick={openDialog}>
+          <button className="btn-secondary" onClick={openDialog}>
             Add your first log entry
-          </Button>
+          </button>
         </div>
       ) : (
         <div className="space-y-4">
           {logs.map((log) => {
             const blockers = parseBlockers(log.blockersJson);
             return (
-              <Card key={log.id}>
-                <CardHeader className="pb-2">
+              <div key={log.id} className="premium-card p-5">
+                <div className="pb-2">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base text-gray-900 dark:text-white">
+                    <p className="text-base font-semibold text-gray-900">
                       {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
                       })}
-                    </CardTitle>
+                    </p>
                     <div className="flex items-center gap-2">
                       {log.delayFlag && (
-                        <Badge variant="destructive">DELAY FLAGGED</Badge>
+                        <span
+                          style={{
+                            backgroundColor: '#6F4E37',
+                            color: '#F8F5F2',
+                            padding: '2px 10px',
+                            borderRadius: '9999px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            letterSpacing: '0.04em',
+                          }}
+                        >
+                          DELAY FLAGGED
+                        </span>
                       )}
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
+                </div>
+                <div className="space-y-3 text-sm">
                   {/* Progress bar */}
                   {log.progressPct !== null && log.progressPct !== undefined && (
                     <div className="space-y-1">
@@ -219,7 +230,7 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                         <span>Progress</span>
                         <span>{log.progressPct}%</span>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                      <div className="h-2 w-full rounded-full bg-gray-200">
                         <div
                           className={`h-2 rounded-full ${progressBarColor(log.progressPct)}`}
                           style={{ width: `${log.progressPct}%` }}
@@ -228,10 +239,10 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                     </div>
                   )}
 
-                  <div className="flex flex-wrap gap-4 text-gray-600 dark:text-gray-400">
+                  <div className="flex flex-wrap gap-4 text-gray-600">
                     {log.stage && (
                       <span>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                        <span className="font-medium text-gray-700">
                           Stage:
                         </span>{' '}
                         {log.stage}
@@ -239,7 +250,7 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                     )}
                     {log.labourCount !== null && log.labourCount !== undefined && (
                       <span>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">
+                        <span className="font-medium text-gray-700">
                           Labour:
                         </span>{' '}
                         {log.labourCount}
@@ -263,8 +274,8 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
 
                   {/* Transcript snippet */}
                   {log.transcript && (
-                    <p className="text-gray-600 dark:text-gray-400 line-clamp-3">
-                      <span className="font-medium text-gray-700 dark:text-gray-300">
+                    <p className="text-gray-600 line-clamp-3">
+                      <span className="font-medium text-gray-700">
                         Notes:
                       </span>{' '}
                       {log.transcript}
@@ -274,18 +285,18 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                   {/* Blockers */}
                   {blockers.length > 0 && (
                     <div>
-                      <p className="font-medium text-red-700 dark:text-red-400 mb-1">
+                      <p className="font-medium text-red-700 mb-1">
                         Blockers:
                       </p>
-                      <ul className="list-disc list-inside space-y-0.5 text-red-600 dark:text-red-400">
+                      <ul className="list-disc list-inside space-y-0.5 text-red-600">
                         {blockers.map((b, i) => (
                           <li key={i}>{b}</li>
                         ))}
                       </ul>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -372,23 +383,27 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
             </div>
 
             {submitError && (
-              <p className="text-xs text-red-600 dark:text-red-400">
+              <p className="text-xs text-red-600">
                 {submitError}
               </p>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              className="btn-secondary"
               onClick={() => setDialogOpen(false)}
               disabled={submitting}
             >
               Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
               {submitting ? 'Saving…' : 'Save Log'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

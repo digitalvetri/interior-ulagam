@@ -2,21 +2,16 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
 import { MarginSummary } from '@/components/quotes/MarginSummary';
 import { Quote, QuoteLine } from '@/types/quotes';
 
-const STATUS_BADGE_VARIANT: Record<
-  Quote['status'],
-  'default' | 'secondary' | 'outline' | 'destructive'
-> = {
-  draft: 'secondary',
-  sent: 'default',
-  approved: 'outline',
-  revised: 'destructive',
+const STATUS_BADGE_STYLE: Record<Quote['status'], React.CSSProperties> = {
+  draft:    { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
+  sent:     { background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
+  approved: { background: '#D1FAE5', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
+  revised:  { background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
 };
 
 export default function QuotePage({
@@ -40,9 +35,11 @@ export default function QuotePage({
       .catch(() => setLoading(false));
   }, [id]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchQuote();
   }, [fetchQuote]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleLineUpdate(
     lineId: string,
@@ -127,19 +124,19 @@ export default function QuotePage({
       <nav className="flex items-center gap-2 text-sm text-gray-500">
         <Link
           href="/projects"
-          className="hover:text-gray-700 dark:hover:text-gray-200"
+          className="hover:text-gray-700"
         >
           Projects
         </Link>
         <span>/</span>
         <Link
           href="/quotes"
-          className="hover:text-gray-700 dark:hover:text-gray-200"
+          className="hover:text-gray-700"
         >
           Quotes
         </Link>
         <span>/</span>
-        <span className="text-gray-900 dark:text-white">
+        <span className="text-gray-900">
           Quote #{quote.version}
         </span>
       </nav>
@@ -147,24 +144,34 @@ export default function QuotePage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-gray-900">
             Quote #{quote.version}
           </h2>
-          <Badge variant={STATUS_BADGE_VARIANT[quote.status]}>
+          <span style={STATUS_BADGE_STYLE[quote.status]}>
             {quote.status}
-          </Badge>
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
           {quote.status === 'draft' && (
-            <Button onClick={handleSendQuote} disabled={actionPending}>
+            <button
+              type="button"
+              className="btn-primary px-4 py-2"
+              onClick={handleSendQuote}
+              disabled={actionPending}
+            >
               {actionPending ? 'Sending…' : 'Send Quote'}
-            </Button>
+            </button>
           )}
           {quote.status === 'sent' && (
-            <Button onClick={handleMarkApproved} disabled={actionPending}>
+            <button
+              type="button"
+              className="btn-primary px-4 py-2"
+              onClick={handleMarkApproved}
+              disabled={actionPending}
+            >
               {actionPending ? 'Approving…' : 'Mark Approved'}
-            </Button>
+            </button>
           )}
         </div>
       </div>
@@ -174,10 +181,10 @@ export default function QuotePage({
         {/* Left: line items */}
         <div className="space-y-4">
           {/* Table */}
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+          <div className="premium-card overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="px-3 py-3">Room</th>
                   <th className="px-3 py-3">Item</th>
                   <th className="px-3 py-3">Unit</th>

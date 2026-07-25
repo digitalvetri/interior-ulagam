@@ -264,10 +264,12 @@ export default function ProjectExpensesPage({ params }: PageProps) {
     }
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     void fetchExpenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Summary Calculations ───────────────────────────────────────────────
 
