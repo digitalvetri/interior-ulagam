@@ -2,12 +2,19 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
 import { MarginSummary } from '@/components/quotes/MarginSummary';
-import { Quote, QuoteLine } from '@/types/quotes';
+import { Quote } from '@/types/quotes';
+
+// PDF generation runs as an Inngest job triggered by POST /send. It usually
+// finishes within a couple of seconds. Poll the quote for pdfUrl until it
+// appears or we've tried this many times.
+const PDF_POLL_INTERVAL_MS = 3000;
+const PDF_POLL_MAX_TRIES = 10;
 
 const STATUS_BADGE_VARIANT: Record<
   Quote['status'],
@@ -40,9 +47,31 @@ export default function QuotePage({
       .catch(() => setLoading(false));
   }, [id]);
 
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchQuote(); }, [fetchQuote]);
+
+  // Poll for the generated PDF once the quote has been sent. The Inngest
+  // pipeline writes pdfUrl a few seconds after /send completes.
+  const isAwaitingPdf =
+    quote != null &&
+    (quote.status === 'sent' || quote.status === 'approved') &&
+    !quote.pdfUrl;
+  const [pdfPollGaveUp, setPdfPollGaveUp] = useState(false);
   useEffect(() => {
-    fetchQuote();
-  }, [fetchQuote]);
+    if (!isAwaitingPdf) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (tries >= PDF_POLL_MAX_TRIES) {
+        clearInterval(timer);
+        setPdfPollGaveUp(true);
+        return;
+      }
+      fetchQuote();
+    }, PDF_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [isAwaitingPdf, fetchQuote]);
 
   function handleLineUpdate(
     lineId: string,
@@ -81,7 +110,7 @@ export default function QuotePage({
     fetchQuote();
   }
 
-  function handleLineAdded(_line: QuoteLine) {
+  function handleLineAdded() {
     fetchQuote();
   }
 
@@ -156,6 +185,40 @@ export default function QuotePage({
         </div>
 
         <div className="flex items-center gap-2">
+          {quote.pdfUrl && (
+            <Button variant="outline" asChild>
+              <a
+                href={quote.pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Download quote #${quote.version} PDF`}
+              >
+                <Download className="mr-1.5 h-4 w-4" strokeWidth={1.75} />
+                Download PDF
+              </a>
+            </Button>
+          )}
+          {isAwaitingPdf && !pdfPollGaveUp && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+              Generating PDF…
+            </span>
+          )}
+          {isAwaitingPdf && pdfPollGaveUp && (
+            <button
+              type="button"
+              onClick={fetchQuote}
+              className="inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+              title="PDF generation is taking longer than expected. Click to check again."
+            >
+              <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+              PDF pending — refresh
+            </button>
+          )}
           {quote.status === 'draft' && (
             <Button onClick={handleSendQuote} disabled={actionPending}>
               {actionPending ? 'Sending…' : 'Send Quote'}
