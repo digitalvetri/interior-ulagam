@@ -1,0 +1,20 @@
+{
+  "framework": "nextjs",
+  "regions": ["bom1"],
+  "functions": {
+    "src/app/api/inngest/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/webhooks/whatsapp/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/webhooks/razorpay/route.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "NEXT_PUBLIC_APP_URL": "@next_public_app_url"
+  }
+}
