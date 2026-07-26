@@ -274,9 +274,9 @@ export default function VendorsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void loadVendors();
-  }, [loadVendors]);
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadVendors(); }, [loadVendors]);
 
   // ─── Add ────────────────────────────────────────────────────────────────────
 

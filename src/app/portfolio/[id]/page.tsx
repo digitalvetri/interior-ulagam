@@ -1,5 +1,7 @@
 // Public portfolio page — no auth needed.
 // Accessible at /portfolio/[id] — no dashboard sidebar.
+import Image from 'next/image';
+
 export const dynamic = 'force-dynamic';
 
 interface Portfolio {
@@ -77,10 +79,13 @@ export default async function PublicPortfolioPage({
           <div className="columns-1 gap-4 sm:columns-2 lg:columns-3">
             {portfolio.photos.map((url, idx) => (
               <div key={idx} className="mb-4 break-inside-avoid">
-                <img
+                <Image
                   src={url}
                   alt="Portfolio photo"
-                  className="w-full rounded-lg object-cover"
+                  width={0}
+                  height={0}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="h-auto w-full rounded-lg object-cover"
                   loading={idx < 6 ? 'eager' : 'lazy'}
                 />
               </div>

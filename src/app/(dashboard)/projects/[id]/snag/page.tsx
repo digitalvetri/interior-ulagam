@@ -109,9 +109,9 @@ export default function SnagPage({
     }
   }, [id]);
 
-  useEffect(() => {
-    void loadSnagItems();
-  }, [loadSnagItems]);
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void loadSnagItems(); }, [loadSnagItems]);
 
   // ── Add snag ──
   function openDialog() {

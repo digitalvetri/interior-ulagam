@@ -264,10 +264,9 @@ export default function ProjectExpensesPage({ params }: PageProps) {
     }
   };
 
-  useEffect(() => {
-    void fetchExpenses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { void fetchExpenses(); }, [projectId]);
 
   // ─── Summary Calculations ───────────────────────────────────────────────
 
@@ -308,7 +307,7 @@ export default function ProjectExpensesPage({ params }: PageProps) {
         )}
         {!loading && !fetchError && expenses.length === 0 && (
           <div className="p-8 text-center text-sm text-gray-500">
-            No expenses logged yet. Use "Log Expense" to add one.
+            No expenses logged yet. Use &ldquo;Log Expense&rdquo; to add one.
           </div>
         )}
         {!loading && !fetchError && expenses.length > 0 && (

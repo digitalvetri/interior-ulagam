@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,10 +90,9 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
       .catch(() => setLoading(false));
   }
 
-  useEffect(() => {
-    loadLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { loadLogs(); }, [projectId]);
 
   function setField<K extends keyof AddLogForm>(key: K, value: AddLogForm[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -251,10 +251,12 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                   {log.photos.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {log.photos.map((url, i) => (
-                        <img
+                        <Image
                           key={i}
                           src={url}
                           alt={`Site photo ${i + 1}`}
+                          width={64}
+                          height={64}
                           className="h-16 w-16 rounded object-cover border border-gray-200"
                         />
                       ))}

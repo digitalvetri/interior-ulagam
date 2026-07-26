@@ -2,7 +2,6 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -147,9 +146,9 @@ export default function PaymentsPage({
     }
   }, [projectId]);
 
-  useEffect(() => {
-    loadMilestones();
-  }, [loadMilestones]);
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadMilestones(); }, [loadMilestones]);
 
   // ─── Summary counts ────────────────────────────────────────────────────────
 

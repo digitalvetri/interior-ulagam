@@ -1,10 +1,9 @@
 import { z } from 'zod';
-import { and, eq } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { siteLogs } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai/groq';
-import { sql } from 'drizzle-orm';
 
 interface SiteLogVoiceReceivedData {
   projectId: string;

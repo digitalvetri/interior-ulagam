@@ -2,7 +2,6 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -93,9 +92,9 @@ export default function PurchaseOrderDetailPage({
     }
   }, [id]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  // Data fetch on mount — TanStack Query refactor tracked separately.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   async function handleStatusChange(newStatus: string) {
     if (!po || newStatus === po.status) return;

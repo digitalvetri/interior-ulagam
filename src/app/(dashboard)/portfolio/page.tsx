@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -147,10 +148,12 @@ export default function PortfolioPage() {
               {/* Cover photo */}
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-lg bg-gray-100 dark:bg-gray-800">
                 {portfolio.coverPhotoUrl ? (
-                  <img
+                  <Image
                     src={portfolio.coverPhotoUrl}
                     alt={portfolio.title}
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                    className="object-cover"
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
@@ -272,10 +275,13 @@ export default function PortfolioPage() {
             <div className="columns-2 gap-3 sm:columns-3 max-h-[70vh] overflow-y-auto pr-1">
               {modalPortfolio?.photos.map((url, idx) => (
                 <div key={idx} className="mb-3 break-inside-avoid">
-                  <img
+                  <Image
                     src={url}
                     alt={`Portfolio photo ${idx + 1}`}
-                    className="w-full rounded-lg object-cover"
+                    width={0}
+                    height={0}
+                    sizes="(max-width: 640px) 50vw, 33vw"
+                    className="h-auto w-full rounded-lg object-cover"
                     loading="lazy"
                   />
                 </div>

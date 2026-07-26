@@ -15,7 +15,10 @@ export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
+  // Hydration-safe theme read: server can't know the client's stored value,
+  // so we mount, then snap to the real theme on first client render.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(readTheme());
     setMounted(true);
   }, []);

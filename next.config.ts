@@ -36,6 +36,18 @@ const nextConfig: NextConfig = {
         hostname: 'theinteriorstudios.in',
         pathname: '/wp-content/uploads/**',
       },
+      // Supabase Storage — portfolio covers, site-log photos, snag-item photos.
+      // Wildcarded so any Supabase project ref resolves without a config change.
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+        pathname: '/storage/v1/object/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.in',
+        pathname: '/storage/v1/object/**',
+      },
     ],
   },
   async headers() {
