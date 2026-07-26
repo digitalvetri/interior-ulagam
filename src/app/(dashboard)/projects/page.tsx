@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { Search, Plus, FolderKanban, ChevronDown } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Project } from '@/types/quotes';
 import { Lead } from '@/types/leads';
@@ -27,14 +27,18 @@ const STAGE_CHIP: Record<LifecycleStage, { label: string; cls: string }> = {
 interface NewProjectForm {
   leadId: string;
   leadLabel: string;
+  selectedLead: Lead | null;
   name: string;
+  nameWasEdited: boolean;
   totalContractRupees: string;
 }
 
 const INITIAL_FORM: NewProjectForm = {
   leadId: '',
   leadLabel: '',
+  selectedLead: null,
   name: '',
+  nameWasEdited: false,
   totalContractRupees: '',
 };
 
@@ -44,7 +48,7 @@ function LeadSelector({
   onChange,
 }: {
   value: { id: string; label: string };
-  onChange: (id: string, label: string) => void;
+  onChange: (lead: Lead) => void;
 }) {
   const [leads, setLeads]     = useState<Lead[]>([]);
   const [search, setSearch]   = useState('');
@@ -82,8 +86,7 @@ function LeadSelector({
   );
 
   function select(lead: Lead) {
-    const label = `${lead.contactName} · ${lead.contactPhone}`;
-    onChange(lead.id, label);
+    onChange(lead);
     setOpen(false);
     setSearch('');
   }
@@ -249,12 +252,29 @@ export default function ProjectsPage() {
   }
 
   function setField<K extends keyof NewProjectForm>(key: K, value: NewProjectForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+      // Mark name as user-edited so a subsequent lead selection doesn't overwrite it.
+      ...(key === 'name' ? { nameWasEdited: true } : {}),
+    }));
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   }
 
-  const handleLeadSelect = useCallback((id: string, label: string) => {
-    setForm((prev) => ({ ...prev, leadId: id, leadLabel: label }));
+  const handleLeadSelect = useCallback((lead: Lead) => {
+    const label = `${lead.contactName} · ${lead.contactPhone}`;
+    // Pre-fill a sensible project name if the user hasn't typed their own.
+    // Format: "{Client} — {PropertyType}" (falls back to just the client name).
+    const suggestedName = lead.propertyType
+      ? `${lead.contactName} — ${lead.propertyType}`
+      : lead.contactName;
+    setForm((prev) => ({
+      ...prev,
+      leadId: lead.id,
+      leadLabel: label,
+      selectedLead: lead,
+      name: prev.nameWasEdited ? prev.name : suggestedName,
+    }));
     setErrors((prev) => ({ ...prev, leadId: undefined }));
   }, []);
 
@@ -370,12 +390,17 @@ export default function ProjectsPage() {
 
       {/* New Project Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>New project</DialogTitle>
+            <DialogDescription>
+              Convert a won lead into a tracked project. Milestones, materials
+              and payments will be scoped to it.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-5 py-2">
+          <div className="space-y-5">
+            {/* ── Lead ─────────────────────────────────────────────── */}
             <div className="space-y-1.5">
               <label className="studio-label block">
                 Lead <span style={{ color: 'var(--neg)' }}>*</span>
@@ -389,8 +414,10 @@ export default function ProjectsPage() {
                   {errors.leadId}
                 </p>
               )}
+              {form.selectedLead && <SelectedLeadPreview lead={form.selectedLead} />}
             </div>
 
+            {/* ── Project name ─────────────────────────────────────── */}
             <div className="space-y-1.5">
               <label className="studio-label block" htmlFor="proj-name">
                 Project name <span style={{ color: 'var(--neg)' }}>*</span>
@@ -403,6 +430,11 @@ export default function ProjectsPage() {
                 onChange={(e) => setField('name', e.target.value)}
                 className="studio-input w-full text-sm"
               />
+              {form.selectedLead && !form.nameWasEdited && form.name && (
+                <p className="text-[11px]" style={{ color: 'var(--ink-4)' }}>
+                  Auto-filled from lead — edit to override.
+                </p>
+              )}
               {errors.name && (
                 <p className="text-xs mt-1" style={{ color: 'var(--neg)' }}>
                   {errors.name}
@@ -410,6 +442,7 @@ export default function ProjectsPage() {
               )}
             </div>
 
+            {/* ── Contract value ───────────────────────────────────── */}
             <div className="space-y-1.5">
               <label className="studio-label block" htmlFor="proj-contract">
                 Contract value ₹
@@ -427,9 +460,13 @@ export default function ProjectsPage() {
                 onChange={(e) => setField('totalContractRupees', e.target.value)}
                 className="studio-input w-full text-sm num"
               />
-              {form.totalContractRupees && Number(form.totalContractRupees) > 0 && (
-                <p className="text-xs num" style={{ color: 'var(--ink-2)' }}>
+              {form.totalContractRupees && Number(form.totalContractRupees) > 0 ? (
+                <p className="text-xs num" style={{ color: 'var(--acc)' }}>
                   = ₹{Number(form.totalContractRupees).toLocaleString('en-IN')}
+                </p>
+              ) : (
+                <p className="text-[11px]" style={{ color: 'var(--ink-4)' }}>
+                  Total contract value — can be edited later.
                 </p>
               )}
             </div>
@@ -456,7 +493,7 @@ export default function ProjectsPage() {
             <button
               type="button"
               onClick={handleCreate}
-              disabled={creating}
+              disabled={creating || !form.leadId || !form.name.trim()}
               className="btn-primary px-4 py-2 text-sm"
             >
               {creating ? 'Creating…' : 'Create project'}
@@ -464,6 +501,42 @@ export default function ProjectsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ── Selected lead preview ────────────────────────────────────────────────── */
+function SelectedLeadPreview({ lead }: { lead: Lead }) {
+  const stageLabel = lead.stage.replace(/_/g, ' ');
+  return (
+    <div
+      className="rounded-lg mt-2 p-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs"
+      style={{ background: 'var(--bg-2)', border: '1px solid var(--line)' }}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="chip" style={{ padding: '2px 6px', fontSize: 10 }}>
+          {stageLabel}
+        </span>
+        {lead.stage !== 'won' && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded"
+            style={{ background: 'var(--warn-tint)', color: 'var(--warn)' }}
+            title="Projects are usually created from a lead marked Won"
+          >
+            not won yet
+          </span>
+        )}
+      </div>
+      <span className="num" style={{ color: 'var(--ink-3)' }}>{lead.contactPhone}</span>
+      {lead.budgetBand && (
+        <span style={{ color: 'var(--ink-3)' }}>{lead.budgetBand}</span>
+      )}
+      {lead.propertyType && (
+        <span style={{ color: 'var(--ink-3)' }}>{lead.propertyType}</span>
+      )}
+      {lead.projectLocation && (
+        <span style={{ color: 'var(--ink-3)' }}>{lead.projectLocation}</span>
+      )}
     </div>
   );
 }
