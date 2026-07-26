@@ -14,15 +14,7 @@ interface TemplateMessage {
   components?: unknown[];
 }
 
-interface DocumentMessage {
-  type: 'document';
-  to: string;
-  link: string;
-  filename: string;
-  caption?: string;
-}
-
-type WaMessage = TextMessage | TemplateMessage | DocumentMessage;
+type WaMessage = TextMessage | TemplateMessage;
 
 async function sendMessage(message: WaMessage): Promise<{ messageId: string }> {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID!;
@@ -37,18 +29,6 @@ async function sendMessage(message: WaMessage): Promise<{ messageId: string }> {
       to: message.to,
       type: 'text',
       text: { body: message.text },
-    };
-  } else if (message.type === 'document') {
-    body = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: message.to,
-      type: 'document',
-      document: {
-        link: message.link,
-        filename: message.filename,
-        ...(message.caption ? { caption: message.caption } : {}),
-      },
     };
   } else {
     body = {

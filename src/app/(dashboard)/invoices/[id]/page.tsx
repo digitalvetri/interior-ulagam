@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupees } from '@/lib/utils';
-import type { InvoiceDetail } from '@/types/accounts';
+import type { InvoiceDetail, InvoicePayment } from '@/types/accounts';
 
 export default function InvoiceDetailPage({
   params,
@@ -113,8 +113,8 @@ export default function InvoiceDetailPage({
   const totalPaise =
     invoice.subtotalPaise + invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise;
   const paidPaise = payments
-    .filter((p) => p.status === 'captured')
-    .reduce((s, p) => s + p.amountPaise, 0);
+    .filter((p: InvoicePayment) => p.status === 'captured')
+    .reduce((s: number, p: InvoicePayment) => s + p.amountPaise, 0);
   const outstandingPaise = totalPaise - paidPaise;
   const isFullyPaid = outstandingPaise <= 0;
 
@@ -255,7 +255,7 @@ export default function InvoiceDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {payments.map((p) => {
+                {payments.map((p: InvoicePayment) => {
                   const isManual = !!p.manualOverrideBy;
                   return (
                     <tr key={p.id} className="border-b border-gray-100 last:border-b-0 dark:border-gray-800">

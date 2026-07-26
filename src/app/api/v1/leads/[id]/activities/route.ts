@@ -119,7 +119,7 @@ export async function POST(
         scheduledAt: parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt) : null,
         completedAt: parsed.data.completedAt ? new Date(parsed.data.completedAt) : null,
         status: parsed.data.status ?? null,
-        createdBy: ctx.userId,
+        createdBy: ctx.dbUserId,
       })
       .returning();
 

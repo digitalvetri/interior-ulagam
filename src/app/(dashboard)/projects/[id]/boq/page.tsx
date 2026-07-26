@@ -2,7 +2,6 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { formatRupees } from '@/lib/utils';
 import type { BOQSummary } from '@/types/purchase-orders';
 
@@ -46,7 +45,7 @@ export default function ProjectBOQPage({
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <p className="text-sm text-red-500">Project not found.</p>
         <Link href="/projects">
-          <Button variant="outline" size="sm">Back to Projects</Button>
+          <button className="btn-secondary">Back to Projects</button>
         </Link>
       </div>
     );
@@ -80,41 +79,41 @@ export default function ProjectBOQPage({
       <nav className="flex items-center gap-2 text-sm text-gray-500">
         <Link
           href="/projects"
-          className="hover:text-gray-700 dark:hover:text-gray-200"
+          className="hover:text-gray-700"
         >
           Projects
         </Link>
         <span>/</span>
         <Link
           href={`/projects/${id}`}
-          className="hover:text-gray-700 dark:hover:text-gray-200"
+          className="hover:text-gray-700"
         >
           {id.slice(0, 8)}…
         </Link>
         <span>/</span>
-        <span className="text-gray-900 dark:text-white">BOQ</span>
+        <span className="text-gray-900">BOQ</span>
       </nav>
 
       {/* Page heading */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold text-gray-900">
           Bill of Quantities
         </h2>
         <Link href={`/projects/${id}`}>
-          <Button variant="outline" size="sm">Back to Project</Button>
+          <button className="btn-secondary">Back to Project</button>
         </Link>
       </div>
 
       {/* No approved quote notice */}
       {totalClientPaise === 0 && totalCostPaise === 0 && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
           No approved quote found for this project. BOQ totals will appear once a quote is approved.
         </div>
       )}
 
       {/* Negative margin warning */}
       {marginNegative && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           Warning: Quoted cost exceeds quoted client price — the project margin is negative. Review quote lines.
         </div>
       )}
@@ -147,13 +146,13 @@ export default function ProjectBOQPage({
 
       {/* Variance note */}
       {marginNegative && (
-        <div className="rounded-lg border border-red-200 bg-white p-4 dark:border-red-800 dark:bg-gray-900">
-          <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+        <div className="premium-card p-5 border border-red-200">
+          <p className="text-sm font-semibold text-red-600">
             Variance Alert
           </p>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-1 text-sm text-gray-600">
             The quoted margin is{' '}
-            <span className="font-medium text-red-600 dark:text-red-400">
+            <span className="font-medium text-red-600">
               {formatRupees(Math.abs(totalMarginPaise))} below zero
             </span>
             . Cost has exceeded the client price in the approved quote. A revised
@@ -177,19 +176,19 @@ interface SummaryCardProps {
 function SummaryCard({ label, value, description, highlight }: SummaryCardProps) {
   const valueClass =
     highlight === 'danger'
-      ? 'text-red-600 dark:text-red-400'
+      ? 'text-red-600'
       : highlight === 'success'
-        ? 'text-green-600 dark:text-green-400'
-        : 'text-gray-900 dark:text-white';
+        ? 'text-green-600'
+        : 'text-gray-900';
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+    <div className="premium-card p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </p>
       <p className={`mt-2 text-2xl font-bold ${valueClass}`}>{value}</p>
       {description && (
-        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{description}</p>
+        <p className="mt-1 text-xs text-gray-400">{description}</p>
       )}
     </div>
   );
@@ -202,11 +201,11 @@ interface CountCardProps {
 
 function CountCard({ label, count }: CountCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+    <div className="premium-card p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {label}
       </p>
-      <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">{count}</p>
+      <p className="mt-2 text-3xl font-bold text-gray-900">{count}</p>
     </div>
   );
 }

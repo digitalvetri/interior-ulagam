@@ -92,7 +92,7 @@ export async function POST(
         tenantId: ctx.tenantId,
         invoiceId: milestone.invoiceId,
         amountPaise: milestone.amountPaise,
-        manualOverrideBy: ctx.userId,
+        manualOverrideBy: ctx.dbUserId,
         manualOverrideNote: note,
       })
       .returning();

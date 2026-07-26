@@ -1,41 +1,55 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { Bell, LogOut, Search, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarDays, LogOut, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, usePathname } from 'next/navigation';
 import { NAV_ITEMS } from '@/lib/nav-items';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':           'Dashboard',
-  '/leads':               'Lead pipeline',
+  '/leads':               'Lead Pipeline',
   '/projects':            'Projects',
   '/quotes':              'Quotations',
   '/materials':           'Materials',
   '/vendors':             'Vendors',
-  '/purchase-orders':     'Purchase orders',
-  '/accounts':            'Accounts',
-  '/portfolio':           'Portfolio',
+  '/purchase-orders':     'Purchase Orders',
+  '/accounts':            'Accounts & Payments',
   '/analytics/designers': 'Analytics',
+  '/analytics':           'Analytics',
   '/settings':            'Settings',
+};
+
+const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
+  owner:      { bg: '#0D1B2A', text: '#FFFFFF' },
+  designer:   { bg: '#00B894', text: '#FFFFFF' },
+  accountant: { bg: '#6C5CE7', text: '#FFFFFF' },
+  supervisor: { bg: '#F9C74F', text: '#0D1B2A' },
+};
+
+const GREETINGS: Record<string, string> = {
+  '/dashboard': "Here's what's happening with your business today.",
 };
 
 export function TopBar() {
   const [fullName, setFullName] = useState('');
-  const [query, setQuery] = useState('');
+  const [role, setRole]         = useState('');
+  const [query, setQuery]       = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const client = createClient();
-    if (!client) return;
-    client.auth.getUser().then(({ data }) => {
+    createClient().auth.getUser().then(({ data }) => {
       const meta = data.user?.user_metadata ?? {};
-      setFullName((meta.full_name as string) ?? data.user?.email ?? '');
+      setFullName((meta.full_name as string) ?? (data.user?.email ?? ''));
+      setRole((meta.role as string) ?? '');
     });
   }, []);
 
+  // ⌘K / Ctrl+K focuses the search box, matching the hint shown inside it.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -51,7 +65,7 @@ export function TopBar() {
     e.preventDefault();
     const q = query.trim().toLowerCase();
     if (!q) return;
-    const match = NAV_ITEMS.find((i) => i.label.toLowerCase().includes(q));
+    const match = NAV_ITEMS.find(i => i.label.toLowerCase().includes(q));
     if (match) {
       router.push(match.href);
       setQuery('');
@@ -60,106 +74,99 @@ export function TopBar() {
   }
 
   async function handleSignOut() {
-    const client = createClient();
-    if (client) await client.auth.signOut();
+    await createClient().auth.signOut();
     router.push('/login');
   }
 
-  const key = Object.keys(PAGE_TITLES).find(
-    (k) => pathname === k || pathname.startsWith(k + '/'),
-  );
-  const pageTitle = (key && PAGE_TITLES[key]) ?? 'Interior Studio';
+  const pageTitle = Object.entries(PAGE_TITLES).find(([key]) =>
+    pathname === key || pathname.startsWith(key + '/')
+  )?.[1] ?? 'InterioOS';
+
+  const greeting = Object.entries(GREETINGS).find(([key]) =>
+    pathname === key || pathname.startsWith(key + '/')
+  )?.[1];
+
+  const roleStyle = ROLE_COLORS[role] ?? ROLE_COLORS.owner;
+  const initials  = fullName
+    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const firstName = fullName.split(' ')[0] || fullName;
-  const initials =
-    fullName
-      .split(' ')
-      .map((w) => w[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase() || 'IS';
 
   return (
-    <header className="studio-topbar sticky top-0 z-20 flex h-[60px] items-center justify-between px-6 gap-4">
-      {/* Left — quiet breadcrumb, not a loud title */}
-      <nav aria-label="Location" className="min-w-0 flex items-center gap-2 text-sm">
-        <span
-          className="font-medium"
-          style={{ color: 'var(--ink-4)' }}
-        >
-          Studio
-        </span>
-        <ChevronRight
-          className="h-3.5 w-3.5 flex-shrink-0"
-          style={{ color: 'var(--ink-5)' }}
-          strokeWidth={2}
-        />
-        <span
-          className="font-semibold truncate"
-          style={{ color: 'var(--ink)' }}
+    <header className="studio-topbar flex h-16 items-center justify-between px-6 relative z-10 gap-6">
+      {/* Page title */}
+      <div className="min-w-0">
+        <h1
+          className="text-base font-bold tracking-tight truncate"
+          style={{ color: 'var(--text-heading)' }}
         >
           {pageTitle}
-        </span>
-      </nav>
+        </h1>
+        {greeting && (
+          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
+            {firstName ? `Welcome back, ${firstName}! ` : ''}{greeting}
+          </p>
+        )}
+      </div>
 
-      {/* Right — command search + icon cluster + user chip */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {/* Quick-jump search — ⌘K focuses it, Enter navigates to the first matching page */}
         <form onSubmit={handleSearchSubmit} className="topbar-search hidden md:flex">
-          <Search
-            className="h-3.5 w-3.5 flex-shrink-0"
-            style={{ color: 'var(--ink-4)' }}
-            strokeWidth={2}
-          />
+          <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
           <input
             ref={searchRef}
             type="text"
-            placeholder="Search or jump to…"
+            placeholder="Search pages…"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search or jump to a section"
+            onChange={e => setQuery(e.target.value)}
+            aria-label="Search pages"
           />
-          <span className="kbd">⌘K</span>
+          <kbd>⌘K</kbd>
         </form>
 
-        <div className="hidden md:block h-6 w-px mx-1" style={{ background: 'var(--line)' }} />
+        {/* Calendar shortcut */}
+        <Link
+          href="/calendar"
+          aria-label="Open calendar"
+          title="Calendar"
+          className="rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ color: 'var(--text-heading)' }}
+        >
+          <CalendarDays className="h-4 w-4" />
+        </Link>
 
+        {/* Theme toggle */}
         <ThemeToggle />
 
-        <button type="button" aria-label="Notifications" className="top-icon-btn relative">
-          <Bell className="h-[17px] w-[17px]" strokeWidth={1.75} />
-          <span className="notif-badge" aria-hidden />
-        </button>
+        {/* Notification bell — clicking opens a popover with the latest notifications */}
+        <NotificationsPopover />
 
-        <div className="hidden md:block h-6 w-px mx-1" style={{ background: 'var(--line)' }} />
-
-        {/* User chip — avatar + first name, only when signed in */}
-        {firstName && (
+        {/* User info */}
+        <div className="flex items-center gap-2.5 pl-3 border-l" style={{ borderColor: 'var(--border-subtle)' }}>
+          {/* Avatar */}
           <div
-            className="hidden sm:flex items-center gap-2.5 pl-1 pr-2.5 py-1 rounded-lg cursor-default"
-            style={{ background: 'var(--panel-hi)', border: '1px solid var(--line)' }}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold flex-shrink-0"
+            style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}
             title={fullName}
           >
-            <span
-              className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-[11px] font-semibold flex-shrink-0"
-              style={{
-                background: 'linear-gradient(135deg, var(--acc), var(--acc-lo))',
-                color: '#FFFFFF',
-              }}
-            >
-              {initials}
-            </span>
-            <span className="text-xs font-medium" style={{ color: 'var(--ink-2)' }}>
-              {firstName}
-            </span>
+            {initials}
           </div>
-        )}
+          <div className="hidden sm:block leading-tight">
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{fullName}</p>
+            <p className="text-[10px] capitalize" style={{ color: 'var(--text-secondary)' }}>{role}</p>
+          </div>
+        </div>
 
+        {/* Sign out */}
         <button
           type="button"
           onClick={handleSignOut}
           aria-label="Sign out"
-          className="top-icon-btn top-icon-btn--danger"
+          className="ml-1 rounded-lg p-2 transition-colors hover:bg-red-50"
+          style={{ color: 'var(--text-secondary)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#DC2626')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
         >
-          <LogOut className="h-[16px] w-[16px]" strokeWidth={1.75} />
+          <LogOut className="h-4 w-4" />
         </button>
       </div>
     </header>

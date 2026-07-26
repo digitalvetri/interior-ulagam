@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         amountPaise: input.amountPaise,
         description: input.description ?? null,
         receiptUrl: input.receiptUrl ?? null,
-        loggedBy: ctx.userId,
+        loggedBy: ctx.dbUserId,
         loggedVia: input.loggedVia ?? 'manual',
       })
       .returning();

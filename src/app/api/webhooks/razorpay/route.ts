@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { payments, milestones } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
+import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
 
 interface RazorpayPaymentEntity {
   id: string;
@@ -21,6 +22,9 @@ interface RazorpayEvent {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await checkRateLimit(webhookLimiter, request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const body = await request.text();
   const signature = request.headers.get('x-razorpay-signature');
 
@@ -33,9 +37,12 @@ export async function POST(request: NextRequest) {
     .update(body)
     .digest('hex');
 
-  const sigBuf = Buffer.from(signature, 'utf8');
-  const expBuf = Buffer.from(expectedSig, 'utf8');
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+  // Use timing-safe comparison to prevent timing attacks.
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSig);
+  const signatureValid =
+    sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+  if (!signatureValid) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 

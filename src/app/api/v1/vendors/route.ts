@@ -16,6 +16,13 @@ const MATERIAL_CATEGORIES = [
   'other',
 ] as const;
 
+function firstZodMessage(err: z.ZodError): string | null {
+  const first = err.issues[0];
+  if (!first) return null;
+  const path = first.path.join('.');
+  return path ? `${path}: ${first.message}` : first.message;
+}
+
 const CreateVendorSchema = z.object({
   name: z.string().min(1),
   phone: z.string().optional(),
@@ -74,7 +81,10 @@ export async function POST(request: NextRequest) {
 
   const parsed = CreateVendorSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: firstZodMessage(parsed.error) ?? 'Validation error', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;

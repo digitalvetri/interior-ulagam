@@ -41,9 +41,9 @@ export default function RequirementsPage({ params }: { params: Promise<{ id: str
     }
   }, [id]);
 
-  // Data fetch on mount — TanStack Query refactor tracked separately.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { void fetchData(); }, [fetchData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const rooms: RoomEntry[] = reqRow?.roomsJson ?? [];
 

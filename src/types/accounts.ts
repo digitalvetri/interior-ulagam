@@ -24,39 +24,8 @@ export interface Invoice {
   qrCodeUrl: string | null;
   pdfUrl: string | null;
   createdAt: string;
-  // joined by list endpoint
+  // joined
   projectName?: string;
-  totalPaise?: number;
-  paidPaise?: number;
-}
-
-export type PaymentDerivedStatus = 'paid' | 'partial' | 'pending';
-
-export interface Payment {
-  id: string;
-  tenantId: string;
-  invoiceId: string;
-  razorpayLinkId: string | null;
-  razorpayPaymentId: string | null;
-  amountPaise: number;
-  status: string;
-  reconciledAt: string | null;
-  manualOverrideBy: string | null;
-  manualOverrideNote: string | null;
-  createdAt: string;
-}
-
-export interface InvoiceDetail {
-  invoice: Invoice;
-  payments: Payment[];
-  project: { id: string; name: string } | null;
-  sourceMilestone: {
-    id: string;
-    projectId: string;
-    label: string;
-    amountPaise: number;
-    paymentStatus: 'pending' | 'link_sent' | 'paid' | 'overdue';
-  } | null;
 }
 
 export interface Expense {
@@ -83,6 +52,27 @@ export interface PnLSummary {
   totalExpensesPaise: number; // sum(expenses.amountPaise) for project
   receivablePaise: number;    // totalClientPaise - totalPaidPaise
   actualMarginPaise: number;  // totalPaidPaise - totalExpensesPaise
+}
+
+export interface InvoicePayment {
+  id: string;
+  tenantId: string;
+  invoiceId: string;
+  razorpayLinkId: string | null;
+  razorpayPaymentId: string | null;
+  amountPaise: number;
+  status: string;
+  reconciledAt: string | null;
+  manualOverrideBy: string | null;
+  manualOverrideNote: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceDetail {
+  invoice: Invoice;
+  payments: InvoicePayment[];
+  project?: { id: string; name: string } | null;
+  sourceMilestone?: { id: string; projectId: string; label: string } | null;
 }
 
 export interface ReceivableItem {

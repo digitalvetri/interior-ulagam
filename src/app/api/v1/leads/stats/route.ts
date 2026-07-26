@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
@@ -37,7 +37,7 @@ const ZERO_STATS: LeadStatsResponse = {
 
 // ─── GET /api/v1/leads/stats ─────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

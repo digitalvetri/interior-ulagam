@@ -30,8 +30,11 @@ test-results/
 # Misc
 .DS_Store
 
-# Local seed scripts (contain hardcoded credentials)
-scripts/create-owner.mjs
+# Local seed/admin/smoke scripts (may contain hardcoded credentials — never commit).
+# Migration scripts (apply-*.mjs) are safe (they read from .env.local) and ARE tracked.
+scripts/smoke-*.mjs
+scripts/probe-*.mjs
+scripts/seed-*.mjs
 
 # Workflow build artifacts
 workflow-*.js

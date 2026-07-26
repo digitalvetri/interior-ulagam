@@ -3,6 +3,7 @@ import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { projects, leads } from '@/lib/db/schema';
 import { whatsapp } from '@/lib/whatsapp/send';
+import { sql } from 'drizzle-orm';
 
 interface HandoverInitiatedData {
   projectId: string;

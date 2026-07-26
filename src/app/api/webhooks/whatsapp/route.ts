@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
+import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
 
 // ─── Webhook payload types ─────────────────────────────────────────────────────
 
@@ -88,6 +89,9 @@ export async function GET(request: NextRequest) {
 // ─── POST: Inbound messages and delivery statuses ─────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const rateLimitResponse = await checkRateLimit(webhookLimiter, request);
+  if (rateLimitResponse) return rateLimitResponse;
+
   const body = await request.text();
 
   // Verify X-Hub-Signature-256
@@ -103,9 +107,12 @@ export async function POST(request: NextRequest) {
       .update(body)
       .digest('hex');
 
-  const sigBuf = Buffer.from(signature, 'utf8');
-  const expBuf = Buffer.from(expectedSig, 'utf8');
-  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+  // Use timing-safe comparison to prevent timing attacks.
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expectedSig);
+  const signatureValid =
+    sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+  if (!signatureValid) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 

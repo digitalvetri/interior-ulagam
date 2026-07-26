@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         projectId: input.projectId,
         version: nextVersion,
         status: 'draft',
-        createdBy: ctx.userId,
+        createdBy: ctx.dbUserId,
       })
       .returning();
 

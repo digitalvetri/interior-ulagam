@@ -1,6 +1,20 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+// Public paths that never require authentication.
+// Everything else under the dashboard group is protected.
+const PUBLIC_PREFIXES = [
+  '/login',
+  '/p/',           // client trust-timeline (magic link, no login)
+  '/api/',         // API routes handle their own auth
+  '/_next/',
+  '/favicon',
+];
+
+function isPublic(pathname: string): boolean {
+  return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -9,8 +23,8 @@ export async function proxy(request: NextRequest) {
   }
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
@@ -31,16 +45,15 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
 
-  // Public routes — no auth required. Everything else in the authenticated app
-  // shell falls through to the protection check below.
-  const PUBLIC_PREFIXES = ['/login', '/p/', '/portfolio/', '/api/webhooks/', '/api/health', '/api/inngest'];
-  const isPublic =
-    pathname === '/' ||
-    PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+  // Let public paths through unconditionally.
+  if (isPublic(pathname)) {
+    return supabaseResponse;
+  }
 
-  if (!user && !isPublic) {
+  // Redirect unauthenticated users to /login for all other paths.
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

@@ -259,7 +259,7 @@ function QuoteDocument({ input }: { input: QuotePdfInput }) {
 
         <Text
           style={styles.footer}
-          render={({ pageNumber, totalPages }) =>
+          render={({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
             `${input.studio.name}  ·  ${input.quoteNumber}  ·  Page ${pageNumber} of ${totalPages}`
           }
           fixed

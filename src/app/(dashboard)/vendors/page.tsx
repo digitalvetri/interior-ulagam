@@ -97,7 +97,7 @@ function formFromVendor(v: Vendor): VendorFormState {
 function CategoryBadge({ category }: { category: MaterialCategory | null }) {
   if (!category) {
     return (
-      <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200">
+      <Badge variant="outline" className="bg-[var(--surface-muted)] text-[var(--text-secondary)] border-[var(--border-subtle)]">
         —
       </Badge>
     );
@@ -274,9 +274,11 @@ export default function VendorsPage() {
     }
   }, []);
 
-  // Data fetch on mount — TanStack Query refactor tracked separately.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { void loadVendors(); }, [loadVendors]);
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    void loadVendors();
+  }, [loadVendors]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Add ────────────────────────────────────────────────────────────────────
 
@@ -304,8 +306,8 @@ export default function VendorsPage() {
         }),
       });
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setAddError(body.error ?? 'Failed to create vendor');
+        const body = (await res.json()) as { error?: unknown };
+        setAddError(typeof body.error === 'string' ? body.error : 'Failed to create vendor');
         return;
       }
       setAddOpen(false);
@@ -344,8 +346,8 @@ export default function VendorsPage() {
         }),
       });
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setEditError(body.error ?? 'Failed to update vendor');
+        const body = (await res.json()) as { error?: unknown };
+        setEditError(typeof body.error === 'string' ? body.error : 'Failed to update vendor');
         return;
       }
       setEditVendor(null);
@@ -368,8 +370,8 @@ export default function VendorsPage() {
         method: 'DELETE',
       });
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setDeleteError(body.error ?? 'Failed to delete vendor');
+        const body = (await res.json()) as { error?: unknown };
+        setDeleteError(typeof body.error === 'string' ? body.error : 'Failed to delete vendor');
         return;
       }
       setDeleteTarget(null);
@@ -388,152 +390,94 @@ export default function VendorsPage() {
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Vendors</h1>
-        <Button onClick={openAdd}>Add Vendor</Button>
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Vendors</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{vendors.length} {vendors.length === 1 ? 'vendor' : 'vendors'}</p>
+        </div>
+        <button onClick={openAdd} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm">+ Add Vendor</button>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 overflow-hidden">
+      <div className="premium-card overflow-hidden">
         {loading && (
-          <div className="p-8 text-center text-sm text-gray-500">Loading vendors…</div>
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading vendors…</div>
         )}
         {fetchError && !loading && (
-          <div className="p-8 text-center text-sm text-red-600">{fetchError}</div>
+          <div className="p-10 text-center text-sm text-red-600">{fetchError}</div>
         )}
         {!loading && !fetchError && vendors.length === 0 && (
-          <div className="p-8 text-center text-sm text-gray-500">
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
             No vendors yet. Add your first vendor.
           </div>
         )}
         {!loading && !fetchError && vendors.length > 0 && (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Phone
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  Email
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
-                  GSTIN
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600 dark:text-gray-300">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {vendors.map((vendor) => {
-                const isExpanded = expandedId === vendor.id;
-                return (
-                  <>
-                    <tr
-                      key={vendor.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
-                      onClick={() =>
-                        setExpandedId(isExpanded ? null : vendor.id)
-                      }
-                    >
-                      <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                        {vendor.name}
-                      </td>
-                      <td className="px-4 py-3">
-                        <CategoryBadge category={vendor.category} />
-                      </td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                        {vendor.phone ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                        {vendor.email ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400">
-                        {vendor.gstin ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-xs text-gray-400 select-none">
-                          {isExpanded ? '▲' : '▼'}
-                        </span>
-                      </td>
-                    </tr>
-
-                    {/* Expanded detail row */}
-                    {isExpanded && (
-                      <tr key={`${vendor.id}-detail`}>
-                        <td
-                          colSpan={6}
-                          className="px-4 pb-4 pt-2 bg-gray-50 dark:bg-gray-800/50"
-                        >
-                          <Card className="border-0 shadow-none bg-transparent">
-                            <CardContent className="p-0 space-y-2">
-                              <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
-                                <div>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Address:{' '}
-                                  </span>
-                                  <span className="text-gray-800 dark:text-gray-200">
-                                    {vendor.address ?? '—'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Notes:{' '}
-                                  </span>
-                                  <span className="text-gray-800 dark:text-gray-200">
-                                    {vendor.notes ?? '—'}
-                                  </span>
-                                </div>
-                                <div>
-                                  <span className="text-gray-500 dark:text-gray-400">
-                                    Added:{' '}
-                                  </span>
-                                  <span className="text-gray-800 dark:text-gray-200">
-                                    {new Date(vendor.createdAt).toLocaleDateString(
-                                      'en-IN',
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex gap-2 pt-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openEdit(vendor);
-                                  }}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteError(null);
-                                    setDeleteTarget(vendor);
-                                  }}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            </CardContent>
-                          </Card>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <tr>
+                  {['Name', 'Category', 'Phone', 'Email', 'GSTIN', ''].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: 'var(--text-secondary)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {vendors.map((vendor) => {
+                  const isExpanded = expandedId === vendor.id;
+                  return (
+                    <>
+                      <tr
+                        key={vendor.id}
+                        className="cursor-pointer transition-colors hover:bg-[var(--surface-muted)]"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                        onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
+                      >
+                        <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{vendor.name}</td>
+                        <td className="px-4 py-3"><CategoryBadge category={vendor.category} /></td>
+                        <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{vendor.phone ?? '—'}</td>
+                        <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{vendor.email ?? '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{vendor.gstin ?? '—'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="text-xs select-none" style={{ color: 'var(--text-secondary)' }}>{isExpanded ? '▲' : '▼'}</span>
                         </td>
                       </tr>
-                    )}
-                  </>
-                );
-              })}
-            </tbody>
-          </table>
+
+                      {isExpanded && (
+                        <tr key={`${vendor.id}-detail`}>
+                          <td colSpan={6} className="px-4 pb-4 pt-2" style={{ background: 'var(--surface-muted)' }}>
+                            <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2 mb-3">
+                              <div>
+                                <span style={{ color: 'var(--text-secondary)' }}>Address: </span>
+                                <span style={{ color: 'var(--text-primary)' }}>{vendor.address ?? '—'}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-secondary)' }}>Notes: </span>
+                                <span style={{ color: 'var(--text-primary)' }}>{vendor.notes ?? '—'}</span>
+                              </div>
+                              <div>
+                                <span style={{ color: 'var(--text-secondary)' }}>Added: </span>
+                                <span style={{ color: 'var(--text-primary)' }}>{new Date(vendor.createdAt).toLocaleDateString('en-IN')}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                className="btn-secondary px-3 py-1.5 text-xs"
+                                onClick={(e) => { e.stopPropagation(); openEdit(vendor); }}
+                              >Edit</button>
+                              <button
+                                className="px-3 py-1.5 text-xs rounded-lg border font-medium transition-colors text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteTarget(vendor); }}
+                              >Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -579,9 +523,9 @@ export default function VendorsPage() {
           <DialogHeader>
             <DialogTitle>Delete Vendor</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Are you sure you want to delete{' '}
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="font-medium" style={{ color: 'var(--text-heading)' }}>
               {deleteTarget?.name}
             </span>
             ? This action cannot be undone.

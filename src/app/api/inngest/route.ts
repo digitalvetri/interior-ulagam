@@ -12,7 +12,6 @@ import { aiQuoteDraft } from '@/inngest/functions/ai-quote-draft'
 import { handoverReferral } from '@/inngest/functions/handover-referral'
 import { photoBOQDraft } from '@/inngest/functions/photo-boq-draft'
 import { aiSnagDetection } from '@/inngest/functions/ai-snag-detection'
-import { portfolioBuilder } from '@/inngest/functions/portfolio-builder'
 import { languageDetection } from '@/inngest/functions/language-detection'
 import { clientChatbot } from '@/inngest/functions/client-chatbot'
 import { vendorPOWhatsApp } from '@/inngest/functions/vendor-po-whatsapp'
@@ -24,7 +23,7 @@ export const { GET, POST, PUT } = serve({
     helloWorld, quotePdf, leadFollowupNudge, milestonePaymentCaptured,
     overdueEscalation, siteVisitReminders, siteIntelligence, mondayBrief,
     aiQuoteDraft, handoverReferral, photoBOQDraft, aiSnagDetection,
-    portfolioBuilder, languageDetection, clientChatbot, vendorPOWhatsApp,
+    languageDetection, clientChatbot, vendorPOWhatsApp,
     costOverrunAlert
   ],
 })

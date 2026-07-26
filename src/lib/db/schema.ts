@@ -59,6 +59,30 @@ export const materialCategoryEnum = pgEnum('material_category', [
 ]);
 export const siteLogSourceEnum = pgEnum('site_log_source', ['whatsapp', 'manual']);
 
+export const documentKindEnum = pgEnum('document_kind', ['folder', 'file']);
+
+export const employmentTypeEnum = pgEnum('employment_type', [
+  'full_time', 'part_time', 'contract', 'intern', 'consultant',
+]);
+
+export const notificationSeverityEnum = pgEnum('notification_severity', [
+  'info', 'success', 'warning', 'critical',
+]);
+
+export const designTaskStatusEnum = pgEnum('design_task_status', [
+  'todo', 'in_progress', 'review', 'done',
+]);
+export const designTaskPriorityEnum = pgEnum('design_task_priority', [
+  'low', 'normal', 'high', 'urgent',
+]);
+
+export const customerSourceEnum = pgEnum('customer_source', [
+  'referral', 'instagram', 'whatsapp', 'website', 'walk_in', 'imported', 'other',
+]);
+export const customerStageEnum = pgEnum('customer_stage', [
+  'lead', 'opportunity', 'client', 'past_client',
+]);
+
 export const leadActivityTypeEnum = pgEnum('lead_activity_type', [
   'call', 'whatsapp', 'note', 'site_visit', 'meeting', 'stage_change', 'follow_up',
 ]);
@@ -92,6 +116,17 @@ export const users = pgTable('users', {
   fullName: text('full_name').notNull(),
   phone: text('phone'),
   email: text('email'),
+  // ── HR extended fields (employees module) ─────────────────
+  photoUrl: text('photo_url'),
+  jobTitle: text('job_title'),
+  department: text('department'),
+  location: text('location'),
+  employmentType: employmentTypeEnum('employment_type'),
+  hireDate: date('hire_date'),
+  dob: date('dob'),
+  managerId: uuid('manager_id'),                     // self-FK, added via SQL
+  emergencyContact: jsonb('emergency_contact_json'), // { name, relation, phone }
+  status: text('status').notNull().default('active'), // active | on_leave | inactive
   ...timestamps,
 });
 
@@ -113,23 +148,6 @@ export const leads = pgTable('leads', {
 }, (t) => [
   index('leads_tenant_stage_idx').on(t.tenantId, t.stage),
   index('leads_tenant_owner_idx').on(t.tenantId, t.ownerId),
-]);
-
-export const leadActivities = pgTable('lead_activities', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
-  type: leadActivityTypeEnum('type').notNull(),
-  title: text('title').notNull(),
-  description: text('description'),
-  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
-  completedAt: timestamp('completed_at', { withTimezone: true }),
-  status: followUpStatusEnum('status'),
-  createdBy: uuid('created_by').references(() => users.id),
-  ...timestamps,
-}, (t) => [
-  index('lead_activities_lead_idx').on(t.leadId, t.createdAt),
-  index('lead_activities_tenant_idx').on(t.tenantId, t.createdAt),
 ]);
 
 export const siteVisits = pgTable('site_visits', {
@@ -389,6 +407,115 @@ export const vendors = pgTable('vendors', {
   ...timestamps,
 }, (t) => [
   index('vendors_tenant_idx').on(t.tenantId),
+]);
+
+// Secure, revocable, expiring client portal share links.
+// The token column is what goes in the URL — a random 32-byte hex string.
+export const clientTokens = pgTable('client_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [
+  index('client_tokens_token_idx').on(t.token),
+  index('client_tokens_project_idx').on(t.projectId),
+]);
+
+// Google-Drive-style hierarchical documents. Folders have kind='folder' and
+// storage_path=null. Files have kind='file' and a storage_path pointing at
+// an object in the Supabase Storage 'documents' bucket.
+// Note: parent_id is self-referential but we don't declare the FK inline
+// because Drizzle can't forward-reference the table variable.
+export const documents = pgTable('documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  parentId: uuid('parent_id'),
+  kind: documentKindEnum('kind').notNull(),
+  name: text('name').notNull(),
+  mimeType: text('mime_type'),
+  sizeBytes: integer('size_bytes'),
+  storagePath: text('storage_path'),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  uploadedBy: uuid('uploaded_by').references(() => users.id),
+  starred: boolean('starred').notNull().default(false),
+  ...timestamps,
+}, (t) => [
+  index('documents_tenant_parent_idx').on(t.tenantId, t.parentId),
+  index('documents_tenant_starred_idx').on(t.tenantId, t.starred),
+]);
+
+// Internal design-task list for the studio (rendered as /work-orders in UI).
+// Interior-design studios don't dispatch to workers — this is their own
+// to-do list of design deliverables per project.
+// Studio notifications — tenant-wide, optionally targeted to a single user.
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  severity: notificationSeverityEnum('severity').notNull().default('info'),
+  title: text('title').notNull(),
+  body: text('body'),
+  href: text('href'),
+  readAt: timestamp('read_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [
+  index('notifications_tenant_read_idx').on(t.tenantId, t.readAt),
+]);
+
+export const designTasks = pgTable('design_tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  description: text('description'),
+  status: designTaskStatusEnum('status').notNull().default('todo'),
+  priority: designTaskPriorityEnum('priority').notNull().default('normal'),
+  dueDate: date('due_date'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [
+  index('design_tasks_tenant_status_idx').on(t.tenantId, t.status),
+  index('design_tasks_tenant_project_idx').on(t.tenantId, t.projectId),
+]);
+
+export const customers = pgTable('customers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  ownerId: uuid('owner_id').references(() => users.id),
+  fullName: text('full_name').notNull(),
+  email: text('email'),
+  phone: text('phone').notNull(),
+  company: text('company'),
+  city: text('city'),
+  address: text('address'),
+  source: customerSourceEnum('source').notNull().default('other'),
+  stage: customerStageEnum('stage').notNull().default('lead'),
+  tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+  notes: text('notes'),
+  lastContactedAt: timestamp('last_contacted_at', { withTimezone: true }),
+  ...timestamps,
+}, (t) => [
+  index('customers_tenant_stage_idx').on(t.tenantId, t.stage),
+  index('customers_tenant_owner_idx').on(t.tenantId, t.ownerId),
+]);
+
+export const leadActivities = pgTable('lead_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  type: leadActivityTypeEnum('type').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  status: followUpStatusEnum('status'),
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('lead_activities_tenant_lead_idx').on(t.tenantId, t.leadId),
 ]);
 
 export const portfolios = pgTable('portfolios', {

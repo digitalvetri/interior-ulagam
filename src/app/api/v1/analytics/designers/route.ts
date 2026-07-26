@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, projects, quotes, quoteLines, deliverables } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { DesignerMetrics } from '@/types/analytics';
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -96,6 +96,11 @@ export async function GET() {
         .where(inArray(deliverables.projectId, allProjectIds))
         .groupBy(deliverables.projectId);
     }
+
+    // Build lookup maps
+    const quoteLineAggByQuoteId = new Map<string, QuoteLineAgg>(
+      quoteLineAggs.map((a) => [a.quoteId, a]),
+    );
 
     // quoteId → projectId map from approvedQuotes
     const projectIdByQuoteId = new Map<string, string>(

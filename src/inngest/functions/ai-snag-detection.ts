@@ -90,7 +90,7 @@ export const aiSnagDetection = inngest.createFunction(
       return detected;
     });
 
-    await step.run('create-snag-items', async () => {
+    const { insertedCount } = await step.run('create-snag-items', async () => {
       if (allSnags.length === 0) {
         return { insertedCount: 0 };
       }

@@ -1,17 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import {
-  Building2, Users, Bell, Palette, FileText, Shield, Plug, Download,
-  Save, Eye, EyeOff, Check, ChevronRight,
+  Building2, Users, Bell, FileText, Shield, Plug, Download,
+  Save, Eye, EyeOff, Check, ChevronRight, Loader2, KeyRound, Search, MailPlus,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EmployeeAvatar } from '@/components/employees/Avatar';
+import type { Employee, UserRole } from '@/types/employees';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 type TabKey =
   | 'profile'
   | 'users'
   | 'notifications'
-  | 'branding'
   | 'invoice'
   | 'security'
   | 'integrations'
@@ -27,7 +32,6 @@ const TABS: TabCfg[] = [
   { key: 'profile',       label: 'Business Profile',    icon: Building2 },
   { key: 'users',         label: 'Users & Roles',        icon: Users     },
   { key: 'notifications', label: 'Notifications',        icon: Bell      },
-  { key: 'branding',      label: 'Branding & Theme',     icon: Palette   },
   { key: 'invoice',       label: 'Quotation & Invoice',  icon: FileText  },
   { key: 'security',      label: 'Security',             icon: Shield    },
   { key: 'integrations',  label: 'Integrations',         icon: Plug      },
@@ -78,13 +82,62 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 
 /* ── Profile tab ──────────────────────────────────────────────────────────── */
 function ProfileTab({ onSave }: { onSave: () => void }) {
-  const [studio, setStudio]   = useState('The Interior Studio');
-  const [tagline, setTagline] = useState('Transforming Spaces, Elevating Lives');
-  const [phone, setPhone]     = useState('+91 9876543210');
-  const [email, setEmail]     = useState('info@theinteriorstudios.in');
-  const [address, setAddress] = useState('Coimbatore, Tamil Nadu');
-  const [gst, setGst]         = useState('');
-  const [pan, setPan]         = useState('');
+  const [studio, setStudio]     = useState('');
+  const [tagline, setTagline]   = useState('');
+  const [phone, setPhone]       = useState('');
+  const [email, setEmail]       = useState('');
+  const [address, setAddress]   = useState('');
+  const [gst, setGst]           = useState('');
+  const [pan, setPan]           = useState('');
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+
+  // Load current tenant profile
+  useEffect(() => {
+    fetch('/api/v1/settings/profile')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.data) {
+          setStudio(res.data.studioName ?? '');
+          setTagline(res.data.tagline   ?? '');
+          setPhone(res.data.phone       ?? '');
+          setEmail(res.data.email       ?? '');
+          setAddress(res.data.address   ?? '');
+          setGst(res.data.gstin         ?? '');
+          setPan(res.data.pan           ?? '');
+        }
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function submit() {
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch('/api/v1/settings/profile', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          studioName: studio.trim() || undefined,
+          tagline:    tagline.trim() || null,
+          phone:      phone.trim()   || null,
+          email:      email.trim()   || null,
+          address:    address.trim() || null,
+          gstin:      gst.trim()     || null,
+          pan:        pan.trim()     || null,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to save');
+      onSave();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className="py-12 text-center text-sm" style={{ color: '#6B6459' }}>Loading profile…</div>;
 
   return (
     <div>
@@ -110,77 +163,188 @@ function ProfileTab({ onSave }: { onSave: () => void }) {
       <FormRow label="PAN">
         <input value={pan} onChange={e => setPan(e.target.value)} className="studio-input w-full text-sm" placeholder="Optional" />
       </FormRow>
+      {error && <p className="pt-2 text-xs text-red-600">{error}</p>}
       <div className="pt-4">
-        <button type="button" onClick={onSave} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
-          <Save className="h-4 w-4" />Save Profile
+        <button type="button" onClick={submit} disabled={saving} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm disabled:opacity-60">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {saving ? 'Saving…' : 'Save Profile'}
         </button>
       </div>
     </div>
   );
 }
 
-/* ── Users tab ────────────────────────────────────────────────────────────── */
+/* ── Users tab (roles & access, inline) ──────────────────────────────────── */
+const ROLE_LABEL: Record<UserRole, string> = {
+  owner: 'Owner', designer: 'Designer', supervisor: 'Supervisor', accountant: 'Accountant',
+};
+const ROLE_COLORS: Record<UserRole, string> = {
+  owner:      'bg-slate-900 text-white',
+  designer:   'bg-emerald-600 text-white',
+  supervisor: 'bg-amber-500 text-white',
+  accountant: 'bg-violet-600 text-white',
+};
+
 function UsersTab() {
-  const mockUsers = [
-    { name: 'Ramesh Kumar', email: 'ramesh@studio.com', role: 'owner',      active: true },
-    { name: 'Priya Sharma', email: 'priya@studio.com',  role: 'designer',   active: true },
-    { name: 'Anand R',      email: 'anand@studio.com',  role: 'accountant', active: true },
-    { name: 'Suresh V',     email: 'suresh@studio.com', role: 'supervisor', active: false },
-  ];
-  const roleStyle: Record<string, { bg: string; color: string }> = {
-    owner:      { bg: '#FDF3E8', color: '#92400E' },
-    designer:   { bg: '#F0FDF4', color: '#14532D' },
-    accountant: { bg: '#EFF6FF', color: '#1E40AF' },
-    supervisor: { bg: '#F5F3FF', color: '#6B21A8' },
-  };
+  const [rows, setRows]           = useState<Employee[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState('');
+  const [drafts, setDrafts]       = useState<Record<string, UserRole>>({});
+  const [savingId, setSavingId]   = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/v1/employees')
+      .then((r) => r.json())
+      .then(({ data }: { data: Employee[] | null }) => {
+        setRows(data ?? []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (!q) return true;
+      return (
+        r.fullName.toLowerCase().includes(q) ||
+        (r.email ?? '').toLowerCase().includes(q) ||
+        r.role.toLowerCase().includes(q)
+      );
+    });
+  }, [rows, search]);
+
+  const hasLogin = (r: Employee) => Boolean(r.supabaseUid);
+
+  async function saveRole(row: Employee) {
+    const newRole = drafts[row.id];
+    if (!newRole || newRole === row.role) return;
+    setSavingId(row.id);
+    setSaveError(null);
+    try {
+      const res = await fetch(`/api/v1/employees/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(typeof body?.error === 'string' ? body.error : `Save failed (${res.status})`);
+      setRows((prev) => prev.map((r) => r.id === row.id ? body.data : r));
+      setDrafts(({ [row.id]: _, ...rest }) => rest);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSavingId(null);
+    }
+  }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <SectionTitle>Team Members</SectionTitle>
-        <button type="button" className="btn-primary flex items-center gap-2 px-4 py-2 text-sm">
-          <Users className="h-4 w-4" />Invite Member
-        </button>
-      </div>
-      <div className="space-y-2">
-        {mockUsers.map(u => {
-          const rs = roleStyle[u.role] ?? roleStyle.owner;
-          return (
-            <div key={u.email} className="flex items-center gap-4 px-4 py-3 rounded-xl"
-              style={{ border: '1px solid #F0EEE9', background: u.active ? '#FFFFFF' : '#F9FAFB' }}>
-              <div className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-                style={{ background: 'linear-gradient(135deg, #4A443C, #24211E)' }}>
-                {u.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold" style={{ color: u.active ? '#221F1B' : '#6B6459' }}>{u.name}</p>
-                <p className="text-xs" style={{ color: '#A79E8E' }}>{u.email}</p>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full capitalize flex-shrink-0" style={rs}>{u.role}</span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-                style={{ background: u.active ? '#F0FDF4' : '#F3F4F6', color: u.active ? '#14532D' : '#6B7280' }}>
-                {u.active ? 'Active' : 'Inactive'}
-              </span>
-              <button type="button" className="text-xs hover:underline flex-shrink-0" style={{ color: '#24211E' }}>Edit</button>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-5 p-4 rounded-xl" style={{ background: '#FAF9F6', border: '1px solid #F0EEE9' }}>
-        <p className="text-sm font-semibold mb-3" style={{ color: '#1C1916' }}>Role Permissions</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {[
-            { role: 'Owner',      access: 'Full access — all modules, settings, P&L, export' },
-            { role: 'Designer',   access: 'Own projects, leads, quotations, site visits' },
-            { role: 'Accountant', access: 'Accounts, invoices, payments, expenses (read + export)' },
-            { role: 'Supervisor', access: 'Field app only — site logs, snag items' },
-          ].map(r => (
-            <div key={r.role} className="p-3 rounded-lg bg-white">
-              <p className="text-xs font-bold" style={{ color: '#24211E' }}>{r.role}</p>
-              <p className="text-xs mt-0.5" style={{ color: '#6B6459' }}>{r.access}</p>
-            </div>
-          ))}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <SectionTitle>Users &amp; Roles</SectionTitle>
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="Search name, email, role…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
+      </div>
+
+      {saveError && (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          {saveError}
+        </div>
+      )}
+
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-[var(--surface-card)] dark:border-slate-800">
+        <table className="w-full text-sm">
+          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">Member</th>
+              <th className="px-3 py-3 text-left font-semibold">Email</th>
+              <th className="px-3 py-3 text-left font-semibold">Access</th>
+              <th className="px-3 py-3 text-left font-semibold">Role</th>
+              <th className="w-16 px-3 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={5} className="p-10 text-center text-slate-500">Loading…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={5} className="p-10 text-center text-slate-500">
+                {search ? 'No members match your search.' : 'No members yet.'}
+              </td></tr>
+            ) : filtered.map((r) => {
+              const draftRole = drafts[r.id];
+              const dirty = draftRole && draftRole !== r.role;
+              return (
+                <tr key={r.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-900">
+                  <td className="px-4 py-2.5">
+                    <Link href={`/employees/${r.id}`} className="flex items-center gap-3 font-medium hover:text-emerald-600" style={{ color: 'var(--text-heading)' }}>
+                      <EmployeeAvatar name={r.fullName} photoUrl={r.photoUrl} size={32} />
+                      {r.fullName}
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{r.email ?? '—'}</td>
+                  <td className="px-3 py-2.5">
+                    {hasLogin(r) ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <KeyRound className="h-3 w-3" /> Has login
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        No login
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Select
+                      value={draftRole ?? r.role}
+                      onValueChange={(v) => setDrafts((d) => ({ ...d, [r.id]: v as UserRole }))}
+                    >
+                      <SelectTrigger className="w-36">
+                        <SelectValue>
+                          <span className={'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ' + ROLE_COLORS[(draftRole ?? r.role) as UserRole]}>
+                            {ROLE_LABEL[(draftRole ?? r.role) as UserRole]}
+                          </span>
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(ROLE_LABEL) as UserRole[]).map((k) => (
+                          <SelectItem key={k} value={k}>{ROLE_LABEL[k]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    {dirty && (
+                      <Button
+                        size="sm"
+                        onClick={() => saveRole(r)}
+                        disabled={savingId === r.id}
+                        className="h-7 gap-1 bg-emerald-600 text-white hover:bg-emerald-700"
+                      >
+                        {savingId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                        Save
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-3 text-center text-xs text-slate-500 dark:border-slate-700">
+        <MailPlus className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+        To grant login access to a new member, add them in{' '}
+        <Link href="/employees" className="font-medium text-emerald-600 underline">People</Link>{' '}
+        first.
       </div>
     </div>
   );
@@ -226,51 +390,6 @@ function NotificationsTab({ onSave }: { onSave: () => void }) {
       <button type="button" onClick={onSave} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
         <Save className="h-4 w-4" />Save Preferences
       </button>
-    </div>
-  );
-}
-
-/* ── Branding tab ─────────────────────────────────────────────────────────── */
-function BrandingTab({ onSave }: { onSave: () => void }) {
-  return (
-    <div>
-      <SectionTitle>Branding & Theme</SectionTitle>
-      <FormRow label="Studio Logo" hint="Used on invoices and client portal">
-        <div className="flex items-center gap-3">
-          <div className="h-16 w-16 rounded-xl flex items-center justify-center" style={{ background: 'rgba(36,33,30,0.10)' }}>
-            <Building2 className="h-8 w-8" style={{ color: '#E2DED5' }} />
-          </div>
-          <button type="button" className="btn-secondary px-4 py-2 text-sm">Upload Logo</button>
-        </div>
-      </FormRow>
-      <FormRow label="Primary Color" hint="Brand color for buttons and accents">
-        <div className="flex items-center gap-3">
-          <input type="color" defaultValue="#24211E" className="h-10 w-16 rounded-lg cursor-pointer" style={{ border: '1px solid #E2DED5' }} />
-          <span className="text-sm" style={{ color: '#6B6459' }}>#24211E (Walnut Brown)</span>
-        </div>
-      </FormRow>
-      <FormRow label="Gold Accent">
-        <div className="flex items-center gap-3">
-          <input type="color" defaultValue="#8F6F2E" className="h-10 w-16 rounded-lg cursor-pointer" style={{ border: '1px solid #E2DED5' }} />
-          <span className="text-sm" style={{ color: '#6B6459' }}>#8F6F2E (Gold)</span>
-        </div>
-      </FormRow>
-      <FormRow label="Client Portal Theme">
-        <div className="flex gap-3 flex-wrap">
-          {['Cream & Brown', 'White & Gold', 'Dark & Premium'].map((t, i) => (
-            <button key={t} type="button"
-              className="px-4 py-2 rounded-xl text-sm font-medium border transition-colors"
-              style={{ borderColor: i === 0 ? '#24211E' : '#E2DED5', background: i === 0 ? '#FAF9F6' : '#FFFFFF', color: '#24211E' }}>
-              {t}
-            </button>
-          ))}
-        </div>
-      </FormRow>
-      <div className="pt-4">
-        <button type="button" onClick={onSave} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
-          <Save className="h-4 w-4" />Save Branding
-        </button>
-      </div>
     </div>
   );
 }
@@ -432,14 +551,42 @@ function IntegrationsTab() {
 
 /* ── Export tab ───────────────────────────────────────────────────────────── */
 function ExportTab() {
-  const exports = [
-    { label: 'Leads (CSV)',              desc: 'All leads with contact info and pipeline stage' },
-    { label: 'Projects (CSV)',           desc: 'Project list with contract values and lifecycle stage' },
-    { label: 'Quotations (CSV)',         desc: 'All quotes with line items and margin breakdown' },
-    { label: 'Payments (CSV)',           desc: 'Payment history for accounting reconciliation' },
-    { label: 'Materials Catalogue',     desc: 'Full material list with cost, sell price and vendor' },
-    { label: 'Full Data Backup (JSON)', desc: 'Complete workspace export — all tables, all records' },
+  const exports: { kind: string; label: string; desc: string; ext: 'csv' | 'json' }[] = [
+    { kind: 'leads',     label: 'Leads (CSV)',              desc: 'All leads with contact info and pipeline stage',            ext: 'csv'  },
+    { kind: 'projects',  label: 'Projects (CSV)',           desc: 'Project list with contract values and lifecycle stage',     ext: 'csv'  },
+    { kind: 'quotes',    label: 'Quotations (CSV)',         desc: 'All quotes with totals and margin breakdown',               ext: 'csv'  },
+    { kind: 'payments',  label: 'Payments (CSV)',           desc: 'Payment history for accounting reconciliation',             ext: 'csv'  },
+    { kind: 'materials', label: 'Materials Catalogue (CSV)', desc: 'Full material list with cost, sell price and vendor',      ext: 'csv'  },
+    { kind: 'backup',    label: 'Full Data Backup (JSON)',  desc: 'Complete workspace export — leads, projects, quotes, more', ext: 'json' },
   ];
+
+  const [downloadingKind, setDownloadingKind] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function download(kind: string, ext: 'csv' | 'json') {
+    setDownloadingKind(kind);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/exports/${kind}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(typeof body?.error === 'string' ? body.error : `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${kind}_${new Date().toISOString().slice(0, 10)}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Export failed');
+    } finally {
+      setDownloadingKind(null);
+    }
+  }
 
   return (
     <div>
@@ -447,19 +594,33 @@ function ExportTab() {
       <p className="text-sm mb-5" style={{ color: '#6B6459' }}>
         Your data belongs to you. Export anytime in standard formats.
       </p>
+      {error && (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">
+          {error}
+        </div>
+      )}
       <div className="space-y-3">
-        {exports.map(e => (
-          <div key={e.label} className="flex items-center justify-between px-4 py-4 rounded-xl"
-            style={{ border: '1px solid #F0EEE9', background: '#FFFFFF' }}>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{e.label}</p>
-              <p className="text-xs" style={{ color: '#6B6459' }}>{e.desc}</p>
+        {exports.map(e => {
+          const busy = downloadingKind === e.kind;
+          return (
+            <div key={e.kind} className="flex items-center justify-between px-4 py-4 rounded-xl"
+              style={{ border: '1px solid #F0EEE9', background: '#FFFFFF' }}>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{e.label}</p>
+                <p className="text-xs" style={{ color: '#6B6459' }}>{e.desc}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => download(e.kind, e.ext)}
+                disabled={busy}
+                className="btn-secondary flex items-center gap-1.5 px-4 py-2 text-sm flex-shrink-0 disabled:opacity-60"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {busy ? 'Preparing…' : 'Export'}
+              </button>
             </div>
-            <button type="button" className="btn-secondary flex items-center gap-1.5 px-4 py-2 text-sm flex-shrink-0">
-              <Download className="h-3.5 w-3.5" />Export
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="mt-6 p-4 rounded-xl" style={{ background: '#FFF7ED', border: '1px solid #FCD34D' }}>
         <p className="text-sm font-semibold mb-1" style={{ color: '#92400E' }}>Data Retention</p>
@@ -486,7 +647,6 @@ export default function SettingsPage() {
     profile:       <ProfileTab       onSave={handleSave} />,
     users:         <UsersTab />,
     notifications: <NotificationsTab onSave={handleSave} />,
-    branding:      <BrandingTab      onSave={handleSave} />,
     invoice:       <InvoiceTab       onSave={handleSave} />,
     security:      <SecurityTab      onSave={handleSave} />,
     integrations:  <IntegrationsTab />,

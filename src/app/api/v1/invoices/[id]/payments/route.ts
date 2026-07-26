@@ -60,7 +60,7 @@ export async function POST(
         amountPaise: parsed.data.amountPaise,
         status: 'captured',
         reconciledAt: new Date(),
-        manualOverrideBy: ctx.userId,
+        manualOverrideBy: ctx.dbUserId,
         manualOverrideNote: parsed.data.note,
       })
       .returning();

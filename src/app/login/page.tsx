@@ -1,81 +1,91 @@
 import { LoginForm } from '@/components/auth/LoginForm';
+import { LoginScene3D } from '@/components/auth/LoginScene3D';
 
 export default function LoginPage() {
   return (
-    <div className="login-shell login-bg">
-      {/* ── Left: dark hero — dot grid + editorial quote ─────────────────── */}
+    <div className="login-shell">
+      {/* ── Left: brand / architectural showcase panel ─────────────────── */}
       <div className="login-hero">
-        <div className="login-hero-grid" aria-hidden />
+        <div className="login-hero-grid" aria-hidden="true" />
+        <div className="login-hero-glow" aria-hidden="true" />
 
         <div className="login-hero-content">
           <div className="login-hero-brand">
-            <div className="login-hero-brand-mark">IS</div>
-            <span className="login-hero-brand-label">Interior Studio</span>
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white p-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/logo-icon.png"
+                alt="InterioOS"
+                className="h-full w-full object-contain"
+                width={28}
+                height={28}
+              />
+            </div>
+            <span>InterioOS</span>
           </div>
 
-          <div className="login-hero-body">
-            <h2 className="login-hero-headline">
-              Everything the studio needs, in <span className="serif-em">one</span> place.
-            </h2>
-            <p className="login-hero-sub">
-              From the first WhatsApp message to the final handover — pipeline,
-              quotations, procurement, milestone billing and site logs. Built for
-              the way Indian design studios actually run.
+          <div className="login-hero-illustration">
+            <LoginScene3D />
+          </div>
+
+          <div className="login-hero-copy">
+            <h2>Where blueprints become homes.</h2>
+            <p>
+              Design, track, and deliver every interior project — from the first
+              concept sketch to final handover — inside one studio workspace.
             </p>
           </div>
 
           <div className="login-hero-stats">
             <div>
-              <p className="login-hero-stat-value num">250+</p>
-              <p className="login-hero-stat-label">Projects delivered</p>
+              <strong>250+</strong>
+              <span>Projects delivered</span>
             </div>
             <div>
-              <p className="login-hero-stat-value num">4.9</p>
-              <p className="login-hero-stat-label">Client rating</p>
+              <strong>4.9★</strong>
+              <span>Client rating</span>
             </div>
             <div>
-              <p className="login-hero-stat-value num">12+</p>
-              <p className="login-hero-stat-label">Cities served</p>
+              <strong>12+</strong>
+              <span>Cities served</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Right: glass sign-in card over ambient glow ─────────────────── */}
+      {/* ── Right: sign-in form panel (glassmorphism) ───────────────────── */}
       <div className="login-form-panel">
-        <div className="login-form-shell animate-fade-in">
-          <div className="flex items-center gap-3 lg:hidden">
-            <div
-              className="h-9 w-9 rounded-lg flex items-center justify-center font-bold"
-              style={{
-                background: 'linear-gradient(135deg, var(--acc), var(--acc-lo))',
-                color: 'var(--bg)',
-                boxShadow: '0 0 0 1px var(--acc-tint-hi), 0 8px 24px var(--acc-glow)',
-              }}
-            >
-              IS
+        <div className="login-form-blob login-form-blob--a" aria-hidden="true" />
+        <div className="login-form-blob login-form-blob--b" aria-hidden="true" />
+        <div className="login-form-blob login-form-blob--c" aria-hidden="true" />
+
+        <div className="w-full max-w-sm animate-fade-in login-glass-card">
+          {/* Brand mark — mobile only, hero panel is hidden below lg */}
+          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-icon.png"
+              alt="InterioOS"
+              className="h-14 w-14 object-contain"
+              width={56}
+              height={56}
+            />
+            <div className="text-center">
+              <h1 className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
+                InterioOS
+              </h1>
             </div>
-            <span className="text-base font-semibold" style={{ color: 'var(--ink)' }}>
-              Interior Studio
-            </span>
           </div>
 
-          <div className="login-form-header">
-            <span className="eyebrow" style={{ color: 'var(--acc)' }}>
-              Studio OS · Sign in
-            </span>
-            <h1 className="login-form-title">
-              Welcome <span className="serif-em">back.</span>
-            </h1>
-            <p className="login-form-subtitle">
-              Sign in to pick up where you left off.
-            </p>
+          <div className="mb-9">
+            <h1 className="login-form-title">Welcome back</h1>
+            <p className="login-form-subtitle">Sign in to your studio workspace</p>
           </div>
 
           <LoginForm />
-
-          <p className="login-form-footer">Built by DigitalVetri</p>
         </div>
+
+        <p className="login-form-footer">Built by DigitalVetri</p>
       </div>
     </div>
   );

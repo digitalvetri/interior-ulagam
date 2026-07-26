@@ -12,7 +12,7 @@ const CreateProjectSchema = z.object({
   totalContractPaise: z.number().int().nonnegative().optional(),
 });
 
-export async function GET() {
+export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,21 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AIProvider } from './index';
 
-let cached: GoogleGenerativeAI | null = null;
-
-function getGenAI(): GoogleGenerativeAI {
-  if (cached) return cached;
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GOOGLE_AI_API_KEY must be set');
-  }
-  cached = new GoogleGenerativeAI(apiKey);
-  return cached;
-}
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 
 export const geminiProvider: AIProvider = {
   async chatJSON({ system, user, schema }) {
-    const model = getGenAI().getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent(
       `${system}\n\nRespond with valid JSON only.\n\n${user}`
     );
@@ -28,7 +18,7 @@ export const geminiProvider: AIProvider = {
   },
 
   async describeImage(imageUrl: string, prompt: string) {
-    const model = getGenAI().getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const imageResponse = await fetch(imageUrl);
     const imageBlob = await imageResponse.blob();
     const imageBytes = await imageBlob.arrayBuffer();

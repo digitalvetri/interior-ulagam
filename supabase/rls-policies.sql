@@ -20,7 +20,6 @@ alter table payments enable row level security;
 alter table expenses enable row level security;
 alter table snag_items enable row level security;
 alter table wa_messages enable row level security;
-alter table lead_activities enable row level security;
 
 -- Tenant isolation policy template (repeat for each table)
 -- Requires tenant_id claim in JWT: { "tenant_id": "uuid" }
@@ -33,10 +32,6 @@ create policy "tenant_isolation" on users
   with check (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
 
 create policy "tenant_isolation" on leads
-  using (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
-  with check (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
-
-create policy "tenant_isolation" on lead_activities
   using (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
   with check (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
 
@@ -127,21 +122,3 @@ create policy "tenant_isolation" on snag_items
         and p.tenant_id = (auth.jwt() ->> 'tenant_id')::uuid
     )
   );
-
--- ─────────────────────────────────────────────────────────────────────────
--- Storage buckets
--- ─────────────────────────────────────────────────────────────────────────
--- The Inngest `quote-pdf` function writes generated quotation PDFs to a
--- private bucket named `quote-pdfs`. Objects are keyed as
--- `<tenant_id>/<quote_id>-v<version>.pdf`. Clients receive time-limited
--- signed URLs; no anonymous read is exposed.
---
--- Run once in Supabase SQL Editor:
---
---   insert into storage.buckets (id, name, public)
---   values ('quote-pdfs', 'quote-pdfs', false)
---   on conflict (id) do nothing;
---
--- No storage.objects policies are needed for the service role — it bypasses
--- RLS. Add a per-tenant read policy only if the app ever begins reading
--- these objects through the anon/authenticated client.

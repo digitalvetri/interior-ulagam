@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 
-export default function GlobalError({
+export default function GlobalErrorBoundary({
   error,
   reset,
 }: {
@@ -10,69 +10,28 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error('[root error boundary]', error);
+    console.error('[GlobalErrorBoundary]', error);
   }, [error]);
 
   return (
     <html lang="en">
-      <body
-        style={{
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          background: '#0b0b0c',
-          color: '#f4f4f5',
-          minHeight: '100vh',
-          margin: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-        }}
-      >
-        <div style={{ textAlign: 'center', maxWidth: 480 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              letterSpacing: '0.15em',
-              textTransform: 'uppercase',
-              color: '#f87171',
-            }}
-          >
-            Application error
-          </p>
-          <h1 style={{ margin: '12px 0 8px', fontSize: 28 }}>
-            The app crashed unexpectedly.
-          </h1>
-          <p style={{ margin: '0 0 16px', color: '#a1a1aa', fontSize: 14 }}>
-            Refresh the page or click below to reset.
-          </p>
-          {error.digest && (
-            <p
-              style={{
-                margin: '0 0 16px',
-                color: '#71717a',
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: 12,
-              }}
-            >
-              Ref: {error.digest}
+      <body style={{ background: '#F8F5F2', margin: 0, fontFamily: 'sans-serif' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div style={{ background: '#fff', borderRadius: '1rem', padding: '2rem', maxWidth: '28rem', width: '100%', textAlign: 'center', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
+            <p style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</p>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1a1a1a', marginBottom: '0.5rem' }}>
+              Critical error
+            </h1>
+            <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1.5rem' }}>
+              {error.message ?? 'The application encountered an unrecoverable error.'}
             </p>
-          )}
-          <button
-            onClick={reset}
-            style={{
-              padding: '8px 16px',
-              background: '#f4f4f5',
-              color: '#0b0b0c',
-              border: 'none',
-              borderRadius: 6,
-              fontSize: 14,
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            Try again
-          </button>
+            <button
+              onClick={reset}
+              style={{ background: '#C89B3C', color: '#fff', border: 'none', borderRadius: '0.5rem', padding: '0.625rem 1.5rem', fontWeight: 600, cursor: 'pointer' }}
+            >
+              Reload
+            </button>
+          </div>
         </div>
       </body>
     </html>

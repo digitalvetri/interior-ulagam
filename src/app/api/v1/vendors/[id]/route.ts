@@ -76,7 +76,9 @@ export async function PATCH(
 
   const parsed = UpdateVendorSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    const first = parsed.error.issues[0];
+    const msg = first ? (first.path.length ? `${first.path.join('.')}: ${first.message}` : first.message) : 'Validation error';
+    return NextResponse.json({ error: msg, details: parsed.error.flatten() }, { status: 422 });
   }
 
   const input = parsed.data;

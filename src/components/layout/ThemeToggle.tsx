@@ -38,16 +38,17 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="top-icon-btn"
+      className="relative rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+      style={{ color: 'var(--text-heading)' }}
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
     >
       {/* Suppress hydration mismatch — server can't know the client's stored
-          preference, so we render an icon and let it swap after mount. */}
+          preference, so render a placeholder icon and swap after mount. */}
       {mounted && theme === 'dark' ? (
-        <Sun className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        <Sun className="h-4 w-4" strokeWidth={1.75} />
       ) : (
-        <Moon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        <Moon className="h-4 w-4" strokeWidth={1.75} />
       )}
     </button>
   );

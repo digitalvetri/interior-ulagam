@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -23,14 +21,11 @@ import {
 import { formatRupees } from '@/lib/utils';
 import { Quote, Project } from '@/types/quotes';
 
-const STATUS_BADGE_VARIANT: Record<
-  Quote['status'],
-  'default' | 'secondary' | 'outline' | 'destructive'
-> = {
-  draft: 'secondary',
-  sent: 'default',
-  approved: 'outline',
-  revised: 'destructive',
+const STATUS_BADGE_STYLE: Record<Quote['status'], React.CSSProperties> = {
+  draft:    { background: 'var(--surface-muted)', color: 'var(--text-secondary)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  sent:     { background: 'var(--gold-soft)', color: 'var(--text-gold)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  approved: { background: 'var(--teal-soft)', color: 'var(--text-accent)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  revised:  { background: '#FEE2E2', color: '#991B1B', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
 };
 
 export default function QuotesPage() {
@@ -79,7 +74,7 @@ export default function QuotesPage() {
       const res = await fetch('/api/v1/quotes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: Number(selectedProjectId) }),
+        body: JSON.stringify({ projectId: selectedProjectId }),
       });
       if (!res.ok) {
         const body = (await res.json()) as { error?: string };
@@ -100,29 +95,32 @@ export default function QuotesPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
           Quotes
         </h2>
-        <Button onClick={openNewQuoteDialog}>+ New Quote</Button>
+        <button className="btn-primary px-4 py-2" onClick={openNewQuoteDialog}>
+          + New Quote
+        </button>
       </div>
 
       {/* Table */}
       {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading quotes…</p>
+        <div className="premium-card flex h-32 items-center justify-center">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading quotes…</p>
         </div>
       ) : quotes.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
-          <p className="text-sm text-gray-500">No quotes yet.</p>
-          <Button variant="outline" size="sm" onClick={openNewQuoteDialog}>
+        <div className="premium-card flex h-48 flex-col items-center justify-center gap-2">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No quotes yet.</p>
+          <button className="btn-secondary px-4 py-2 text-sm" onClick={openNewQuoteDialog}>
             Create your first quote
-          </Button>
+          </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="premium-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+              <tr className="text-left text-xs font-semibold uppercase tracking-wide"
+                style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                 <th className="px-4 py-3">Quote ID</th>
                 <th className="px-4 py-3">Version</th>
                 <th className="px-4 py-3">Project</th>
@@ -135,31 +133,33 @@ export default function QuotesPage() {
               {quotes.map((quote) => (
                 <tr
                   key={quote.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                  className="transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
                 >
                   <td className="px-4 py-3">
                     <Link
                       href={`/quotes/${quote.id}`}
-                      className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+                      className="font-medium hover:underline"
+                      style={{ color: 'var(--text-accent)' }}
                     >
                       #{quote.id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     v{quote.version}
                   </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {quote.projectId}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={STATUS_BADGE_VARIANT[quote.status]}>
+                    <span style={STATUS_BADGE_STYLE[quote.status]}>
                       {quote.status}
-                    </Badge>
+                    </span>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-heading)' }}>
                     {formatRupees(quote.totalPaise)}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {new Date(quote.createdAt).toLocaleDateString('en-IN')}
                   </td>
                 </tr>
@@ -180,9 +180,9 @@ export default function QuotesPage() {
             <div className="space-y-2">
               <Label htmlFor="quote-project">Select Project</Label>
               {projectsLoading ? (
-                <p className="text-sm text-gray-500">Loading projects…</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading projects…</p>
               ) : projects.length === 0 ? (
-                <p className="text-sm text-gray-500">No projects found.</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No projects found.</p>
               ) : (
                 <Select
                   value={selectedProjectId}
@@ -203,23 +203,29 @@ export default function QuotesPage() {
             </div>
 
             {createError && (
-              <p className="text-xs text-red-600 dark:text-red-400">
+              <p className="text-xs text-red-600">
                 {createError}
               </p>
             )}
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
+            <button
+              type="button"
+              className="btn-secondary px-4 py-2"
               onClick={() => setDialogOpen(false)}
               disabled={creating}
             >
               Cancel
-            </Button>
-            <Button onClick={handleCreateQuote} disabled={creating || projectsLoading}>
+            </button>
+            <button
+              type="button"
+              className="btn-primary px-4 py-2"
+              onClick={handleCreateQuote}
+              disabled={creating || projectsLoading}
+            >
               {creating ? 'Creating…' : 'Create Quote'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

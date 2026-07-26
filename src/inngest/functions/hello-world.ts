@@ -5,7 +5,7 @@ export const helloWorld = inngest.createFunction(
   { event: 'test/hello.world' },
   async ({ event, step }) => {
     const greeting = await step.run('greet', async () => {
-      return `Hello, ${event.data.name ?? 'Interior Studio OS'}!`;
+      return `Hello, ${event.data.name ?? 'InterioOS'}!`;
     });
     return { greeting };
   }

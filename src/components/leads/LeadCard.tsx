@@ -6,7 +6,7 @@ import {
   Home, IndianRupee, Calendar, ExternalLink, User,
 } from 'lucide-react';
 import {
-  Lead, LeadStage, STAGE_ORDER, STAGE_LABELS,
+  Lead, LeadStage, STAGE_ORDER, STAGE_LABELS, PRIORITY_CONFIG,
 } from '@/types/leads';
 
 interface LeadCardProps {
@@ -23,17 +23,8 @@ const SOURCE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-const PRIORITY_STYLES: Record<
-  'hot' | 'warm' | 'cold',
-  { label: string; chip: string; dot: string }
-> = {
-  hot:  { label: 'Hot',  chip: 'chip chip--neg', dot: 'var(--neg)' },
-  warm: { label: 'Warm', chip: 'chip chip--warn', dot: 'var(--warn)' },
-  cold: { label: 'Cold', chip: 'chip chip--acc', dot: 'var(--acc)' },
-};
-
 function getInitials(name: string): string {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 }
 
 function getDaysSince(isoDate: string): number {
@@ -58,236 +49,173 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
   const daysSince = getDaysSince(lead.lastActivityAt);
   const stageIndex = STAGE_ORDER.indexOf(lead.stage);
   const nextStage = stageIndex < STAGE_ORDER.length - 1 ? STAGE_ORDER[stageIndex + 1] : null;
-  const priorityCfg = lead.priority ? PRIORITY_STYLES[lead.priority] : null;
+  const priorityCfg = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
   const followUpUrgency = getFollowUpUrgency(lead.followUpDate);
   const followUpDate = lead.followUpDate ? new Date(lead.followUpDate) : null;
-  const isStale = daysSince > 7;
 
-  const followUpChip =
-    followUpUrgency === 'overdue' ? 'chip chip--neg'  :
-    followUpUrgency === 'today'   ? 'chip chip--warn' :
-                                    'chip';
+  const fuStyle =
+    followUpUrgency === 'overdue' ? { bg: '#FEF2F2', color: '#DC2626' } :
+    followUpUrgency === 'today'   ? { bg: '#FFF7ED', color: '#EA580C' } :
+                                    { bg: '#FAF9F6', color: '#6B6459' };
+
+  const isStale = daysSince > 7;
 
   return (
     <div
-      className="card p-3.5 mb-2.5 group"
-      style={
-        isStale
-          ? { borderColor: 'var(--neg)', boxShadow: '0 0 0 1px var(--neg-tint) inset' }
-          : undefined
-      }
+      className="premium-card p-4 mb-3 group transition-all"
+      style={{ borderColor: isStale ? '#FCA5A5' : '#E2DED5' }}
     >
-      {/* Header — avatar · name+priority · external */}
+      {/* ── Header: Avatar + Name + Priority + External Link ────────────── */}
       <div className="flex items-start gap-2.5 mb-3">
-        <span
-          className="h-9 w-9 rounded-md flex items-center justify-center text-xs font-semibold flex-shrink-0"
-          style={{
-            background: 'linear-gradient(135deg, var(--acc), var(--acc-lo))',
-            color: '#FFFFFF',
-          }}
+        <div
+          className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #4A443C 0%, #24211E 100%)' }}
         >
           {initials}
-        </span>
+        </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p
-              className="text-sm font-semibold truncate"
-              style={{ color: 'var(--ink)', maxWidth: 130 }}
-              title={lead.contactName}
-            >
+            <p className="text-sm font-semibold" style={{ color: '#221F1B', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {lead.contactName}
             </p>
             {priorityCfg && (
-              <span className={priorityCfg.chip}>
-                <span
-                  className="w-1.5 h-1.5 rounded-full inline-block"
-                  style={{ background: priorityCfg.dot }}
-                />
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0"
+                style={{ background: priorityCfg.bg, color: priorityCfg.color }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: priorityCfg.dot }} />
                 {priorityCfg.label}
               </span>
             )}
           </div>
-          <p className="text-xs mt-0.5 num" style={{ color: 'var(--ink-4)' }}>
-            {lead.contactPhone}
-          </p>
+          <p className="text-xs mt-0.5" style={{ color: '#6B6459' }}>{lead.contactPhone}</p>
         </div>
 
         <Link
           href={`/leads/${lead.id}`}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-1 rounded"
-          style={{ color: 'var(--ink-3)' }}
-          onClick={(e) => e.stopPropagation()}
-          aria-label="Open lead details"
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-[#F0EEE9]"
+          onClick={e => e.stopPropagation()}
         >
-          <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} />
+          <ExternalLink className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
         </Link>
       </div>
 
-      {/* Property + budget */}
+      {/* ── Property + Budget ──────────────────────────────────────────── */}
       {(lead.propertyType || lead.budgetBand) && (
         <div className="flex items-center gap-3 mb-2.5 flex-wrap">
           {lead.propertyType && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px]"
-              style={{ color: 'var(--ink-3)' }}
-            >
-              <Home className="h-3 w-3" strokeWidth={1.75} />
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#6B6459' }}>
+              <Home className="h-3 w-3" />
               {lead.propertyType}
             </span>
           )}
           {lead.budgetBand && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] font-medium"
-              style={{ color: 'var(--ink-2)' }}
-            >
-              <IndianRupee className="h-3 w-3" strokeWidth={2} />
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: '#24211E' }}>
+              <IndianRupee className="h-3 w-3" />
               {lead.budgetBand}
             </span>
           )}
         </div>
       )}
 
-      {/* Project value */}
+      {/* ── Project Value ───────────────────────────────────────────────── */}
       {(lead.projectValuePaise ?? 0) > 0 && (
-        <div className="flex items-baseline gap-1.5 mb-2.5">
-          <span
-            className="text-sm font-semibold num"
-            style={{ color: 'var(--acc)' }}
-          >
-            ₹
-            {((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', {
-              maximumFractionDigits: 0,
-            })}
+        <div className="flex items-center gap-1.5 mb-2.5">
+          <span className="text-sm font-bold" style={{ color: '#8F6F2E' }}>
+            ₹{((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </span>
-          <span className="text-[10px]" style={{ color: 'var(--ink-4)' }}>
-            est. value
-          </span>
+          <span className="text-[10px]" style={{ color: '#6B6459' }}>est. value</span>
         </div>
       )}
 
-      {/* Follow-up */}
+      {/* ── Follow-up badge ─────────────────────────────────────────────── */}
       {followUpDate && (
-        <div className="mb-2.5">
-          <span className={followUpChip}>
-            <Calendar className="h-3 w-3" strokeWidth={1.75} />
-            {followUpUrgency === 'overdue'
-              ? 'Overdue · '
-              : followUpUrgency === 'today'
-                ? 'Today · '
-                : 'Follow-up · '}
-            {followUpDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-          </span>
+        <div
+          className="flex items-center gap-1.5 mb-2.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium"
+          style={{ background: fuStyle.bg, color: fuStyle.color }}
+        >
+          <Calendar className="h-3 w-3 flex-shrink-0" />
+          {followUpUrgency === 'overdue' ? 'Overdue · ' :
+           followUpUrgency === 'today'   ? 'Today · '   : 'Follow-up · '}
+          {followUpDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
         </div>
       )}
 
-      {/* Meta row — source · designer · age */}
-      <div className="flex items-center justify-between mb-3 gap-2">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          <span className="chip">{SOURCE_LABELS[lead.source] ?? lead.source}</span>
+      {/* ── Footer: source + designer + age ────────────────────────────── */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span
+            className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+            style={{ background: '#F0EEE9', color: '#24211E' }}
+          >
+            {SOURCE_LABELS[lead.source] ?? lead.source}
+          </span>
           {lead.designerName && (
-            <span
-              className="inline-flex items-center gap-1 text-[10px] truncate"
-              style={{ color: 'var(--ink-4)' }}
-            >
-              <User className="h-2.5 w-2.5" strokeWidth={1.75} />
+            <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: '#6B6459' }}>
+              <User className="h-2.5 w-2.5" />
               {lead.designerName}
             </span>
           )}
         </div>
         <span
-          className="text-[10px] font-medium flex-shrink-0"
-          style={{ color: isStale ? 'var(--neg)' : 'var(--ink-4)' }}
+          className="text-[10px] font-medium"
+          style={{ color: isStale ? '#EF4444' : '#6B6459' }}
         >
           {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
         </span>
       </div>
 
-      {/* Actions */}
-      <div
-        className="flex items-center gap-0.5 pt-2.5"
-        style={{ borderTop: '1px solid var(--line)' }}
-      >
-        <ActionButton href={`tel:${lead.contactPhone}`} icon={Phone} label="Call" />
-        <ActionButton
+      {/* ── Action row ──────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 pt-2.5" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <a
+          href={`tel:${lead.contactPhone}`}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+          style={{ color: '#24211E' }}
+          onClick={e => e.stopPropagation()}
+          title="Call"
+        >
+          <Phone className="h-3 w-3" />
+          <span>Call</span>
+        </a>
+
+        <a
           href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '')}`}
-          icon={MessageCircle}
-          label="WA"
-          external
-        />
-        <ActionButton href={`/leads/${lead.id}`} icon={Eye} label="View" internal />
+          target="_blank"
+          rel="noreferrer"
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+          style={{ color: '#24211E' }}
+          onClick={e => e.stopPropagation()}
+          title="WhatsApp"
+        >
+          <MessageCircle className="h-3 w-3" />
+          <span>WA</span>
+        </a>
+
+        <Link
+          href={`/leads/${lead.id}`}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+          style={{ color: '#24211E' }}
+          onClick={e => e.stopPropagation()}
+          title="View Details"
+        >
+          <Eye className="h-3 w-3" />
+          <span>View</span>
+        </Link>
+
         {nextStage && (
           <button
             type="button"
-            className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-md text-[11px] font-medium transition-colors"
-            style={{ color: 'var(--ink-2)' }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--panel-hi)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
+            style={{ color: '#24211E' }}
             onClick={() => onStageChange(lead.id, nextStage)}
             title={`Move to ${STAGE_LABELS[nextStage]}`}
           >
-            <ArrowRight className="h-3 w-3" strokeWidth={1.75} />
+            <ArrowRight className="h-3 w-3" />
             <span>Move</span>
           </button>
         )}
       </div>
     </div>
-  );
-}
-
-function ActionButton({
-  href,
-  icon: Icon,
-  label,
-  external = false,
-  internal = false,
-}: {
-  href: string;
-  icon: React.ElementType;
-  label: string;
-  external?: boolean;
-  internal?: boolean;
-}) {
-  const cls =
-    'flex flex-1 items-center justify-center gap-1 py-1.5 rounded-md text-[11px] font-medium transition-colors';
-  const style: React.CSSProperties = { color: 'var(--ink-2)' };
-  const handlers = {
-    onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.background = 'var(--panel-hi)';
-    },
-    onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.background = 'transparent';
-    },
-  };
-
-  if (internal) {
-    return (
-      <Link
-        href={href}
-        className={cls}
-        style={style}
-        title={label}
-        onClick={(e) => e.stopPropagation()}
-        {...handlers}
-      >
-        <Icon className="h-3 w-3" strokeWidth={1.75} />
-        <span>{label}</span>
-      </Link>
-    );
-  }
-  return (
-    <a
-      href={href}
-      target={external ? '_blank' : undefined}
-      rel={external ? 'noreferrer' : undefined}
-      className={cls}
-      style={style}
-      title={label}
-      onClick={(e) => e.stopPropagation()}
-      {...handlers}
-    >
-      <Icon className="h-3 w-3" strokeWidth={1.75} />
-      <span>{label}</span>
-    </a>
   );
 }

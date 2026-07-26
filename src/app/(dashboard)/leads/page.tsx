@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Search, Filter, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, SortAsc } from 'lucide-react';
 import { Lead, LeadStage, LeadPriority, LeadSource } from '@/types/leads';
 import { LeadBoard } from '@/components/leads/LeadBoard';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
@@ -9,37 +9,27 @@ import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 export default function LeadsPage() {
   const [leads, setLeads]                   = useState<Lead[]>([]);
   const [loading, setLoading]               = useState(true);
-  const [loadError, setLoadError]           = useState<string | null>(null);
   const [search, setSearch]                 = useState('');
   const [filterPriority, setFilterPriority] = useState<LeadPriority | 'all'>('all');
   const [filterSource, setFilterSource]     = useState<LeadSource | 'all'>('all');
   const [sortBy, setSortBy]                 = useState<'latest' | 'followup' | 'budget'>('latest');
 
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/v1/leads');
-        if (!res.ok) {
-          setLoadError(`Failed to load leads (${res.status})`);
-          return;
-        }
-        const { data } = (await res.json()) as { data: Lead[] | null };
+    fetch('/api/v1/leads')
+      .then(r => r.json())
+      .then(({ data }: { data: Lead[] | null }) => {
         setLeads(data ?? []);
-      } catch {
-        setLoadError('Network error — please try again');
-      } finally {
         setLoading(false);
-      }
-    }
-    void load();
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const handleLeadCreated = useCallback((newLead: Lead) => {
-    setLeads((prev) => [newLead, ...prev]);
+    setLeads(prev => [newLead, ...prev]);
   }, []);
 
   const handleStageChange = useCallback((leadId: string, newStage: LeadStage) => {
-    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, stage: newStage } : l)));
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, stage: newStage } : l));
   }, []);
 
   const filteredLeads = useMemo(() => {
@@ -47,15 +37,14 @@ export default function LeadsPage() {
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (l) =>
-          l.contactName.toLowerCase().includes(q) ||
-          l.contactPhone.includes(q) ||
-          (l.contactEmail ?? '').toLowerCase().includes(q),
+      result = result.filter(l =>
+        l.contactName.toLowerCase().includes(q) ||
+        l.contactPhone.includes(q) ||
+        (l.contactEmail ?? '').toLowerCase().includes(q),
       );
     }
-    if (filterPriority !== 'all') result = result.filter((l) => l.priority === filterPriority);
-    if (filterSource !== 'all') result = result.filter((l) => l.source === filterSource);
+    if (filterPriority !== 'all') result = result.filter(l => l.priority === filterPriority);
+    if (filterSource   !== 'all') result = result.filter(l => l.source   === filterSource);
 
     if (sortBy === 'followup') {
       result = [...result].sort((a, b) => {
@@ -73,136 +62,83 @@ export default function LeadsPage() {
     return result;
   }, [leads, search, filterPriority, filterSource, sortBy]);
 
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[200px]">
+        <p className="text-sm" style={{ color: '#6B6459' }}>Loading pipeline…</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-[1600px] mx-auto space-y-6 animate-fade-in">
-      {/* Page header */}
-      <div className="flex items-end justify-between gap-6 flex-wrap">
+    <div className="p-6">
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="display display-md">Lead pipeline</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--ink-3)' }}>
-            <span className="num" style={{ color: 'var(--ink)' }}>{leads.length}</span> total ·{' '}
-            <span className="num" style={{ color: 'var(--ink)' }}>{filteredLeads.length}</span> shown
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Lead Pipeline</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+            {leads.length} total · {filteredLeads.length} shown
           </p>
         </div>
         <NewLeadDialog onSuccess={handleLeadCreated} />
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2.5">
-        <div className="studio-input-group flex-1 min-w-[220px] max-w-sm">
-          <Search className="studio-input-icon h-4 w-4" strokeWidth={1.75} />
+      {/* ── Filter bar ──────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#A79E8E' }} />
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search name or phone…"
-            className="studio-input studio-input--icon w-full text-sm"
-            style={{ padding: '0.5rem 0.875rem 0.5rem 2.5rem' }}
+            className="studio-input w-full pl-9 text-sm py-2"
           />
         </div>
 
-        <FilterSelect
-          icon={Filter}
-          value={filterPriority}
-          onChange={(v) => setFilterPriority(v as LeadPriority | 'all')}
-          options={[
-            { value: 'all', label: 'All priority' },
-            { value: 'hot', label: 'Hot' },
-            { value: 'warm', label: 'Warm' },
-            { value: 'cold', label: 'Cold' },
-          ]}
-        />
+        <div className="flex items-center gap-1.5">
+          <Filter className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+          <select
+            value={filterPriority}
+            onChange={e => setFilterPriority(e.target.value as LeadPriority | 'all')}
+            className="studio-input text-sm py-2 cursor-pointer"
+          >
+            <option value="all">All Priority</option>
+            <option value="hot">🔴 Hot</option>
+            <option value="warm">🟠 Warm</option>
+            <option value="cold">🔵 Cold</option>
+          </select>
+        </div>
 
-        <FilterSelect
+        <select
           value={filterSource}
-          onChange={(v) => setFilterSource(v as LeadSource | 'all')}
-          options={[
-            { value: 'all', label: 'All sources' },
-            { value: 'whatsapp', label: 'WhatsApp' },
-            { value: 'instagram', label: 'Instagram' },
-            { value: 'referral', label: 'Referral' },
-            { value: 'website', label: 'Website' },
-            { value: 'walk_in', label: 'Walk-in' },
-            { value: 'other', label: 'Other' },
-          ]}
-        />
+          onChange={e => setFilterSource(e.target.value as LeadSource | 'all')}
+          className="studio-input text-sm py-2 cursor-pointer"
+        >
+          <option value="all">All Sources</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="instagram">Instagram</option>
+          <option value="referral">Referral</option>
+          <option value="website">Website</option>
+          <option value="walk_in">Walk-in</option>
+          <option value="other">Other</option>
+        </select>
 
-        <FilterSelect
-          icon={ArrowUpDown}
-          value={sortBy}
-          onChange={(v) => setSortBy(v as 'latest' | 'followup' | 'budget')}
-          options={[
-            { value: 'latest', label: 'Latest first' },
-            { value: 'followup', label: 'By follow-up' },
-            { value: 'budget', label: 'By budget' },
-          ]}
-        />
+        <div className="flex items-center gap-1.5">
+          <SortAsc className="h-4 w-4 flex-shrink-0" style={{ color: '#24211E' }} />
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as 'latest' | 'followup' | 'budget')}
+            className="studio-input text-sm py-2 cursor-pointer"
+          >
+            <option value="latest">Latest First</option>
+            <option value="followup">By Follow-up Date</option>
+            <option value="budget">By Budget</option>
+          </select>
+        </div>
       </div>
 
-      {/* Load error */}
-      {loadError && (
-        <div
-          role="alert"
-          className="rounded-lg border p-4 text-sm"
-          style={{ background: 'var(--neg-tint)', borderColor: 'transparent', color: 'var(--neg)' }}
-        >
-          {loadError}
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading ? (
-        <div className="flex items-center justify-center py-24">
-          <p className="text-sm" style={{ color: 'var(--ink-3)' }}>
-            Loading pipeline…
-          </p>
-        </div>
-      ) : (
-        <LeadBoard leads={filteredLeads} onStageChange={handleStageChange} />
-      )}
+      <LeadBoard leads={filteredLeads} onStageChange={handleStageChange} />
     </div>
-  );
-}
-
-/* ── Filter select — matches design system, replaces raw <select> ─────── */
-function FilterSelect({
-  icon: Icon,
-  value,
-  onChange,
-  options,
-}: {
-  icon?: React.ElementType;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <label
-      className="inline-flex items-center gap-2 px-3 h-9 rounded-lg cursor-pointer"
-      style={{
-        background: 'var(--panel)',
-        border: '1px solid var(--line-strong)',
-      }}
-    >
-      {Icon && (
-        <Icon
-          className="h-3.5 w-3.5 flex-shrink-0"
-          style={{ color: 'var(--ink-3)' }}
-          strokeWidth={1.75}
-        />
-      )}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="bg-transparent border-none outline-none text-sm cursor-pointer pr-1"
-        style={{ color: 'var(--ink)' }}
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value} style={{ background: 'var(--panel)', color: 'var(--ink)' }}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
