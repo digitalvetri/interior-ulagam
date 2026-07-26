@@ -59,6 +59,13 @@ export const materialCategoryEnum = pgEnum('material_category', [
 ]);
 export const siteLogSourceEnum = pgEnum('site_log_source', ['whatsapp', 'manual']);
 
+export const leadActivityTypeEnum = pgEnum('lead_activity_type', [
+  'call', 'whatsapp', 'note', 'site_visit', 'meeting', 'stage_change', 'follow_up',
+]);
+export const followUpStatusEnum = pgEnum('follow_up_status', [
+  'pending', 'completed', 'overdue', 'rescheduled', 'cancelled',
+]);
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 const timestamps = {
@@ -106,6 +113,23 @@ export const leads = pgTable('leads', {
 }, (t) => [
   index('leads_tenant_stage_idx').on(t.tenantId, t.stage),
   index('leads_tenant_owner_idx').on(t.tenantId, t.ownerId),
+]);
+
+export const leadActivities = pgTable('lead_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  type: leadActivityTypeEnum('type').notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  status: followUpStatusEnum('status'),
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('lead_activities_lead_idx').on(t.leadId, t.createdAt),
+  index('lead_activities_tenant_idx').on(t.tenantId, t.createdAt),
 ]);
 
 export const siteVisits = pgTable('site_visits', {

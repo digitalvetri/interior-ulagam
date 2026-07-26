@@ -20,6 +20,7 @@ alter table payments enable row level security;
 alter table expenses enable row level security;
 alter table snag_items enable row level security;
 alter table wa_messages enable row level security;
+alter table lead_activities enable row level security;
 
 -- Tenant isolation policy template (repeat for each table)
 -- Requires tenant_id claim in JWT: { "tenant_id": "uuid" }
@@ -32,6 +33,10 @@ create policy "tenant_isolation" on users
   with check (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
 
 create policy "tenant_isolation" on leads
+  using (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
+  with check (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
+
+create policy "tenant_isolation" on lead_activities
   using (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid)
   with check (tenant_id = (auth.jwt() ->> 'tenant_id')::uuid);
 
