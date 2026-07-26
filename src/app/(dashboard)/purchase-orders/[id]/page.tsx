@@ -32,11 +32,11 @@ const PO_STATUSES: POStatus[] = [
 ];
 
 const STATUS_STYLES: Record<POStatus, React.CSSProperties> = {
-  draft:        { background: '#F3F4F6', color: '#374151' },
-  sent:         { background: '#DBEAFE', color: '#1D4ED8' },
-  acknowledged: { background: '#FEF9C3', color: '#92400E' },
-  partial:      { background: '#FFEDD5', color: '#C2410C' },
-  complete:     { background: '#DCFCE7', color: '#15803D' },
+  draft:        { background: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+  sent:         { background: 'var(--purple-soft)', color: 'var(--purple)' },
+  acknowledged: { background: 'var(--gold-soft)', color: 'var(--text-gold)' },
+  partial:      { background: 'var(--teal-soft)', color: 'var(--text-accent)' },
+  complete:     { background: 'var(--teal)', color: '#FFFFFF' },
   cancelled:    { background: '#FEE2E2', color: '#B91C1C' },
 };
 
@@ -174,7 +174,7 @@ export default function PurchaseOrderDetailPage({
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-gray-500">Loading purchase order…</p>
+        <p className="text-sm text-[var(--text-secondary)]">Loading purchase order…</p>
       </div>
     );
   }
@@ -195,21 +195,21 @@ export default function PurchaseOrderDetailPage({
   return (
     <div className="space-y-6">
       {/* Back link */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
+      <nav className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
         <Link
           href="/purchase-orders"
-          className="hover:text-gray-700"
+          className="hover:text-[var(--text-primary)]"
         >
           Purchase Orders
         </Link>
         <span>/</span>
-        <span className="text-gray-900">{po.poNumber}</span>
+        <span className="text-[var(--text-heading)]">{po.poNumber}</span>
       </nav>
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-[var(--text-heading)]">
             {po.poNumber}
           </h2>
           <span
@@ -228,16 +228,16 @@ export default function PurchaseOrderDetailPage({
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-[var(--text-secondary)]">
             Advance:{' '}
-            <span className="font-semibold text-gray-900">
+            <span className="font-semibold text-[var(--text-heading)]">
               {formatRupees(po.advancePaidPaise)}
             </span>
           </span>
           {po.expectedDeliveryAt && (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-[var(--text-secondary)]">
               Expected:{' '}
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-[var(--text-heading)]">
                 {new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN')}
               </span>
             </span>
@@ -267,21 +267,21 @@ export default function PurchaseOrderDetailPage({
           </SelectContent>
         </Select>
         {statusUpdating && (
-          <span className="text-xs text-gray-400">Saving…</span>
+          <span className="text-xs text-[var(--text-secondary)]">Saving…</span>
         )}
       </div>
 
       {/* Lines table */}
       <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           Line Items
         </h3>
 
         {parsedLines !== null ? (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <div className="premium-card overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                   <th className="px-4 py-3">Description</th>
                   <th className="px-4 py-3">Qty</th>
                   <th className="px-4 py-3">Unit</th>
@@ -294,7 +294,7 @@ export default function PurchaseOrderDetailPage({
                   <tr>
                     <td
                       colSpan={5}
-                      className="px-4 py-8 text-center text-sm text-gray-400"
+                      className="px-4 py-8 text-center text-sm text-[var(--text-secondary)]"
                     >
                       No line items.
                     </td>
@@ -303,19 +303,19 @@ export default function PurchaseOrderDetailPage({
                   parsedLines.map((line, idx) => (
                     <tr
                       key={line.id ?? idx}
-                      className="border-b border-gray-100 last:border-0"
+                      className="border-b border-[var(--border-subtle)] last:border-0"
                     >
-                      <td className="px-4 py-3 text-gray-800">
+                      <td className="px-4 py-3 text-[var(--text-primary)]">
                         {line.description}
                       </td>
-                      <td className="px-4 py-3 text-gray-700">
+                      <td className="px-4 py-3 text-[var(--text-primary)]">
                         {line.qty}
                       </td>
-                      <td className="px-4 py-3 text-gray-500">{line.unit}</td>
-                      <td className="px-4 py-3 text-gray-700">
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">{line.unit}</td>
+                      <td className="px-4 py-3 text-[var(--text-primary)]">
                         {formatRupees(line.unitRatePaise)}
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-900">
+                      <td className="px-4 py-3 font-medium text-[var(--text-heading)]">
                         {formatRupees(line.totalPaise)}
                       </td>
                     </tr>
@@ -325,7 +325,7 @@ export default function PurchaseOrderDetailPage({
             </table>
           </div>
         ) : (
-          <pre className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50 p-4 text-xs text-gray-700">
+          <pre className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 text-xs text-[var(--text-secondary)]">
             {typeof po.linesJson === 'string'
               ? po.linesJson
               : JSON.stringify(po.linesJson, null, 2)}
@@ -336,7 +336,7 @@ export default function PurchaseOrderDetailPage({
       {/* GRN Log */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Goods Received Notes ({grns.length})
           </h3>
           <button className="btn-primary" onClick={openGrnDialog}>
@@ -345,14 +345,14 @@ export default function PurchaseOrderDetailPage({
         </div>
 
         {grns.length === 0 ? (
-          <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300">
-            <p className="text-sm text-gray-400">No GRNs recorded yet.</p>
+          <div className="flex h-24 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--border-subtle)]">
+            <p className="text-sm text-[var(--text-secondary)]">No GRNs recorded yet.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+          <div className="premium-card overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
                   <th className="px-4 py-3">Delivered Qty</th>
                   <th className="px-4 py-3">Received At</th>
                   <th className="px-4 py-3">Notes</th>
@@ -362,15 +362,15 @@ export default function PurchaseOrderDetailPage({
                 {grns.map((grn) => (
                   <tr
                     key={grn.id}
-                    className="border-b border-gray-100 last:border-0"
+                    className="border-b border-[var(--border-subtle)] last:border-0"
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900">
+                    <td className="px-4 py-3 font-medium text-[var(--text-heading)]">
                       {grn.deliveredQty}
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">
                       {new Date(grn.receivedAt).toLocaleDateString('en-IN')}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-[var(--text-secondary)]">
                       {grn.notes ?? '—'}
                     </td>
                   </tr>

@@ -90,8 +90,9 @@ export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
-      <p className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-dashed p-4"
+      style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
+      <p className="mb-3 text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
         Add Line Item
       </p>
 
@@ -185,13 +186,10 @@ export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
         {/* Live Margin Preview */}
         {showMargin && (
           <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-500">Margin</span>
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Margin</span>
             <span
-              className={`text-sm font-semibold ${
-                liveMarginPaise >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
-              }`}
+              className="text-sm font-semibold"
+              style={{ color: liveMarginPaise >= 0 ? 'var(--text-accent)' : '#DC2626' }}
             >
               {formatRupees(liveMarginPaise)}
             </span>
@@ -204,7 +202,7 @@ export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
       </div>
 
       {error && (
-        <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="mt-2 text-xs text-red-600">{error}</p>
       )}
     </form>
   );

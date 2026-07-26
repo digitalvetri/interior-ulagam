@@ -7,8 +7,9 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Interior Studio OS',
+  title: 'InterioOS',
   description: 'WhatsApp-first CRM + Project Management + ERP + AI for interior design studios',
+  icons: { icon: '/brand/logo-icon.png' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

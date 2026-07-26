@@ -62,7 +62,7 @@ export function LoginScene3D() {
     const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x5b4632, roughness: 0.8 });
     const trunkMat  = new THREE.MeshStandardMaterial({ color: 0x4a3324, roughness: 0.9 });
     const foliageMat = new THREE.MeshStandardMaterial({ color: 0x445c48, roughness: 0.85, flatShading: true });
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x181410, roughness: 1 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0F1720, roughness: 1 });
 
     /* ── House geometry constants ────────────────────────────────── */
     const W = 2.4, D = 2.0, H = 1.3;                 // wall footprint + height

@@ -75,10 +75,10 @@ function KpiCard({
 /* ── Stage Badge ────────────────────────────────────────────────────────── */
 function StageBadge({ stage }: { stage: string }) {
   const map: Record<string, { label: string; bg: string; text: string }> = {
-    planning:     { label: 'Planning',     bg: 'var(--surface-app)', text: 'var(--violet-primary)' },
+    planning:     { label: 'Planning',     bg: 'var(--surface-app)', text: 'var(--teal)' },
     design:       { label: 'Design',       bg: 'var(--accent-orange-bg)', text: '#C2410C' },
     procurement:  { label: 'Procurement',  bg: 'var(--accent-blue-bg)', text: '#1D4ED8' },
-    execution:    { label: 'Execution',    bg: 'var(--violet-soft)', text: 'var(--violet-primary)' },
+    execution:    { label: 'Execution',    bg: 'var(--teal-soft)', text: 'var(--teal)' },
     complete:     { label: 'Complete',     bg: 'var(--accent-green-bg)',  text: '#15803D' },
   };
   const s = map[stage] ?? { label: stage, bg: 'var(--surface-muted)', text: 'var(--text-heading)' };
@@ -194,7 +194,7 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Lead Funnel</h3>
-            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
+            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
               View all →
             </Link>
           </div>
@@ -216,7 +216,7 @@ export default function DashboardPage() {
                         className="h-9"
                         style={{
                           width: `${pct}%`,
-                          background: 'var(--violet-primary)',
+                          background: 'var(--teal)',
                           opacity: 1 - i * 0.11,
                           clipPath: 'polygon(6% 0%, 94% 0%, 100% 100%, 0% 100%)',
                           borderRadius: '4px',
@@ -242,7 +242,7 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Active Projects</h3>
-            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
+            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
               View all →
             </Link>
           </div>
@@ -277,7 +277,7 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Pending Payments</h3>
-            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
+            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
               View all →
             </Link>
           </div>
@@ -349,9 +349,9 @@ function EmptyState({
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <div className="relative mb-4" style={{ width: 72, height: 72 }}>
-          <div className="absolute inset-0 rounded-2xl rotate-6" style={{ backgroundColor: 'var(--violet-soft)' }} />
+          <div className="absolute inset-0 rounded-2xl rotate-6" style={{ backgroundColor: 'var(--teal-soft)' }} />
           <div className="absolute inset-0 rounded-2xl -rotate-3 flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', border: '1px solid var(--border-subtle)' }}>
-            <Icon className="h-7 w-7" style={{ color: 'var(--violet-primary)' }} />
+            <Icon className="h-7 w-7" style={{ color: 'var(--teal)' }} />
           </div>
         </div>
         <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{message}</p>
@@ -373,9 +373,9 @@ function EmptyState({
       <div className="flex items-center gap-3 min-w-0">
         <div
           className="flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
-          style={{ backgroundColor: 'var(--violet-soft)' }}
+          style={{ backgroundColor: 'var(--teal-soft)' }}
         >
-          <Icon className="h-4 w-4" style={{ color: 'var(--violet-primary)' }} />
+          <Icon className="h-4 w-4" style={{ color: 'var(--teal)' }} />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{message}</p>

@@ -33,14 +33,14 @@ function KpiChip({
       <div className="flex items-center gap-2 mb-1.5">
         <div
           className="h-6 w-6 rounded-md flex items-center justify-center flex-shrink-0"
-          style={{ background: gold ? 'rgba(212,175,106,0.12)' : 'rgba(36,33,30,0.10)' }}
+          style={{ background: gold ? 'rgba(249,199,79,0.15)' : 'rgba(13,27,42,0.08)' }}
         >
-          <Icon className="h-3.5 w-3.5" style={{ color: gold ? '#8F6F2E' : '#24211E' }} />
+          <Icon className="h-3.5 w-3.5" style={{ color: gold ? 'var(--text-gold)' : 'var(--text-heading)' }} />
         </div>
-        <p className="text-[10px] font-medium" style={{ color: '#6B6459' }}>{label}</p>
+        <p className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</p>
       </div>
-      <p className="text-xl font-bold" style={{ color: gold ? '#8F6F2E' : '#1C1916' }}>{value}</p>
-      {sub && <p className="text-[10px] mt-0.5" style={{ color: '#A79E8E' }}>{sub}</p>}
+      <p className="text-xl font-bold" style={{ color: gold ? 'var(--text-gold)' : 'var(--text-heading)' }}>{value}</p>
+      {sub && <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{sub}</p>}
     </div>
   );
 }
@@ -153,9 +153,9 @@ export function LeadBoard({ leads, onStageChange }: LeadBoardProps) {
                 {columnLeads.length === 0 ? (
                   <div
                     className="flex items-center justify-center py-10 rounded-xl border-2 border-dashed"
-                    style={{ borderColor: '#F0EEE9' }}
+                    style={{ borderColor: 'var(--border-subtle)' }}
                   >
-                    <p className="text-xs" style={{ color: '#E2DED5' }}>No leads here</p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>No leads here</p>
                   </div>
                 ) : (
                   columnLeads.map(lead => (

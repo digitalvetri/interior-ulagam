@@ -8,10 +8,10 @@ import { MarginSummary } from '@/components/quotes/MarginSummary';
 import { Quote, QuoteLine } from '@/types/quotes';
 
 const STATUS_BADGE_STYLE: Record<Quote['status'], React.CSSProperties> = {
-  draft:    { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
-  sent:     { background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
-  approved: { background: '#D1FAE5', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
-  revised:  { background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
+  draft:    { background: 'var(--surface-muted)', color: 'var(--text-secondary)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  sent:     { background: 'var(--gold-soft)', color: 'var(--text-gold)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  approved: { background: 'var(--teal-soft)', color: 'var(--text-accent)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  revised:  { background: '#FEE2E2', color: '#991B1B', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
 };
 
 export default function QuotePage({
@@ -104,15 +104,15 @@ export default function QuotePage({
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-gray-500">Loading quote…</p>
+      <div className="premium-card flex h-64 items-center justify-center">
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading quote…</p>
       </div>
     );
   }
 
   if (!quote) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="premium-card flex h-64 items-center justify-center">
         <p className="text-sm text-red-500">Quote not found.</p>
       </div>
     );
@@ -121,22 +121,22 @@ export default function QuotePage({
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
+      <nav className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
         <Link
           href="/projects"
-          className="hover:text-gray-700"
+          className="hover:underline"
         >
           Projects
         </Link>
         <span>/</span>
         <Link
           href="/quotes"
-          className="hover:text-gray-700"
+          className="hover:underline"
         >
           Quotes
         </Link>
         <span>/</span>
-        <span className="text-gray-900">
+        <span style={{ color: 'var(--text-heading)' }}>
           Quote #{quote.version}
         </span>
       </nav>
@@ -144,7 +144,7 @@ export default function QuotePage({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
             Quote #{quote.version}
           </h2>
           <span style={STATUS_BADGE_STYLE[quote.status]}>
@@ -184,7 +184,8 @@ export default function QuotePage({
           <div className="premium-card overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr className="text-left text-xs font-semibold uppercase tracking-wide"
+                  style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                   <th className="px-3 py-3">Room</th>
                   <th className="px-3 py-3">Item</th>
                   <th className="px-3 py-3">Unit</th>
@@ -200,7 +201,8 @@ export default function QuotePage({
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-3 py-8 text-center text-sm text-gray-400"
+                      className="px-3 py-8 text-center text-sm"
+                      style={{ color: 'var(--text-secondary)' }}
                     >
                       No line items yet. Add one below.
                     </td>

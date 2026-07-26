@@ -112,7 +112,8 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
 
   return (
     <tr
-      className="border-b border-gray-100 text-sm"
+      className="text-sm transition-colors hover:bg-[var(--surface-muted)]"
+      style={{ borderBottom: '1px solid var(--border-subtle)' }}
       onClick={() => !editing && handleEditStart()}
       role="button"
       tabIndex={editing ? -1 : 0}
@@ -120,21 +121,21 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
         if (!editing && (e.key === 'Enter' || e.key === ' ')) handleEditStart();
       }}
     >
-      <td className="px-3 py-2 text-gray-700">{line.room}</td>
-      <td className="px-3 py-2 text-gray-700">
+      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{line.room}</td>
+      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>
         {line.item}
         {saveError && (
           <p className="text-xs text-red-600 mt-0.5">{saveError}</p>
         )}
       </td>
-      <td className="px-3 py-2 text-gray-500">{line.unit}</td>
+      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{line.unit}</td>
 
       <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
         {editing ? (
           <Input type="number" min={1} value={qtyInput}
             onChange={(e) => setQtyInput(e.target.value)} className="w-20" />
         ) : (
-          <span className="text-gray-700">{line.qty}</span>
+          <span style={{ color: 'var(--text-primary)' }}>{line.qty}</span>
         )}
       </td>
 
@@ -143,7 +144,7 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
           <Input type="number" min={0} step={0.01} value={costInput}
             onChange={(e) => setCostInput(e.target.value)} className="w-28" />
         ) : (
-          <span className="text-gray-700">{formatRupees(line.costRatePaise)}</span>
+          <span style={{ color: 'var(--text-primary)' }}>{formatRupees(line.costRatePaise)}</span>
         )}
       </td>
 
@@ -152,12 +153,12 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
           <Input type="number" min={0} step={0.01} value={clientInput}
             onChange={(e) => setClientInput(e.target.value)} className="w-28" />
         ) : (
-          <span className="text-gray-700">{formatRupees(line.clientRatePaise)}</span>
+          <span style={{ color: 'var(--text-primary)' }}>{formatRupees(line.clientRatePaise)}</span>
         )}
       </td>
 
       <td className="px-3 py-2">
-        <span className={marginPositive ? 'font-medium text-green-600' : 'font-medium text-red-600'}>
+        <span className="font-medium" style={{ color: marginPositive ? 'var(--text-accent)' : '#DC2626' }}>
           {formatRupees(displayMarginPaise)}
         </span>
       </td>

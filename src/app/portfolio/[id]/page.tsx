@@ -91,7 +91,7 @@ export default async function PublicPortfolioPage({
 
       {/* Footer */}
       <footer className="border-t border-gray-100 px-6 py-4 text-center text-xs text-gray-400">
-        Powered by Interior Studio OS — DigitalVetri
+        Powered by InterioOS — DigitalVetri
       </footer>
     </div>
   );

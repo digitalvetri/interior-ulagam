@@ -22,10 +22,10 @@ import { formatRupees } from '@/lib/utils';
 import { Quote, Project } from '@/types/quotes';
 
 const STATUS_BADGE_STYLE: Record<Quote['status'], React.CSSProperties> = {
-  draft:    { background: '#F3F4F6', color: '#6B7280', border: '1px solid #E5E7EB', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
-  sent:     { background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
-  approved: { background: '#D1FAE5', color: '#065F46', border: '1px solid #A7F3D0', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
-  revised:  { background: '#FEE2E2', color: '#991B1B', border: '1px solid #FECACA', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 },
+  draft:    { background: 'var(--surface-muted)', color: 'var(--text-secondary)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  sent:     { background: 'var(--gold-soft)', color: 'var(--text-gold)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  approved: { background: 'var(--teal-soft)', color: 'var(--text-accent)', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
+  revised:  { background: '#FEE2E2', color: '#991B1B', borderRadius: '9999px', padding: '2px 10px', fontSize: '0.75rem', fontWeight: 600 },
 };
 
 export default function QuotesPage() {
@@ -95,7 +95,7 @@ export default function QuotesPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
           Quotes
         </h2>
         <button className="btn-primary px-4 py-2" onClick={openNewQuoteDialog}>
@@ -105,12 +105,12 @@ export default function QuotesPage() {
 
       {/* Table */}
       {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading quotes…</p>
+        <div className="premium-card flex h-32 items-center justify-center">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading quotes…</p>
         </div>
       ) : quotes.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
-          <p className="text-sm text-gray-500">No quotes yet.</p>
+        <div className="premium-card flex h-48 flex-col items-center justify-center gap-2">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No quotes yet.</p>
           <button className="btn-secondary px-4 py-2 text-sm" onClick={openNewQuoteDialog}>
             Create your first quote
           </button>
@@ -119,7 +119,8 @@ export default function QuotesPage() {
         <div className="premium-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <tr className="text-left text-xs font-semibold uppercase tracking-wide"
+                style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                 <th className="px-4 py-3">Quote ID</th>
                 <th className="px-4 py-3">Version</th>
                 <th className="px-4 py-3">Project</th>
@@ -132,20 +133,22 @@ export default function QuotesPage() {
               {quotes.map((quote) => (
                 <tr
                   key={quote.id}
-                  className="border-b border-gray-100 hover:bg-gray-50"
+                  className="transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
                 >
                   <td className="px-4 py-3">
                     <Link
                       href={`/quotes/${quote.id}`}
-                      className="font-medium text-blue-600 hover:underline"
+                      className="font-medium hover:underline"
+                      style={{ color: 'var(--text-accent)' }}
                     >
                       #{quote.id}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     v{quote.version}
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {quote.projectId}
                   </td>
                   <td className="px-4 py-3">
@@ -153,10 +156,10 @@ export default function QuotesPage() {
                       {quote.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-heading)' }}>
                     {formatRupees(quote.totalPaise)}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {new Date(quote.createdAt).toLocaleDateString('en-IN')}
                   </td>
                 </tr>
@@ -177,9 +180,9 @@ export default function QuotesPage() {
             <div className="space-y-2">
               <Label htmlFor="quote-project">Select Project</Label>
               {projectsLoading ? (
-                <p className="text-sm text-gray-500">Loading projects…</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading projects…</p>
               ) : projects.length === 0 ? (
-                <p className="text-sm text-gray-500">No projects found.</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No projects found.</p>
               ) : (
                 <Select
                   value={selectedProjectId}

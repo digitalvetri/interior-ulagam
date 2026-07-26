@@ -11,15 +11,17 @@ export default function LoginPage() {
 
         <div className="login-hero-content">
           <div className="login-hero-brand">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://theinteriorstudios.in/wp-content/uploads/2025/09/cropped-intlogo.png"
-              alt="The Interior Studio"
-              className="h-10 w-10 rounded-lg object-contain"
-              width={40}
-              height={40}
-            />
-            <span>The Interior Studio</span>
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white p-1.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/logo-icon.png"
+                alt="InterioOS"
+                className="h-full w-full object-contain"
+                width={28}
+                height={28}
+              />
+            </div>
+            <span>InterioOS</span>
           </div>
 
           <div className="login-hero-illustration">
@@ -62,15 +64,15 @@ export default function LoginPage() {
           <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://theinteriorstudios.in/wp-content/uploads/2025/09/cropped-intlogo.png"
-              alt="The Interior Studio"
-              className="h-14 w-14 rounded-xl object-contain"
+              src="/brand/logo-icon.png"
+              alt="InterioOS"
+              className="h-14 w-14 object-contain"
               width={56}
               height={56}
             />
             <div className="text-center">
-              <h1 className="text-lg font-bold" style={{ color: '#1C1916' }}>
-                The Interior Studio
+              <h1 className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
+                InterioOS
               </h1>
             </div>
           </div>

@@ -16,11 +16,11 @@ import { formatRupees } from '@/lib/utils';
 import type { PurchaseOrder, POStatus } from '@/types/purchase-orders';
 
 const STATUS_STYLES: Record<POStatus, React.CSSProperties> = {
-  draft:        { background: '#F3F4F6', color: '#374151' },
-  sent:         { background: '#DBEAFE', color: '#1D4ED8' },
-  acknowledged: { background: '#FEF9C3', color: '#92400E' },
-  partial:      { background: '#FFEDD5', color: '#C2410C' },
-  complete:     { background: '#DCFCE7', color: '#15803D' },
+  draft:        { background: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+  sent:         { background: 'var(--purple-soft)', color: 'var(--purple)' },
+  acknowledged: { background: 'var(--gold-soft)', color: 'var(--text-gold)' },
+  partial:      { background: 'var(--teal-soft)', color: 'var(--text-accent)' },
+  complete:     { background: 'var(--teal)', color: '#FFFFFF' },
   cancelled:    { background: '#FEE2E2', color: '#B91C1C' },
 };
 
@@ -123,7 +123,7 @@ export default function PurchaseOrdersPage() {
     <div className="space-y-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
           Purchase Orders
         </h2>
         <button className="btn-primary" onClick={openDialog}>+ New PO</button>
@@ -132,20 +132,21 @@ export default function PurchaseOrdersPage() {
       {/* Table / states */}
       {loading ? (
         <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading purchase orders…</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading purchase orders…</p>
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
-          <p className="text-sm text-gray-500">No purchase orders yet.</p>
+        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed" style={{ borderColor: 'var(--border-subtle)' }}>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No purchase orders yet.</p>
           <button className="btn-secondary" onClick={openDialog}>
             Create your first PO
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="premium-card overflow-hidden overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <tr className="border-b text-left text-xs font-semibold uppercase tracking-wide"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                 <th className="px-4 py-3">PO Number</th>
                 <th className="px-4 py-3">Project</th>
                 <th className="px-4 py-3">Status</th>
@@ -158,13 +159,14 @@ export default function PurchaseOrdersPage() {
               {orders.map((po) => (
                 <tr
                   key={po.id}
-                  className="cursor-pointer border-b border-gray-100 hover:bg-gray-50"
+                  className="cursor-pointer border-b transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ borderColor: 'var(--border-subtle)' }}
                   onClick={() => router.push(`/purchase-orders/${po.id}`)}
                 >
-                  <td className="px-4 py-3 font-medium" style={{ color: '#C89B3C' }}>
+                  <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-gold)' }}>
                     {po.poNumber}
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">
+                  <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {po.projectId.slice(0, 8)}…
                   </td>
                   <td className="px-4 py-3">
@@ -182,15 +184,15 @@ export default function PurchaseOrdersPage() {
                       {po.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
                     {formatRupees(po.advancePaidPaise)}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {po.expectedDeliveryAt
                       ? new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN')
                       : '—'}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
                     {new Date(po.createdAt).toLocaleDateString('en-IN')}
                   </td>
                 </tr>

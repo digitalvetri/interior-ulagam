@@ -247,7 +247,7 @@ export default async function ClientTrustTimelinePage({
 
       {/* Footer */}
       <footer className="border-t border-gray-100 py-6 text-center">
-        <p className="text-xs text-gray-400">Powered by DigitalVetri Interior Studio OS</p>
+        <p className="text-xs text-gray-400">Powered by InterioOS — DigitalVetri</p>
       </footer>
     </div>
   );

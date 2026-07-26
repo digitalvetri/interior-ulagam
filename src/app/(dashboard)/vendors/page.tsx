@@ -97,7 +97,7 @@ function formFromVendor(v: Vendor): VendorFormState {
 function CategoryBadge({ category }: { category: MaterialCategory | null }) {
   if (!category) {
     return (
-      <Badge variant="outline" className="bg-gray-100 text-gray-500 border-gray-200">
+      <Badge variant="outline" className="bg-[var(--surface-muted)] text-[var(--text-secondary)] border-[var(--border-subtle)]">
         —
       </Badge>
     );
@@ -391,8 +391,8 @@ export default function VendorsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#3D2314' }}>Vendors</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6B6B' }}>{vendors.length} {vendors.length === 1 ? 'vendor' : 'vendors'}</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Vendors</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{vendors.length} {vendors.length === 1 ? 'vendor' : 'vendors'}</p>
         </div>
         <button onClick={openAdd} className="btn-primary flex items-center gap-2 px-4 py-2 text-sm">+ Add Vendor</button>
       </div>
@@ -400,24 +400,24 @@ export default function VendorsPage() {
       {/* Table */}
       <div className="premium-card overflow-hidden">
         {loading && (
-          <div className="p-10 text-center text-sm" style={{ color: '#6B6B6B' }}>Loading vendors…</div>
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading vendors…</div>
         )}
         {fetchError && !loading && (
           <div className="p-10 text-center text-sm text-red-600">{fetchError}</div>
         )}
         {!loading && !fetchError && vendors.length === 0 && (
-          <div className="p-10 text-center text-sm" style={{ color: '#6B6B6B' }}>
+          <div className="p-10 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>
             No vendors yet. Add your first vendor.
           </div>
         )}
         {!loading && !fetchError && vendors.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead style={{ background: '#FDFAF7', borderBottom: '1px solid #E9DFD3' }}>
+              <thead style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
                 <tr>
                   {['Name', 'Category', 'Phone', 'Email', 'GSTIN', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
-                      style={{ color: '#A8927F' }}>{h}</th>
+                      style={{ color: 'var(--text-secondary)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -428,35 +428,35 @@ export default function VendorsPage() {
                     <>
                       <tr
                         key={vendor.id}
-                        className="cursor-pointer transition-colors hover:bg-[#FDFAF7]"
-                        style={{ borderBottom: '1px solid #F0EBE5' }}
+                        className="cursor-pointer transition-colors hover:bg-[var(--surface-muted)]"
+                        style={{ borderBottom: '1px solid var(--border-subtle)' }}
                         onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
                       >
-                        <td className="px-4 py-3 font-medium" style={{ color: '#1C1C1C' }}>{vendor.name}</td>
+                        <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-primary)' }}>{vendor.name}</td>
                         <td className="px-4 py-3"><CategoryBadge category={vendor.category} /></td>
-                        <td className="px-4 py-3" style={{ color: '#6B6B6B' }}>{vendor.phone ?? '—'}</td>
-                        <td className="px-4 py-3" style={{ color: '#6B6B6B' }}>{vendor.email ?? '—'}</td>
-                        <td className="px-4 py-3 font-mono text-xs" style={{ color: '#6B6B6B' }}>{vendor.gstin ?? '—'}</td>
+                        <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{vendor.phone ?? '—'}</td>
+                        <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>{vendor.email ?? '—'}</td>
+                        <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{vendor.gstin ?? '—'}</td>
                         <td className="px-4 py-3 text-right">
-                          <span className="text-xs select-none" style={{ color: '#C8B7A6' }}>{isExpanded ? '▲' : '▼'}</span>
+                          <span className="text-xs select-none" style={{ color: 'var(--text-secondary)' }}>{isExpanded ? '▲' : '▼'}</span>
                         </td>
                       </tr>
 
                       {isExpanded && (
                         <tr key={`${vendor.id}-detail`}>
-                          <td colSpan={6} className="px-4 pb-4 pt-2" style={{ background: '#FDFAF7' }}>
+                          <td colSpan={6} className="px-4 pb-4 pt-2" style={{ background: 'var(--surface-muted)' }}>
                             <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2 mb-3">
                               <div>
-                                <span style={{ color: '#A8927F' }}>Address: </span>
-                                <span style={{ color: '#1C1C1C' }}>{vendor.address ?? '—'}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Address: </span>
+                                <span style={{ color: 'var(--text-primary)' }}>{vendor.address ?? '—'}</span>
                               </div>
                               <div>
-                                <span style={{ color: '#A8927F' }}>Notes: </span>
-                                <span style={{ color: '#1C1C1C' }}>{vendor.notes ?? '—'}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Notes: </span>
+                                <span style={{ color: 'var(--text-primary)' }}>{vendor.notes ?? '—'}</span>
                               </div>
                               <div>
-                                <span style={{ color: '#A8927F' }}>Added: </span>
-                                <span style={{ color: '#1C1C1C' }}>{new Date(vendor.createdAt).toLocaleDateString('en-IN')}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>Added: </span>
+                                <span style={{ color: 'var(--text-primary)' }}>{new Date(vendor.createdAt).toLocaleDateString('en-IN')}</span>
                               </div>
                             </div>
                             <div className="flex gap-2">
@@ -523,9 +523,9 @@ export default function VendorsPage() {
           <DialogHeader>
             <DialogTitle>Delete Vendor</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Are you sure you want to delete{' '}
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="font-medium" style={{ color: 'var(--text-heading)' }}>
               {deleteTarget?.name}
             </span>
             ? This action cannot be undone.

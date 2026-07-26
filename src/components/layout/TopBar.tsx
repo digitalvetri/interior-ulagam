@@ -20,10 +20,10 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
-  owner:      { bg: '#7C5CFC', text: '#FFFFFF' },
-  designer:   { bg: '#16A34A', text: '#FFFFFF' },
-  accountant: { bg: '#3B82F6', text: '#FFFFFF' },
-  supervisor: { bg: '#F97316', text: '#FFFFFF' },
+  owner:      { bg: '#0D1B2A', text: '#FFFFFF' },
+  designer:   { bg: '#00B894', text: '#FFFFFF' },
+  accountant: { bg: '#6C5CE7', text: '#FFFFFF' },
+  supervisor: { bg: '#F9C74F', text: '#0D1B2A' },
 };
 
 const GREETINGS: Record<string, string> = {
@@ -77,7 +77,7 @@ export function TopBar() {
 
   const pageTitle = Object.entries(PAGE_TITLES).find(([key]) =>
     pathname === key || pathname.startsWith(key + '/')
-  )?.[1] ?? 'Interior Studio OS';
+  )?.[1] ?? 'InterioOS';
 
   const greeting = Object.entries(GREETINGS).find(([key]) =>
     pathname === key || pathname.startsWith(key + '/')

@@ -42,7 +42,7 @@ function NavGroupSection({
           className="flex w-full items-center justify-between px-4 pb-1 pt-3 text-left"
         >
           <span className="text-[10px] font-bold uppercase tracking-[0.1em]"
-            style={{ color: groupActive ? 'rgba(167,139,250,0.9)' : 'rgba(255,255,255,0.28)' }}>
+            style={{ color: groupActive ? 'rgba(77,217,184,0.9)' : 'rgba(255,255,255,0.28)' }}>
             {group.label}
           </span>
           <ChevronDown
@@ -76,7 +76,7 @@ function NavGroupSection({
                   gap: sidebarCollapsed ? 0 : '10px',
                   padding: sidebarCollapsed ? '9px 0' : '8px 10px',
                   justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                  backgroundColor: active ? 'rgba(124,92,252,0.18)' : 'transparent',
+                  backgroundColor: active ? 'rgba(0,184,148,0.18)' : 'transparent',
                   color: active ? '#fff' : 'rgba(255,255,255,0.55)',
                 }}
                 onMouseEnter={e => {
@@ -91,14 +91,14 @@ function NavGroupSection({
                 {/* Active left bar */}
                 {active && !sidebarCollapsed && (
                   <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
-                    style={{ backgroundColor: '#7C5CFC' }} />
+                    style={{ backgroundColor: '#00B894' }} />
                 )}
 
                 <Icon
                   className="flex-shrink-0"
                   style={{
                     width: 16, height: 16,
-                    color: active ? '#A78BFA' : 'rgba(255,255,255,0.45)',
+                    color: active ? '#4DD9B8' : 'rgba(255,255,255,0.45)',
                   }}
                 />
 
@@ -108,7 +108,7 @@ function NavGroupSection({
 
                 {!sidebarCollapsed && active && (
                   <span className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#7C5CFC' }} />
+                    style={{ backgroundColor: '#00B894' }} />
                 )}
               </Link>
             );
@@ -135,16 +135,20 @@ function SidebarBody({
       {/* Logo row */}
       <div className="flex h-[60px] flex-shrink-0 items-center border-b px-4"
         style={{ borderColor: 'rgba(255,255,255,0.07)', gap: collapsed ? 0 : 10, justifyContent: collapsed ? 'center' : 'flex-start' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://theinteriorstudios.in/wp-content/uploads/2025/09/cropped-intlogo.png"
-          alt="" className="h-8 w-8 rounded-lg object-contain flex-shrink-0" width={32} height={32}
-        />
+        {/* Logo mark's linework is navy — needs a light backing chip to read
+            against this dark sidebar, otherwise it nearly disappears. */}
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white p-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-icon.png"
+            alt="" className="h-full w-full object-contain" width={24} height={24}
+          />
+        </div>
         {!collapsed && (
           <div className="min-w-0 leading-tight">
-            <p className="text-[13px] font-bold text-white truncate">The Interior Studio</p>
+            <p className="text-[13px] font-bold text-white truncate">InterioOS</p>
             <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Studio OS
+              Interior CRM
             </p>
           </div>
         )}
@@ -154,7 +158,7 @@ function SidebarBody({
       {role && !collapsed && (
         <div className="px-4 pt-3 pb-0">
           <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: 'rgba(124,92,252,0.2)', color: '#A78BFA' }}>
+            style={{ backgroundColor: 'rgba(0,184,148,0.2)', color: '#4DD9B8' }}>
             {ROLE_LABELS[role] ?? role}
           </span>
         </div>
@@ -179,7 +183,7 @@ function SidebarBody({
         <div className={`flex items-center rounded-xl p-2 ${collapsed ? 'justify-center' : 'gap-2.5'}`}
           style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
           <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-            style={{ backgroundColor: '#7C5CFC' }}>
+            style={{ backgroundColor: '#00B894' }}>
             {initials}
           </div>
           {!collapsed && (
@@ -248,12 +252,14 @@ export function Sidebar() {
     <>
       {/* ── Mobile top bar ──────────────────────────────────── */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between px-4"
-        style={{ background: '#1A1523', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        style={{ background: '#0D1B2A', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://theinteriorstudios.in/wp-content/uploads/2025/09/cropped-intlogo.png"
-            alt="" className="h-7 w-7 rounded object-contain" width={28} height={28} />
-          <span className="text-sm font-bold text-white">Interior Studio</span>
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-white p-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/logo-icon.png"
+              alt="" className="h-full w-full object-contain" width={20} height={20} />
+          </div>
+          <span className="text-sm font-bold text-white">InterioOS</span>
         </div>
         <button
           onClick={() => setMobileOpen(o => !o)}
@@ -290,8 +296,8 @@ export function Sidebar() {
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="absolute -right-3 top-16 z-10 flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-opacity hover:opacity-100"
           style={{
-            background: '#7C5CFC',
-            border: '2px solid #1A1523',
+            background: '#00B894',
+            border: '2px solid #0D1B2A',
             opacity: 0.85,
           }}
         >
