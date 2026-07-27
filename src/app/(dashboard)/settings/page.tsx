@@ -244,12 +244,12 @@ function UsersTab() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <SectionTitle>Users &amp; Roles</SectionTitle>
         <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="studio-search-icon" />
           <Input
             placeholder="Search name, email, role…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-11 h-[48px]"
           />
         </div>
       </div>
@@ -326,7 +326,7 @@ function UsersTab() {
                         size="sm"
                         onClick={() => saveRole(r)}
                         disabled={savingId === r.id}
-                        className="h-7 gap-1 bg-emerald-600 text-white hover:bg-emerald-700"
+                        className="h-7 gap-1"
                       >
                         {savingId === r.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
                         Save

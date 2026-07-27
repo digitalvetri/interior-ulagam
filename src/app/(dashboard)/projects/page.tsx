@@ -106,7 +106,8 @@ function LeadSelector({
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Type name or phone…"
-                className="studio-input w-full pl-8 py-1.5 text-sm"
+                className="studio-input w-full py-1.5 text-sm"
+                style={{ paddingLeft: '32px' }}
                 autoFocus
                 onClick={e => e.stopPropagation()}
               />

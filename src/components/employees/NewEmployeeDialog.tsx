@@ -146,7 +146,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || !fullName.trim()} className="bg-emerald-600 text-white hover:bg-emerald-700">
+            <Button type="submit" disabled={submitting || !fullName.trim()}>
               {submitting ? 'Adding…' : 'Add employee'}
             </Button>
           </DialogFooter>

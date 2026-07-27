@@ -22,6 +22,9 @@
   --teal-soft:       #E3F9F1;   /* light teal tint — active pill / badges   */
   --purple:          #6C5CE7;   /* Accent    — supporting accent            */
   --purple-soft:     #EEEBFD;
+  --violet-primary:  #7C5CFC;   /* Brand violet — primary buttons & CTAs    */
+  --violet-hover:    #6C4FF5;   /* Darker violet for button hover states     */
+  --violet-soft:     rgba(124,92,252,0.10); /* Light tint for focus glow    */
   --gold:            #F9C74F;   /* Highlight — supporting accent            */
   --gold-soft:       #FEF6E0;
   --surface-app:     #F3F5F9;   /* Neutral   — main app background          */
@@ -49,7 +52,7 @@
   --card-foreground:     var(--text-primary);
   --popover:             #FFFFFF;
   --popover-foreground:  var(--text-primary);
-  --primary:             var(--teal);
+  --primary:             var(--violet-primary);
   --primary-foreground:  #FFFFFF;
   --secondary:           var(--surface-muted);
   --secondary-foreground: var(--text-primary);
@@ -60,8 +63,8 @@
   --destructive:         #DC2626;
   --destructive-foreground: #FFFFFF;
   --border:              var(--border-subtle);
-  --input:               var(--surface-muted);
-  --ring:                var(--teal);
+  --input:               var(--border-subtle);
+  --ring:                var(--violet-primary);
   --radius:              0.75rem;
 }
 
@@ -212,7 +215,7 @@ body {
   gap: 0.5rem;
   background-color: var(--surface-muted);
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 0 0.75rem;
   height: 2.25rem;
   width: 18rem;
@@ -220,8 +223,8 @@ body {
 }
 .topbar-search:focus-within {
   background-color: #FFFFFF;
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(0,184,148, 0.14);
+  border-color: #7C5CFC;
+  box-shadow: 0 0 0 3px rgba(124,92,252, 0.14);
 }
 .topbar-search input {
   background: transparent;
@@ -261,19 +264,19 @@ body {
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
-/* Primary — teal */
+/* Primary — violet */
 .btn-primary {
-  background-color: var(--teal);
+  background-color: var(--violet-primary);
   color: #FFFFFF;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,184,148, 0.35);
+  box-shadow: 0 2px 8px rgba(124,92,252, 0.35);
   transition: background-color 0.2s, transform 0.15s, box-shadow 0.15s;
   font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--teal-dark);
+  background-color: var(--violet-hover);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(0,184,148, 0.45);
+  box-shadow: 0 4px 14px rgba(124,92,252, 0.45);
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -299,20 +302,33 @@ body {
 }
 
 /* ── Form Inputs ─────────────────────────────────────────────────────────── */
-/* White bg, light border, teal focus */
+/* White bg, light border, violet focus */
 .studio-input {
   background-color: #FFFFFF;
   border: 1.5px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--text-primary);
   padding: 10px 14px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .studio-input::placeholder { color: #9CA3AF; }
 .studio-input:focus {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(0,184,148, 0.16);
+  border-color: #7C5CFC;
+  box-shadow: 0 0 0 3px rgba(124,92,252, 0.15);
   outline: none;
+}
+
+/* Search icon — shared across all page-level search bars */
+.studio-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #6B7280;
+  pointer-events: none;
+  flex-shrink: 0;
 }
 
 /* Input label */

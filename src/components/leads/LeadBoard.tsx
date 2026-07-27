@@ -10,6 +10,7 @@ import { LeadCard } from './LeadCard';
 interface LeadBoardProps {
   leads: Lead[];
   onStageChange: (leadId: string, newStage: LeadStage) => void;
+  onSelectLead?: (lead: Lead) => void;
 }
 
 const COLUMN_STYLE: Record<LeadStage, { header: string; border: string; bg: string }> = {
@@ -46,7 +47,7 @@ function KpiChip({
 }
 
 /* ── Board ─────────────────────────────────────────────────────────────────── */
-export function LeadBoard({ leads, onStageChange }: LeadBoardProps) {
+export function LeadBoard({ leads, onStageChange, onSelectLead }: LeadBoardProps) {
   const [optimisticStages, setOptimisticStages] = useState<Record<string, LeadStage>>({});
 
   const getStage = useCallback(
@@ -159,7 +160,7 @@ export function LeadBoard({ leads, onStageChange }: LeadBoardProps) {
                   </div>
                 ) : (
                   columnLeads.map(lead => (
-                    <LeadCard key={lead.id} lead={lead} onStageChange={handleStageChange} />
+                    <LeadCard key={lead.id} lead={lead} onStageChange={handleStageChange} onSelect={onSelectLead} />
                   ))
                 )}
               </div>

@@ -5,6 +5,7 @@ import {
   timestamp,
   boolean,
   integer,
+  bigint,
   jsonb,
   pgEnum,
   date,
@@ -83,6 +84,8 @@ export const customerStageEnum = pgEnum('customer_stage', [
   'lead', 'opportunity', 'client', 'past_client',
 ]);
 
+export const leadPriorityEnum = pgEnum('lead_priority', ['hot', 'warm', 'cold']);
+
 export const leadActivityTypeEnum = pgEnum('lead_activity_type', [
   'call', 'whatsapp', 'note', 'site_visit', 'meeting', 'stage_change', 'follow_up',
 ]);
@@ -135,10 +138,17 @@ export const leads = pgTable('leads', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   source: leadSourceEnum('source').notNull().default('whatsapp'),
   stage: leadStageEnum('stage').notNull().default('new'),
+  priority: leadPriorityEnum('priority'),
   ownerId: uuid('owner_id').references(() => users.id),
   contactName: text('contact_name').notNull(),
   contactPhone: text('contact_phone').notNull(),
+  contactEmail: text('contact_email'),
+  propertyType: text('property_type'),
+  projectLocation: text('project_location'),
   budgetBand: text('budget_band'),
+  projectValuePaise: bigint('project_value_paise', { mode: 'number' }),
+  designerName: text('designer_name'),
+  followUpDate: timestamp('follow_up_date', { withTimezone: true }),
   lostReason: text('lost_reason'),
   notes: text('notes'),
   preferredLanguage: text('preferred_language').default('en'),

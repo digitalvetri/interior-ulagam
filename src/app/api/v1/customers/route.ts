@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ data: rows });
   } catch (e) {
     console.error('[GET /api/v1/customers]', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const msg = e instanceof Error ? e.message : 'Internal server error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: row }, { status: 201 });
   } catch (e) {
     console.error('[POST /api/v1/customers]', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const msg = e instanceof Error ? e.message : 'Internal server error';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

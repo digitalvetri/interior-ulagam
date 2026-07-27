@@ -11,12 +11,18 @@ import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':           'Dashboard',
   '/leads':               'Lead Pipeline',
+  '/customers':           'Customers',
   '/projects':            'Projects',
   '/quotes':              'Quotations',
+  '/work-orders':         'Design Tasks',
   '/materials':           'Materials',
   '/vendors':             'Vendors',
   '/purchase-orders':     'Purchase Orders',
+  '/invoices':            'Invoices',
   '/accounts':            'Accounts & Payments',
+  '/employees':           'Employees',
+  '/documents':           'Documents',
+  '/calendar':            'Calendar',
   '/analytics/designers': 'Analytics',
   '/analytics':           'Analytics',
   '/settings':            'Settings',
@@ -110,7 +116,7 @@ export function TopBar() {
 
       <div className="flex items-center gap-3 flex-shrink-0">
         {/* Quick-jump search — ⌘K focuses it, Enter navigates to the first matching page */}
-        <form onSubmit={handleSearchSubmit} className="topbar-search hidden md:flex">
+        <form onSubmit={handleSearchSubmit} className="topbar-search hidden md:flex" style={{ maxWidth: '180px', flexShrink: 1 }}>
           <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
           <input
             ref={searchRef}

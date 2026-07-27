@@ -12,6 +12,7 @@ import {
 interface LeadCardProps {
   lead: Lead;
   onStageChange: (leadId: string, newStage: LeadStage) => void;
+  onSelect?: (lead: Lead) => void;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -44,7 +45,7 @@ function getFollowUpUrgency(followUpDate?: string): FollowUpUrgency {
   return 'upcoming';
 }
 
-export function LeadCard({ lead, onStageChange }: LeadCardProps) {
+export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
   const initials = getInitials(lead.contactName);
   const daysSince = getDaysSince(lead.lastActivityAt);
   const stageIndex = STAGE_ORDER.indexOf(lead.stage);
@@ -62,8 +63,9 @@ export function LeadCard({ lead, onStageChange }: LeadCardProps) {
 
   return (
     <div
-      className="premium-card p-4 mb-3 group transition-all"
+      className="premium-card p-4 mb-3 group transition-all cursor-pointer"
       style={{ borderColor: isStale ? '#FCA5A5' : '#E2DED5' }}
+      onClick={() => onSelect?.(lead)}
     >
       {/* ── Header: Avatar + Name + Priority + External Link ────────────── */}
       <div className="flex items-start gap-2.5 mb-3">

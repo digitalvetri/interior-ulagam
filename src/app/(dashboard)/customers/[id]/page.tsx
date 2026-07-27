@@ -44,8 +44,9 @@ export default function CustomerDetailPage({
   const [saveError, setSaveErr] = useState<string | null>(null);
 
   // notes are edited independently on the right pane
-  const [notesDraft, setNotesDraft] = useState('');
+  const [notesDraft, setNotesDraft]   = useState('');
   const [notesSaving, setNotesSaving] = useState(false);
+  const [notesError, setNotesErr]     = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -96,6 +97,7 @@ export default function CustomerDetailPage({
   async function saveNotes() {
     if (!customer || notesDraft === (customer.notes ?? '')) return;
     setNotesSaving(true);
+    setNotesErr(null);
     try {
       const res = await fetch(`/api/v1/customers/${id}`, {
         method: 'PATCH',
@@ -103,7 +105,10 @@ export default function CustomerDetailPage({
         body: JSON.stringify({ notes: notesDraft || null }),
       });
       const body = await res.json().catch(() => ({}));
-      if (res.ok) setCustomer(body.data as Customer);
+      if (!res.ok) throw new Error(body?.error ?? `Save failed (${res.status})`);
+      setCustomer(body.data as Customer);
+    } catch (e) {
+      setNotesErr(e instanceof Error ? e.message : 'Failed to save notes');
     } finally {
       setNotesSaving(false);
     }
@@ -183,7 +188,7 @@ export default function CustomerDetailPage({
                 About this customer
               </h2>
               {dirty && (
-                <Button size="sm" onClick={saveProps} disabled={saving} className="h-7 gap-1 bg-orange-600 text-white hover:bg-orange-700">
+                <Button size="sm" onClick={saveProps} disabled={saving} className="h-7 gap-1">
                   {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Save
                 </Button>
@@ -271,7 +276,7 @@ export default function CustomerDetailPage({
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Notes</h2>
               {notesDraft !== (customer.notes ?? '') && (
-                <Button size="sm" onClick={saveNotes} disabled={notesSaving} className="h-7 gap-1 bg-orange-600 text-white hover:bg-orange-700">
+                <Button size="sm" onClick={saveNotes} disabled={notesSaving} className="h-7 gap-1">
                   {notesSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                   Save notes
                 </Button>
@@ -281,8 +286,11 @@ export default function CustomerDetailPage({
               rows={6}
               placeholder="Log anything you want to remember about this customer — call summaries, preferences, follow-up plans…"
               value={notesDraft}
-              onChange={(e) => setNotesDraft(e.target.value)}
+              onChange={(e) => { setNotesDraft(e.target.value); setNotesErr(null); }}
             />
+            {notesError && (
+              <p className="mt-1.5 text-xs text-red-600">{notesError}</p>
+            )}
           </div>
 
           {/* Activity placeholder — timeline wired in a later pass */}

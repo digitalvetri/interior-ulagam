@@ -25,8 +25,24 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await db
-      .select()
+      .select({
+        id: quotes.id,
+        tenantId: quotes.tenantId,
+        projectId: quotes.projectId,
+        projectName: projects.name,
+        version: quotes.version,
+        status: quotes.status,
+        subtotalPaise: quotes.subtotalPaise,
+        gstPaise: quotes.gstPaise,
+        totalPaise: quotes.totalPaise,
+        pdfUrl: quotes.pdfUrl,
+        sentAt: quotes.sentAt,
+        approvedAt: quotes.approvedAt,
+        createdBy: quotes.createdBy,
+        createdAt: quotes.createdAt,
+      })
       .from(quotes)
+      .leftJoin(projects, eq(quotes.projectId, projects.id))
       .where(and(...conditions))
       .orderBy(desc(quotes.createdAt));
 

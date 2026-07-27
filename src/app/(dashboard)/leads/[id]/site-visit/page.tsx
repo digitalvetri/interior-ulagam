@@ -116,7 +116,7 @@ export default function SiteVisitPage({ params }: { params: Promise<{ id: string
           </dl>
           {completeError && <p className="mt-3 text-sm text-red-600">{completeError}</p>}
           <button onClick={handleMarkComplete} disabled={completing}
-            className="mt-5 rounded-lg bg-green-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-600 disabled:opacity-50">
+            className="mt-5 rounded-lg bg-[#7C5CFC] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#6C4FF5] disabled:opacity-50">
             {completing ? 'Updating…' : 'Mark Complete'}
           </button>
         </div>

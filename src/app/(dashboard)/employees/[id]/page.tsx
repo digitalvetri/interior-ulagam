@@ -150,7 +150,7 @@ export default function EmployeeDetailPage({
           </div>
           <div className="flex items-center gap-2">
             {dirty && (
-              <Button onClick={save} disabled={saving} size="sm" className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
+              <Button onClick={save} disabled={saving} size="sm" className="gap-1.5">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save changes
               </Button>
@@ -170,13 +170,13 @@ export default function EmployeeDetailPage({
               className={
                 'relative rounded-md px-3 py-1.5 font-medium capitalize transition-colors ' +
                 (tab === k
-                  ? 'text-emerald-700 dark:text-emerald-300'
+                  ? 'text-[#7C5CFC] dark:text-[#A98EFF]'
                   : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100')
               }
             >
               {k === 'personal' ? 'Personal' : k === 'job' ? 'Job' : 'Contact'}
               {tab === k && (
-                <span className="absolute -bottom-[calc(1.5rem_+_1px)] left-1 right-1 h-0.5 rounded bg-emerald-600" />
+                <span className="absolute -bottom-[calc(1.5rem_+_1px)] left-1 right-1 h-0.5 rounded bg-[#7C5CFC]" />
               )}
             </button>
           ))}

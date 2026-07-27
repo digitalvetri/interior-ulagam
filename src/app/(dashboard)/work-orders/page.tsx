@@ -32,6 +32,7 @@ const PRIORITY_STYLES: Record<DesignTaskPriority, string> = {
 export default function DesignTasksPage() {
   const [rows, setRows]         = useState<DesignTask[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch]     = useState('');
   const [statusFilter, setStat] = useState<DesignTaskStatus | 'all'>('all');
   const [dialogOpen, setDialog] = useState(false);
@@ -45,7 +46,7 @@ export default function DesignTasksPage() {
         setRows(data ?? []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => { setLoadError('Could not load tasks. Please refresh.'); setLoading(false); });
   }, []);
 
   useEffect(() => {
@@ -74,21 +75,33 @@ export default function DesignTasksPage() {
   async function cycleStatus(task: DesignTask) {
     const order: DesignTaskStatus[] = ['todo', 'in_progress', 'review', 'done'];
     const next = order[(order.indexOf(task.status) + 1) % order.length];
-    const res = await fetch(`/api/v1/design-tasks/${task.id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ status: next }),
-    });
-    if (!res.ok) return;
-    const body = await res.json();
-    setRows((prev) => prev.map((r) => r.id === task.id ? body.data : r));
+    // Optimistic update
+    setRows((prev) => prev.map((r) => r.id === task.id ? { ...r, status: next } : r));
+    try {
+      const res = await fetch(`/api/v1/design-tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) throw new Error('update failed');
+      const body = await res.json();
+      setRows((prev) => prev.map((r) => r.id === task.id ? body.data : r));
+    } catch {
+      // Rollback to original status
+      setRows((prev) => prev.map((r) => r.id === task.id ? task : r));
+    }
   }
 
   async function remove(task: DesignTask) {
     setOpenMenu(null);
     if (!confirm(`Delete "${task.title}"?`)) return;
+    // Optimistic remove
+    setRows((prev) => prev.filter((r) => r.id !== task.id));
     const res = await fetch(`/api/v1/design-tasks/${task.id}`, { method: 'DELETE' });
-    if (res.ok) setRows((prev) => prev.filter((r) => r.id !== task.id));
+    if (!res.ok) {
+      // Rollback
+      setRows((prev) => [task, ...prev]);
+    }
   }
 
   return (
@@ -104,7 +117,7 @@ export default function DesignTasksPage() {
         <Button
           size="sm"
           onClick={() => setDialog(true)}
-          className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+          className="gap-1.5"
         >
           <Plus className="h-4 w-4" /> New task
         </Button>
@@ -113,12 +126,12 @@ export default function DesignTasksPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
         <div className="relative min-w-[260px] flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="studio-search-icon" />
           <Input
             placeholder="Search title or description…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-11 h-[48px]"
           />
         </div>
 
@@ -148,6 +161,11 @@ export default function DesignTasksPage() {
 
       {/* List */}
       <div className="flex-1 overflow-auto p-6">
+        {loadError && (
+          <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {loadError}
+          </div>
+        )}
         {loading ? (
           <div className="p-12 text-center text-sm text-slate-500">Loading tasks…</div>
         ) : filtered.length === 0 ? (
@@ -263,7 +281,7 @@ function EmptyState({ hasQuery, onCreate }: { hasQuery: boolean; onCreate: () =>
   }
   return (
     <div className="mx-auto max-w-md p-16 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(124,92,252,0.1)', color: '#7C5CFC' }}>
         <Plus className="h-7 w-7" />
       </div>
       <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
@@ -272,7 +290,7 @@ function EmptyState({ hasQuery, onCreate }: { hasQuery: boolean; onCreate: () =>
       <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
         Add tasks like &quot;Send 3D render revision to client X&quot; or &quot;Approve moodboard for project Y&quot;.
       </p>
-      <Button onClick={onCreate} className="mt-5 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
+      <Button onClick={onCreate} className="mt-5 gap-1.5">
         <Plus className="h-4 w-4" /> Add first task
       </Button>
     </div>
@@ -397,7 +415,7 @@ function NewTaskDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || !title.trim()} className="bg-emerald-600 text-white hover:bg-emerald-700">
+            <Button type="submit" disabled={submitting || !title.trim()}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create task'}
             </Button>
           </DialogFooter>

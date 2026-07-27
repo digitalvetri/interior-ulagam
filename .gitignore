@@ -35,6 +35,7 @@ test-results/
 scripts/smoke-*.mjs
 scripts/probe-*.mjs
 scripts/seed-*.mjs
+scripts/create-*.mjs
 
 # Workflow build artifacts
 workflow-*.js

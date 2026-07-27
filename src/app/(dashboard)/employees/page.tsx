@@ -79,7 +79,7 @@ export default function EmployeesPage() {
         <Button
           size="sm"
           onClick={() => setDialog(true)}
-          className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
+          className="gap-1.5"
         >
           <Plus className="h-4 w-4" /> Add employee
         </Button>
@@ -88,12 +88,12 @@ export default function EmployeesPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
         <div className="relative min-w-[260px] flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="studio-search-icon" />
           <Input
             placeholder="Search name, email, job title, department…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-11 h-[48px]"
           />
         </div>
 
@@ -103,7 +103,7 @@ export default function EmployeesPage() {
             className={
               'rounded px-2.5 py-1 font-medium ' +
               (dept === 'all'
-                ? 'bg-emerald-600 text-white'
+                ? 'bg-[#7C5CFC] text-white'
                 : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
             }
           >
@@ -290,7 +290,7 @@ function EmptyState({ hasQuery, onAdd }: { hasQuery: boolean; onAdd: () => void 
       <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
         Add your team — designers, supervisors, accountants — to manage roles and access.
       </p>
-      <Button onClick={onAdd} className="mt-5 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
+      <Button onClick={onAdd} className="mt-5 gap-1.5">
         <Plus className="h-4 w-4" /> Add first employee
       </Button>
     </div>

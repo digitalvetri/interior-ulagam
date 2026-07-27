@@ -24,6 +24,7 @@ const PatchLeadSchema = z
     notes: z.string(),
     lostReason: z.string(),
     budgetBand: z.string(),
+    followUpDate: z.union([z.string().datetime({ offset: true }), z.string().date(), z.null()]),
   })
   .partial();
 
@@ -50,10 +51,17 @@ export async function GET(
         tenantId: leads.tenantId,
         source: leads.source,
         stage: leads.stage,
+        priority: leads.priority,
         ownerId: leads.ownerId,
         contactName: leads.contactName,
         contactPhone: leads.contactPhone,
+        contactEmail: leads.contactEmail,
+        propertyType: leads.propertyType,
+        projectLocation: leads.projectLocation,
         budgetBand: leads.budgetBand,
+        projectValuePaise: leads.projectValuePaise,
+        designerName: leads.designerName,
+        followUpDate: leads.followUpDate,
         lostReason: leads.lostReason,
         notes: leads.notes,
         firstTouchAt: leads.firstTouchAt,
@@ -110,7 +118,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields provided to update' }, { status: 400 });
   }
 
-  const updates: Partial<typeof leads.$inferInsert> = { ...parsed.data };
+  const { followUpDate, ...rest } = parsed.data;
+  const updates: Partial<typeof leads.$inferInsert> = { ...rest };
+  if (followUpDate !== undefined) {
+    updates.followUpDate = followUpDate === null ? null : new Date(followUpDate);
+  }
 
   // Update lastActivityAt whenever any field is patched
   updates.lastActivityAt = new Date();

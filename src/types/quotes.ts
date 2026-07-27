@@ -20,6 +20,7 @@ export interface Quote {
   id: string;
   tenantId: string;
   projectId: string;
+  projectName?: string | null;
   version: number;
   status: QuoteStatus;
   subtotalPaise: number;
@@ -30,6 +31,7 @@ export interface Quote {
   approvedAt?: string;
   createdBy?: string;
   createdAt: string;
+  updatedAt?: string;
   lines?: QuoteLine[];
 }
 

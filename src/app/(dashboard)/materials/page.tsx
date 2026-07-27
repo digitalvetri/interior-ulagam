@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  Search, Plus, Grid3X3, List, Edit2, Trash2, Package, X, Upload,
+  Search, Plus, Grid3X3, List, Edit2, Trash2, Package, X,
 } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
@@ -228,9 +228,10 @@ function MaterialModal({
   onSave: (form: MaterialForm) => Promise<void>;
   initial?: Material;
 }) {
-  const [form, setForm]     = useState<MaterialForm>(INITIAL_FORM);
-  const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof MaterialForm, string>>>({});
+  const [form, setForm]       = useState<MaterialForm>(INITIAL_FORM);
+  const [saving, setSaving]   = useState(false);
+  const [errors, setErrors]   = useState<Partial<Record<keyof MaterialForm, string>>>({});
+  const [apiError, setApiErr] = useState<string | null>(null);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -265,7 +266,15 @@ function MaterialModal({
     if (!form.sellPriceRupees) errs.sellPriceRupees = 'Sell price is required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
-    try { await onSave(form); onClose(); } finally { setSaving(false); }
+    setApiErr(null);
+    try {
+      await onSave(form);
+      onClose();
+    } catch (e) {
+      setApiErr(e instanceof Error ? e.message : 'Failed to save material');
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!open) return null;
@@ -340,13 +349,8 @@ function MaterialModal({
           </div>
           <div>
             <label className="studio-label block mb-1.5">Image URL</label>
-            <div className="flex gap-2">
-              <input type="url" value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)}
-                placeholder="https://…" className="studio-input flex-1 text-sm" />
-              <button type="button" className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs">
-                <Upload className="h-3.5 w-3.5" />Upload
-              </button>
-            </div>
+            <input type="url" value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)}
+              placeholder="https://…" className="studio-input w-full text-sm" />
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
             <div
@@ -362,6 +366,11 @@ function MaterialModal({
             </span>
           </label>
         </div>
+        {apiError && (
+          <div className="mx-6 mb-0 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex-shrink-0">
+            {apiError}
+          </div>
+        )}
         <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F0EEE9' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
           <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm">
@@ -377,7 +386,7 @@ function MaterialModal({
 export default function MaterialsPage() {
   const [materials, setMaterials]           = useState<Material[]>([]);
   const [loading, setLoading]               = useState(true);
-  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode]             = useState<'grid' | 'list'>('list');
   const [search, setSearch]                 = useState('');
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | 'all'>('all');
   const [modalOpen, setModalOpen]           = useState(false);
@@ -421,18 +430,16 @@ export default function MaterialsPage() {
       const res = await fetch(`/api/v1/materials/${editTarget.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      if (res.ok) {
-        const { data } = await res.json() as { data: Material };
-        setMaterials(prev => prev.map(m => m.id === editTarget.id ? data : m));
-      }
+      const json = await res.json().catch(() => ({})) as { data?: Material; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `Failed to update (${res.status})`);
+      setMaterials(prev => prev.map(m => m.id === editTarget.id ? json.data! : m));
     } else {
       const res = await fetch('/api/v1/materials', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      if (res.ok) {
-        const { data } = await res.json() as { data: Material };
-        setMaterials(prev => [data, ...prev]);
-      }
+      const json = await res.json().catch(() => ({})) as { data?: Material; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `Failed to add material (${res.status})`);
+      setMaterials(prev => [json.data!, ...prev]);
     }
     setEditTarget(undefined);
   }, [editTarget]);
@@ -468,9 +475,9 @@ export default function MaterialsPage() {
       {/* ── Search + view toggle ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#A79E8E' }} />
+          <Search className="studio-search-icon" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search materials…" className="studio-input w-full pl-9 text-sm py-2" />
+            placeholder="Search materials…" className="studio-input w-full pl-11 text-sm h-[48px]" />
         </div>
         <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #E2DED5' }}>
           <button type="button" onClick={() => setViewMode('grid')} className="px-3 py-2 transition-colors"

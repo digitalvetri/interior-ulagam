@@ -253,12 +253,12 @@ export default function DocumentsPage() {
         {/* Search bar */}
         <div className="flex items-center gap-3 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
           <div className="relative w-full max-w-xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="studio-search-icon" />
             <Input
               placeholder="Search in Documents"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="pl-11 h-[48px]"
             />
           </div>
           <div className="ml-auto flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5 dark:border-slate-800 dark:bg-slate-900">

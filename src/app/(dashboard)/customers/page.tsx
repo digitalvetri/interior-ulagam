@@ -34,6 +34,8 @@ export default function CustomersPage() {
   const [dialogOpen, setDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ ids: string[]; label: string } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -45,31 +47,26 @@ export default function CustomersPage() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [openMenu]);
 
-  async function deleteOne(id: string) {
+  function deleteOne(id: string) {
     const target = rows.find((r) => r.id === id);
     if (!target) return;
-    if (!confirm(`Delete ${target.fullName}? This cannot be undone.`)) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/v1/customers/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
-      setRows((prev) => prev.filter((r) => r.id !== id));
-      setSelected((prev) => {
-        const next = new Set(prev); next.delete(id); return next;
-      });
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Delete failed');
-    } finally {
-      setDeleting(false);
-      setOpenMenu(null);
-    }
+    setDeleteError(null);
+    setConfirmDelete({ ids: [id], label: target.fullName });
+    setOpenMenu(null);
   }
 
-  async function deleteSelected() {
+  function deleteSelected() {
     const ids = Array.from(selected);
     if (ids.length === 0) return;
-    if (!confirm(`Delete ${ids.length} customer${ids.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    setDeleteError(null);
+    setConfirmDelete({ ids, label: `${ids.length} customer${ids.length > 1 ? 's' : ''}` });
+  }
+
+  async function doConfirmedDelete() {
+    if (!confirmDelete) return;
+    const { ids } = confirmDelete;
     setDeleting(true);
+    setDeleteError(null);
     try {
       const results = await Promise.allSettled(
         ids.map((id) => fetch(`/api/v1/customers/${id}`, { method: 'DELETE' })),
@@ -80,7 +77,13 @@ export default function CustomersPage() {
       const deletedIds = new Set(ids.filter((id) => !failed.includes(id)));
       setRows((prev) => prev.filter((r) => !deletedIds.has(r.id)));
       setSelected(new Set());
-      if (failed.length) alert(`${failed.length} deletion${failed.length > 1 ? 's' : ''} failed.`);
+      if (failed.length) {
+        setDeleteError(`${failed.length} deletion${failed.length > 1 ? 's' : ''} failed. Please try again.`);
+      } else {
+        setConfirmDelete(null);
+      }
+    } catch {
+      setDeleteError('Network error. Please try again.');
     } finally {
       setDeleting(false);
     }
@@ -138,7 +141,7 @@ export default function CustomersPage() {
           <Button variant="outline" size="sm" className="gap-1.5">
             Actions <ChevronDown className="h-4 w-4" />
           </Button>
-          <Button size="sm" onClick={() => setDialog(true)} className="gap-1.5 bg-orange-600 text-white hover:bg-orange-700">
+          <Button size="sm" onClick={() => setDialog(true)} className="gap-1.5">
             <Plus className="h-4 w-4" /> Create customer
           </Button>
         </div>
@@ -147,12 +150,12 @@ export default function CustomersPage() {
       {/* ─── Filter row ─────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-950">
         <div className="relative min-w-[260px] flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Search className="studio-search-icon" />
           <Input
             placeholder="Search name, phone, email, company…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-11 h-[48px]"
           />
         </div>
 
@@ -358,6 +361,44 @@ export default function CustomersPage() {
         onOpenChange={setDialog}
         onCreated={(c) => setRows((prev) => [c, ...prev])}
       />
+
+      {/* ─── Delete confirmation dialog ───────────────────────────── */}
+      {confirmDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={(e) => { if (e.target === e.currentTarget && !deleting) { setConfirmDelete(null); setDeleteError(null); } }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-base font-semibold text-gray-900">
+              Delete {confirmDelete.label}?
+            </h3>
+            <p className="mt-2 text-sm text-gray-500">This action cannot be undone.</p>
+            {deleteError && (
+              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{deleteError}</p>
+            )}
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => { setConfirmDelete(null); setDeleteError(null); }}
+                disabled={deleting}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={doConfirmedDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -405,7 +446,7 @@ function EmptyState({ hasQuery, onCreate }: { hasQuery: boolean; onCreate: () =>
       <p className="mt-1 text-sm text-slate-500">
         Add your first customer to start tracking contacts, jobs and revenue.
       </p>
-      <Button onClick={onCreate} className="mt-5 gap-1.5 bg-orange-600 text-white hover:bg-orange-700">
+      <Button onClick={onCreate} className="mt-5 gap-1.5">
         <Plus className="h-4 w-4" /> Create customer
       </Button>
     </div>

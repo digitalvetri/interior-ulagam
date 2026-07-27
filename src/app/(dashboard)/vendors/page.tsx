@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -425,9 +425,8 @@ export default function VendorsPage() {
                 {vendors.map((vendor) => {
                   const isExpanded = expandedId === vendor.id;
                   return (
-                    <>
+                    <React.Fragment key={vendor.id}>
                       <tr
-                        key={vendor.id}
                         className="cursor-pointer transition-colors hover:bg-[var(--surface-muted)]"
                         style={{ borderBottom: '1px solid var(--border-subtle)' }}
                         onClick={() => setExpandedId(isExpanded ? null : vendor.id)}
@@ -443,7 +442,7 @@ export default function VendorsPage() {
                       </tr>
 
                       {isExpanded && (
-                        <tr key={`${vendor.id}-detail`}>
+                        <tr>
                           <td colSpan={6} className="px-4 pb-4 pt-2" style={{ background: 'var(--surface-muted)' }}>
                             <div className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2 mb-3">
                               <div>
@@ -472,7 +471,7 @@ export default function VendorsPage() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>
