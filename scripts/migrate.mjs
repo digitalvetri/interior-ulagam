@@ -13,7 +13,10 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const sql = postgres(DATABASE_URL, { max: 1, ssl: 'require' });
+// Local Postgres (127.0.0.1 / localhost) doesn't accept SSL. Remote Supabase
+// requires it. Detect the host and only require SSL when we're not local.
+const isLocal = /(?:^|@)(127\.0\.0\.1|localhost|\[::1\])[:/]/.test(DATABASE_URL);
+const sql = postgres(DATABASE_URL, { max: 1, ssl: isLocal ? false : 'require' });
 
 const migrationSql = readFileSync(
   resolve(__dirname, '../drizzle/0000_worthless_quasar.sql'),

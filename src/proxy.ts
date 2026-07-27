@@ -50,17 +50,32 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // Wrap in try/catch: if Supabase is unreachable the proxy must not crash.
-  // Treat any exception as "no user" → redirect to login.
-  let user = null;
+  // Fail-open on network errors: if Supabase is unreachable and the request
+  // already carries a Supabase auth cookie, we assume the session is still
+  // valid rather than bouncing the user to /login. The API routes still run
+  // their own auth checks, so this only affects page navigation UX; it does
+  // not weaken data-plane security. Prevents "site is slow → user redirected
+  // to /login every refresh" during flaky connectivity to the Supabase host.
+  const hasSupabaseCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'));
+
+  let user: unknown = null;
+  let supabaseReachable = true;
   try {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch {
-    // Supabase unreachable — fall through and redirect to login
+    supabaseReachable = false;
   }
 
   if (!user) {
+    // Supabase unreachable but we have a session cookie — trust it for the
+    // page shell so the user keeps browsing. If we can reach Supabase and
+    // there is genuinely no user, fall through to the login redirect.
+    if (!supabaseReachable && hasSupabaseCookie) {
+      return supabaseResponse;
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
