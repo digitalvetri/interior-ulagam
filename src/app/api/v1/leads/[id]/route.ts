@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { leads } from '@/lib/db/schema';
+import { leads, waMessages } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { inngest } from '@/inngest/client';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -64,6 +65,8 @@ export async function GET(
         followUpDate: leads.followUpDate,
         lostReason: leads.lostReason,
         notes: leads.notes,
+        score: leads.score,
+        scoreBreakdown: leads.scoreBreakdown,
         firstTouchAt: leads.firstTouchAt,
         lastActivityAt: leads.lastActivityAt,
         createdAt: leads.createdAt,
@@ -76,7 +79,25 @@ export async function GET(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: lead });
+    // Include last 3 WA messages for the thread preview panel
+    const recentMessages = await db
+      .select({
+        id: waMessages.id,
+        direction: waMessages.direction,
+        bodyPreview: waMessages.bodyPreview,
+        createdAt: waMessages.createdAt,
+      })
+      .from(waMessages)
+      .where(
+        and(
+          eq(waMessages.tenantId, ctx.tenantId),
+          eq(waMessages.threadId, lead.contactPhone),
+        ),
+      )
+      .orderBy(desc(waMessages.createdAt))
+      .limit(3);
+
+    return NextResponse.json({ data: { ...lead, recentMessages } });
   } catch (e) {
     console.error('[GET /api/v1/leads/[id]]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -137,6 +158,9 @@ export async function PATCH(
     if (!updated) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
+
+    // Rescore asynchronously — don't block the PATCH response
+    void inngest.send({ name: 'lead/score.compute', data: { leadId: id, tenantId: ctx.tenantId } });
 
     return NextResponse.json({ data: updated, message: 'Lead updated' });
   } catch (e) {

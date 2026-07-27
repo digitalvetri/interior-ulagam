@@ -3,6 +3,8 @@ import { inngest } from '@/inngest/client'
 import { helloWorld } from '@/inngest/functions/hello-world'
 import { quotePdf } from '@/inngest/functions/quote-pdf'
 import { leadFollowupNudge } from '@/inngest/functions/lead-followup'
+import { leadScoreCompute } from '@/inngest/functions/lead-score'
+import { leadEnrich } from '@/inngest/functions/lead-enrich'
 import { milestonePaymentCaptured } from '@/inngest/functions/milestone-payment'
 import { overdueEscalation } from '@/inngest/functions/overdue-escalation'
 import { siteVisitReminders } from '@/inngest/functions/site-visit-reminders'
@@ -20,7 +22,8 @@ import { costOverrunAlert } from '@/inngest/functions/cost-overrun-alert'
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
-    helloWorld, quotePdf, leadFollowupNudge, milestonePaymentCaptured,
+    helloWorld, quotePdf, leadFollowupNudge, leadScoreCompute, leadEnrich,
+    milestonePaymentCaptured,
     overdueEscalation, siteVisitReminders, siteIntelligence, mondayBrief,
     aiQuoteDraft, handoverReferral, photoBOQDraft, aiSnagDetection,
     languageDetection, clientChatbot, vendorPOWhatsApp,

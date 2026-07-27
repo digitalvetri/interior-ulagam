@@ -8,7 +8,14 @@ import {
   IndianRupee, User, MapPin, Clock, CheckCircle2, AlertCircle,
   Plus, FolderKanban, ExternalLink, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
+import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, ScoreBreakdown } from '@/types/leads';
+
+interface WaMessage {
+  id: string;
+  direction: 'inbound' | 'outbound';
+  bodyPreview: string | null;
+  createdAt: string;
+}
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 function fmt(paise: number) {
@@ -86,10 +93,11 @@ export default function LeadDetailPage() {
   const router = useRouter();
   const id = params['id'] as string;
 
-  const [lead, setLead]             = useState<Lead | null>(null);
-  const [activities, setActivities] = useState<LeadActivity[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [notFound, setNotFound]     = useState(false);
+  const [lead, setLead]               = useState<Lead | null>(null);
+  const [activities, setActivities]   = useState<LeadActivity[]>([]);
+  const [recentMessages, setMessages] = useState<WaMessage[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [notFound, setNotFound]       = useState(false);
   const [noteText, setNoteText]         = useState('');
   const [savingNote, setSavingNote]     = useState(false);
   const [noteError, setNoteError]       = useState<string | null>(null);
@@ -105,7 +113,8 @@ export default function LeadDetailPage() {
       fetch(`/api/v1/leads/${id}/activities`).catch(() => null),
     ]).then(async ([leadRes, actRes]) => {
       if (leadRes.status === 404) { setNotFound(true); setLoading(false); return; }
-      const { data: leadData } = await leadRes.json() as { data: Lead };
+      const { data: leadData } = await leadRes.json() as { data: Lead & { recentMessages?: WaMessage[] } };
+      setMessages(leadData.recentMessages ?? []);
       setLead(leadData);
       if (actRes && actRes.ok) {
         const { data: actData } = await actRes.json() as { data: LeadActivity[] };
@@ -581,6 +590,83 @@ export default function LeadDetailPage() {
             </div>
           )}
         </Section>
+
+        {/* ── WhatsApp Thread Preview ───────────────────────────────────── */}
+        {recentMessages.length > 0 && (
+          <Section title="Recent WhatsApp Messages" defaultOpen>
+            <div className="space-y-2">
+              {recentMessages.map(msg => (
+                <div
+                  key={msg.id}
+                  className="flex gap-2.5"
+                  style={{ justifyContent: msg.direction === 'outbound' ? 'flex-end' : 'flex-start' }}
+                >
+                  <div
+                    className="max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm"
+                    style={{
+                      background: msg.direction === 'inbound' ? '#F0FDF4' : '#F5F3FF',
+                      border: `1px solid ${msg.direction === 'inbound' ? '#86EFAC' : '#DDD6FE'}`,
+                      color: '#1C1916',
+                    }}
+                  >
+                    <p className="leading-relaxed">{msg.bodyPreview ?? '(media)'}</p>
+                    <p className="text-[10px] mt-1 opacity-60">{fmtTime(msg.createdAt)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <a
+              href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '').slice(-10)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 mt-3 text-xs font-medium"
+              style={{ color: '#16A34A' }}
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Open in WhatsApp
+              <ExternalLink className="h-3 w-3 opacity-60" />
+            </a>
+          </Section>
+        )}
+
+        {/* ── Lead Score Breakdown ──────────────────────────────────────── */}
+        {(lead.score ?? 0) > 0 && lead.scoreBreakdown && (
+          <Section title="Lead Score" defaultOpen={false}>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="text-3xl font-bold" style={{ color: (lead.score ?? 0) >= 70 ? '#16A34A' : (lead.score ?? 0) >= 40 ? '#EA580C' : '#6B7280' }}>
+                {lead.score}
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: '#1C1916' }}>out of 100</p>
+                <p className="text-xs" style={{ color: '#6B6459' }}>Updated automatically on activity</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {(
+                [
+                  { label: 'Recency',      val: lead.scoreBreakdown.recency,      max: 30 },
+                  { label: 'Project Value',val: lead.scoreBreakdown.value,        max: 25 },
+                  { label: 'Completeness', val: lead.scoreBreakdown.completeness, max: 20 },
+                  { label: 'Source',       val: lead.scoreBreakdown.source,       max: 15 },
+                  { label: 'Engagement',   val: lead.scoreBreakdown.engagement,   max: 10 },
+                ] as { label: string; val: number; max: number }[]
+              ).map(({ label, val, max }) => (
+                <div key={label}>
+                  <div className="flex justify-between text-xs mb-1" style={{ color: '#6B6459' }}>
+                    <span>{label}</span>
+                    <span className="font-medium" style={{ color: '#1C1916' }}>{val}/{max}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full" style={{ background: '#F0EEE9' }}>
+                    <div
+                      className="h-1.5 rounded-full transition-all"
+                      style={{ width: `${(val / max) * 100}%`, background: '#7C5CFC' }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* ── Quotations / Work Orders / Documents (stubs) ─────────────── */}
         <Section title="Quotations" defaultOpen={false}>

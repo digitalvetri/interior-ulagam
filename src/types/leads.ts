@@ -19,6 +19,14 @@ export type LeadPriority = 'hot' | 'warm' | 'cold';
 
 export type FollowUpStatus = 'pending' | 'completed' | 'overdue' | 'rescheduled' | 'cancelled';
 
+export interface ScoreBreakdown {
+  recency: number;      // 0–30
+  value: number;        // 0–25
+  completeness: number; // 0–20
+  source: number;       // 0–15
+  engagement: number;   // 0–10
+}
+
 export interface Lead {
   id: string;
   tenantId: string;
@@ -37,6 +45,8 @@ export interface Lead {
   followUpDate?: string;
   notes?: string;
   lostReason?: string;
+  score: number;
+  scoreBreakdown?: ScoreBreakdown;
   firstTouchAt: string;
   lastActivityAt: string;
   createdAt: string;

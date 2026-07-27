@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
-import { leads } from '@/lib/db/schema';
+import { leads, waMessages } from '@/lib/db/schema';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
 
 // ─── Webhook payload types ─────────────────────────────────────────────────────
@@ -133,22 +133,52 @@ export async function POST(request: NextRequest) {
     // in leadFollowupNudge can match correctly.
     //
     // WhatsApp sends phone numbers as full international strings without "+"
-    // (e.g. "919876543210").  leads.contactPhone may be stored with or without
-    // the country-code prefix, so we match on the trailing digits.
+    // (e.g. "919876543210"). leads.contactPhone may be stored with or without
+    // the country-code prefix, so we match on the raw string first.
     await Promise.all(
       inboundPhones.map(async (phone) => {
         const matchedLeads = await db
-          .selectDistinct({ tenantId: leads.tenantId })
+          .select({ id: leads.id, tenantId: leads.tenantId })
           .from(leads)
           .where(eq(leads.contactPhone, phone));
 
+        // Write inbound message to wa_messages + fire lead/replied + rescore
         await Promise.all(
-          matchedLeads.map((row) =>
-            inngest.send({
-              name: 'lead/replied',
-              data: { tenantId: row.tenantId, contactPhone: phone },
-            }),
-          ),
+          matchedLeads.map(async (row) => {
+            // Find the message text for this phone from the payload
+            let bodyPreview: string | null = null;
+            let metaMessageId: string | null = null;
+            for (const entry of payload.entry ?? []) {
+              for (const change of entry.changes ?? []) {
+                for (const msg of change.value.messages ?? []) {
+                  if (msg.from === phone) {
+                    bodyPreview = msg.text?.body ?? msg.image?.caption ?? null;
+                    metaMessageId = msg.id ?? null;
+                  }
+                }
+              }
+            }
+
+            await db.insert(waMessages).values({
+              tenantId: row.tenantId,
+              leadId: row.id,
+              threadId: phone,
+              metaMessageId,
+              direction: 'inbound',
+              bodyPreview: bodyPreview ? bodyPreview.slice(0, 500) : null,
+            }).onConflictDoNothing();
+
+            // Update lastActivityAt on the lead — inbound WA IS human activity
+            await db
+              .update(leads)
+              .set({ lastActivityAt: new Date() })
+              .where(eq(leads.id, row.id));
+
+            await Promise.all([
+              inngest.send({ name: 'lead/replied', data: { tenantId: row.tenantId, contactPhone: phone } }),
+              inngest.send({ name: 'lead/score.compute', data: { leadId: row.id, tenantId: row.tenantId } }),
+            ]);
+          }),
         );
       }),
     );

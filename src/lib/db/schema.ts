@@ -5,6 +5,7 @@ import {
   timestamp,
   boolean,
   integer,
+  smallint,
   bigint,
   jsonb,
   pgEnum,
@@ -152,6 +153,8 @@ export const leads = pgTable('leads', {
   lostReason: text('lost_reason'),
   notes: text('notes'),
   preferredLanguage: text('preferred_language').default('en'),
+  score: smallint('score').default(0),
+  scoreBreakdown: jsonb('score_breakdown'),
   firstTouchAt: timestamp('first_touch_at', { withTimezone: true }).notNull().defaultNow(),
   lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
   ...timestamps,
@@ -391,6 +394,7 @@ export const snagItems = pgTable('snag_items', {
 export const waMessages = pgTable('wa_messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
   threadId: text('thread_id').notNull(),
   metaMessageId: text('meta_message_id'),
   direction: messageDirectionEnum('direction').notNull(),
@@ -402,6 +406,7 @@ export const waMessages = pgTable('wa_messages', {
   ...timestamps,
 }, (t) => [
   index('wa_messages_tenant_thread_idx').on(t.tenantId, t.threadId),
+  index('wa_messages_lead_idx').on(t.leadId),
 ]);
 
 export const vendors = pgTable('vendors', {

@@ -81,6 +81,8 @@ export async function GET(request: NextRequest) {
         followUpDate: leads.followUpDate,
         lostReason: leads.lostReason,
         notes: leads.notes,
+        score: leads.score,
+        scoreBreakdown: leads.scoreBreakdown,
         firstTouchAt: leads.firstTouchAt,
         lastActivityAt: leads.lastActivityAt,
         createdAt: leads.createdAt,
@@ -133,16 +135,21 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // Kick off the 3/7/14-day follow-up nudge sequence (non-blocking)
-    await inngest.send({
-      name: 'lead/followup.start',
-      data: {
-        leadId: lead.id,
-        tenantId: lead.tenantId,
-        contactPhone: lead.contactPhone,
-        contactName: lead.contactName,
+    // Non-blocking: nudge sequence + enrichment + initial score
+    await inngest.send([
+      {
+        name: 'lead/followup.start',
+        data: { leadId: lead.id, tenantId: lead.tenantId, contactPhone: lead.contactPhone, contactName: lead.contactName },
       },
-    });
+      {
+        name: 'lead/created',
+        data: { leadId: lead.id, tenantId: lead.tenantId, inboundText: notes ?? undefined },
+      },
+      {
+        name: 'lead/score.compute',
+        data: { leadId: lead.id, tenantId: lead.tenantId },
+      },
+    ]);
 
     return NextResponse.json({ data: lead, message: 'Lead created' }, { status: 201 });
   } catch (e) {
