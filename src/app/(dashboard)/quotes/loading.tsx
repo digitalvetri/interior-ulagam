@@ -1,20 +1,37 @@
 export default function QuotesLoading() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="flex items-center justify-between">
-        <div className="h-7 w-36 rounded-lg bg-gray-200" />
-        <div className="h-9 w-28 rounded-lg bg-gray-200" />
+    <div className="space-y-5 p-6">
+      <div
+        className="flex items-end justify-between gap-4 pb-4"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        <div className="space-y-2">
+          <div className="skeleton h-6 w-36" />
+          <div className="skeleton h-4 w-52" />
+        </div>
+        <div className="skeleton h-9 w-28 rounded-lg" />
       </div>
-      <div className="rounded-2xl overflow-hidden border border-gray-100">
-        <div className="h-11 bg-gray-50" />
+      <div
+        className="overflow-hidden"
+        style={{
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 10,
+        }}
+      >
+        <div className="h-10" style={{ background: 'var(--surface-muted)' }} />
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-center gap-4 px-4 py-3 border-t border-gray-100">
-            <div className="h-4 w-20 rounded bg-gray-200" />
-            <div className="h-4 w-8 rounded bg-gray-100" />
-            <div className="h-4 flex-1 rounded bg-gray-100" />
-            <div className="h-5 w-16 rounded-full bg-gray-100" />
-            <div className="h-4 w-20 rounded bg-gray-200" />
-            <div className="h-4 w-20 rounded bg-gray-100" />
+          <div
+            key={i}
+            className="flex items-center gap-4 px-4 py-3"
+            style={{ borderTop: '1px solid var(--border-subtle)' }}
+          >
+            <div className="skeleton h-4 w-20" />
+            <div className="skeleton h-4 w-8" />
+            <div className="skeleton h-4 flex-1" />
+            <div className="skeleton h-5 w-16 rounded-full" />
+            <div className="skeleton h-4 w-20" />
+            <div className="skeleton h-4 w-20" />
           </div>
         ))}
       </div>

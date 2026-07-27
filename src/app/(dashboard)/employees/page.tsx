@@ -103,7 +103,7 @@ export default function EmployeesPage() {
             className={
               'rounded px-2.5 py-1 font-medium ' +
               (dept === 'all'
-                ? 'bg-[#7C5CFC] text-white'
+                ? 'bg-emerald-700 text-white'
                 : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
             }
           >

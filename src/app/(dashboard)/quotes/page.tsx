@@ -177,7 +177,7 @@ export default function QuotesPage() {
             className="flex h-14 w-14 items-center justify-center rounded-2xl"
             style={{ background: 'var(--violet-soft)' }}
           >
-            <FileText className="h-7 w-7" style={{ color: '#7C5CFC' }} />
+            <FileText className="h-7 w-7" style={{ color: 'var(--forest)' }} />
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No quotes yet</p>
@@ -237,7 +237,7 @@ export default function QuotesPage() {
                     <Link
                       href={`/quotes/${quote.id}`}
                       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
-                      style={{ color: '#7C5CFC', background: 'var(--violet-soft)', border: '1px solid #DDD6FE' }}
+                      style={{ color: 'var(--forest-deep)', background: 'var(--mint-mist)', border: '1px solid #B4DCD1' }}
                     >
                       Open
                     </Link>

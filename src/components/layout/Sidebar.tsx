@@ -44,7 +44,7 @@ function NavGroupSection({
         >
           <span
             className="text-[10.5px] font-semibold uppercase tracking-[0.08em]"
-            style={{ color: groupHasActive ? '#7C5CFC' : '#9CA3AF' }}
+            style={{ color: groupHasActive ? 'var(--forest)' : '#9CA3AF' }}
           >
             {group.label}
           </span>
@@ -83,7 +83,7 @@ function NavGroupSection({
                 {active && !iconOnly && (
                   <span
                     className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                    style={{ backgroundColor: '#7C5CFC' }}
+                    style={{ backgroundColor: 'var(--forest)' }}
                   />
                 )}
 
@@ -139,7 +139,7 @@ function SidebarBody({
         <div className="px-4 pt-3 pb-0">
           <span
             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: '#EDE9FE', color: '#6D4FE0' }}
+            style={{ backgroundColor: 'var(--mint-mist)', color: 'var(--forest-deep)' }}
           >
             {ROLE_LABELS[role] ?? role}
           </span>
@@ -171,7 +171,7 @@ function SidebarBody({
         >
           <div
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-            style={{ backgroundColor: '#7C5CFC' }}
+            style={{ backgroundColor: 'var(--forest)' }}
           >
             {initials}
           </div>
@@ -275,7 +275,7 @@ export function Sidebar() {
 
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside
-        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[64px]' : 'w-[220px]'}`}
+        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[60px]' : 'w-[212px]'}`}
       >
         <SidebarBody
           role={role} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
@@ -286,7 +286,7 @@ export function Sidebar() {
           type="button"
           onClick={toggleIconOnly}
           aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:border-violet-300 transition-all"
+          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:border-emerald-300 transition-all"
         >
           {iconOnly
             ? <ChevronRight className="h-3 w-3 text-gray-500" />

@@ -115,7 +115,7 @@ export function LeadDetailPanel({ lead, onClose }: Props) {
               <div className="flex items-center gap-3 min-w-0">
                 <div
                   className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #7C5CFC 0%, #9B8AFB 100%)' }}
+                  style={{ background: 'linear-gradient(135deg, #0E7F6E 0%, #14A08B 100%)' }}
                 >
                   {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
                 </div>
@@ -126,7 +126,7 @@ export function LeadDetailPanel({ lead, onClose }: Props) {
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span
                       className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                      style={{ background: '#EDE9FE', color: '#6D4FE0' }}
+                      style={{ background: 'var(--mint-mist)', color: 'var(--forest-deep)' }}
                     >
                       {STAGE_LABELS[lead.stage]}
                     </span>
@@ -185,7 +185,7 @@ export function LeadDetailPanel({ lead, onClose }: Props) {
                 type="button"
                 onClick={() => setShowNoteBox(v => !v)}
                 className="flex flex-1 items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors"
-                style={{ background: '#F5F3FF', color: '#7C5CFC' }}
+                style={{ background: 'var(--mint-mist-soft)', color: 'var(--forest-deep)' }}
               >
                 <Plus className="h-3.5 w-3.5" /> Note
               </button>
@@ -196,14 +196,14 @@ export function LeadDetailPanel({ lead, onClose }: Props) {
 
               {/* Quick note input */}
               {showNoteBox && (
-                <div className="rounded-xl p-3 space-y-2" style={{ background: '#F9F8FF', border: '1px solid #EDE9FE' }}>
+                <div className="rounded-xl p-3 space-y-2" style={{ background: 'var(--mint-mist-soft)', border: '1px solid var(--mint-mist)' }}>
                   <textarea
                     value={noteText}
                     onChange={e => setNoteText(e.target.value)}
                     placeholder="Add a note about this lead…"
                     rows={3}
                     className="w-full text-sm rounded-lg p-2.5 resize-none outline-none"
-                    style={{ background: '#FFFFFF', border: '1px solid #DDD6FE', color: '#171923' }}
+                    style={{ background: '#FFFFFF', border: '1px solid var(--border-subtle)', color: '#171923' }}
                     autoFocus
                   />
                   <div className="flex gap-2 justify-end">
@@ -220,7 +220,7 @@ export function LeadDetailPanel({ lead, onClose }: Props) {
                       onClick={addNote}
                       disabled={addingNote || !noteText.trim()}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg font-medium disabled:opacity-50"
-                      style={{ background: '#7C5CFC', color: '#FFFFFF' }}
+                      style={{ background: 'var(--forest)', color: '#FFFFFF' }}
                     >
                       {addingNote ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                       Save Note

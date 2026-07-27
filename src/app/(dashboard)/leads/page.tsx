@@ -79,7 +79,7 @@ function LeadListCard({ lead }: { lead: Lead }) {
         {/* Avatar */}
         <div
           className="h-11 w-11 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0 select-none"
-          style={{ background: 'linear-gradient(135deg, #7C5CFC 0%, #9B8AFB 100%)' }}
+          style={{ background: 'linear-gradient(135deg, #0E7F6E 0%, #14A08B 100%)' }}
         >
           {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
         </div>
@@ -132,10 +132,10 @@ function LeadListCard({ lead }: { lead: Lead }) {
               </a>
               <Link
                 href={`/leads/${lead.id}`}
-                className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-violet-50"
+                className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-emerald-50"
                 title="View Details"
               >
-                <Eye className="h-4 w-4" style={{ color: '#7C5CFC' }} />
+                <Eye className="h-4 w-4" style={{ color: 'var(--forest)' }} />
               </Link>
             </div>
           </div>
@@ -323,9 +323,9 @@ export default function LeadsPage() {
             type="button"
             className="flex items-center gap-2 h-[48px] px-4 rounded-[12px] text-sm font-medium transition-colors"
             style={{
-              background: showFilters ? '#EDE9FE' : '#FFFFFF',
-              color: showFilters ? '#7C5CFC' : '#374151',
-              border: showFilters ? '1.5px solid #C4B5FD' : '1.5px solid #E5E7EB',
+              background: showFilters ? 'var(--mint-mist)' : '#FFFFFF',
+              color: showFilters ? 'var(--forest-deep)' : '#374151',
+              border: showFilters ? '1.5px solid #B4DCD1' : '1.5px solid #E5E7EB',
             }}
             onClick={() => setShowFilters(v => !v)}
           >
@@ -391,9 +391,9 @@ export default function LeadsPage() {
                 onClick={() => setActiveChip(chip.key)}
                 className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all"
                 style={isActive ? {
-                  background: '#7C5CFC',
+                  background: 'var(--forest)',
                   color: '#FFFFFF',
-                  boxShadow: '0 2px 8px rgba(124,92,252,0.35)',
+                  boxShadow: '0 2px 8px rgba(14,127,110,0.35)',
                 } : {
                   background: '#FFFFFF',
                   color: '#374151',
@@ -435,9 +435,9 @@ export default function LeadsPage() {
           >
             <div
               className="h-12 w-12 rounded-full flex items-center justify-center"
-              style={{ background: '#F5F3FF' }}
+              style={{ background: 'var(--mint-mist)' }}
             >
-              <Users className="h-6 w-6" style={{ color: '#7C5CFC' }} />
+              <Users className="h-6 w-6" style={{ color: 'var(--forest)' }} />
             </div>
             <p className="text-sm font-medium text-gray-600">
               {search || activeChip !== 'all' ? 'No leads match your filters' : 'No leads yet'}

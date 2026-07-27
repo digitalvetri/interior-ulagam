@@ -19,25 +19,9 @@ function fmt(paise: number) {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
-/* Decorative sparkline — a static wave shape in the metric's accent color.
-   There's no time-series history API for these metrics, so this is a purely
-   stylistic flourish (no fabricated numbers are plotted on it). */
-function Sparkline({ color }: { color: string }) {
-  return (
-    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-7 mt-3">
-      <path
-        d="M0,20 C10,8 18,24 28,16 C38,8 46,22 56,14 C66,6 74,18 84,10 C90,6 96,10 100,6"
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 /* ── KPI Card ───────────────────────────────────────────────────────────── */
-/* Circular pastel icon badge + colored sparkline per metric. */
+/* Attio pattern: label on top (small, quiet), then big tabular number,
+   then sub. Icon lives inline with the label, not as a decorative badge. */
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
   blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)' },
@@ -53,21 +37,28 @@ function KpiCard({
 }) {
   const a = KPI_ACCENTS[accent];
   return (
-    <div className="premium-card p-5">
-      <div
-        className="stat-badge mb-4"
-        style={{ backgroundColor: a.bg }}
-      >
-        <Icon className="h-5 w-5" style={{ color: a.fg }} strokeWidth={2} />
+    <div className="premium-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span
+          className="flex h-6 w-6 items-center justify-center rounded-md"
+          style={{ backgroundColor: a.bg }}
+        >
+          <Icon className="h-3.5 w-3.5" style={{ color: a.fg }} strokeWidth={2} />
+        </span>
+        <span className="text-[12px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+          {label}
+        </span>
       </div>
       {loading ? (
-        <div className="skeleton h-8 w-24 mb-1" />
+        <div className="skeleton h-8 w-20 mb-1" />
       ) : (
         <p className="kpi-value">{value}</p>
       )}
-      <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{label}</p>
-      {sub && <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{sub}</p>}
-      <Sparkline color={a.fg} />
+      {sub && (
+        <p className="mt-1.5 text-[12px] tnum" style={{ color: 'var(--text-secondary)' }}>
+          {sub}
+        </p>
+      )}
     </div>
   );
 }
@@ -100,24 +91,23 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border p-4 transition-all duration-150 hover:-translate-y-0.5"
+      className="group flex items-center gap-3 rounded-lg border p-3 transition-colors duration-150"
       style={{
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--surface-card)',
         borderColor: 'var(--border-subtle)',
-        boxShadow: '0 1px 4px rgba(22,20,15,0.05)',
         color: 'var(--text-heading)',
       }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = a.fg)}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = 'color-mix(in oklab, var(--border-subtle) 40%, ' + a.fg + ' 60%)')}
       onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
     >
       <div
-        className="flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
+        className="flex h-7 w-7 items-center justify-center rounded-md flex-shrink-0"
         style={{ backgroundColor: a.bg }}
       >
-        <Icon className="h-4 w-4" style={{ color: a.fg }} />
+        <Icon className="h-3.5 w-3.5" style={{ color: a.fg }} strokeWidth={2} />
       </div>
-      <span className="text-sm font-semibold">{label}</span>
-      <ChevronRight className="ml-auto h-4 w-4 opacity-40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:opacity-70" />
+      <span className="text-[13px] font-medium">{label}</span>
+      <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-30 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-60" />
     </Link>
   );
 }
@@ -182,23 +172,27 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Action row */}
-      <div className="flex items-center justify-end">
+      {/* Page header */}
+      <div className="flex items-end justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div>
+          <h1 className="page-title">Overview</h1>
+          <p className="page-subtitle">Everything happening across your studio right now.</p>
+        </div>
         <Link
           href="/leads"
-          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-lg"
+          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
         >
-          <Plus className="h-4 w-4" />
-          New Lead
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+          New lead
         </Link>
       </div>
 
       {/* KPI grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Active Leads"    value={String(activeLeads)}  sub={`${totalLeads} total`}          icon={Users}        accent="purple" loading={loading} />
-        <KpiCard label="Active Projects" value={String(activeProj)}   sub={`${projects.length} total`}     icon={FolderKanban} accent="blue"   loading={loading} />
-        <KpiCard label="Pending Receivables" value={fmt(totalRec)}    sub={`${receivables.length} invoices`} icon={IndianRupee} accent="orange" loading={loading} />
-        <KpiCard label="Conversion Rate" value={`${conversionPct}%`}  sub={`${leadStats?.won ?? 0} won`}   icon={TrendingUp}   accent="green"  loading={loading} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Active leads"        value={String(activeLeads)}  sub={`${totalLeads} total`}            icon={Users}        accent="purple" loading={loading} />
+        <KpiCard label="Active projects"     value={String(activeProj)}   sub={`${projects.length} total`}       icon={FolderKanban} accent="blue"   loading={loading} />
+        <KpiCard label="Pending receivables" value={fmt(totalRec)}        sub={`${receivables.length} invoices`} icon={IndianRupee}  accent="orange" loading={loading} />
+        <KpiCard label="Conversion rate"     value={`${conversionPct}%`}  sub={`${leadStats?.won ?? 0} won`}     icon={TrendingUp}   accent="green"  loading={loading} />
       </div>
 
       {/* Lead funnel + Projects side by side */}
@@ -208,7 +202,10 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Lead Funnel</h3>
-            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
+            <Link href="/leads" className="text-[12px] font-medium transition-colors" style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--forest)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            >
               View all →
             </Link>
           </div>
@@ -256,7 +253,10 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Active Projects</h3>
-            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
+            <Link href="/projects" className="text-[12px] font-medium transition-colors" style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--forest)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            >
               View all →
             </Link>
           </div>
@@ -291,7 +291,10 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Pending Payments</h3>
-            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
+            <Link href="/accounts" className="text-[12px] font-medium transition-colors" style={{ color: 'var(--text-secondary)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--forest)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            >
               View all →
             </Link>
           </div>

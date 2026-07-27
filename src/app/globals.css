@@ -5,45 +5,57 @@
    deterministically controls the theme. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* ── InterioOS Brand Theme ─────────────────────────────────────────────────
-   Deep navy structure, teal as the primary interactive color, purple + gold
-   as supporting accents. Exact hexes from the brand color sheet:
-   Primary #0D1B2A · Secondary #00B894 · Accent #6C5CE7 · Highlight #F9C74F ·
-   Neutral #F3F5F9. Teal (not navy) drives buttons/active-states/links —
-   that's how the brand's own reference dashboard actually uses it; navy is
-   reserved for structural surfaces (sidebar) and heading text. */
+/* ── Houzz-Pro-inspired Theme ──────────────────────────────────────────────
+   Deep forest teal primary on a warm-white shell — calm, corporate, and
+   trustworthy. Green owns interactive states (buttons, active nav, links);
+   surfaces stay bright; text stays warm-black. Legacy `--violet-*` and
+   `--purple-*` tokens are aliased to the new green so any component still
+   referencing them continues to work while we finish the rebrand. */
 
 :root {
   /* ── Core palette ─────────────────────────────────────── */
-  --navy:            #0D1B2A;   /* Primary   — sidebar / structural dark    */
-  --navy-soft:       #16283A;   /* lighter navy — hover panels on dark      */
-  --teal:            #00B894;   /* Secondary — buttons, active states, CTAs */
-  --teal-dark:       #00996F;   /* hover state for teal                     */
-  --teal-soft:       #E3F9F1;   /* light teal tint — active pill / badges   */
-  --purple:          #6C5CE7;   /* Accent    — supporting accent            */
-  --purple-soft:     #EEEBFD;
-  --violet-primary:  #7C5CFC;   /* Brand violet — primary buttons & CTAs    */
-  --violet-hover:    #6C4FF5;   /* Darker violet for button hover states     */
-  --violet-soft:     rgba(124,92,252,0.10); /* Light tint for focus glow    */
-  --gold:            #F9C74F;   /* Highlight — supporting accent            */
-  --gold-soft:       #FEF6E0;
-  --surface-app:     #F3F5F9;   /* Neutral   — main app background          */
+  --forest:          #0E7F6E;   /* Primary sea-green — CTAs, active nav     */
+  --forest-hover:    #0A6357;   /* darker green for hover                   */
+  --forest-deep:     #084C43;   /* text-on-white accent (AA-safe)           */
+  --mint-mist:       #E6F4F0;   /* active pill / badge tint                 */
+  --mint-mist-soft:  #F1F8F5;   /* extra-soft hover surface                 */
+
+  /* Legacy aliases — kept so existing components render in the new palette
+     without needing per-component edits. New code should use --forest*. */
+  --navy:            #1E2A2A;   /* deep-charcoal — sidebar text / structure */
+  --navy-soft:       #2A3838;
+  --teal:            var(--forest);
+  --teal-dark:       var(--forest-hover);
+  --teal-soft:       var(--mint-mist);
+  --purple:          var(--forest);
+  --purple-soft:     var(--mint-mist);
+  --violet-primary:  var(--forest);
+  --violet-hover:    var(--forest-hover);
+  --violet-soft:     rgba(14,127,110,0.10);
+  --gold:            #C7943D;   /* muted brass — retained for KPI accent    */
+  --gold-soft:       #FBF3E3;
+
+  --surface-app:     #F7F9F8;   /* warm-white app background                */
   --surface-card:    #FFFFFF;
-  --surface-muted:   #EDF1F5;   /* alternate rows / muted                   */
-  --border-subtle:   #E1E7EE;
+  --surface-muted:   #EEF2F1;   /* alternate rows / hover                   */
+  --border-subtle:   #E2E8E5;
 
   /* ── Text ─────────────────────────────────────────────── */
-  --text-primary:    #0D1B2A;
-  --text-secondary:  #5C6B7A;
-  --text-heading:    #0D1B2A;
-  --text-accent:     #00805F;   /* AA-safe dark teal for small accent text (≈4.9:1 on white) */
-  --text-gold:       #8A6D0A;   /* AA-safe dark gold for small text on light bg (≈4.9:1) */
+  --text-primary:    #1E2A2A;
+  --text-secondary:  #5C6B6B;
+  --text-heading:    #12201E;
+  --text-accent:     var(--forest-deep);
+  --text-gold:       #8A6D0A;
 
-  /* ── Per-metric pastel accents ──────────────────────────── */
-  --accent-purple-bg: var(--purple-soft); --accent-purple: var(--purple);
-  --accent-blue-bg:   var(--teal-soft);   --accent-blue:   var(--teal);
-  --accent-orange-bg: var(--gold-soft);   --accent-orange: var(--text-gold);
-  --accent-green-bg:  var(--teal-soft);   --accent-green:  var(--teal-dark);
+  /* ── Per-metric pastel accents ────────────────────────────
+     Four independent hues so KPI cards / QuickActions / stage badges stay
+     visually distinct. Brand green (forest) covers the "green" slot; the
+     other three stay as their own category colors so the dashboard reads
+     as a 4-color grid, not a monochrome. */
+  --accent-purple-bg: #F5F3FF; --accent-purple: #7C3AED;
+  --accent-blue-bg:   #EFF6FF; --accent-blue:   #2563EB;
+  --accent-orange-bg: #FEF3E2; --accent-orange: #C2410C;
+  --accent-green-bg:  var(--mint-mist); --accent-green: var(--forest-deep);
 
   /* ── shadcn/ui tokens (mapped to palette) ─────────────── */
   --background:          var(--surface-app);
@@ -64,8 +76,8 @@
   --destructive-foreground: #FFFFFF;
   --border:              var(--border-subtle);
   --input:               var(--border-subtle);
-  --ring:                var(--violet-primary);
-  --radius:              0.75rem;
+  --ring:                var(--forest);
+  --radius:              0.625rem;
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────────────
@@ -86,10 +98,23 @@
   --text-primary:    #E5E7EB;
   --text-secondary:  #94A3B8;
   --text-heading:    #F1F5F9;
-  --text-accent:     #34D399;
+  --text-accent:     #6EE7CB;
   --text-gold:       #FCD34D;
 
-  --teal-soft:       rgba(0, 184, 148, 0.15);
+  /* Brand green in dark mode: lighter/brighter so buttons read on slate-950 */
+  --forest:          #14A08B;
+  --forest-hover:    #17B79E;
+  --forest-deep:     #7DD3C0;   /* used as text on the mint-mist tint */
+  --mint-mist:       rgba(20,160,139,0.18);
+  --mint-mist-soft:  rgba(20,160,139,0.09);
+
+  /* Per-metric accents — darker backgrounds, brighter foregrounds */
+  --accent-purple-bg: rgba(124,58,237,0.18); --accent-purple: #A78BFA;
+  --accent-blue-bg:   rgba(37,99,235,0.18);  --accent-blue:   #60A5FA;
+  --accent-orange-bg: rgba(194,65,12,0.18);  --accent-orange: #FDBA74;
+  --accent-green-bg:  var(--mint-mist);      --accent-green:  var(--forest-deep);
+
+  --teal-soft:       rgba(20,160,139,0.15);
   --purple-soft:     rgba(108, 92, 231, 0.18);
   --gold-soft:       rgba(249, 199, 79, 0.15);
 
@@ -138,29 +163,22 @@
 body {
   background-color: var(--surface-app);
   color: var(--text-primary);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
 }
 
-/* ── Premium Card ────────────────────────────────────────────────────────── */
-/* White bg, light border, layered shadow + soft top highlight, hover lift */
+/* ── Card ────────────────────────────────────────────────────────────────
+   Attio/Linear pattern: flat surface + hairline border, no drop shadow,
+   no hover lift. Quiet chrome — the data does the talking. */
 .premium-card {
-  background: #FFFFFF;
+  background: var(--surface-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  box-shadow:
-    0 1px 2px rgba(22,20,15, 0.05),
-    0 6px 20px rgba(22,20,15, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  border-radius: 10px;
+  transition: border-color 0.15s ease;
 }
 .premium-card:hover {
-  border-color: rgba(0,184,148, 0.22);
-  box-shadow:
-    0 2px 4px rgba(22,20,15, 0.06),
-    0 12px 32px rgba(22,20,15, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transform: translateY(-2px);
+  border-color: color-mix(in oklab, var(--border-subtle) 55%, var(--text-primary) 15%);
 }
 
 /* ── Stat icon badge — used by KPI cards for a distinct per-metric accent ── */
@@ -190,23 +208,23 @@ body {
   position: relative;
 }
 .nav-item:hover {
-  background-color: #F5F3FF;
+  background-color: var(--mint-mist-soft);
   color: #111827;
 }
 .nav-item.active {
-  background-color: #EDE9FE;
-  color: #6D4FE0;
+  background-color: var(--mint-mist);
+  color: var(--forest-deep);
+  font-weight: 600;
 }
 .nav-item .nav-icon   { color: #9CA3AF; transition: color 0.12s; }
-.nav-item:hover .nav-icon  { color: #6D4FE0; }
-.nav-item.active .nav-icon { color: #7C5CFC; }
+.nav-item:hover .nav-icon  { color: var(--forest); }
+.nav-item.active .nav-icon { color: var(--forest); }
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
-/* Pure white with subtle shadow */
+/* Flat surface + hairline base border — no shadow */
 .studio-topbar {
   background-color: var(--surface-card);
   border-bottom: 1px solid var(--border-subtle);
-  box-shadow: 0 1px 8px rgba(22,20,15, 0.06);
 }
 
 .topbar-search {
@@ -223,8 +241,8 @@ body {
 }
 .topbar-search:focus-within {
   background-color: #FFFFFF;
-  border-color: #7C5CFC;
-  box-shadow: 0 0 0 3px rgba(124,92,252, 0.14);
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(14,127,110, 0.14);
 }
 .topbar-search input {
   background: transparent;
@@ -264,19 +282,22 @@ body {
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
-/* Primary — violet */
+/* Primary — solid forest, minimal shadow (Linear/Attio pattern) */
 .btn-primary {
-  background-color: var(--violet-primary);
+  background-color: var(--forest);
   color: #FFFFFF;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(124,92,252, 0.35);
-  transition: background-color 0.2s, transform 0.15s, box-shadow 0.15s;
-  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 1px 1px rgba(14,127,110, 0.18);
+  transition: background-color 0.15s ease;
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--violet-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(124,92,252, 0.45);
+  background-color: var(--forest-hover);
+}
+.btn-primary:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 3px rgba(14,127,110, 0.28);
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -302,19 +323,20 @@ body {
 }
 
 /* ── Form Inputs ─────────────────────────────────────────────────────────── */
-/* White bg, light border, violet focus */
+/* Hairline border, forest-green focus */
 .studio-input {
-  background-color: #FFFFFF;
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 12px;
+  background-color: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   color: var(--text-primary);
-  padding: 10px 14px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  padding: 9px 12px;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 .studio-input::placeholder { color: #9CA3AF; }
 .studio-input:focus {
-  border-color: #7C5CFC;
-  box-shadow: 0 0 0 3px rgba(124,92,252, 0.15);
+  border-color: var(--forest);
+  box-shadow: 0 0 0 3px rgba(14,127,110, 0.15);
   outline: none;
 }
 
@@ -340,22 +362,26 @@ body {
 }
 
 /* ── Tables ──────────────────────────────────────────────────────────────── */
+/* Houzz-style: soft gray header, quiet borders, subtle hover — data first,
+   not decoration first. */
 .studio-table th {
-  background-color: var(--teal);
-  color: #FFFFFF;
+  background-color: var(--surface-muted);
+  color: var(--text-secondary);
   font-weight: 600;
-  font-size: 0.8125rem;
-  letter-spacing: 0.03em;
-  padding: 12px 16px;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 .studio-table td {
   padding: 12px 16px;
   color: var(--text-primary);
-  border-bottom: 1px solid var(--surface-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 0.875rem;
 }
-.studio-table tr:nth-child(even) td { background-color: var(--surface-card); }
-.studio-table tr:hover td { background-color: var(--surface-muted); transition: background 0.15s; }
-.studio-table { border-radius: 12px; overflow: hidden; }
+.studio-table tr:hover td { background-color: var(--mint-mist-soft); transition: background 0.15s; }
+.studio-table { border-radius: 10px; overflow: hidden; border: 1px solid var(--border-subtle); }
 
 /* ── Login page ──────────────────────────────────────────────────────────── */
 .login-bg {
@@ -611,22 +637,43 @@ body {
   border-radius: 6px;
 }
 
-/* ── Gold KPI value ─────────────────────────────────────────────────────── */
+/* ── KPI value — tabular figures + tight tracking ─────────────────────── */
 .kpi-value {
   color: var(--text-heading);
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.875rem;
+  font-weight: 600;
   line-height: 1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv11" 1;
 }
-.kpi-gold { color: var(--text-accent); } /* AA-safe on light backgrounds */
+.kpi-gold { color: var(--text-accent); }
 
 /* ── Section heading ─────────────────────────────────────────────────────── */
 .section-title {
   color: var(--text-heading);
-  font-weight: 700;
-  font-size: 1rem;
-  letter-spacing: -0.01em;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
 }
+
+/* ── Page header (title + subtitle + action) ─────────────────────────────── */
+.page-title {
+  color: var(--text-heading);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.page-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin-top: 0.25rem;
+}
+
+/* Tabular figures utility */
+.tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 
 /* ── Progress bar ────────────────────────────────────────────────────────── */
 .progress-bar-track {
