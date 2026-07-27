@@ -13,15 +13,15 @@ const ROLE_LABELS: Record<string, string> = {
   supervisor: 'Site Supervisor',
 };
 
-// ── Single nav group section ───────────────────────────────────────────────
+// ─── Single nav group ─────────────────────────────────────────────────────────
 
 function NavGroupSection({
-  group, role, pathname, sidebarCollapsed, onNavigate,
+  group, role, pathname, iconOnly, onNavigate,
 }: {
   group: typeof NAV_GROUPS[0];
   role: string;
   pathname: string;
-  sidebarCollapsed: boolean;
+  iconOnly: boolean;
   onNavigate?: () => void;
 }) {
   const visibleItems = group.items.filter(i => !role || i.roles.includes(role));
@@ -29,26 +29,29 @@ function NavGroupSection({
 
   if (!visibleItems.length) return null;
 
-  const groupActive = visibleItems.some(
+  const groupHasActive = visibleItems.some(
     i => pathname === i.href || pathname.startsWith(i.href + '/'),
   );
 
   return (
-    <div className="mb-0.5">
-      {/* Group label / collapse trigger */}
-      {!sidebarCollapsed && (
+    <div className="mb-1">
+      {/* Section label — hidden when icon-only */}
+      {!iconOnly && (
         <button
+          type="button"
           onClick={() => setOpen(o => !o)}
-          className="flex w-full items-center justify-between px-4 pb-1 pt-3 text-left"
+          className="group flex w-full items-center justify-between px-3 py-1.5 text-left"
         >
-          <span className="text-[10px] font-bold uppercase tracking-[0.1em]"
-            style={{ color: groupActive ? 'rgba(77,217,184,0.9)' : 'rgba(255,255,255,0.28)' }}>
+          <span
+            className="text-[10.5px] font-semibold uppercase tracking-[0.08em]"
+            style={{ color: groupHasActive ? '#7C5CFC' : '#9CA3AF' }}
+          >
             {group.label}
           </span>
           <ChevronDown
-            className="h-3 w-3 transition-transform duration-150"
+            className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all duration-150"
             style={{
-              color: 'rgba(255,255,255,0.25)',
+              color: '#9CA3AF',
               transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
             }}
           />
@@ -56,13 +59,11 @@ function NavGroupSection({
       )}
 
       {/* Divider in icon-only mode */}
-      {sidebarCollapsed && (
-        <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-      )}
+      {iconOnly && <div className="mx-2 my-2 h-px bg-gray-100" />}
 
-      {/* Items */}
-      {(open || sidebarCollapsed) && (
-        <div className="px-2 space-y-0.5">
+      {/* Nav items */}
+      {(open || iconOnly) && (
+        <div className="space-y-0.5 px-2">
           {visibleItems.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + '/');
             return (
@@ -70,45 +71,26 @@ function NavGroupSection({
                 key={href}
                 href={href}
                 onClick={onNavigate}
-                title={sidebarCollapsed ? label : undefined}
-                className="relative flex items-center rounded-lg transition-all duration-150 group"
+                title={iconOnly ? label : undefined}
+                className={`nav-item ${active ? 'active' : ''}`}
                 style={{
-                  gap: sidebarCollapsed ? 0 : '10px',
-                  padding: sidebarCollapsed ? '9px 0' : '8px 10px',
-                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-                  backgroundColor: active ? 'rgba(0,184,148,0.18)' : 'transparent',
-                  color: active ? '#fff' : 'rgba(255,255,255,0.55)',
-                }}
-                onMouseEnter={e => {
-                  if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.06)';
-                  if (!active) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.9)';
-                }}
-                onMouseLeave={e => {
-                  if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
-                  if (!active) (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.55)';
+                  padding: iconOnly ? '9px 0' : '7px 10px',
+                  justifyContent: iconOnly ? 'center' : 'flex-start',
+                  gap: iconOnly ? 0 : 9,
                 }}
               >
-                {/* Active left bar */}
-                {active && !sidebarCollapsed && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full"
-                    style={{ backgroundColor: '#00B894' }} />
+                {/* Active left indicator */}
+                {active && !iconOnly && (
+                  <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                    style={{ backgroundColor: '#7C5CFC' }}
+                  />
                 )}
 
-                <Icon
-                  className="flex-shrink-0"
-                  style={{
-                    width: 16, height: 16,
-                    color: active ? '#4DD9B8' : 'rgba(255,255,255,0.45)',
-                  }}
-                />
+                <Icon className="nav-icon flex-shrink-0" style={{ width: 16, height: 16 }} />
 
-                {!sidebarCollapsed && (
+                {!iconOnly && (
                   <span className="flex-1 text-[13px] font-medium leading-none">{label}</span>
-                )}
-
-                {!sidebarCollapsed && active && (
-                  <span className="h-1.5 w-1.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: '#00B894' }} />
                 )}
               </Link>
             );
@@ -119,108 +101,113 @@ function NavGroupSection({
   );
 }
 
-// ── Shared sidebar body ────────────────────────────────────────────────────
+// ─── Sidebar body (shared by desktop + mobile drawer) ─────────────────────────
 
 function SidebarBody({
-  role, fullName, pathname, collapsed, onNavigate,
+  role, fullName, pathname, iconOnly, onNavigate,
 }: {
   role: string; fullName: string; pathname: string;
-  collapsed: boolean; onNavigate?: () => void;
+  iconOnly: boolean; onNavigate?: () => void;
 }) {
   const initials = fullName.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const visibleGroups = NAV_GROUPS.filter(g => !role || g.roles.some(r => r === role));
 
   return (
     <>
-      {/* Logo row */}
-      <div className="flex h-[60px] flex-shrink-0 items-center border-b px-4"
-        style={{ borderColor: 'rgba(255,255,255,0.07)', gap: collapsed ? 0 : 10, justifyContent: collapsed ? 'center' : 'flex-start' }}>
-        {/* Logo mark's linework is navy — needs a light backing chip to read
-            against this dark sidebar, otherwise it nearly disappears. */}
-        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white p-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logo-icon.png"
-            alt="" className="h-full w-full object-contain" width={24} height={24}
-          />
-        </div>
-        {!collapsed && (
+      {/* ── Logo ─────────────────────────────────────────────────────── */}
+      <div
+        className="flex h-[60px] flex-shrink-0 items-center border-b border-gray-100"
+        style={{ padding: iconOnly ? '0 12px' : '0 16px', gap: iconOnly ? 0 : 10, justifyContent: iconOnly ? 'center' : 'flex-start' }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/brand/logo-icon.png"
+          alt="The Interior Studio"
+          width={32} height={32}
+          className="h-8 w-8 flex-shrink-0 rounded-lg object-contain"
+        />
+        {!iconOnly && (
           <div className="min-w-0 leading-tight">
-            <p className="text-[13px] font-bold text-white truncate">InterioOS</p>
-            <p className="text-[10px] font-medium" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Interior CRM
-            </p>
+            <p className="truncate text-[13px] font-bold text-gray-900">The Interior Studio</p>
+            <p className="text-[10px] font-medium text-gray-400">Studio OS</p>
           </div>
         )}
       </div>
 
-      {/* Role badge */}
-      {role && !collapsed && (
+      {/* ── Role pill ────────────────────────────────────────────────── */}
+      {role && !iconOnly && (
         <div className="px-4 pt-3 pb-0">
-          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: 'rgba(0,184,148,0.2)', color: '#4DD9B8' }}>
+          <span
+            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+            style={{ backgroundColor: '#EDE9FE', color: '#6D4FE0' }}
+          >
             {ROLE_LABELS[role] ?? role}
           </span>
         </div>
       )}
 
-      {/* Navigation groups */}
-      <nav className="flex-1 overflow-y-auto py-1" style={{ scrollbarWidth: 'none' }}>
+      {/* ── Nav groups ───────────────────────────────────────────────── */}
+      <nav
+        className="flex-1 overflow-y-auto py-2"
+        style={{ scrollbarWidth: 'none' }}
+      >
         {visibleGroups.map(group => (
           <NavGroupSection
             key={group.key}
             group={group}
             role={role}
             pathname={pathname}
-            sidebarCollapsed={collapsed}
+            iconOnly={iconOnly}
             onNavigate={onNavigate}
           />
         ))}
       </nav>
 
-      {/* User footer */}
-      <div className="flex-shrink-0 border-t p-3" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
-        <div className={`flex items-center rounded-xl p-2 ${collapsed ? 'justify-center' : 'gap-2.5'}`}
-          style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}>
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-            style={{ backgroundColor: '#00B894' }}>
+      {/* ── User footer ──────────────────────────────────────────────── */}
+      <div className="flex-shrink-0 border-t border-gray-100 p-3">
+        <div
+          className={`flex items-center rounded-xl p-2 ${iconOnly ? 'justify-center' : 'gap-2.5'}`}
+          style={{ backgroundColor: '#F7F7FB' }}
+        >
+          <div
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
+            style={{ backgroundColor: '#7C5CFC' }}
+          >
             {initials}
           </div>
-          {!collapsed && (
+          {!iconOnly && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-white">{fullName || 'Account'}</p>
-              <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {ROLE_LABELS[role] ?? (role || '—')}
-              </p>
+              <p className="truncate text-[12px] font-semibold text-gray-800">{fullName || 'Account'}</p>
+              <p className="text-[10px] text-gray-400">{ROLE_LABELS[role] ?? (role || '—')}</p>
             </div>
           )}
         </div>
-        {!collapsed && (
-          <p className="mt-2 px-1 text-[10px]" style={{ color: 'rgba(255,255,255,0.18)' }}>
-            Built by DigitalVetri
-          </p>
+        {!iconOnly && (
+          <p className="mt-2 px-1 text-[10px] text-gray-300">Built by DigitalVetri</p>
         )}
       </div>
     </>
   );
 }
 
-// ── Main export ────────────────────────────────────────────────────────────
+// ─── Main export ──────────────────────────────────────────────────────────────
 
 export function Sidebar() {
-  const pathname  = usePathname();
+  const pathname = usePathname();
   const [role, setRole]             = useState('');
   const [fullName, setFullName]     = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed]   = useState(false);
+  const [iconOnly, setIconOnly]     = useState(false);
   const initDone = useRef(false);
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      const meta = data.user?.app_metadata ?? data.user?.user_metadata ?? {};
-      setRole((meta.role as string) ?? '');
-      setFullName((meta.full_name as string) ?? (data.user?.email ?? ''));
-    });
+    createClient().auth.getUser()
+      .then(({ data }) => {
+        const meta = data.user?.app_metadata ?? data.user?.user_metadata ?? {};
+        setRole((meta.role as string) ?? '');
+        setFullName((meta.full_name as string) ?? (data.user?.email ?? ''));
+      })
+      .catch(() => { /* Supabase unreachable — sidebar shows without role */ });
   }, []);
 
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -228,16 +215,16 @@ export function Sidebar() {
     if (initDone.current) return;
     initDone.current = true;
     try {
-      const saved = localStorage.getItem('sidebar-collapsed');
-      if (saved === 'true') setCollapsed(true);
+      const saved = localStorage.getItem('sidebar-icon-only');
+      if (saved === 'true') setIconOnly(true);
     } catch { /* noop */ }
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  function toggleCollapsed() {
-    setCollapsed(c => {
-      const next = !c;
-      try { localStorage.setItem('sidebar-collapsed', String(next)); } catch { /* noop */ }
+  function toggleIconOnly() {
+    setIconOnly(v => {
+      const next = !v;
+      try { localStorage.setItem('sidebar-icon-only', String(next)); } catch { /* noop */ }
       return next;
     });
   }
@@ -250,60 +237,60 @@ export function Sidebar() {
 
   return (
     <>
-      {/* ── Mobile top bar ──────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between px-4"
-        style={{ background: '#0D1B2A', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+      {/* ── Mobile top bar ─────────────────────────────────────────── */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-white p-1">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/logo-icon.png"
-              alt="" className="h-full w-full object-contain" width={20} height={20} />
-          </div>
-          <span className="text-sm font-bold text-white">InterioOS</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/logo-icon.png" alt="" className="h-7 w-7 rounded object-contain" width={28} height={28} />
+          <span className="text-sm font-bold text-gray-900">Interior Studio</span>
         </div>
         <button
+          type="button"
           onClick={() => setMobileOpen(o => !o)}
-          className="rounded-lg p-2 transition-colors"
-          style={{ color: 'rgba(255,255,255,0.7)' }}
+          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
           aria-label="Toggle menu"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
-      {/* ── Mobile overlay ──────────────────────────────────── */}
+      {/* ── Mobile overlay ─────────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-30 bg-black/60" onClick={closeMenu} aria-hidden="true" />
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black/30"
+          onClick={closeMenu}
+          aria-hidden="true"
+        />
       )}
 
-      {/* ── Mobile drawer ──────────────────────────────────── */}
+      {/* ── Mobile drawer ──────────────────────────────────────────── */}
       <aside
-        className={`lg:hidden studio-sidebar fixed top-14 left-0 bottom-0 z-40 flex w-64 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-64 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <SidebarBody role={role} fullName={fullName} pathname={pathname}
-          collapsed={false} onNavigate={closeMenu} />
+        <SidebarBody
+          role={role} fullName={fullName} pathname={pathname}
+          iconOnly={false} onNavigate={closeMenu}
+        />
       </aside>
 
-      {/* ── Desktop sidebar ─────────────────────────────────── */}
+      {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside
-        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${collapsed ? 'w-[64px]' : 'w-[220px]'}`}
+        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[64px]' : 'w-[220px]'}`}
       >
-        <SidebarBody role={role} fullName={fullName} pathname={pathname} collapsed={collapsed} />
+        <SidebarBody
+          role={role} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
+        />
 
-        {/* Collapse toggle */}
+        {/* Collapse / expand toggle */}
         <button
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute -right-3 top-16 z-10 flex h-6 w-6 items-center justify-center rounded-full shadow-lg transition-opacity hover:opacity-100"
-          style={{
-            background: '#00B894',
-            border: '2px solid #0D1B2A',
-            opacity: 0.85,
-          }}
+          type="button"
+          onClick={toggleIconOnly}
+          aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:border-violet-300 transition-all"
         >
-          {collapsed
-            ? <ChevronRight className="h-3 w-3 text-white" />
-            : <ChevronLeft className="h-3 w-3 text-white" />
+          {iconOnly
+            ? <ChevronRight className="h-3 w-3 text-gray-500" />
+            : <ChevronLeft  className="h-3 w-3 text-gray-500" />
           }
         </button>
       </aside>

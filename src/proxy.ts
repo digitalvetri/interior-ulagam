@@ -1,12 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-// Public paths that never require authentication.
-// Everything else under the dashboard group is protected.
 const PUBLIC_PREFIXES = [
   '/login',
-  '/p/',           // client trust-timeline (magic link, no login)
-  '/api/',         // API routes handle their own auth
+  '/p/',      // client trust-timeline (magic link, no login)
+  '/api/',    // API routes handle their own auth
   '/_next/',
   '/favicon',
 ];
@@ -16,6 +14,15 @@ function isPublic(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Short-circuit before touching Supabase for public paths.
+  // This prevents AuthRetryableFetchError from crashing all requests
+  // when Supabase is temporarily unreachable.
+  if (isPublic(pathname)) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -43,16 +50,16 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  // Let public paths through unconditionally.
-  if (isPublic(pathname)) {
-    return supabaseResponse;
+  // Wrap in try/catch: if Supabase is unreachable the proxy must not crash.
+  // Treat any exception as "no user" → redirect to login.
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Supabase unreachable — fall through and redirect to login
   }
 
-  // Redirect unauthenticated users to /login for all other paths.
   if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

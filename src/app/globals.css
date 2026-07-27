@@ -172,11 +172,31 @@ body {
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
-/* Deep navy panel — contrasts with white main content area */
 .studio-sidebar {
-  background: var(--navy);
-  border-right: 1px solid rgba(255,255,255,0.06);
+  background: #FFFFFF;
+  border-right: 1px solid #E7E7ED;
 }
+
+/* Sidebar nav item hover/active states via CSS — avoids JS event handlers */
+.nav-item {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  color: #4B5563;
+  position: relative;
+}
+.nav-item:hover {
+  background-color: #F5F3FF;
+  color: #111827;
+}
+.nav-item.active {
+  background-color: #EDE9FE;
+  color: #6D4FE0;
+}
+.nav-item .nav-icon   { color: #9CA3AF; transition: color 0.12s; }
+.nav-item:hover .nav-icon  { color: #6D4FE0; }
+.nav-item.active .nav-icon { color: #7C5CFC; }
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 /* Pure white with subtle shadow */

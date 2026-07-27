@@ -12,7 +12,7 @@ interface LeadStats {
   proposal_sent: number; negotiation: number; won: number; lost: number;
 }
 interface Project { id: string; name: string; lifecycleStage: string; totalContractPaise: number; }
-interface Receivable { projectName: string; milestoneName: string; amountPaise: number; dueDays: number; }
+interface Receivable { projectName: string; milestoneName: string; amountPaise: number; dueDays: number; id: string; }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 function fmt(paise: number) {
@@ -147,9 +147,23 @@ export default function DashboardPage() {
           fetch('/api/v1/projects').then(r => r.json()),
           fetch('/api/v1/accounts/receivables').then(r => r.json()),
         ]);
-        if (ls.data)  setLeadStats(ls.data);
-        if (ps.data)  setProjects(ps.data.slice(0, 5));
-        if (rs.data)  setReceivables(rs.data.slice(0, 5));
+        if (ls.data) setLeadStats(ls.data);
+        if (Array.isArray(ps.data)) setProjects(ps.data.slice(0, 5));
+        // API returns { data: { items: [...], totalOutstandingPaise, totalOverduePaise } }
+        if (Array.isArray(rs.data?.items)) {
+          setReceivables(
+            rs.data.items.slice(0, 5).map((item: {
+              id: string; projectName: string; label: string;
+              amountPaise: number; daysSinceCreation: number;
+            }) => ({
+              id: item.id,
+              projectName: item.projectName,
+              milestoneName: item.label,
+              amountPaise: item.amountPaise,
+              dueDays: item.daysSinceCreation,
+            }))
+          );
+        }
       } catch {
         /* silent — empty state shown */
       } finally {
@@ -300,8 +314,8 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y" style={{ borderColor: 'var(--surface-muted)' }}>
-              {receivables.map((r, i) => (
-                <div key={i} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+              {receivables.map((r) => (
+                <div key={r.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2.5 min-w-0">
                     {r.dueDays > 7
                       ? <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
