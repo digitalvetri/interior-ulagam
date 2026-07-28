@@ -18,6 +18,7 @@ import { languageDetection } from '@/inngest/functions/language-detection'
 import { clientChatbot } from '@/inngest/functions/client-chatbot'
 import { vendorPOWhatsApp } from '@/inngest/functions/vendor-po-whatsapp'
 import { costOverrunAlert } from '@/inngest/functions/cost-overrun-alert'
+import { customerEnrich } from '@/inngest/functions/customer-enrich'
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -27,6 +28,6 @@ export const { GET, POST, PUT } = serve({
     overdueEscalation, siteVisitReminders, siteIntelligence, mondayBrief,
     aiQuoteDraft, handoverReferral, photoBOQDraft, aiSnagDetection,
     languageDetection, clientChatbot, vendorPOWhatsApp,
-    costOverrunAlert
+    costOverrunAlert, customerEnrich,
   ],
 })

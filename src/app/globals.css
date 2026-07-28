@@ -628,6 +628,51 @@ body {
   letter-spacing: -0.01em;
 }
 
+/* ── Floating action bar (leads detail, PWA-style bottom bar) ───────────── */
+.floating-action-bar {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-subtle);
+}
+[data-theme="dark"] .floating-action-bar {
+  background: rgba(15, 23, 42, 0.97);
+}
+
+/* ── Dark mode overrides for global CSS classes ─────────────────────────── */
+[data-theme="dark"] .studio-sidebar {
+  background: var(--surface-card);
+  border-right-color: var(--border-subtle);
+}
+[data-theme="dark"] .nav-item { color: var(--text-secondary); }
+[data-theme="dark"] .nav-item:hover {
+  background-color: rgba(124, 92, 252, 0.12);
+  color: var(--text-primary);
+}
+[data-theme="dark"] .nav-item.active {
+  background-color: rgba(124, 92, 252, 0.18);
+  color: var(--violet-primary);
+}
+[data-theme="dark"] .nav-item .nav-icon { color: var(--text-secondary); }
+[data-theme="dark"] .nav-item:hover .nav-icon { color: var(--violet-primary); }
+[data-theme="dark"] .premium-card { background: var(--surface-card); }
+[data-theme="dark"] .btn-secondary {
+  background-color: var(--surface-muted);
+  color: var(--teal);
+  border-color: var(--teal);
+}
+[data-theme="dark"] .studio-input {
+  background-color: var(--surface-muted);
+  border-color: var(--border-subtle);
+}
+[data-theme="dark"] .topbar-search:focus-within {
+  background-color: var(--surface-muted);
+}
+[data-theme="dark"] .topbar-search kbd {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
 /* ── Progress bar ────────────────────────────────────────────────────────── */
 .progress-bar-track {
   background-color: var(--surface-muted);

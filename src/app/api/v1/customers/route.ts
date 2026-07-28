@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, notInArray, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers } from '@/lib/db/schema';
+import { customers, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { inngest } from '@/inngest/client';
 
 const CustomerSourceEnum = z.enum([
   'referral', 'instagram', 'whatsapp', 'website', 'walk_in', 'imported', 'other',
@@ -50,12 +51,51 @@ export async function GET(request: NextRequest) {
       if (search) conditions.push(search);
     }
 
-    const rows = await db
+    const customerRows = await db
       .select()
       .from(customers)
       .where(and(...conditions))
       .orderBy(desc(customers.createdAt))
       .limit(500);
+
+    // Attach the most-recently-active lead stage for the pipeline badge.
+    // Two queries + in-memory merge — avoids a complex lateral join.
+    const ids = customerRows.map((c) => c.id);
+    const activeLeads =
+      ids.length > 0
+        ? await db
+            .select({
+              customerId: leads.customerId,
+              id:          leads.id,
+              stage:       leads.stage,
+            })
+            .from(leads)
+            .where(
+              and(
+                eq(leads.tenantId, ctx.tenantId),
+                inArray(leads.customerId, ids),
+                notInArray(leads.stage, ['won', 'lost']),
+              ),
+            )
+            .orderBy(desc(leads.lastActivityAt))
+        : [];
+
+    // One active lead per customer — take the most recent (already ordered)
+    const leadByCustomer = new Map<string, { id: string; stage: string }>();
+    for (const l of activeLeads) {
+      if (l.customerId && !leadByCustomer.has(l.customerId)) {
+        leadByCustomer.set(l.customerId, { id: l.id, stage: l.stage });
+      }
+    }
+
+    const rows = customerRows.map((c) => {
+      const activeLead = leadByCustomer.get(c.id);
+      return {
+        ...c,
+        activeLeadId:    activeLead?.id    ?? null,
+        activeLeadStage: activeLead?.stage ?? null,
+      };
+    });
 
     return NextResponse.json({ data: rows });
   } catch (e) {
@@ -85,6 +125,20 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Duplicate detection: block if a customer with the same phone already exists
+    const [duplicate] = await db
+      .select({ id: customers.id, fullName: customers.fullName })
+      .from(customers)
+      .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.phone, parsed.data.phone)))
+      .limit(1);
+
+    if (duplicate) {
+      return NextResponse.json(
+        { error: 'duplicate', existingId: duplicate.id, existingName: duplicate.fullName },
+        { status: 409 },
+      );
+    }
+
     const [row] = await db
       .insert(customers)
       .values({
@@ -102,6 +156,12 @@ export async function POST(request: NextRequest) {
         notes: parsed.data.notes ?? null,
       })
       .returning();
+
+    // Trigger background enrichment (links to lead, detects WA history)
+    await inngest.send({
+      name: 'customer/created',
+      data: { customerId: row.id, tenantId: ctx.tenantId, phone: row.phone },
+    });
 
     return NextResponse.json({ data: row }, { status: 201 });
   } catch (e) {

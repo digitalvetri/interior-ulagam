@@ -12,6 +12,7 @@ import {
   date,
   index,
 } from 'drizzle-orm/pg-core';
+import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -94,6 +95,11 @@ export const followUpStatusEnum = pgEnum('follow_up_status', [
   'pending', 'completed', 'overdue', 'rescheduled', 'cancelled',
 ]);
 
+export const customerActivityTypeEnum = pgEnum('customer_activity_type', [
+  'call', 'whatsapp', 'note', 'site_visit', 'meeting',
+  'stage_change', 'project_created', 'payment_received', 'quote_sent', 'follow_up',
+]);
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 const timestamps = {
@@ -137,6 +143,9 @@ export const users = pgTable('users', {
 export const leads = pgTable('leads', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  // Forward link to the canonical customer record for this contact.
+  // Circular FK (customers also has leadId) — lazy callback resolves at runtime.
+  customerId: uuid('customer_id').references((): AnyPgColumn => customers.id, { onDelete: 'set null' }),
   source: leadSourceEnum('source').notNull().default('whatsapp'),
   stage: leadStageEnum('stage').notNull().default('new'),
   priority: leadPriorityEnum('priority'),
@@ -161,6 +170,7 @@ export const leads = pgTable('leads', {
 }, (t) => [
   index('leads_tenant_stage_idx').on(t.tenantId, t.stage),
   index('leads_tenant_owner_idx').on(t.tenantId, t.ownerId),
+  index('leads_customer_idx').on(t.customerId),
 ]);
 
 export const siteVisits = pgTable('site_visits', {
@@ -212,6 +222,7 @@ export const projects = pgTable('projects', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   leadId: uuid('lead_id').references(() => leads.id),
   clientId: uuid('client_id').references(() => users.id),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   name: text('name').notNull().default(''),
   designerIds: text('designer_ids').array().notNull().default(sql`'{}'::text[]`),
   totalContractPaise: integer('total_contract_paise'),
@@ -508,6 +519,7 @@ export const customers = pgTable('customers', {
   address: text('address'),
   source: customerSourceEnum('source').notNull().default('other'),
   stage: customerStageEnum('stage').notNull().default('lead'),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
   notes: text('notes'),
   lastContactedAt: timestamp('last_contacted_at', { withTimezone: true }),
@@ -531,6 +543,23 @@ export const leadActivities = pgTable('lead_activities', {
   ...timestamps,
 }, (t) => [
   index('lead_activities_tenant_lead_idx').on(t.tenantId, t.leadId),
+]);
+
+export const customerActivities = pgTable('customer_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  customerId: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  type: customerActivityTypeEnum('type').notNull(),
+  title: text('title').notNull(),
+  body: text('body'),
+  metadataJson: jsonb('metadata_json'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  performedBy: uuid('performed_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('customer_activities_customer_idx').on(t.customerId),
+  index('customer_activities_tenant_type_idx').on(t.tenantId, t.type),
 ]);
 
 export const portfolios = pgTable('portfolios', {

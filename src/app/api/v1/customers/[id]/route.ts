@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers } from '@/lib/db/schema';
+import { customers, customerActivities } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const CustomerSourceEnum = z.enum([
@@ -100,6 +100,17 @@ export async function PATCH(
       .set(patch)
       .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
       .returning();
+
+    // Auto-log stage changes on the activity timeline
+    if (patch.stage && patch.stage !== existing.stage) {
+      await db.insert(customerActivities).values({
+        tenantId: ctx.tenantId,
+        customerId: id,
+        type: 'stage_change',
+        title: `Stage changed to ${String(patch.stage).replace('_', ' ')}`,
+        performedBy: ctx.dbUserId ?? null,
+      });
+    }
 
     return NextResponse.json({ data: row });
   } catch (e) {

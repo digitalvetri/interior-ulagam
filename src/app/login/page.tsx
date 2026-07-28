@@ -1,5 +1,5 @@
 import { LoginForm } from '@/components/auth/LoginForm';
-import { LoginScene3D } from '@/components/auth/LoginScene3D';
+import { LoginScene3DLazy } from '@/components/auth/LoginScene3DLazy';
 
 export default function LoginPage() {
   return (
@@ -25,7 +25,7 @@ export default function LoginPage() {
           </div>
 
           <div className="login-hero-illustration">
-            <LoginScene3D />
+            <LoginScene3DLazy />
           </div>
 
           <div className="login-hero-copy">

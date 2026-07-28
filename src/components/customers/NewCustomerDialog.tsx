@@ -30,6 +30,7 @@ const SOURCES: { value: CustomerSource; label: string }[] = [
 export function NewCustomerDialog({ open, onOpenChange, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null);
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -41,7 +42,7 @@ export function NewCustomerDialog({ open, onOpenChange, onCreated }: Props) {
 
   function reset() {
     setFullName(''); setPhone(''); setEmail(''); setCompany('');
-    setCity(''); setSource('referral'); setNotes(''); setError(null);
+    setCity(''); setSource('referral'); setNotes(''); setError(null); setDuplicate(null);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -65,6 +66,12 @@ export function NewCustomerDialog({ open, onOpenChange, onCreated }: Props) {
       });
 
       const body = await res.json().catch(() => ({}));
+
+      if (res.status === 409) {
+        setDuplicate({ id: body.existingId, name: body.existingName });
+        return;
+      }
+
       if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`);
 
       onCreated(body.data as Customer);
@@ -128,6 +135,23 @@ export function NewCustomerDialog({ open, onOpenChange, onCreated }: Props) {
               <Textarea id="cf-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
+
+          {duplicate && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+              <p className="font-semibold text-amber-800">
+                A customer with this phone already exists
+              </p>
+              <p className="mt-1 text-amber-700">
+                <a
+                  href={`/customers/${duplicate.id}`}
+                  className="underline hover:text-amber-900"
+                  onClick={() => { onOpenChange(false); reset(); }}
+                >
+                  View existing: {duplicate.name} →
+                </a>
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

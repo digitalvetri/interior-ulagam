@@ -8,6 +8,7 @@ export interface AIProvider {
     model?: 'heavy' | 'light';
   }): Promise<T>;
   transcribe(audioUrl: string): Promise<string>;
+  transcribeBlob(audioBuffer: ArrayBuffer, filename?: string): Promise<string>;
   describeImage(imageUrl: string, prompt: string): Promise<string>;
 }
 

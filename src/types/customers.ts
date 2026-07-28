@@ -3,10 +3,15 @@ export type CustomerSource =
 
 export type CustomerStage = 'lead' | 'opportunity' | 'client' | 'past_client';
 
+export type CustomerActivityType =
+  | 'call' | 'whatsapp' | 'note' | 'site_visit' | 'meeting'
+  | 'stage_change' | 'project_created' | 'payment_received' | 'quote_sent' | 'follow_up';
+
 export interface Customer {
   id: string;
   tenantId: string;
   ownerId: string | null;
+  leadId: string | null;
   fullName: string;
   email: string | null;
   phone: string;
@@ -19,4 +24,43 @@ export interface Customer {
   notes: string | null;
   lastContactedAt: string | null;
   createdAt: string;
+  // Joined from leads — most recently active (non-terminal) lead for this customer
+  activeLeadId: string | null;
+  activeLeadStage: string | null;
+}
+
+export const LEAD_STAGE_LABEL: Record<string, string> = {
+  new:                  'New enquiry',
+  site_visit_scheduled: 'Site visit scheduled',
+  consultation_done:    'Consultation done',
+  proposal_sent:        'Proposal sent',
+  negotiation:          'Negotiation',
+  won:                  'Won',
+  lost:                 'Lost',
+};
+
+export interface CustomerActivity {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  type: CustomerActivityType;
+  title: string;
+  body: string | null;
+  metadataJson: Record<string, unknown> | null;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  performedBy: string | null;
+  createdAt: string;
+}
+
+export interface CustomerSummary {
+  projectCount: number;
+  totalContractPaise: number;
+  projects: Array<{
+    id: string;
+    name: string;
+    lifecycleStage: string;
+    totalContractPaise: number | null;
+    createdAt: string;
+  }>;
 }

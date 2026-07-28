@@ -1,12 +1,12 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CalendarDays, LogOut, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter, usePathname } from 'next/navigation';
-import { NAV_ITEMS } from '@/lib/nav-items';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
+import { CommandPalette } from '@/components/leads/CommandPalette';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':           'Dashboard',
@@ -42,8 +42,6 @@ const GREETINGS: Record<string, string> = {
 export function TopBar() {
   const [fullName, setFullName] = useState('');
   const [role, setRole]         = useState('');
-  const [query, setQuery]       = useState('');
-  const searchRef = useRef<HTMLInputElement>(null);
   const router   = useRouter();
   const pathname = usePathname();
 
@@ -54,30 +52,6 @@ export function TopBar() {
       setRole((meta.role as string) ?? '');
     });
   }, []);
-
-  // ⌘K / Ctrl+K focuses the search box, matching the hint shown inside it.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  function handleSearchSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const q = query.trim().toLowerCase();
-    if (!q) return;
-    const match = NAV_ITEMS.find(i => i.label.toLowerCase().includes(q));
-    if (match) {
-      router.push(match.href);
-      setQuery('');
-      searchRef.current?.blur();
-    }
-  }
 
   async function handleSignOut() {
     await createClient().auth.signOut();
@@ -98,36 +72,37 @@ export function TopBar() {
   const firstName = fullName.split(' ')[0] || fullName;
 
   return (
-    <header className="studio-topbar flex h-16 items-center justify-between px-6 relative z-10 gap-6">
-      {/* Page title */}
-      <div className="min-w-0">
-        <h1
-          className="text-base font-bold tracking-tight truncate"
-          style={{ color: 'var(--text-heading)' }}
-        >
-          {pageTitle}
-        </h1>
-        {greeting && (
-          <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
-            {firstName ? `Welcome back, ${firstName}! ` : ''}{greeting}
-          </p>
-        )}
-      </div>
+    <>
+      <CommandPalette />
+      <header className="studio-topbar flex h-16 items-center justify-between px-6 relative z-10 gap-6">
+        {/* Page title */}
+        <div className="min-w-0">
+          <h1
+            className="text-base font-bold tracking-tight truncate"
+            style={{ color: 'var(--text-heading)' }}
+          >
+            {pageTitle}
+          </h1>
+          {greeting && (
+            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
+              {firstName ? `Welcome back, ${firstName}! ` : ''}{greeting}
+            </p>
+          )}
+        </div>
 
       <div className="flex items-center gap-3 flex-shrink-0">
-        {/* Quick-jump search — ⌘K focuses it, Enter navigates to the first matching page */}
-        <form onSubmit={handleSearchSubmit} className="topbar-search hidden md:flex" style={{ maxWidth: '180px', flexShrink: 1 }}>
+        {/* ⌘K command palette trigger */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+          className="topbar-search hidden md:flex items-center gap-2"
+          style={{ maxWidth: '180px', cursor: 'pointer', border: '1.5px solid var(--border-subtle)', borderRadius: 10, padding: '6px 12px', background: 'var(--surface-muted)' }}
+          aria-label="Open command palette"
+        >
           <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
-          <input
-            ref={searchRef}
-            type="text"
-            placeholder="Search pages…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            aria-label="Search pages"
-          />
-          <kbd>⌘K</kbd>
-        </form>
+          <span style={{ fontSize: 12, color: '#9CA3AF', flex: 1 }}>Search…</span>
+          <kbd style={{ fontSize: 10, background: 'var(--surface-app)', color: '#9CA3AF', borderRadius: 4, padding: '1px 4px', border: '1px solid var(--border-subtle)' }}>⌘K</kbd>
+        </button>
 
         {/* Calendar shortcut */}
         <Link
@@ -176,5 +151,6 @@ export function TopBar() {
         </button>
       </div>
     </header>
+    </>
   );
 }

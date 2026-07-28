@@ -35,6 +35,16 @@ export const groqProvider: AIProvider = {
     return result.text;
   },
 
+  async transcribeBlob(audioBuffer: ArrayBuffer, filename = 'voice-note.webm') {
+    const file = new File([audioBuffer], filename, { type: 'audio/webm' });
+    const result = await groq.audio.transcriptions.create({
+      file,
+      model: 'whisper-large-v3-turbo',
+      language: 'ta', // Tanglish — Tamil with English code-switching
+    });
+    return result.text;
+  },
+
   async describeImage() {
     throw new Error('Use geminiProvider for image description');
   },

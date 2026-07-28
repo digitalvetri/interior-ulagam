@@ -17,6 +17,10 @@ export const geminiProvider: AIProvider = {
     throw new Error('Use groqProvider for transcription');
   },
 
+  async transcribeBlob() {
+    throw new Error('Use groqProvider for transcription');
+  },
+
   async describeImage(imageUrl: string, prompt: string) {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     const imageResponse = await fetch(imageUrl);
