@@ -6,12 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, MoreHorizontal, Mail, Phone, Building2, MapPin,
   Trash2, Loader2, Users, UserCheck, Briefcase, Clock,
-  Eye,
+  Eye, UserCog, ArrowRightLeft, CheckCircle2, X,
 } from 'lucide-react';
 import { NewCustomerDialog } from '@/components/customers/NewCustomerDialog';
 import { GlowOrb } from '@/components/customers/GlowOrb';
 import { CustomerQuickPane } from '@/components/customers/CustomerQuickPane';
 import type { Customer, CustomerStage } from '@/types/customers';
+
+interface TeamMember { id: string; fullName: string; role: string; }
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 
@@ -53,6 +55,14 @@ export default function CustomersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
+  // Bulk modals
+  const [assignOwnerOpen, setAssignOwnerOpen]   = useState(false);
+  const [changeStageOpen, setChangeStageOpen]   = useState(false);
+  const [bulkWorking, setBulkWorking]           = useState(false);
+  const [bulkToast, setBulkToast]               = useState<{ msg: string; ok: boolean } | null>(null);
+  const [teamMembers, setTeamMembers]           = useState<TeamMember[]>([]);
+  const [teamLoading, setTeamLoading]           = useState(false);
+
   /* ── Outside-click closes the row menu ── */
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
@@ -72,6 +82,72 @@ export default function CustomersPage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  /* ── Toast auto-dismiss ── */
+  useEffect(() => {
+    if (!bulkToast) return;
+    const t = setTimeout(() => setBulkToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [bulkToast]);
+
+  /* ── Team loader (lazy — only when assign-owner modal opens) ── */
+  async function loadTeam() {
+    if (teamMembers.length) return;
+    setTeamLoading(true);
+    try {
+      const res = await fetch('/api/v1/employees');
+      const { data } = await res.json();
+      setTeamMembers(data ?? []);
+    } catch { /* silent */ } finally {
+      setTeamLoading(false);
+    }
+  }
+
+  /* ── Bulk assign owner ── */
+  async function doAssignOwner(member: TeamMember) {
+    const ids = Array.from(selected);
+    setAssignOwnerOpen(false);
+    setBulkWorking(true);
+    try {
+      await Promise.all(ids.map((id) =>
+        fetch(`/api/v1/customers/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ ownerId: member.id }),
+        }),
+      ));
+      setRows((prev) => prev.map((r) => selected.has(r.id) ? { ...r, ownerId: member.id } : r));
+      setSelected(new Set());
+      setBulkToast({ msg: `Assigned ${member.fullName} to ${ids.length} customer${ids.length > 1 ? 's' : ''}`, ok: true });
+    } catch {
+      setBulkToast({ msg: 'Some updates failed. Please try again.', ok: false });
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  /* ── Bulk change stage ── */
+  async function doChangeStage(stage: CustomerStage) {
+    const ids = Array.from(selected);
+    setChangeStageOpen(false);
+    setBulkWorking(true);
+    try {
+      await Promise.all(ids.map((id) =>
+        fetch(`/api/v1/customers/${id}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ stage }),
+        }),
+      ));
+      setRows((prev) => prev.map((r) => selected.has(r.id) ? { ...r, stage } : r));
+      setSelected(new Set());
+      setBulkToast({ msg: `Moved ${ids.length} customer${ids.length > 1 ? 's' : ''} to ${STAGE_LABEL[stage]}`, ok: true });
+    } catch {
+      setBulkToast({ msg: 'Some updates failed. Please try again.', ok: false });
+    } finally {
+      setBulkWorking(false);
+    }
+  }
 
   /* ── Delete helpers ── */
   function deleteOne(id: string) {
@@ -274,17 +350,21 @@ export default function CustomersPage() {
           </span>
           <div className="flex items-center gap-2">
             <button
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{ color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.05)' }}
-              disabled
+              onClick={() => { setAssignOwnerOpen(true); loadTeam(); }}
+              disabled={bulkWorking}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-violet-100 disabled:opacity-50"
+              style={{ color: 'var(--violet-primary)', background: 'rgba(124,92,252,0.08)' }}
             >
+              {bulkWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserCog className="h-3.5 w-3.5" />}
               Assign owner
             </button>
             <button
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{ color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.05)' }}
-              disabled
+              onClick={() => setChangeStageOpen(true)}
+              disabled={bulkWorking}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-violet-100 disabled:opacity-50"
+              style={{ color: 'var(--violet-primary)', background: 'rgba(124,92,252,0.08)' }}
             >
+              {bulkWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
               Change stage
             </button>
             <button
@@ -403,6 +483,123 @@ export default function CustomersPage() {
         onOpenChange={setDialog}
         onCreated={(c) => setRows((prev) => [c, ...prev])}
       />
+
+      {/* ══ Bulk toast ══════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {bulkToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-2xl px-4 py-3 text-sm font-semibold shadow-2xl"
+            style={{
+              background: bulkToast.ok ? '#065f46' : '#991b1b',
+              color: '#fff',
+              minWidth: 260,
+            }}
+          >
+            {bulkToast.ok
+              ? <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+              : <X className="h-4 w-4 flex-shrink-0" />}
+            {bulkToast.msg}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ══ Assign owner modal ═══════════════════════════════════════════════ */}
+      {assignOwnerOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setAssignOwnerOpen(false); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
+                Assign owner
+              </h3>
+              <button onClick={() => setAssignOwnerOpen(false)} className="rounded-lg p-1 hover:bg-gray-100">
+                <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+              </button>
+            </div>
+            <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Pick a team member to own {selected.size} selected customer{selected.size > 1 ? 's' : ''}.
+            </p>
+            {teamLoading ? (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--violet-primary)' }} />
+              </div>
+            ) : teamMembers.length === 0 ? (
+              <p className="py-4 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>No team members found.</p>
+            ) : (
+              <div className="space-y-1 max-h-64 overflow-y-auto">
+                {teamMembers.map((m) => {
+                  let hash = 0;
+                  for (let i = 0; i < m.fullName.length; i++) hash = (hash * 31 + m.fullName.charCodeAt(i)) & 0xffffffff;
+                  const hue = Math.abs(hash) % 360;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => doAssignOwner(m)}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
+                    >
+                      <span
+                        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                        style={{ background: `hsl(${hue},55%,45%)` }}
+                      >
+                        {m.fullName.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{m.fullName}</p>
+                        <p className="text-xs capitalize" style={{ color: 'var(--text-secondary)' }}>{m.role}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ Change stage modal ═══════════════════════════════════════════════ */}
+      {changeStageOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setChangeStageOpen(false); }}
+        >
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
+                Change stage
+              </h3>
+              <button onClick={() => setChangeStageOpen(false)} className="rounded-lg p-1 hover:bg-gray-100">
+                <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+              </button>
+            </div>
+            <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Move {selected.size} customer{selected.size > 1 ? 's' : ''} to:
+            </p>
+            <div className="space-y-2">
+              {STAGE_TABS.filter((t) => t.value !== 'all').map((tab) => {
+                const st = STAGE_STYLE[tab.value as CustomerStage];
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => doChangeStage(tab.value as CustomerStage)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-all hover:shadow-sm"
+                    style={{ background: st.bg, border: `1.5px solid ${st.dot}40` }}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full flex-shrink-0" style={{ background: st.dot }} />
+                    <span className="text-sm font-semibold" style={{ color: st.color }}>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ Delete confirmation dialog ═══════════════════════════════════════ */}
       {confirmDelete && (

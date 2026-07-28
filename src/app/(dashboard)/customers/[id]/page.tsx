@@ -1,12 +1,12 @@
 'use client';
 
-import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState, KeyboardEvent } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Mail, Phone, Building2, MapPin, Tag, User, Calendar,
   Trash2, Save, Loader2, MessageCircle, StickyNote, Users,
   ArrowRightCircle, FolderOpen, CreditCard, Bell, Plus, Send,
-  ChevronRight, IndianRupee, Sparkles, ShieldAlert, TrendingUp,
+  ChevronRight, IndianRupee, Sparkles, ShieldAlert, TrendingUp, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -278,6 +278,30 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     if (tab === 'activity') loadActivities();
     if (tab === 'projects' || tab === 'finance') loadSummary();
     if (tab === 'whatsapp') loadMessages();
+  }
+
+  /* ── Keyboard shortcut: N → focus activity composer ── */
+  useEffect(() => {
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key !== 'n' && e.key !== 'N') return;
+      const target = e.target as HTMLElement;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable) return;
+      e.preventDefault();
+      handleTabChange('activity');
+      // defer focus so the tab renders first
+      setTimeout(() => titleRef.current?.focus(), 60);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  /* ── Quick follow-up from timeline ── */
+  function startFollowUp(title: string) {
+    handleTabChange('activity');
+    setComposerType('follow_up');
+    setComposerTitle(`Follow-up: ${title}`);
+    setTimeout(() => titleRef.current?.focus(), 60);
   }
 
   /* ── Inline editing ── */
@@ -560,6 +584,12 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       </SelectContent>
                     </Select>
                   </InlineField>
+                  <InlineField label="Tags" icon={Tag}>
+                    <TagsChipEditor
+                      tags={displayed.tags ?? []}
+                      onChange={(tags) => set('tags', tags)}
+                    />
+                  </InlineField>
                   <InlineField label="Added" icon={Calendar}>
                     <p className="text-sm py-1" style={{ color: 'var(--text-heading)' }}>
                       {new Date(customer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -726,9 +756,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               className="rounded-2xl p-5"
               style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
             >
-              <h2 className="mb-3 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                Log activity
-              </h2>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                  Log activity
+                </h2>
+                <span className="rounded-md border px-1.5 py-0.5 text-[10px] font-mono font-semibold" style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}>
+                  N
+                </span>
+              </div>
               {/* Type pills */}
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {COMPOSER_TYPES.map((ct) => {
@@ -804,30 +839,41 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <div className="space-y-5">
-                {groupByDate(activities).map((group) => (
+                {groupByDate(activities).map((group, gIdx) => (
                   <div key={group.label}>
                     <p className="mb-2.5 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                       {group.label}
                     </p>
                     <div className="space-y-2">
-                      {group.items.map((a) => {
+                      {group.items.map((a, aIdx) => {
                         const meta = ACTIVITY_META[a.type];
+                        const isLatest = gIdx === 0 && aIdx === 0;
                         return (
                           <div
                             key={a.id}
-                            className="flex gap-3 rounded-xl p-3.5"
+                            className="group flex gap-3 rounded-xl p-3.5 transition-shadow hover:shadow-sm"
                             style={{
                               background: 'var(--surface-card, #fff)',
                               border: '1px solid var(--border-subtle, #e8eaf0)',
                               borderLeft: `3px solid ${meta.color}`,
                             }}
                           >
-                            <span
-                              className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
-                              style={{ background: `${meta.color}18`, color: meta.color }}
-                            >
-                              {meta.icon}
+                            {/* Icon with pulse on latest */}
+                            <span className="relative mt-0.5 flex-shrink-0">
+                              <span
+                                className="flex h-6 w-6 items-center justify-center rounded-full"
+                                style={{ background: `${meta.color}18`, color: meta.color }}
+                              >
+                                {meta.icon}
+                              </span>
+                              {isLatest && (
+                                <span
+                                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ring-2 ring-white animate-pulse"
+                                  style={{ background: meta.color }}
+                                />
+                              )}
                             </span>
+
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{a.title}</p>
@@ -838,9 +884,22 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                               {a.body && (
                                 <p className="mt-1 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.body}</p>
                               )}
-                              <p className="mt-1 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                                {meta.label}
-                              </p>
+                              <div className="mt-1.5 flex items-center gap-2">
+                                <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                                  {meta.label}
+                                </span>
+                                {/* Follow-up quick action */}
+                                {a.type !== 'follow_up' && a.type !== 'stage_change' && (
+                                  <button
+                                    onClick={() => startFollowUp(a.title)}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+                                    style={{ background: 'rgba(124,92,252,0.08)', color: 'var(--violet-primary)' }}
+                                  >
+                                    <Bell className="h-2.5 w-2.5" />
+                                    Follow-up
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -1062,6 +1121,74 @@ function InlineField({
         <Icon className="h-3 w-3" /> {label}
       </Label>
       {children}
+    </div>
+  );
+}
+
+/* ── TagsChipEditor ──────────────────────────────────────────────────────── */
+
+const TAG_COLORS = [
+  '#7c5cfc', '#3b82f6', '#10b981', '#f59e0b',
+  '#ef4444', '#ec4899', '#06b6d4', '#8b5cf6',
+];
+
+function tagColor(tag: string): string {
+  let h = 0;
+  for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) & 0xffffffff;
+  return TAG_COLORS[Math.abs(h) % TAG_COLORS.length];
+}
+
+function TagsChipEditor({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [input, setInput] = useState('');
+
+  function addTag(raw: string) {
+    const val = raw.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 40);
+    if (!val || tags.includes(val) || tags.length >= 20) return;
+    onChange([...tags, val]);
+    setInput('');
+  }
+
+  function removeTag(tag: string) {
+    onChange(tags.filter((t) => t !== tag));
+  }
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(input); }
+    if (e.key === 'Backspace' && !input && tags.length) removeTag(tags[tags.length - 1]);
+  }
+
+  return (
+    <div
+      className="flex flex-wrap gap-1.5 rounded-xl border p-2 min-h-[36px] cursor-text"
+      style={{ background: 'var(--surface-muted, #f3f4f6)', border: '1.5px solid transparent' }}
+      onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}
+    >
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white"
+          style={{ background: tagColor(tag) }}
+        >
+          {tag}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+            className="opacity-70 hover:opacity-100 transition-opacity"
+            aria-label={`Remove ${tag}`}
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        </span>
+      ))}
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={onKeyDown}
+        onBlur={() => { if (input.trim()) addTag(input); }}
+        placeholder={tags.length === 0 ? 'Add tags…' : ''}
+        className="flex-1 min-w-[80px] bg-transparent text-xs outline-none"
+        style={{ color: 'var(--text-heading)' }}
+      />
     </div>
   );
 }
