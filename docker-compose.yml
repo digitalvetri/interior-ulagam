@@ -6,7 +6,8 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - .env.local
+      - path: .env.local
+        required: false
     environment:
       # Local dev override — comment out to use hosted Supabase via .env.local
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio

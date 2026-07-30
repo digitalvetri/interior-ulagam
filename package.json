@@ -11,7 +11,13 @@
     "vitest": "vitest",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "inngest-cli": "inngest-cli dev"
+    "inngest-cli": "inngest-cli dev",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app",
+    "db:psql": "docker compose exec postgres psql -U postgres -d interior_studio",
+    "db:apply": "docker compose exec -T postgres psql -U postgres -d interior_studio -f"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.0",
