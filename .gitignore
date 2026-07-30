@@ -47,3 +47,6 @@ pnpm-debug.log*
 
 # Drizzle
 drizzle/meta/
+
+# Docker local volumes
+data/

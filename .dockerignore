@@ -1,0 +1,28 @@
+.git
+.github
+.next
+node_modules
+
+# Env files — inject at runtime via env_file, never bake into image
+.env
+.env.local
+.env.*.local
+.env.local.tokyo
+
+# Build artifacts
+build
+out
+dist
+*.tsbuildinfo
+coverage
+playwright-report
+test-results
+
+# Local volumes (Postgres/Redis data)
+data/
+
+# Tooling
+.vscode
+.idea
+.vercel
+README.md
