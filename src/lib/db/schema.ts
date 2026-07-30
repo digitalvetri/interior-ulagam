@@ -100,6 +100,10 @@ export const customerActivityTypeEnum = pgEnum('customer_activity_type', [
   'stage_change', 'project_created', 'payment_received', 'quote_sent', 'follow_up',
 ]);
 
+export const customerHealthStatusEnum = pgEnum('customer_health_status', [
+  'hot', 'healthy', 'at_risk', 'inactive',
+]);
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 const timestamps = {
@@ -152,8 +156,12 @@ export const leads = pgTable('leads', {
   ownerId: uuid('owner_id').references(() => users.id),
   contactName: text('contact_name').notNull(),
   contactPhone: text('contact_phone').notNull(),
+  alternatePhone: text('alternate_phone'),
   contactEmail: text('contact_email'),
+  contactCity: text('contact_city'),
+  pincode: text('pincode'),
   propertyType: text('property_type'),
+  projectName: text('project_name'),
   projectLocation: text('project_location'),
   budgetBand: text('budget_band'),
   projectValuePaise: bigint('project_value_paise', { mode: 'number' }),
@@ -166,6 +174,7 @@ export const leads = pgTable('leads', {
   scoreBreakdown: jsonb('score_breakdown'),
   firstTouchAt: timestamp('first_touch_at', { withTimezone: true }).notNull().defaultNow(),
   lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [
   index('leads_tenant_stage_idx').on(t.tenantId, t.stage),
@@ -238,7 +247,8 @@ export const projects = pgTable('projects', {
 export const quotes = pgTable('quotes', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
   version: integer('version').notNull().default(1),
   status: text('status').notNull().default('draft'),
   subtotalPaise: integer('subtotal_paise').notNull().default(0),
@@ -465,6 +475,7 @@ export const documents = pgTable('documents', {
   sizeBytes: integer('size_bytes'),
   storagePath: text('storage_path'),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
   uploadedBy: uuid('uploaded_by').references(() => users.id),
   starred: boolean('starred').notNull().default(false),
   ...timestamps,
@@ -523,6 +534,9 @@ export const customers = pgTable('customers', {
   tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
   notes: text('notes'),
   lastContactedAt: timestamp('last_contacted_at', { withTimezone: true }),
+  healthScore: smallint('health_score'),
+  healthStatus: customerHealthStatusEnum('health_status'),
+  healthUpdatedAt: timestamp('health_updated_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [
   index('customers_tenant_stage_idx').on(t.tenantId, t.stage),

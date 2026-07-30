@@ -2,59 +2,113 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, LayoutList, AlertTriangle, TrendingDown, TrendingUp, ShoppingBag, ClipboardCheck } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import type { BOQSummary } from '@/types/purchase-orders';
 
-export default function ProjectBOQPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
+/* ── Sub-components ────────────────────────────────────────────────────────── */
+
+interface SummaryCardProps {
+  label: string;
+  value: string;
+  sub?: string;
+  highlight?: 'success' | 'danger' | 'neutral';
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  iconColor: string;
+}
+
+function SummaryCard({ label, value, sub, highlight, icon: Icon, iconBg, iconColor }: SummaryCardProps) {
+  const valueColor =
+    highlight === 'danger'  ? '#DC2626' :
+    highlight === 'success' ? '#14532D' :
+    '#1C1916';
+
+  return (
+    <div className="rounded-2xl border p-5 flex items-start justify-between gap-3"
+      style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+      <div className="flex-1">
+        <p className="text-xs font-semibold mb-2" style={{ color: '#6B6459' }}>{label}</p>
+        <p className="text-2xl font-bold" style={{ color: valueColor }}>{value}</p>
+        {sub && <p className="text-xs mt-1" style={{ color: '#A79E8E' }}>{sub}</p>}
+      </div>
+      <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: iconBg, color: iconColor }}>
+        <Icon className="h-5 w-5" />
+      </div>
+    </div>
+  );
+}
+
+function CountCard({ label, count, icon: Icon, iconBg, iconColor }: {
+  label: string; count: number;
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string; iconColor: string;
 }) {
+  return (
+    <div className="rounded-2xl border p-5 flex items-center gap-4"
+      style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+      <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: iconBg, color: iconColor }}>
+        <Icon className="h-6 w-6" />
+      </div>
+      <div>
+        <p className="text-3xl font-bold" style={{ color: '#1C1916' }}>{count}</p>
+        <p className="text-xs font-medium mt-0.5" style={{ color: '#6B6459' }}>{label}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────────── */
+
+export default function ProjectBOQPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
-  const [summary, setSummary] = useState<BOQSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [summary,  setSummary]  = useState<BOQSummary | null>(null);
+  const [loading,  setLoading]  = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [error,    setError]    = useState(false);
 
   useEffect(() => {
     fetch(`/api/v1/projects/${id}/boq`)
-      .then(async (res) => {
-        if (res.status === 404) {
-          setNotFound(true);
-          return;
-        }
-        const { data } = (await res.json()) as { data: BOQSummary };
+      .then(async res => {
+        if (res.status === 404) { setNotFound(true); return; }
+        if (!res.ok) { setError(true); return; }
+        const { data } = await res.json() as { data: BOQSummary };
         setSummary(data ?? null);
       })
-      .catch(() => {
-        // leave summary null — handled in render
-      })
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-gray-500">Loading BOQ summary…</p>
+      <div className="p-6 space-y-5">
+        <div className="skeleton h-5 w-32 rounded-lg" />
+        <div className="skeleton h-9 w-48 rounded-xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-32 rounded-2xl" />)}
+        </div>
       </div>
     );
   }
 
   if (notFound) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-3">
-        <p className="text-sm text-red-500">Project not found.</p>
-        <Link href="/projects">
-          <button className="btn-secondary">Back to Projects</button>
+      <div className="p-6 flex flex-col items-center justify-center py-20 gap-5">
+        <AlertTriangle className="h-12 w-12" style={{ color: '#DC2626' }} />
+        <p className="text-base font-medium" style={{ color: '#DC2626' }}>Project not found.</p>
+        <Link href="/projects" className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
+          <ArrowLeft className="h-4 w-4" />Back to Projects
         </Link>
       </div>
     );
   }
 
-  if (!summary) {
+  if (error || !summary) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-red-500">Failed to load BOQ data.</p>
+      <div className="p-6 flex flex-col items-center justify-center py-20 gap-4">
+        <AlertTriangle className="h-10 w-10" style={{ color: '#F59E0B' }} />
+        <p className="text-sm" style={{ color: '#6B6459' }}>Failed to load BOQ data — please refresh.</p>
       </div>
     );
   }
@@ -62,150 +116,114 @@ export default function ProjectBOQPage({
   const { quoted, poCount, grnCount } = summary;
   const { totalClientPaise, totalCostPaise, totalMarginPaise } = quoted;
 
-  const marginPct =
-    totalClientPaise > 0
-      ? ((totalMarginPaise / totalClientPaise) * 100).toFixed(1) + '%'
-      : '—';
+  const marginPct = totalClientPaise > 0
+    ? ((totalMarginPaise / totalClientPaise) * 100).toFixed(1) + '%'
+    : '—';
 
-  // Variance: how much procurement cost exceeds quoted cost
-  // Positive variance = under budget (good); negative = overrun (bad)
-  // We don't have actual PO spend totals in this endpoint, so we surface
-  // the quoted cost as the budget baseline and note if margin is negative.
-  const marginNegative = totalMarginPaise < 0;
+  const noQuote     = totalClientPaise === 0 && totalCostPaise === 0;
+  const negMargin   = totalMarginPaise < 0;
 
   return (
-    <div className="space-y-6">
-      {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link
-          href="/projects"
-          className="hover:text-gray-700"
-        >
-          Projects
-        </Link>
-        <span>/</span>
-        <Link
-          href={`/projects/${id}`}
-          className="hover:text-gray-700"
-        >
-          {id.slice(0, 8)}…
-        </Link>
-        <span>/</span>
-        <span className="text-gray-900">BOQ</span>
-      </nav>
+    <div className="p-6 space-y-5">
 
-      {/* Page heading */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Bill of Quantities
-        </h2>
-        <Link href={`/projects/${id}`}>
-          <button className="btn-secondary">Back to Project</button>
-        </Link>
+      {/* Back */}
+      <Link href={`/projects/${id}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
+        style={{ color: '#6B6459' }}>
+        <ArrowLeft className="h-4 w-4" />Project Overview
+      </Link>
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Bill of Quantities</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+            Procurement vs quoted cost overview
+          </p>
+        </div>
+        <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F5F3FF' }}>
+          <LayoutList className="h-5 w-5" style={{ color: '#7C3AED' }} />
+        </div>
       </div>
 
-      {/* No approved quote notice */}
-      {totalClientPaise === 0 && totalCostPaise === 0 && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-          No approved quote found for this project. BOQ totals will appear once a quote is approved.
+      {/* Alerts */}
+      {noQuote && (
+        <div className="rounded-xl border px-4 py-3 flex items-start gap-3"
+          style={{ borderColor: '#FDE68A', background: '#FFFBEB' }}>
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
+          <p className="text-sm" style={{ color: '#92400E' }}>
+            No approved quote found for this project. BOQ totals will appear once a quote is approved.
+          </p>
         </div>
       )}
 
-      {/* Negative margin warning */}
-      {marginNegative && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-          Warning: Quoted cost exceeds quoted client price — the project margin is negative. Review quote lines.
+      {negMargin && (
+        <div className="rounded-xl border px-4 py-3 flex items-start gap-3"
+          style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#DC2626' }} />
+          <p className="text-sm" style={{ color: '#B91C1C' }}>
+            Quoted cost exceeds client price — margin is negative. Review quote lines immediately.
+          </p>
         </div>
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SummaryCard
-          label="Quoted Client Total"
+          label="QUOTED CLIENT TOTAL"
           value={formatRupees(totalClientPaise)}
-          description="Sum of client rates across approved quote lines"
+          sub="Sum of client rates"
+          icon={TrendingUp}
+          iconBg="#F0FDF4" iconColor="#16A34A"
         />
         <SummaryCard
-          label="Quoted Cost Total"
+          label="QUOTED COST TOTAL"
           value={formatRupees(totalCostPaise)}
-          description="Sum of cost rates across approved quote lines"
+          sub="Sum of cost rates"
+          icon={TrendingDown}
+          iconBg="#EFF6FF" iconColor="#1E40AF"
         />
         <SummaryCard
-          label="Quoted Margin Total"
+          label="QUOTED MARGIN"
           value={formatRupees(totalMarginPaise)}
-          description={`Margin %: ${marginPct}`}
-          highlight={marginNegative ? 'danger' : totalMarginPaise > 0 ? 'success' : undefined}
+          sub={`Margin: ${marginPct}`}
+          highlight={negMargin ? 'danger' : totalMarginPaise > 0 ? 'success' : 'neutral'}
+          icon={negMargin ? AlertTriangle : TrendingUp}
+          iconBg={negMargin ? '#FEF2F2' : '#F0FDF4'}
+          iconColor={negMargin ? '#DC2626' : '#16A34A'}
         />
       </div>
 
-      {/* Counts row */}
+      {/* Count cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <CountCard label="Purchase Orders" count={poCount} />
-        <CountCard label="Goods Received Notes" count={grnCount} />
+        <CountCard
+          label="Purchase Orders"
+          count={poCount}
+          icon={ShoppingBag}
+          iconBg="#EFF6FF" iconColor="#1E40AF"
+        />
+        <CountCard
+          label="Goods Received Notes"
+          count={grnCount}
+          icon={ClipboardCheck}
+          iconBg="#F0FDF4" iconColor="#16A34A"
+        />
       </div>
 
-      {/* Variance note */}
-      {marginNegative && (
-        <div className="premium-card p-5 border border-red-200">
-          <p className="text-sm font-semibold text-red-600">
+      {/* Variance detail */}
+      {negMargin && (
+        <div className="rounded-2xl border p-5" style={{ borderColor: '#FECACA', background: '#FFF1F2' }}>
+          <p className="font-semibold mb-1" style={{ color: '#DC2626' }}>
             Variance Alert
           </p>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="text-sm" style={{ color: '#B91C1C' }}>
             The quoted margin is{' '}
-            <span className="font-medium text-red-600">
-              {formatRupees(Math.abs(totalMarginPaise))} below zero
-            </span>
-            . Cost has exceeded the client price in the approved quote. A revised
-            quote or change order may be required.
+            <strong>{formatRupees(Math.abs(totalMarginPaise))} below zero</strong>.
+            Cost has exceeded the client price in the approved quote.
+            A revised quote or change order may be required to recover the margin.
           </p>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-interface SummaryCardProps {
-  label: string;
-  value: string;
-  description?: string;
-  highlight?: 'success' | 'danger';
-}
-
-function SummaryCard({ label, value, description, highlight }: SummaryCardProps) {
-  const valueClass =
-    highlight === 'danger'
-      ? 'text-red-600'
-      : highlight === 'success'
-        ? 'text-green-600'
-        : 'text-gray-900';
-
-  return (
-    <div className="premium-card p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {label}
-      </p>
-      <p className={`mt-2 text-2xl font-bold ${valueClass}`}>{value}</p>
-      {description && (
-        <p className="mt-1 text-xs text-gray-400">{description}</p>
-      )}
-    </div>
-  );
-}
-
-interface CountCardProps {
-  label: string;
-  count: number;
-}
-
-function CountCard({ label, count }: CountCardProps) {
-  return (
-    <div className="premium-card p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-bold text-gray-900">{count}</p>
     </div>
   );
 }

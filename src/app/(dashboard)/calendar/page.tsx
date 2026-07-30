@@ -15,7 +15,7 @@ type ViewMode = 'month' | 'week';
 
 interface CalendarEvent {
   id: string;
-  source: 'site_visit' | 'lead_activity';
+  source: 'site_visit' | 'lead_activity' | 'lead_followup';
   title: string;
   subtitle: string | null;
   start: string;
@@ -36,6 +36,7 @@ const COLOR_CLASSES: Record<CalendarEvent['color'], { chip: string; dot: string 
 const SOURCE_ICON: Record<CalendarEvent['source'], typeof CalendarDays> = {
   site_visit:    MapPin,
   lead_activity: Phone,
+  lead_followup: CalendarDays,
 };
 
 export default function CalendarPage() {
@@ -43,6 +44,8 @@ export default function CalendarPage() {
   const [anchor, setAnchor] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  // Increment to force a refetch without changing the date range (e.g. on tab focus).
+  const [fetchTick, setFetchTick] = useState(0);
 
   const range = useMemo(() => {
     if (view === 'month') {
@@ -63,7 +66,16 @@ export default function CalendarPage() {
       })
       .catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [range.from, range.to]);
+  }, [range.from, range.to, fetchTick]);
+
+  // Refetch when the user returns to this tab so follow-up changes from other pages are visible.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible') setFetchTick(t => t + 1);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
@@ -140,8 +152,9 @@ export default function CalendarPage() {
         <Legend color="blue"   label="Site visit"      />
         <Legend color="green"  label="Call / WhatsApp" />
         <Legend color="violet" label="Meeting"         />
-        <Legend color="amber"  label="Follow-up"       />
-        <Legend color="slate"  label="Completed / note" />
+        <Legend color="amber"  label="Follow-up"         />
+        <Legend color="rose"   label="Overdue follow-up" />
+        <Legend color="slate"  label="Completed / note"  />
         <span className="ml-auto">
           {events.length} event{events.length === 1 ? '' : 's'} in view
         </span>

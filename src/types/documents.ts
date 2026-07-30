@@ -10,6 +10,7 @@ export interface DocumentRow {
   sizeBytes: number | null;
   storagePath: string | null;
   projectId: string | null;
+  leadId?: string | null;
   uploadedBy: string | null;
   starred: boolean;
   createdAt: string;

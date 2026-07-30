@@ -216,10 +216,10 @@ export default function QuotesPage() {
                     <QuoteNumberBadge version={quote.version} id={quote.id} />
                   </td>
                   <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
-                    {quote.projectName ?? (
-                      <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {quote.projectId.slice(0, 8)}…
-                      </span>
+                    {quote.projectName ?? quote.leadContactName ?? (
+                      quote.projectId
+                        ? <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{quote.projectId.slice(0, 8)}…</span>
+                        : <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Pre-sale estimate</span>
                     )}
                   </td>
                   <td className="px-4 py-3">

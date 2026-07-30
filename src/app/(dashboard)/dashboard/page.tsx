@@ -185,7 +185,7 @@ export default function DashboardPage() {
       {/* Action row */}
       <div className="flex items-center justify-end">
         <Link
-          href="/leads"
+          href="/leads?new=1"
           className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-lg"
         >
           <Plus className="h-4 w-4" />
@@ -338,7 +338,7 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <h3 className="section-title mb-4">Quick Actions</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <QuickAction href="/leads"           label="Add New Lead"         icon={Users}        accent="purple" />
+            <QuickAction href="/leads?new=1"      label="Add New Lead"         icon={Users}        accent="purple" />
             <QuickAction href="/quotes"          label="Create Quotation"    icon={Plus}         accent="orange" />
             <QuickAction href="/projects"        label="Create Project"      icon={FolderKanban} accent="blue" />
             <QuickAction href="/analytics/designers" label="View Reports"    icon={TrendingUp}   accent="green" />

@@ -1,17 +1,13 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+  ArrowLeft, HardHat, Plus, AlertTriangle, X, Users, TrendingUp,
+  Calendar, FileText, Image as ImageIcon, ExternalLink,
+} from 'lucide-react';
+
+/* ── Types ─────────────────────────────────────────────────────────────────── */
 
 interface SiteLog {
   id: string;
@@ -51,362 +47,364 @@ const INITIAL_FORM: AddLogForm = {
   transcript: '',
 };
 
-function progressBarColor(pct: number): string {
-  if (pct < 40) return 'bg-red-500';
-  if (pct < 70) return 'bg-yellow-500';
-  return 'bg-green-500';
-}
-
 function parseBlockers(blockersJson: unknown): string[] {
-  if (!blockersJson) return [];
-  if (Array.isArray(blockersJson)) {
-    return blockersJson.filter((b): b is string => typeof b === 'string');
-  }
-  return [];
+  if (!blockersJson || !Array.isArray(blockersJson)) return [];
+  return blockersJson.filter((b): b is string => typeof b === 'string');
 }
 
-export default function SitePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id: projectId } = use(params);
+function progressColor(pct: number): string {
+  if (pct < 40) return '#EF4444';
+  if (pct < 70) return '#F59E0B';
+  return '#16A34A';
+}
 
-  const [logs, setLogs] = useState<SiteLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<AddLogForm>(INITIAL_FORM);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+/* ── Add Log Modal ─────────────────────────────────────────────────────────── */
 
-  function loadLogs() {
-    setLoading(true);
-    fetch(`/api/v1/projects/${projectId}/site-logs`)
-      .then((r) => r.json())
-      .then(({ data }: { data: SiteLog[] }) => {
-        setLogs(data ?? []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }
+function AddLogModal({
+  projectId, onClose, onSuccess,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [form, setForm]         = useState<AddLogForm>({ ...INITIAL_FORM, logDate: getTodayString() });
+  const [submitting, setSub]    = useState(false);
+  const [error, setError]       = useState<string | null>(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    loadLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  function setField<K extends keyof AddLogForm>(key: K, value: AddLogForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function openDialog() {
-    setForm({ ...INITIAL_FORM, logDate: getTodayString() });
-    setSubmitError(null);
-    setDialogOpen(true);
+  function set<K extends keyof AddLogForm>(k: K, v: AddLogForm[K]) {
+    setForm(f => ({ ...f, [k]: v }));
   }
 
   async function handleSubmit() {
-    setSubmitError(null);
-
-    if (!form.logDate) {
-      setSubmitError('Log date is required');
-      return;
-    }
+    setError(null);
+    if (!form.logDate) { setError('Log date is required'); return; }
 
     const progressPct = form.progressPct !== '' ? Number(form.progressPct) : undefined;
     const labourCount = form.labourCount !== '' ? Number(form.labourCount) : undefined;
 
-    const payload: Record<string, unknown> = {
-      logDate: form.logDate,
-      source: 'manual',
-      delayFlag: form.delayFlag,
-    };
+    const payload: Record<string, unknown> = { logDate: form.logDate, source: 'manual', delayFlag: form.delayFlag };
+    if (progressPct !== undefined && !Number.isNaN(progressPct)) payload.progressPct = progressPct;
+    if (form.stage.trim())   payload.stage = form.stage.trim();
+    if (labourCount !== undefined && !Number.isNaN(labourCount)) payload.labourCount = labourCount;
+    if (form.transcript.trim()) payload.transcript = form.transcript.trim();
 
-    if (progressPct !== undefined && !Number.isNaN(progressPct)) {
-      payload.progressPct = progressPct;
-    }
-    if (form.stage.trim()) {
-      payload.stage = form.stage.trim();
-    }
-    if (labourCount !== undefined && !Number.isNaN(labourCount)) {
-      payload.labourCount = labourCount;
-    }
-    if (form.transcript.trim()) {
-      payload.transcript = form.transcript.trim();
-    }
-
-    setSubmitting(true);
+    setSub(true);
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/site-logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
-
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setSubmitError(
-          typeof body.error === 'string' ? body.error : 'Failed to add log entry',
-        );
-        return;
+        const body = await res.json() as { error?: string };
+        setError(body.error ?? 'Failed to add log entry'); return;
       }
-
-      setDialogOpen(false);
-      loadLogs();
+      onSuccess();
+      onClose();
     } catch {
-      setSubmitError('Network error — please try again');
+      setError('Network error — please try again');
     } finally {
-      setSubmitting(false);
+      setSub(false);
     }
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/projects/${projectId}`}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            ← Back
-          </Link>
-          <h2 className="text-2xl font-bold text-gray-900">
-            Site Execution Tracker
-          </h2>
-        </div>
-        <button className="btn-primary" onClick={openDialog}>+ Add Log Entry</button>
-      </div>
-
-      {/* Timeline */}
-      {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading site logs…</p>
-        </div>
-      ) : logs.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
-          <p className="text-sm text-gray-500">No site logs yet.</p>
-          <button className="btn-secondary" onClick={openDialog}>
-            Add your first log entry
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
+              <HardHat className="h-4 w-4" style={{ color: '#7C3AED' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Add Log Entry</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
           </button>
         </div>
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">Log Date *</label>
+              <input type="date" value={form.logDate} onChange={e => set('logDate', e.target.value)}
+                className="studio-input w-full text-sm" />
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">Progress % <span style={{ color: '#A79E8E' }}>(0–100)</span></label>
+              <input type="number" min={0} max={100} placeholder="e.g. 65" value={form.progressPct}
+                onChange={e => set('progressPct', e.target.value)} className="studio-input w-full text-sm" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">Stage</label>
+              <input type="text" placeholder="e.g. False ceiling" value={form.stage}
+                onChange={e => set('stage', e.target.value)} className="studio-input w-full text-sm" />
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">Labour Count</label>
+              <input type="number" min={0} placeholder="e.g. 8" value={form.labourCount}
+                onChange={e => set('labourCount', e.target.value)} className="studio-input w-full text-sm" />
+            </div>
+          </div>
+          <label className="flex items-center gap-3 cursor-pointer px-1">
+            <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
+              style={{ background: form.delayFlag ? '#EF4444' : '#D1D5DB' }}
+              onClick={() => set('delayFlag', !form.delayFlag)}>
+              <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
+                style={{ left: form.delayFlag ? 22 : 4 }} />
+            </div>
+            <span className="text-sm" style={{ color: '#1C1916' }}>Flag as delayed</span>
+          </label>
+          <div>
+            <label className="studio-label block mb-1.5">Notes / Observations</label>
+            <textarea value={form.transcript} onChange={e => set('transcript', e.target.value)}
+              rows={3} placeholder="Observations, progress details…"
+              className="studio-input w-full text-sm resize-none" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <Plus className="h-4 w-4" />
+            {submitting ? 'Saving…' : 'Save Log'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────────── */
+
+export default function SitePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = use(params);
+
+  const [logs,    setLogs]    = useState<SiteLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const loadLogs = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/v1/projects/${projectId}/site-logs`)
+      .then(r => r.json())
+      .then(({ data }: { data: SiteLog[] }) => { setLogs(data ?? []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [projectId]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  const latestPct = logs.find(l => l.progressPct !== null)?.progressPct ?? null;
+  const delayCount = logs.filter(l => l.delayFlag).length;
+
+  return (
+    <div className="p-6 space-y-5">
+
+      {/* Back */}
+      <Link href={`/projects/${projectId}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
+        style={{ color: '#6B6459' }}>
+        <ArrowLeft className="h-4 w-4" />Project Overview
+      </Link>
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Site Execution Tracker</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Daily site logs from WhatsApp and manual entries</p>
+        </div>
+        <button type="button" onClick={() => setModalOpen(true)}
+          className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm rounded-xl flex-shrink-0">
+          <Plus className="h-4 w-4" />Add Log Entry
+        </button>
+      </div>
+
+      {/* Progress summary */}
+      {!loading && logs.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Latest Progress</p>
+            {latestPct !== null ? (
+              <>
+                <p className="text-2xl font-bold mb-2" style={{ color: '#1C1916' }}>{latestPct}%</p>
+                <div className="h-1.5 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+                  <div className="h-1.5 rounded-full" style={{ width: `${latestPct}%`, background: progressColor(latestPct) }} />
+                </div>
+              </>
+            ) : <p className="text-sm" style={{ color: '#A79E8E' }}>Not logged yet</p>}
+          </div>
+          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Total Log Entries</p>
+            <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>{logs.length}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>
+              {logs.filter(l => l.source === 'whatsapp').length} via WhatsApp
+            </p>
+          </div>
+          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: delayCount > 0 ? '#FECACA' : '#F0EEE9' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Delay Flags</p>
+            <p className="text-2xl font-bold" style={{ color: delayCount > 0 ? '#DC2626' : '#1C1916' }}>{delayCount}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>out of {logs.length} entries</p>
+          </div>
+        </div>
+      )}
+
+      {/* Logs */}
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-40 rounded-2xl" />)}
+        </div>
+
+      ) : logs.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-5">
+          <div className="relative">
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
+              <HardHat className="h-10 w-10" style={{ color: '#7C3AED' }} />
+            </div>
+            <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
+              style={{ background: '#F0FDF4', border: '2px solid #FFFFFF' }}>
+              <Plus className="h-4 w-4" style={{ color: '#16A34A' }} />
+            </div>
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No site logs yet</h3>
+            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+              Site supervisors can send daily updates via WhatsApp, or you can add manual entries here.
+            </p>
+          </div>
+          <button type="button" onClick={() => setModalOpen(true)}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
+            <Plus className="h-4 w-4" />Add First Log Entry
+          </button>
+        </div>
+
       ) : (
-        <div className="space-y-4">
-          {logs.map((log) => {
+        <div className="space-y-3">
+          {logs.map(log => {
             const blockers = parseBlockers(log.blockersJson);
             return (
-              <div key={log.id} className="premium-card p-5">
-                <div className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-base font-semibold text-gray-900">
-                      {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      {log.delayFlag && (
-                        <span
-                          style={{
-                            backgroundColor: '#6F4E37',
-                            color: '#F8F5F2',
-                            padding: '2px 10px',
-                            borderRadius: '9999px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            letterSpacing: '0.04em',
-                          }}
-                        >
-                          DELAY FLAGGED
-                        </span>
-                      )}
+              <div key={log.id} className="rounded-2xl border p-5 transition-all hover:shadow-sm"
+                style={{
+                  background: '#FFFFFF',
+                  borderColor: log.delayFlag ? '#FECACA' : '#F0EEE9',
+                  borderLeftWidth: 4,
+                  borderLeftColor: log.delayFlag ? '#EF4444' : log.progressPct !== null ? progressColor(log.progressPct) : '#E2DED5',
+                }}>
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: '#F5F5F5' }}>
+                      <Calendar className="h-4 w-4" style={{ color: '#6B6459' }} />
+                    </div>
+                    <div>
+                      <p className="font-semibold" style={{ color: '#1C1916' }}>
+                        {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs capitalize" style={{ color: '#A79E8E' }}>{log.source === 'whatsapp' ? 'via WhatsApp' : 'Manual entry'}</p>
                     </div>
                   </div>
-                </div>
-                <div className="space-y-3 text-sm">
-                  {/* Progress bar */}
-                  {log.progressPct !== null && log.progressPct !== undefined && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Progress</span>
-                        <span>{log.progressPct}%</span>
-                      </div>
-                      <div className="h-2 w-full rounded-full bg-gray-200">
-                        <div
-                          className={`h-2 rounded-full ${progressBarColor(log.progressPct)}`}
-                          style={{ width: `${log.progressPct}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-4 text-gray-600">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {log.delayFlag && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                        style={{ background: '#FEF2F2', color: '#DC2626' }}>
+                        <AlertTriangle className="h-3 w-3" />Delay Flagged
+                      </span>
+                    )}
                     {log.stage && (
-                      <span>
-                        <span className="font-medium text-gray-700">
-                          Stage:
-                        </span>{' '}
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
+                        style={{ background: '#F5F3FF', color: '#7C3AED' }}>
                         {log.stage}
                       </span>
                     )}
-                    {log.labourCount !== null && log.labourCount !== undefined && (
-                      <span>
-                        <span className="font-medium text-gray-700">
-                          Labour:
-                        </span>{' '}
-                        {log.labourCount}
-                      </span>
-                    )}
                   </div>
+                </div>
 
-                  {/* Photos */}
-                  {log.photos.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {log.photos.map((url, i) => (
-                        <img
-                          key={i}
-                          src={url}
-                          alt={`Site photo ${i + 1}`}
-                          className="h-16 w-16 rounded object-cover border border-gray-200"
-                        />
-                      ))}
+                {/* Progress bar */}
+                {log.progressPct !== null && (
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs mb-1" style={{ color: '#6B6459' }}>
+                      <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />Progress</span>
+                      <span className="font-semibold">{log.progressPct}%</span>
                     </div>
-                  )}
-
-                  {/* Transcript snippet */}
-                  {log.transcript && (
-                    <p className="text-gray-600 line-clamp-3">
-                      <span className="font-medium text-gray-700">
-                        Notes:
-                      </span>{' '}
-                      {log.transcript}
-                    </p>
-                  )}
-
-                  {/* Blockers */}
-                  {blockers.length > 0 && (
-                    <div>
-                      <p className="font-medium text-red-700 mb-1">
-                        Blockers:
-                      </p>
-                      <ul className="list-disc list-inside space-y-0.5 text-red-600">
-                        {blockers.map((b, i) => (
-                          <li key={i}>{b}</li>
-                        ))}
-                      </ul>
+                    <div className="h-2 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+                      <div className="h-2 rounded-full transition-all"
+                        style={{ width: `${log.progressPct}%`, background: progressColor(log.progressPct) }} />
                     </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-4 text-sm mb-3" style={{ color: '#6B6459' }}>
+                  {log.labourCount !== null && (
+                    <span className="flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5" />{log.labourCount} workers on site
+                    </span>
                   )}
                 </div>
+
+                {/* Transcript */}
+                {log.transcript && (
+                  <div className="rounded-xl p-3 mb-3" style={{ background: '#FAFAF8' }}>
+                    <p className="text-xs font-medium mb-1 flex items-center gap-1" style={{ color: '#6B6459' }}>
+                      <FileText className="h-3 w-3" />Notes
+                    </p>
+                    <p className="text-sm line-clamp-3" style={{ color: '#1C1916' }}>{log.transcript}</p>
+                  </div>
+                )}
+
+                {/* Blockers */}
+                {blockers.length > 0 && (
+                  <div className="rounded-xl p-3 mb-3" style={{ background: '#FEF2F2' }}>
+                    <p className="text-xs font-medium mb-2 flex items-center gap-1" style={{ color: '#DC2626' }}>
+                      <AlertTriangle className="h-3 w-3" />Blockers
+                    </p>
+                    <ul className="space-y-1">
+                      {blockers.map((b, i) => (
+                        <li key={i} className="text-sm flex items-start gap-2" style={{ color: '#B91C1C' }}>
+                          <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-red-400 flex-shrink-0" />{b}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Photos */}
+                {log.photos.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {log.photos.slice(0, 4).map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                        className="relative group h-16 w-16 rounded-xl overflow-hidden border"
+                        style={{ borderColor: '#E2DED5' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={`Site photo ${i + 1}`} className="h-full w-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
+                          <ExternalLink className="h-3 w-3 text-white opacity-0 group-hover:opacity-100" />
+                        </div>
+                      </a>
+                    ))}
+                    {log.photos.length > 4 && (
+                      <div className="h-16 w-16 rounded-xl flex items-center justify-center text-xs font-medium"
+                        style={{ background: '#F0EEE9', color: '#6B6459' }}>
+                        <ImageIcon className="h-4 w-4 mb-0.5" />+{log.photos.length - 4}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Add Log Entry Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Log Entry</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="log-date">Log Date</Label>
-              <Input
-                id="log-date"
-                type="date"
-                value={form.logDate}
-                onChange={(e) => setField('logDate', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="log-progress">
-                Progress %{' '}
-                <span className="text-xs text-gray-400">(0–100)</span>
-              </Label>
-              <Input
-                id="log-progress"
-                type="number"
-                min={0}
-                max={100}
-                placeholder="e.g. 65"
-                value={form.progressPct}
-                onChange={(e) => setField('progressPct', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="log-stage">Stage</Label>
-              <Input
-                id="log-stage"
-                placeholder="e.g. False ceiling"
-                value={form.stage}
-                onChange={(e) => setField('stage', e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="log-labour">Labour Count</Label>
-              <Input
-                id="log-labour"
-                type="number"
-                min={0}
-                placeholder="e.g. 8"
-                value={form.labourCount}
-                onChange={(e) => setField('labourCount', e.target.value)}
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="log-delay"
-                type="checkbox"
-                checked={form.delayFlag}
-                onChange={(e) => setField('delayFlag', e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 accent-blue-600 cursor-pointer"
-              />
-              <Label htmlFor="log-delay" className="cursor-pointer">
-                Flag as delayed
-              </Label>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="log-notes">Notes</Label>
-              <Textarea
-                id="log-notes"
-                rows={3}
-                placeholder="Observations, progress details…"
-                value={form.transcript}
-                onChange={(e) => setField('transcript', e.target.value)}
-              />
-            </div>
-
-            {submitError && (
-              <p className="text-xs text-red-600">
-                {submitError}
-              </p>
-            )}
-          </div>
-
-          <DialogFooter>
-            <button
-              className="btn-secondary"
-              onClick={() => setDialogOpen(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              className="btn-primary"
-              onClick={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? 'Saving…' : 'Save Log'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {modalOpen && (
+        <AddLogModal
+          projectId={projectId}
+          onClose={() => setModalOpen(false)}
+          onSuccess={loadLogs}
+        />
+      )}
     </div>
   );
 }

@@ -19,8 +19,13 @@ export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'revised';
 export interface Quote {
   id: string;
   tenantId: string;
-  projectId: string;
+  projectId: string | null;
   projectName?: string | null;
+  leadId?: string | null;
+  leadContactName?: string | null;
+  leadContactPhone?: string | null;
+  leadStage?: string | null;
+  leadBudgetBand?: string | null;
   version: number;
   status: QuoteStatus;
   subtotalPaise: number;

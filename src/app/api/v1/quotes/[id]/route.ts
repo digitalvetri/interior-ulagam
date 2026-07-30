@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { quotes, quoteLines } from '@/lib/db/schema';
+import { quotes, quoteLines, projects, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
@@ -24,8 +24,30 @@ export async function GET(
 
   try {
     const [quote] = await db
-      .select()
+      .select({
+        id: quotes.id,
+        tenantId: quotes.tenantId,
+        projectId: quotes.projectId,
+        leadId: quotes.leadId,
+        version: quotes.version,
+        status: quotes.status,
+        subtotalPaise: quotes.subtotalPaise,
+        gstPaise: quotes.gstPaise,
+        totalPaise: quotes.totalPaise,
+        pdfUrl: quotes.pdfUrl,
+        sentAt: quotes.sentAt,
+        approvedAt: quotes.approvedAt,
+        createdBy: quotes.createdBy,
+        createdAt: quotes.createdAt,
+        projectName: projects.name,
+        leadContactName: leads.contactName,
+        leadContactPhone: leads.contactPhone,
+        leadStage: leads.stage,
+        leadBudgetBand: leads.budgetBand,
+      })
       .from(quotes)
+      .leftJoin(projects, eq(quotes.projectId, projects.id))
+      .leftJoin(leads, eq(quotes.leadId, leads.id))
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
 
     if (!quote) {
@@ -33,7 +55,21 @@ export async function GET(
     }
 
     const lines = await db
-      .select()
+      .select({
+        id: quoteLines.id,
+        quoteId: quoteLines.quoteId,
+        room: quoteLines.room,
+        item: quoteLines.item,
+        description: quoteLines.description,
+        qty: quoteLines.qty,
+        unit: quoteLines.unit,
+        clientRatePaise: quoteLines.clientRatePaise,
+        costRatePaise: quoteLines.costRatePaise,
+        marginPaise: quoteLines.marginPaise,
+        hsnSac: quoteLines.hsnSac,
+        materialId: quoteLines.materialId,
+        createdAt: quoteLines.createdAt,
+      })
       .from(quoteLines)
       .where(eq(quoteLines.quoteId, id));
 
@@ -76,7 +112,7 @@ export async function PATCH(
   try {
     // Fetch quote to check ownership and draft status
     const [existing] = await db
-      .select()
+      .select({ id: quotes.id, status: quotes.status })
       .from(quotes)
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
 

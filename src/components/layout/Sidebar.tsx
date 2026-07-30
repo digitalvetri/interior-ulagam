@@ -41,6 +41,7 @@ function NavGroupSection({
           type="button"
           onClick={() => setOpen(o => !o)}
           className="group flex w-full items-center justify-between px-3 py-1.5 text-left"
+          suppressHydrationWarning
         >
           <span
             className="text-[10.5px] font-semibold uppercase tracking-[0.08em]"
@@ -249,6 +250,7 @@ export function Sidebar() {
           onClick={() => setMobileOpen(o => !o)}
           className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
           aria-label="Toggle menu"
+          suppressHydrationWarning
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -287,6 +289,7 @@ export function Sidebar() {
           onClick={toggleIconOnly}
           aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
           className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:border-violet-300 transition-all"
+          suppressHydrationWarning
         >
           {iconOnly
             ? <ChevronRight className="h-3 w-3 text-gray-500" />

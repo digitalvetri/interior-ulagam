@@ -94,7 +94,7 @@ function ScoreArc({ score, breakdown }: { score: number; breakdown?: ScoreBreakd
   );
 }
 
-function getFollowUpUrgency(followUpDate?: string): FollowUpUrgency {
+function getFollowUpUrgency(followUpDate?: string | null): FollowUpUrgency {
   if (!followUpDate) return null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);

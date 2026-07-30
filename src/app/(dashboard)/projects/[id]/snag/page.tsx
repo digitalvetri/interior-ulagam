@@ -3,93 +3,165 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
+  ArrowLeft, CheckCircle2, Plus, AlertTriangle, X, Copy, Check,
+  ClipboardList, ExternalLink, PartyPopper,
+} from 'lucide-react';
 import type { SnagItem, SnagStatus } from '@/types/snag';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+/* ── Status config ─────────────────────────────────────────────────────────── */
 
-const STATUS_BADGE_STYLE: Record<SnagStatus, { background: string; color: string }> = {
-  open:             { background: '#FEE2E2', color: '#B91C1C' },
-  in_progress:      { background: '#FEF3C7', color: '#92400E' },
-  resolved:         { background: '#DCFCE7', color: '#15803D' },
-  client_confirmed: { background: '#DCFCE7', color: '#15803D' },
-};
-
-const STATUS_LABEL: Record<SnagStatus, string> = {
-  open: 'Open',
-  in_progress: 'In Progress',
-  resolved: 'Resolved',
-  client_confirmed: 'Client Confirmed',
+const STATUS_CONFIG: Record<SnagStatus, { label: string; bg: string; color: string; dot: string }> = {
+  open:             { label: 'Open',             bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
+  in_progress:      { label: 'In Progress',      bg: '#FFFBEB', color: '#92400E', dot: '#F59E0B' },
+  resolved:         { label: 'Resolved',         bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
+  client_confirmed: { label: 'Client Confirmed', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
 };
 
 const STATUS_OPTIONS: SnagStatus[] = ['open', 'in_progress', 'resolved', 'client_confirmed'];
 
-interface AddSnagForm {
-  description: string;
-  photoUrl: string;
-  assigneeId: string;
+function StatusBadge({ status }: { status: SnagStatus }) {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  );
 }
 
-const INITIAL_FORM: AddSnagForm = {
-  description: '',
-  photoUrl: '',
-  assigneeId: '',
-};
+/* ── Add Snag Modal ────────────────────────────────────────────────────────── */
 
-// ─── Component ───────────────────────────────────────────────────────────────
+interface AddSnagForm { description: string; photoUrl: string; assigneeId: string; }
+const INITIAL_FORM: AddSnagForm = { description: '', photoUrl: '', assigneeId: '' };
 
-export default function SnagPage({
-  params,
+function AddSnagModal({
+  projectId, onClose, onAdd,
 }: {
-  params: Promise<{ id: string }>;
+  projectId: string;
+  onClose: () => void;
+  onAdd: (item: SnagItem) => void;
 }) {
+  const [form, setForm]       = useState<AddSnagForm>(INITIAL_FORM);
+  const [adding, setAdding]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+
+  function set<K extends keyof AddSnagForm>(k: K, v: AddSnagForm[K]) {
+    setForm(f => ({ ...f, [k]: v }));
+  }
+
+  async function handleAdd() {
+    setError(null);
+    if (!form.description.trim()) { setError('Description is required'); return; }
+    const body: { description: string; photoUrl?: string; assigneeId?: string } = {
+      description: form.description.trim(),
+    };
+    if (form.photoUrl.trim())   body.photoUrl   = form.photoUrl.trim();
+    if (form.assigneeId.trim()) body.assigneeId = form.assigneeId.trim();
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/v1/projects/${projectId}/snag-items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setError(json.error ?? 'Failed to add snag item'); return;
+      }
+      const { data: created } = await res.json() as { data: SnagItem };
+      onAdd(created);
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#FEF2F2' }}>
+              <AlertTriangle className="h-4 w-4" style={{ color: '#DC2626' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Add Snag Item</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="studio-label block mb-1.5">Description *</label>
+            <textarea value={form.description} onChange={e => set('description', e.target.value)}
+              rows={3} placeholder="Describe the snag item in detail…"
+              className="studio-input w-full text-sm resize-none" />
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">
+              Photo URL <span style={{ color: '#A79E8E' }}>(optional)</span>
+            </label>
+            <input type="url" value={form.photoUrl} onChange={e => set('photoUrl', e.target.value)}
+              placeholder="https://…" className="studio-input w-full text-sm" />
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">
+              Assignee ID <span style={{ color: '#A79E8E' }}>(optional UUID)</span>
+            </label>
+            <input type="text" value={form.assigneeId} onChange={e => set('assigneeId', e.target.value)}
+              placeholder="e.g. 550e8400-…" className="studio-input w-full text-sm" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleAdd} disabled={adding}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <Plus className="h-4 w-4" />
+            {adding ? 'Adding…' : 'Add Snag Item'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────────── */
+
+export default function SnagPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
-  const [snagItems, setSnagItems] = useState<SnagItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [snagItems,   setSnagItems]   = useState<SnagItem[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [loadError,   setLoadError]   = useState<string | null>(null);
+  const [modalOpen,   setModalOpen]   = useState(false);
 
-  // Add snag dialog
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<AddSnagForm>(INITIAL_FORM);
-  const [adding, setAdding] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-
-  // Client link
-  const [clientUrl, setClientUrl] = useState<string | null>(null);
+  const [clientUrl,   setClientUrl]   = useState<string | null>(null);
   const [linkLoading, setLinkLoading] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [linkError,   setLinkError]   = useState<string | null>(null);
+  const [copied,      setCopied]      = useState(false);
 
-  // Handover
   const [handoverLoading, setHandoverLoading] = useState(false);
-  const [handoverResult, setHandoverResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [handoverResult,  setHandoverResult]  = useState<{ success: boolean; message: string } | null>(null);
 
-  // Per-card status update tracking
   const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({});
 
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Data load ──
   const loadSnagItems = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+    setLoading(true); setLoadError(null);
     try {
       const res = await fetch(`/api/v1/projects/${id}/snag-items`);
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setLoadError(body.error ?? 'Failed to load snag items');
-        return;
+        const body = await res.json() as { error?: string };
+        setLoadError(body.error ?? 'Failed to load snag items'); return;
       }
-      const { data } = (await res.json()) as { data: SnagItem[] };
+      const { data } = await res.json() as { data: SnagItem[] };
       setSnagItems(data ?? []);
     } catch {
       setLoadError('Network error — please try again');
@@ -98,96 +170,33 @@ export default function SnagPage({
     }
   }, [id]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    void loadSnagItems();
-  }, [loadSnagItems]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => { void loadSnagItems(); }, [loadSnagItems]);
 
-  // ── Add snag ──
-  function openDialog() {
-    setForm(INITIAL_FORM);
-    setAddError(null);
-    setDialogOpen(true);
-  }
-
-  function setField<K extends keyof AddSnagForm>(key: K, value: AddSnagForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleAddSnag() {
-    setAddError(null);
-    if (!form.description.trim()) {
-      setAddError('Description is required');
-      return;
-    }
-
-    const body: { description: string; photoUrl?: string; assigneeId?: string } = {
-      description: form.description.trim(),
-    };
-    if (form.photoUrl.trim()) body.photoUrl = form.photoUrl.trim();
-    if (form.assigneeId.trim()) body.assigneeId = form.assigneeId.trim();
-
-    setAdding(true);
-    try {
-      const res = await fetch(`/api/v1/projects/${id}/snag-items`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        setAddError(typeof json.error === 'string' ? json.error : 'Failed to add snag item');
-        return;
-      }
-
-      const { data: created } = (await res.json()) as { data: SnagItem };
-      setSnagItems((prev) => [...prev, created]);
-      setDialogOpen(false);
-    } catch {
-      setAddError('Network error — please try again');
-    } finally {
-      setAdding(false);
-    }
-  }
-
-  // ── Status update ──
   async function handleStatusChange(snag: SnagItem, newStatus: SnagStatus) {
     if (snag.status === newStatus) return;
-    setUpdatingStatus((prev) => ({ ...prev, [snag.id]: true }));
+    setUpdatingStatus(p => ({ ...p, [snag.id]: true }));
     try {
       const res = await fetch(`/api/v1/snag-items/${snag.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-
       if (!res.ok) return;
-
-      const { data: updated } = (await res.json()) as { data: SnagItem };
-      setSnagItems((prev) => prev.map((s) => (s.id === snag.id ? updated : s)));
-    } catch {
-      // silent — card retains previous state
+      const { data: updated } = await res.json() as { data: SnagItem };
+      setSnagItems(p => p.map(s => s.id === snag.id ? updated : s));
     } finally {
-      setUpdatingStatus((prev) => ({ ...prev, [snag.id]: false }));
+      setUpdatingStatus(p => ({ ...p, [snag.id]: false }));
     }
   }
 
-  // ── Client link ──
   async function handleGenerateClientLink() {
-    setLinkLoading(true);
-    setLinkError(null);
-    setClientUrl(null);
-    setCopied(false);
+    setLinkLoading(true); setLinkError(null); setClientUrl(null); setCopied(false);
     try {
       const res = await fetch(`/api/v1/projects/${id}/client-token`);
       if (!res.ok) {
-        const json = (await res.json()) as { error?: string };
-        setLinkError(json.error ?? 'Failed to generate link');
-        return;
+        const json = await res.json() as { error?: string };
+        setLinkError(json.error ?? 'Failed to generate link'); return;
       }
-      const { data } = (await res.json()) as { data: { token: string; url: string } };
+      const { data } = await res.json() as { data: { url: string } };
       setClientUrl(data.url);
     } catch {
       setLinkError('Network error — please try again');
@@ -205,21 +214,15 @@ export default function SnagPage({
     });
   }
 
-  // ── Handover ──
-  const allClear =
-    snagItems.length === 0 ||
-    snagItems.every((s) => s.status === 'resolved' || s.status === 'client_confirmed');
+  const allClear = snagItems.length === 0 ||
+    snagItems.every(s => s.status === 'resolved' || s.status === 'client_confirmed');
 
   async function handleInitiateHandover() {
-    setHandoverLoading(true);
-    setHandoverResult(null);
+    setHandoverLoading(true); setHandoverResult(null);
     try {
       const res = await fetch(`/api/v1/projects/${id}/handover`, { method: 'POST' });
-      const json = (await res.json()) as { data?: { message?: string }; error?: string };
-      if (!res.ok) {
-        setHandoverResult({ success: false, message: json.error ?? 'Handover failed' });
-        return;
-      }
+      const json = await res.json() as { data?: { message?: string }; error?: string };
+      if (!res.ok) { setHandoverResult({ success: false, message: json.error ?? 'Handover failed' }); return; }
       setHandoverResult({ success: true, message: json.data?.message ?? 'Handover initiated' });
     } catch {
       setHandoverResult({ success: false, message: 'Network error — please try again' });
@@ -228,226 +231,197 @@ export default function SnagPage({
     }
   }
 
-  // ── Render ──
+  const openCount    = snagItems.filter(s => s.status === 'open').length;
+  const resolvedCount = snagItems.filter(s => s.status === 'resolved' || s.status === 'client_confirmed').length;
+
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/projects/${id}`}
-            className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-          >
-            &larr; Back to Project
-          </Link>
-          <h2 className="text-2xl font-bold text-gray-900">Snag List</h2>
+    <div className="p-6 space-y-5">
+
+      {/* Back */}
+      <Link href={`/projects/${id}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
+        style={{ color: '#6B6459' }}>
+        <ArrowLeft className="h-4 w-4" />Project Overview
+      </Link>
+
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Snag List</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Track and resolve punch-list items before handover</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button className="btn-secondary" onClick={handleGenerateClientLink} disabled={linkLoading}>
-            {linkLoading ? 'Generating…' : 'Generate Client Link'}
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={handleGenerateClientLink} disabled={linkLoading}
+            className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
+            <ExternalLink className="h-3.5 w-3.5" />
+            {linkLoading ? 'Generating…' : 'Client View Link'}
           </button>
-          <button className="btn-primary" onClick={openDialog}>+ Add Snag Item</button>
+          <button type="button" onClick={() => setModalOpen(true)}
+            className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm rounded-xl">
+            <Plus className="h-4 w-4" />Add Snag Item
+          </button>
         </div>
       </div>
 
-      {/* Client link result */}
+      {/* Client link */}
       {clientUrl && (
-        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-          <span className="flex-1 truncate font-mono text-gray-700">{clientUrl}</span>
-          <button className="btn-secondary" onClick={handleCopyLink}>
+        <div className="rounded-xl border flex items-center gap-3 px-4 py-3"
+          style={{ borderColor: '#E0E7FF', background: '#EEF2FF' }}>
+          <span className="flex-1 truncate font-mono text-xs" style={{ color: '#1E40AF' }}>{clientUrl}</span>
+          <button type="button" onClick={handleCopyLink}
+            className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+            style={{ background: copied ? '#F0FDF4' : '#FFFFFF', color: copied ? '#14532D' : '#7C3AED' }}>
+            {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
       )}
       {linkError && (
-        <p className="text-xs text-red-600">{linkError}</p>
+        <p className="text-xs" style={{ color: '#DC2626' }}>{linkError}</p>
       )}
 
-      {/* Snag list */}
-      {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading snag items…</p>
-        </div>
-      ) : loadError ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-red-600">{loadError}</p>
-        </div>
-      ) : snagItems.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
-          <p className="text-sm text-gray-500">No snag items yet.</p>
-          <button className="btn-secondary" onClick={openDialog}>
-            Add the first snag item
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {snagItems.map((snag) => (
-            <div key={snag.id} className="premium-card p-5 flex flex-col">
-              <div className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm font-medium leading-snug text-gray-900">
-                    {snag.description}
-                  </h3>
-                  <span
-                    style={{
-                      background: STATUS_BADGE_STYLE[snag.status].background,
-                      color: STATUS_BADGE_STYLE[snag.status].color,
-                    }}
-                    className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                  >
-                    {STATUS_LABEL[snag.status]}
-                  </span>
-                </div>
-              </div>
-              <div className="flex flex-col gap-3">
-                {/* Photo */}
-                {snag.photoUrl && (
-                  <a href={snag.photoUrl} target="_blank" rel="noopener noreferrer">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={snag.photoUrl}
-                      alt="Snag photo"
-                      className="h-28 w-full rounded-md object-cover border border-gray-200 hover:opacity-90 transition-opacity"
-                    />
-                  </a>
-                )}
-
-                {/* Meta */}
-                <div className="space-y-1 text-xs text-gray-500">
-                  {snag.assigneeId && (
-                    <p>
-                      <span className="font-medium text-gray-700">Assignee:</span>{' '}
-                      {snag.assigneeId}
-                    </p>
-                  )}
-                  {snag.clientConfirmedAt && (
-                    <p>
-                      <span className="font-medium text-gray-700">Client confirmed:</span>{' '}
-                      {new Date(snag.clientConfirmedAt).toLocaleDateString('en-IN')}
-                    </p>
-                  )}
-                  <p>
-                    Added {new Date(snag.createdAt).toLocaleDateString('en-IN')}
-                  </p>
-                </div>
-
-                {/* Status select */}
-                <div>
-                  <Label htmlFor={`status-${snag.id}`} className="sr-only">
-                    Update status
-                  </Label>
-                  <select
-                    id={`status-${snag.id}`}
-                    value={snag.status}
-                    disabled={updatingStatus[snag.id]}
-                    onChange={(e) => void handleStatusChange(snag, e.target.value as SnagStatus)}
-                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50"
-                  >
-                    {STATUS_OPTIONS.map((s) => (
-                      <option key={s} value={s}>
-                        {STATUS_LABEL[s]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+      {/* Summary stats */}
+      {!loading && snagItems.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Open',     count: openCount,          color: '#DC2626', bg: '#FEF2F2' },
+            { label: 'Total',    count: snagItems.length,   color: '#1C1916', bg: '#F5F5F5' },
+            { label: 'Resolved', count: resolvedCount,      color: '#14532D', bg: '#F0FDF4' },
+          ].map(({ label, count, color, bg }) => (
+            <div key={label} className="rounded-xl border p-4 text-center" style={{ background: bg, borderColor: '#F0EEE9' }}>
+              <p className="text-2xl font-bold" style={{ color }}>{count}</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: '#6B6459' }}>{label}</p>
             </div>
           ))}
         </div>
       )}
 
-      {/* Handover section */}
-      {allClear && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4">
-          <p className="mb-3 text-sm font-medium text-green-800">
-            {snagItems.length === 0
-              ? 'No snag items. You can proceed to handover.'
-              : 'All snag items are resolved or client-confirmed. You can initiate handover.'}
-          </p>
-          <button
-            className="btn-primary"
-            onClick={() => void handleInitiateHandover()}
-            disabled={handoverLoading}
-          >
-            {handoverLoading ? 'Initiating…' : 'Initiate Handover'}
-          </button>
-          {handoverResult && (
-            <p
-              className={`mt-2 text-xs font-medium ${
-                handoverResult.success ? 'text-green-700' : 'text-red-600'
-              }`}
-            >
-              {handoverResult.message}
-            </p>
-          )}
+      {/* Content */}
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-48 rounded-2xl" />)}
         </div>
-      )}
 
-      {/* Add Snag Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Snag Item</DialogTitle>
-          </DialogHeader>
+      ) : loadError ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <AlertTriangle className="h-8 w-8" style={{ color: '#DC2626' }} />
+          <p className="text-sm" style={{ color: '#DC2626' }}>{loadError}</p>
+        </div>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="snag-description">Description</Label>
-              <Textarea
-                id="snag-description"
-                placeholder="Describe the snag item…"
-                rows={3}
-                value={form.description}
-                onChange={(e) => setField('description', e.target.value)}
-              />
+      ) : snagItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-5">
+          <div className="relative">
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: '#F0FDF4' }}>
+              <ClipboardList className="h-10 w-10" style={{ color: '#16A34A' }} />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="snag-photo">
-                Photo URL{' '}
-                <span className="text-xs text-gray-400">(optional)</span>
-              </Label>
-              <Input
-                id="snag-photo"
-                type="url"
-                placeholder="https://…"
-                value={form.photoUrl}
-                onChange={(e) => setField('photoUrl', e.target.value)}
-              />
+            <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
+              style={{ background: '#FEF2F2', border: '2px solid #FFFFFF' }}>
+              <Plus className="h-4 w-4" style={{ color: '#DC2626' }} />
             </div>
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No snag items</h3>
+            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+              Add punch-list items during site inspection before finalising the project handover.
+            </p>
+          </div>
+          <button type="button" onClick={() => setModalOpen(true)}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
+            <Plus className="h-4 w-4" />Add First Snag Item
+          </button>
+        </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="snag-assignee">
-                Assignee ID{' '}
-                <span className="text-xs text-gray-400">(optional UUID)</span>
-              </Label>
-              <Input
-                id="snag-assignee"
-                placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
-                value={form.assigneeId}
-                onChange={(e) => setField('assigneeId', e.target.value)}
-              />
-            </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {snagItems.map(snag => (
+              <div key={snag.id} className="rounded-2xl border p-4 flex flex-col gap-3 transition-all hover:shadow-sm"
+                style={{
+                  background: '#FFFFFF', borderColor: '#F0EEE9',
+                  borderTopWidth: 3, borderTopColor: STATUS_CONFIG[snag.status].dot,
+                }}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-medium leading-snug flex-1" style={{ color: '#1C1916' }}>
+                    {snag.description}
+                  </p>
+                  <StatusBadge status={snag.status} />
+                </div>
 
-            {addError && (
-              <p className="text-xs text-red-600">{addError}</p>
-            )}
+                {snag.photoUrl && (
+                  <a href={snag.photoUrl} target="_blank" rel="noopener noreferrer" className="block rounded-xl overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={snag.photoUrl} alt="Snag photo"
+                      className="h-28 w-full object-cover hover:opacity-90 transition-opacity" />
+                  </a>
+                )}
+
+                <div className="space-y-1 text-xs" style={{ color: '#A79E8E' }}>
+                  {snag.assigneeId && (
+                    <p><span className="font-medium" style={{ color: '#6B6459' }}>Assignee:</span> {snag.assigneeId}</p>
+                  )}
+                  {snag.clientConfirmedAt && (
+                    <p><span className="font-medium" style={{ color: '#6B6459' }}>Client confirmed:</span>{' '}
+                      {new Date(snag.clientConfirmedAt).toLocaleDateString('en-IN')}</p>
+                  )}
+                  <p>Added {new Date(snag.createdAt).toLocaleDateString('en-IN')}</p>
+                </div>
+
+                <div className="mt-auto pt-2" style={{ borderTop: '1px solid #F0EEE9' }}>
+                  <select value={snag.status} disabled={updatingStatus[snag.id]}
+                    onChange={e => void handleStatusChange(snag, e.target.value as SnagStatus)}
+                    className="studio-input w-full text-xs py-1.5 disabled:opacity-50">
+                    {STATUS_OPTIONS.map(s => (
+                      <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ))}
           </div>
 
-          <DialogFooter>
-            <button
-              className="btn-secondary"
-              onClick={() => setDialogOpen(false)}
-              disabled={adding}
-            >
-              Cancel
-            </button>
-            <button className="btn-primary" onClick={() => void handleAddSnag()} disabled={adding}>
-              {adding ? 'Adding…' : 'Add Snag Item'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* Handover section */}
+          {allClear && (
+            <div className="rounded-2xl border p-5" style={{ borderColor: '#86EFAC', background: '#F0FDF4' }}>
+              <div className="flex items-start gap-4">
+                <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: '#DCFCE7' }}>
+                  <PartyPopper className="h-5 w-5" style={{ color: '#16A34A' }} />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold mb-1" style={{ color: '#14532D' }}>
+                    {snagItems.length === 0
+                      ? 'No snag items — ready for handover!'
+                      : 'All snag items resolved — ready to initiate handover!'}
+                  </p>
+                  <p className="text-sm mb-3" style={{ color: '#15803D' }}>
+                    Once you initiate handover, a formal sign-off notification will be sent to the client.
+                  </p>
+                  <button type="button" onClick={() => void handleInitiateHandover()} disabled={handoverLoading}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all"
+                    style={{ background: '#16A34A', color: '#FFFFFF', opacity: handoverLoading ? 0.7 : 1 }}>
+                    <CheckCircle2 className="h-4 w-4" />
+                    {handoverLoading ? 'Initiating…' : 'Initiate Handover'}
+                  </button>
+                  {handoverResult && (
+                    <p className="mt-2 text-xs font-medium"
+                      style={{ color: handoverResult.success ? '#15803D' : '#DC2626' }}>
+                      {handoverResult.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {modalOpen && (
+        <AddSnagModal
+          projectId={id}
+          onClose={() => setModalOpen(false)}
+          onAdd={item => setSnagItems(p => [...p, item])}
+        />
+      )}
     </div>
   );
 }

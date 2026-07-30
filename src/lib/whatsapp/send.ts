@@ -14,7 +14,17 @@ interface TemplateMessage {
   components?: unknown[];
 }
 
-type WaMessage = TextMessage | TemplateMessage;
+// Sends a PDF or other file. Only works within the 24-hour customer-service window;
+// outside that window use a pre-approved document-header template instead.
+interface DocumentMessage {
+  type: 'document';
+  to: string;
+  documentUrl: string;
+  filename: string;
+  caption?: string;
+}
+
+type WaMessage = TextMessage | TemplateMessage | DocumentMessage;
 
 async function sendMessage(message: WaMessage): Promise<{ messageId: string }> {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID!;
@@ -29,6 +39,18 @@ async function sendMessage(message: WaMessage): Promise<{ messageId: string }> {
       to: message.to,
       type: 'text',
       text: { body: message.text },
+    };
+  } else if (message.type === 'document') {
+    body = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: message.to,
+      type: 'document',
+      document: {
+        link: message.documentUrl,
+        filename: message.filename,
+        caption: message.caption ?? '',
+      },
     };
   } else {
     body = {

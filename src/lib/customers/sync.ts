@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { customers, customerActivities, leads } from '@/lib/db/schema';
 import type { CustomerStage } from '@/types/customers';
@@ -44,6 +44,8 @@ interface LeadSnapshot {
   stage: string;
   ownerId: string | null;
   projectLocation: string | null;
+  contactCity?: string | null;
+  pincode?: string | null;
 }
 
 type CustomerSource = 'referral' | 'instagram' | 'whatsapp' | 'website' | 'walk_in' | 'imported' | 'other';
@@ -87,7 +89,7 @@ export async function upsertCustomerFromLead(
       source:    toCustomerSource(lead.source),
       stage:     targetStage,
       ownerId:   lead.ownerId ?? null,
-      city:      lead.projectLocation ?? null,
+      city:      lead.contactCity ?? lead.projectLocation ?? null,
       leadId:    lead.id,
     })
     .returning({ id: customers.id });
@@ -154,7 +156,7 @@ export async function backfillLeadsToCustomers(tenantId: string): Promise<{
     .from(leads)
     .where(and(
       eq(leads.tenantId, tenantId),
-      // Only process leads not yet linked
+      isNull(leads.customerId),
     ));
 
   let created = 0;

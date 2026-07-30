@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { quotes, projects } from '@/lib/db/schema';
+import { quotes, projects, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, desc, count } from 'drizzle-orm';
 
 const CreateQuoteSchema = z.object({
-  projectId: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
+  leadId:    z.string().uuid().optional(),
+}).refine(d => d.projectId || d.leadId, {
+  message: 'Either projectId or leadId is required',
 });
 
 export async function GET(request: NextRequest) {
@@ -17,32 +20,35 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get('projectId');
+  const leadId    = searchParams.get('leadId');
 
   try {
     const conditions = [eq(quotes.tenantId, ctx.tenantId)];
-    if (projectId) {
-      conditions.push(eq(quotes.projectId, projectId));
-    }
+    if (projectId) conditions.push(eq(quotes.projectId, projectId));
+    if (leadId)    conditions.push(eq(quotes.leadId, leadId));
 
     const rows = await db
       .select({
-        id: quotes.id,
-        tenantId: quotes.tenantId,
-        projectId: quotes.projectId,
-        projectName: projects.name,
-        version: quotes.version,
-        status: quotes.status,
-        subtotalPaise: quotes.subtotalPaise,
-        gstPaise: quotes.gstPaise,
-        totalPaise: quotes.totalPaise,
-        pdfUrl: quotes.pdfUrl,
-        sentAt: quotes.sentAt,
-        approvedAt: quotes.approvedAt,
-        createdBy: quotes.createdBy,
-        createdAt: quotes.createdAt,
+        id:               quotes.id,
+        tenantId:         quotes.tenantId,
+        projectId:        quotes.projectId,
+        projectName:      projects.name,
+        leadId:           quotes.leadId,
+        leadContactName:  leads.contactName,
+        version:          quotes.version,
+        status:           quotes.status,
+        subtotalPaise:    quotes.subtotalPaise,
+        gstPaise:         quotes.gstPaise,
+        totalPaise:       quotes.totalPaise,
+        pdfUrl:           quotes.pdfUrl,
+        sentAt:           quotes.sentAt,
+        approvedAt:       quotes.approvedAt,
+        createdBy:        quotes.createdBy,
+        createdAt:        quotes.createdAt,
       })
       .from(quotes)
       .leftJoin(projects, eq(quotes.projectId, projects.id))
+      .leftJoin(leads, eq(quotes.leadId, leads.id))
       .where(and(...conditions))
       .orderBy(desc(quotes.createdAt));
 
@@ -74,31 +80,52 @@ export async function POST(request: NextRequest) {
   const input = parsed.data;
 
   try {
-    // Verify project belongs to tenant
-    const [project] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(and(eq(projects.id, input.projectId), eq(projects.tenantId, ctx.tenantId)));
+    let nextVersion = 1;
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    if (input.projectId) {
+      // Verify project belongs to tenant
+      const [project] = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(and(eq(projects.id, input.projectId), eq(projects.tenantId, ctx.tenantId)));
+
+      if (!project) {
+        return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      }
+
+      const [{ total }] = await db
+        .select({ total: count() })
+        .from(quotes)
+        .where(and(eq(quotes.projectId, input.projectId), eq(quotes.tenantId, ctx.tenantId)));
+
+      nextVersion = (total ?? 0) + 1;
+    } else if (input.leadId) {
+      // Verify lead belongs to tenant
+      const [lead] = await db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)));
+
+      if (!lead) {
+        return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      }
+
+      const [{ total }] = await db
+        .select({ total: count() })
+        .from(quotes)
+        .where(and(eq(quotes.leadId, input.leadId), eq(quotes.tenantId, ctx.tenantId)));
+
+      nextVersion = (total ?? 0) + 1;
     }
-
-    // Compute next version number
-    const [{ total }] = await db
-      .select({ total: count() })
-      .from(quotes)
-      .where(and(eq(quotes.projectId, input.projectId), eq(quotes.tenantId, ctx.tenantId)));
-
-    const nextVersion = (total ?? 0) + 1;
 
     const [quote] = await db
       .insert(quotes)
       .values({
-        tenantId: ctx.tenantId,
-        projectId: input.projectId,
-        version: nextVersion,
-        status: 'draft',
+        tenantId:  ctx.tenantId,
+        projectId: input.projectId ?? null,
+        leadId:    input.leadId ?? null,
+        version:   nextVersion,
+        status:    'draft',
         createdBy: ctx.dbUserId,
       })
       .returning();

@@ -19,6 +19,27 @@ const STAGE_STYLE: Record<CustomerStage, { bg: string; color: string; dot: strin
   past_client: { bg: 'rgba(148,163,184,0.12)', color: '#64748b', dot: '#cbd5e1' },
 };
 
+const HEALTH_META: Record<string, { label: string; color: string; bg: string }> = {
+  hot:      { label: '🔥 Hot',      color: '#f97316', bg: 'rgba(249,115,22,0.10)'  },
+  healthy:  { label: '✅ Healthy',  color: '#10b981', bg: 'rgba(16,185,129,0.10)'  },
+  at_risk:  { label: '⚠️ At risk', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)'  },
+  inactive: { label: '💤 Inactive', color: '#94a3b8', bg: 'rgba(148,163,184,0.10)' },
+};
+
+// Per-type dot colors that match the detail page's ACTIVITY_META
+const ACTIVITY_DOT_COLOR: Record<string, string> = {
+  note:             '#f59e0b',
+  call:             '#3b82f6',
+  whatsapp:         '#25d366',
+  meeting:          '#7c5cfc',
+  site_visit:       '#d97706',
+  stage_change:     '#64748b',
+  project_created:  '#6366f1',
+  payment_received: '#14b8a6',
+  quote_sent:       '#f97316',
+  follow_up:        '#ec4899',
+};
+
 function MiniAvatar({ name }: { name: string }) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
@@ -56,6 +77,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
   const [activities, setActivities] = useState<CustomerActivity[]>([]);
   const stageSt = STAGE_STYLE[customer.stage];
   const waPhone = customer.phone.replace(/\D/g, '');
+  const healthMeta = customer.healthStatus ? HEALTH_META[customer.healthStatus] : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -93,13 +115,23 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
           {customer.company && (
             <p className="truncate text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.company}</p>
           )}
-          <span
-            className="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-            style={{ background: stageSt.bg, color: stageSt.color }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: stageSt.dot }} />
-            {STAGE_LABEL[customer.stage]}
-          </span>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{ background: stageSt.bg, color: stageSt.color }}
+            >
+              <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: stageSt.dot }} />
+              {STAGE_LABEL[customer.stage]}
+            </span>
+            {healthMeta && (
+              <span
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                style={{ background: healthMeta.bg, color: healthMeta.color }}
+              >
+                {healthMeta.label}
+              </span>
+            )}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -181,28 +213,31 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
               className="absolute left-1.5 top-2 bottom-2 w-px"
               style={{ background: 'var(--border-subtle, #e8eaf0)' }}
             />
-            {activities.map((a) => (
-              <div key={a.id} className="relative">
-                <span
-                  className="absolute -left-2.5 top-1 h-2 w-2 rounded-full border-2 border-white"
-                  style={{ background: 'var(--violet-primary, #7c5cfc)' }}
-                />
-                <p className="text-xs font-medium" style={{ color: 'var(--text-heading)' }}>
-                  {ACTIVITY_LABEL[a.type] ?? a.type.replace(/_/g, ' ')}
-                </p>
-                {a.title && a.title !== (ACTIVITY_LABEL[a.type] ?? a.type) && (
-                  <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{a.title}</p>
-                )}
-                {a.body && (
-                  <p className="mt-0.5 line-clamp-2 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                    {a.body}
+            {activities.map((a) => {
+              const dotColor = ACTIVITY_DOT_COLOR[a.type] ?? 'var(--violet-primary, #7c5cfc)';
+              return (
+                <div key={a.id} className="relative">
+                  <span
+                    className="absolute -left-2.5 top-1 h-2 w-2 rounded-full border-2 border-white"
+                    style={{ background: dotColor }}
+                  />
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-heading)' }}>
+                    {ACTIVITY_LABEL[a.type] ?? a.type.replace(/_/g, ' ')}
                   </p>
-                )}
-                <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
-                  {new Date(a.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </p>
-              </div>
-            ))}
+                  {a.title && a.title !== (ACTIVITY_LABEL[a.type] ?? a.type) && (
+                    <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{a.title}</p>
+                  )}
+                  {a.body && (
+                    <p className="mt-0.5 line-clamp-2 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                      {a.body}
+                    </p>
+                  )}
+                  <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-secondary)', opacity: 0.7 }}>
+                    {new Date(a.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

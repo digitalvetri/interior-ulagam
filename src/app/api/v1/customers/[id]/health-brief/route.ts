@@ -109,6 +109,16 @@ Return:
 - riskFlags: 0-3 short risk strings like "No contact in 18 days", "Stage stagnant", "No projects linked" — empty array if healthy`,
     });
 
+    // Persist score + status so the list view can show health dots without re-running AI
+    await db
+      .update(customers)
+      .set({
+        healthScore:     brief.healthScore,
+        healthStatus:    brief.status,
+        healthUpdatedAt: new Date(),
+      })
+      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)));
+
     return NextResponse.json({ data: brief });
   } catch (e) {
     console.error('[POST /api/v1/customers/:id/health-brief]', e);

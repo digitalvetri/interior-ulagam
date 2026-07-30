@@ -159,12 +159,19 @@ function LeadSelector({
 }
 
 /* ── Project Card ─────────────────────────────────────────────────────────── */
-function ProjectCard({ project }: { project: Project }) {
+interface ProjectWithContext extends Project {
+  customerId?: string | null;
+  customerFullName?: string | null;
+  leadContactName?: string | null;
+}
+
+function ProjectCard({ project }: { project: ProjectWithContext }) {
   const s = STAGE_STYLE[project.lifecycleStage];
+  const clientLabel = project.customerFullName ?? project.leadContactName ?? null;
   return (
     <Link href={`/projects/${project.id}`}>
       <div className="premium-card p-5 h-full cursor-pointer group">
-        <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
           <h3 className="text-sm font-bold leading-snug" style={{ color: '#221F1B' }}>
             {project.name}
           </h3>
@@ -175,6 +182,12 @@ function ProjectCard({ project }: { project: Project }) {
             {s.label}
           </span>
         </div>
+
+        {clientLabel && (
+          <p className="text-xs mb-2" style={{ color: '#6B6459' }}>
+            {clientLabel}
+          </p>
+        )}
 
         {project.totalContractPaise !== undefined && (
           <p className="text-base font-bold mb-1" style={{ color: '#8F6F2E' }}>
@@ -193,7 +206,7 @@ function ProjectCard({ project }: { project: Project }) {
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectWithContext[]>([]);
   const [loading, setLoading]   = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm]         = useState<NewProjectForm>(INITIAL_FORM);
@@ -204,7 +217,7 @@ export default function ProjectsPage() {
   useEffect(() => {
     fetch('/api/v1/projects')
       .then(r => r.json())
-      .then(({ data }: { data: Project[] }) => {
+      .then(({ data }: { data: ProjectWithContext[] }) => {
         setProjects(data ?? []);
         setLoading(false);
       })
@@ -261,7 +274,7 @@ export default function ProjectsPage() {
         return;
       }
 
-      const { data } = await res.json() as { data: Project };
+      const { data } = await res.json() as { data: ProjectWithContext };
       setProjects(prev => [data, ...prev]);
       setDialogOpen(false);
     } catch {

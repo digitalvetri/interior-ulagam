@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
   const file = form.get('file');
   const parentRaw = form.get('parentId');
   const parentId = typeof parentRaw === 'string' && parentRaw && parentRaw !== 'null' ? parentRaw : null;
+  const leadRaw  = form.get('leadId');
+  const leadId   = typeof leadRaw === 'string' && leadRaw && leadRaw !== 'null' ? leadRaw : null;
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'file is required' }, { status: 400 });
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
     .values({
       tenantId: ctx.tenantId,
       parentId,
+      leadId,
       kind: 'file',
       name: file.name,
       mimeType: file.type || 'application/octet-stream',

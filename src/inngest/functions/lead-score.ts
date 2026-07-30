@@ -1,4 +1,4 @@
-import { and, count, eq, gte } from 'drizzle-orm';
+import { and, count, eq, gte, notInArray } from 'drizzle-orm';
 import { inngest } from '@/inngest/client';
 import { db } from '@/lib/db';
 import { leads, waMessages } from '@/lib/db/schema';
@@ -141,10 +141,11 @@ export const leadScoreCompute = inngest.createFunction(
     { cron: '30 20 * * *' },
   ],
   async ({ event, step }) => {
-    // Cron: score all leads (sync engagement fallback to avoid N+1)
+    // Cron: score active leads only — terminal leads don't benefit from rescoring
     if (!event.data) {
       return await step.run('score-all-leads', async () => {
-        const allLeads = await db.select(LEAD_SELECT).from(leads);
+        const allLeads = await db.select(LEAD_SELECT).from(leads)
+          .where(notInArray(leads.stage, ['won', 'lost']));
         let updated = 0;
         for (const lead of allLeads) {
           const eng = engagementFallback(lead);

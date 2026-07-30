@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, desc, notInArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers, customerActivities } from '@/lib/db/schema';
+import { customers, customerActivities, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const CustomerSourceEnum = z.enum([
@@ -30,7 +30,27 @@ async function fetchOne(id: string, tenantId: string) {
     .from(customers)
     .where(and(eq(customers.id, id), eq(customers.tenantId, tenantId)))
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+
+  // Attach the most-recently-active lead stage (mirrors the list endpoint)
+  const [activeLead] = await db
+    .select({ id: leads.id, stage: leads.stage })
+    .from(leads)
+    .where(
+      and(
+        eq(leads.tenantId, tenantId),
+        eq(leads.customerId, id),
+        notInArray(leads.stage, ['won', 'lost']),
+      ),
+    )
+    .orderBy(desc(leads.lastActivityAt))
+    .limit(1);
+
+  return {
+    ...row,
+    activeLeadId:    activeLead?.id    ?? null,
+    activeLeadStage: activeLead?.stage ?? null,
+  };
 }
 
 export async function GET(

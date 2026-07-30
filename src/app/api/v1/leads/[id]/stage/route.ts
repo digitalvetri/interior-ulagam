@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-
-// ─── Zod Schema ──────────────────────────────────────────────────────────────
+import { applyStageTransition } from '@/lib/leads/transitions';
 
 const LeadStageEnum = z.enum([
   'new',
@@ -23,11 +19,7 @@ const StageTransitionSchema = z
     lostReason: z.string().min(1).optional(),
   })
   .refine(
-    (data) => {
-      // lostReason is required when moving to 'lost'
-      if (data.stage === 'lost' && !data.lostReason) return false;
-      return true;
-    },
+    (data) => !(data.stage === 'lost' && !data.lostReason),
     { message: 'lostReason is required when stage is "lost"', path: ['lostReason'] },
   );
 
@@ -41,9 +33,7 @@ export async function PATCH(
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-
-  const idParsed = z.string().uuid().safeParse(id);
-  if (!idParsed.success) {
+  if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: 'Invalid lead id' }, { status: 400 });
   }
 
@@ -65,15 +55,13 @@ export async function PATCH(
   const { stage, lostReason } = parsed.data;
 
   try {
-    const [updated] = await db
-      .update(leads)
-      .set({
-        stage,
-        lostReason: stage === 'lost' ? (lostReason ?? null) : null,
-        lastActivityAt: new Date(),
-      })
-      .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))
-      .returning();
+    const updated = await applyStageTransition(
+      id,
+      ctx.tenantId,
+      ctx.dbUserId ?? null,
+      stage,
+      lostReason,
+    );
 
     if (!updated) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });

@@ -1,177 +1,320 @@
 'use client';
 
-import { use, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+  ArrowLeft, CreditCard, Plus, Send, Settings2, CheckCircle2, Copy,
+  Check, AlertTriangle, X, IndianRupee,
+} from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { Milestone, MilestonePaymentStatus } from '@/types/milestones';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+/* ── Status config ─────────────────────────────────────────────────────────── */
 
-interface SendLinkForm {
-  clientName: string;
-  contactPhone: string;
-  placeOfSupply: string;
-  isInterstate: boolean;
-}
-
-interface OverrideForm {
-  newStatus: 'paid' | 'overdue' | '';
-  note: string;
-}
-
-interface SendLinkResult {
-  shortUrl: string;
-}
-
-const INITIAL_SEND_FORM: SendLinkForm = {
-  clientName: '',
-  contactPhone: '',
-  placeOfSupply: '',
-  isInterstate: false,
+const STATUS_CONFIG: Record<MilestonePaymentStatus, { label: string; bg: string; color: string; dot: string }> = {
+  pending:   { label: 'Pending',   bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
+  link_sent: { label: 'Link Sent', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
+  paid:      { label: 'Paid',      bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
+  overdue:   { label: 'Overdue',   bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
 };
 
-const INITIAL_OVERRIDE_FORM: OverrideForm = {
-  newStatus: '',
-  note: '',
-};
-
-// ─── Badge helpers ────────────────────────────────────────────────────────────
-
-const STATUS_BADGE: Record<
-  MilestonePaymentStatus,
-  { label: string; style: CSSProperties }
-> = {
-  pending: {
-    label: 'Pending',
-    style: { backgroundColor: 'rgba(107,114,128,0.12)', color: '#374151', borderColor: '#d1d5db' },
-  },
-  link_sent: {
-    label: 'Link Sent',
-    style: { backgroundColor: 'rgba(59,130,246,0.12)', color: '#1d4ed8', borderColor: '#bfdbfe' },
-  },
-  paid: {
-    label: 'Paid',
-    style: { backgroundColor: 'rgba(22,163,74,0.12)', color: '#15803d', borderColor: '#bbf7d0' },
-  },
-  overdue: {
-    label: 'Overdue',
-    style: { backgroundColor: 'rgba(220,38,38,0.12)', color: '#b91c1c', borderColor: '#fecaca' },
-  },
-};
-
-function PaymentStatusBadge({ status }: { status: MilestonePaymentStatus }) {
-  const cfg = STATUS_BADGE[status];
+function StatusBadge({ status }: { status: MilestonePaymentStatus }) {
+  const cfg = STATUS_CONFIG[status];
   return (
-    <span
-      className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-      style={cfg.style}
-    >
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
       {cfg.label}
     </span>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+/* ── Send Payment Link Modal ───────────────────────────────────────────────── */
 
-export default function PaymentsPage({
-  params,
+interface SendLinkForm { clientName: string; contactPhone: string; placeOfSupply: string; isInterstate: boolean; }
+
+function SendLinkModal({
+  milestone, onClose, onSuccess,
 }: {
-  params: Promise<{ id: string }>;
+  milestone: Milestone;
+  onClose: () => void;
+  onSuccess: () => void;
 }) {
+  const [form, setForm]       = useState<SendLinkForm>({ clientName: '', contactPhone: '', placeOfSupply: '', isInterstate: false });
+  const [sending, setSending] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [shortUrl, setShortUrl] = useState<string | null>(null);
+  const [copied, setCopied]   = useState(false);
+
+  function set<K extends keyof SendLinkForm>(k: K, v: SendLinkForm[K]) {
+    setForm(f => ({ ...f, [k]: v }));
+  }
+
+  async function handleSend() {
+    setError(null);
+    if (!form.clientName.trim()) { setError('Client name is required'); return; }
+    if (!form.contactPhone.trim()) { setError('Contact phone is required'); return; }
+    setSending(true);
+    try {
+      const res = await fetch(`/api/v1/milestones/${milestone.id}/trigger`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: form.clientName.trim(), contactPhone: form.contactPhone.trim(),
+          placeOfSupply: form.placeOfSupply.trim() || undefined, isInterstate: form.isInterstate,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        setError(body.error ?? 'Failed to send payment link'); return;
+      }
+      const body = await res.json() as { data: { paymentLink: { shortUrl: string } } };
+      setShortUrl(body.data.paymentLink.shortUrl);
+      onSuccess();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!shortUrl) return;
+    await navigator.clipboard.writeText(shortUrl).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
+              <Send className="h-4 w-4" style={{ color: '#7C3AED' }} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Send Payment Link</h2>
+              <p className="text-xs" style={{ color: '#A79E8E' }}>
+                {milestone.label} · {formatRupees(milestone.amountPaise)}
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          </button>
+        </div>
+
+        {shortUrl ? (
+          <div className="px-6 py-5 space-y-4">
+            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+              style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}>
+              <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-green-700">Payment link created!</span>
+            </div>
+            <div className="rounded-xl border p-3" style={{ borderColor: '#F0EEE9', background: '#FAFAF8' }}>
+              <p className="text-xs mb-2" style={{ color: '#A79E8E' }}>Payment URL</p>
+              <div className="flex items-center gap-2">
+                <p className="flex-1 text-xs font-mono break-all" style={{ color: '#1C1916' }}>{shortUrl}</p>
+                <button type="button" onClick={handleCopy}
+                  className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+                  style={{ background: copied ? '#F0FDF4' : '#F5F3FF', color: copied ? '#14532D' : '#7C3AED' }}>
+                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+            <button type="button" onClick={onClose} className="btn-primary w-full py-2.5 text-sm">Close</button>
+          </div>
+        ) : (
+          <>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="studio-label block mb-1.5">Client Name *</label>
+                  <input type="text" value={form.clientName} onChange={e => set('clientName', e.target.value)}
+                    placeholder="Ramesh Sharma" className="studio-input w-full text-sm" />
+                </div>
+                <div>
+                  <label className="studio-label block mb-1.5">Contact Phone *</label>
+                  <input type="tel" value={form.contactPhone} onChange={e => set('contactPhone', e.target.value)}
+                    placeholder="+91 98765 43210" className="studio-input w-full text-sm" />
+                </div>
+                <div>
+                  <label className="studio-label block mb-1.5">
+                    Place of Supply <span style={{ color: '#A79E8E' }}>(optional)</span>
+                  </label>
+                  <input type="text" value={form.placeOfSupply} onChange={e => set('placeOfSupply', e.target.value)}
+                    placeholder="Tamil Nadu" className="studio-input w-full text-sm" />
+                </div>
+                <label className="flex items-center gap-3 cursor-pointer px-1">
+                  <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
+                    style={{ background: form.isInterstate ? '#7C3AED' : '#D1D5DB' }}
+                    onClick={() => set('isInterstate', !form.isInterstate)}>
+                    <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
+                      style={{ left: form.isInterstate ? 22 : 4 }} />
+                  </div>
+                  <span className="text-sm" style={{ color: '#1C1916' }}>Interstate supply (IGST 18%)</span>
+                </label>
+              </div>
+              {error && (
+                <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                  <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+              <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+              <button type="button" onClick={handleSend} disabled={sending}
+                className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+                <Send className="h-4 w-4" />
+                {sending ? 'Sending…' : 'Send Link'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Manual Override Modal ─────────────────────────────────────────────────── */
+
+function OverrideModal({
+  milestone, onClose, onSuccess,
+}: {
+  milestone: Milestone;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [newStatus, setNewStatus] = useState<'paid' | 'overdue' | ''>('');
+  const [note,      setNote]      = useState('');
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+
+  async function handleOverride() {
+    setError(null);
+    if (!newStatus) { setError('Please select a new status'); return; }
+    if (!note.trim()) { setError('A note is required for manual overrides'); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/v1/milestones/${milestone.id}/override`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newStatus, note: note.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json() as { error?: string };
+        setError(body.error ?? 'Failed to apply override'); return;
+      }
+      onSuccess();
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#FFFBEB' }}>
+              <Settings2 className="h-4 w-4" style={{ color: '#D97706' }} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Manual Override</h2>
+              <p className="text-xs" style={{ color: '#A79E8E' }}>
+                {milestone.label} · {formatRupees(milestone.amountPaise)}
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div className="flex gap-3">
+            {(['paid', 'overdue'] as const).map(s => {
+              const cfg = STATUS_CONFIG[s];
+              return (
+                <button key={s} type="button" onClick={() => setNewStatus(s)}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium border-2 transition-all"
+                  style={{
+                    borderColor: newStatus === s ? cfg.dot : '#E2DED5',
+                    background:  newStatus === s ? cfg.bg : '#FFFFFF',
+                    color:       newStatus === s ? cfg.color : '#6B6459',
+                  }}>
+                  <span className="h-2 w-2 rounded-full" style={{ background: cfg.dot }} />
+                  {cfg.label}
+                </button>
+              );
+            })}
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">Reason / Note *</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)}
+              rows={3} placeholder="Reason for this manual override…"
+              className="studio-input w-full text-sm resize-none" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleOverride} disabled={saving}
+            className="flex-1 py-2.5 text-sm font-medium rounded-xl transition-all"
+            style={{
+              background: newStatus === 'overdue' ? '#DC2626' : '#7C3AED',
+              color: '#FFFFFF',
+              opacity: saving ? 0.7 : 1,
+            }}>
+            {saving ? 'Applying…' : 'Apply Override'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────────── */
+
+export default function PaymentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
 
   const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [seeding, setSeeding] = useState(false);
-  const [seedError, setSeedError] = useState<string | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [seeding,    setSeeding]    = useState(false);
+  const [seedError,  setSeedError]  = useState<string | null>(null);
 
-  // Send Payment Link dialog state
-  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendOpen,      setSendOpen]      = useState(false);
+  const [overrideOpen,  setOverrideOpen]  = useState(false);
   const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(null);
-  const [sendForm, setSendForm] = useState<SendLinkForm>(INITIAL_SEND_FORM);
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [sendResult, setSendResult] = useState<SendLinkResult | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  // Manual Override dialog state
-  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
-  const [overrideMilestone, setOverrideMilestone] = useState<Milestone | null>(null);
-  const [overrideForm, setOverrideForm] = useState<OverrideForm>(INITIAL_OVERRIDE_FORM);
-  const [overriding, setOverriding] = useState(false);
-  const [overrideError, setOverrideError] = useState<string | null>(null);
-
-  // ─── Data loading ──────────────────────────────────────────────────────────
 
   const loadMilestones = useCallback(() => {
     setLoading(true);
     fetch(`/api/v1/projects/${projectId}/milestones`)
-      .then((r) => r.json())
-      .then(({ data }: { data: Milestone[] }) => {
-        setMilestones(data ?? []);
-        setLoading(false);
-      })
+      .then(r => r.json())
+      .then(({ data }: { data: Milestone[] }) => { setMilestones(data ?? []); setLoading(false); })
       .catch(() => setLoading(false));
   }, [projectId]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    loadMilestones();
-  }, [loadMilestones]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  // ─── Summary counts ────────────────────────────────────────────────────────
-
-  const totalPaidCount = milestones.filter((m) => m.paymentStatus === 'paid').length;
-  const totalOutstandingCount = milestones.filter(
-    (m) => m.paymentStatus !== 'paid',
-  ).length;
-  const totalPaidPaise = milestones
-    .filter((m) => m.paymentStatus === 'paid')
-    .reduce((sum, m) => sum + m.amountPaise, 0);
-  const totalOutstandingPaise = milestones
-    .filter((m) => m.paymentStatus !== 'paid')
-    .reduce((sum, m) => sum + m.amountPaise, 0);
-
-  // ─── Seed defaults ─────────────────────────────────────────────────────────
+  useEffect(() => { loadMilestones(); }, [loadMilestones]);
 
   async function handleSeedDefaults() {
-    setSeedError(null);
-    setSeeding(true);
+    setSeedError(null); setSeeding(true);
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/milestones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ seedDefaults: true }),
       });
-
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setSeedError(
-          typeof body.error === 'string'
-            ? body.error
-            : 'Failed to seed milestones',
-        );
-        return;
+        const body = await res.json() as { error?: string };
+        setSeedError(body.error ?? 'Failed to seed milestones'); return;
       }
-
       loadMilestones();
     } catch {
       setSeedError('Network error — please try again');
@@ -180,536 +323,197 @@ export default function PaymentsPage({
     }
   }
 
-  // ─── Send payment link ─────────────────────────────────────────────────────
-
-  function openSendDialog(milestone: Milestone) {
-    setActiveMilestone(milestone);
-    setSendForm(INITIAL_SEND_FORM);
-    setSendError(null);
-    setSendResult(null);
-    setCopied(false);
-    setSendDialogOpen(true);
-  }
-
-  function closeSendDialog() {
-    setSendDialogOpen(false);
-    setActiveMilestone(null);
-    setSendResult(null);
-  }
-
-  function setSendField<K extends keyof SendLinkForm>(
-    key: K,
-    value: SendLinkForm[K],
-  ) {
-    setSendForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleSendLink() {
-    if (!activeMilestone) return;
-    setSendError(null);
-
-    if (!sendForm.clientName.trim()) {
-      setSendError('Client name is required');
-      return;
-    }
-    if (!sendForm.contactPhone.trim()) {
-      setSendError('Contact phone is required');
-      return;
-    }
-
-    setSending(true);
-    try {
-      const res = await fetch(
-        `/api/v1/milestones/${activeMilestone.id}/trigger`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientName: sendForm.clientName.trim(),
-            contactPhone: sendForm.contactPhone.trim(),
-            placeOfSupply: sendForm.placeOfSupply.trim() || undefined,
-            isInterstate: sendForm.isInterstate,
-          }),
-        },
-      );
-
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setSendError(
-          typeof body.error === 'string'
-            ? body.error
-            : 'Failed to send payment link',
-        );
-        return;
-      }
-
-      const body = (await res.json()) as {
-        data: { paymentLink: { shortUrl: string } };
-      };
-      setSendResult({ shortUrl: body.data.paymentLink.shortUrl });
-      loadMilestones();
-    } catch {
-      setSendError('Network error — please try again');
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function handleCopy(url: string) {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback: silently fail
-    }
-  }
-
-  // ─── Manual override ───────────────────────────────────────────────────────
-
-  function openOverrideDialog(milestone: Milestone) {
-    setOverrideMilestone(milestone);
-    setOverrideForm(INITIAL_OVERRIDE_FORM);
-    setOverrideError(null);
-    setOverrideDialogOpen(true);
-  }
-
-  function closeOverrideDialog() {
-    setOverrideDialogOpen(false);
-    setOverrideMilestone(null);
-  }
-
-  async function handleOverride() {
-    if (!overrideMilestone) return;
-    setOverrideError(null);
-
-    if (!overrideForm.newStatus) {
-      setOverrideError('Please select a new status');
-      return;
-    }
-    if (!overrideForm.note.trim()) {
-      setOverrideError('A note is required for manual overrides');
-      return;
-    }
-
-    setOverriding(true);
-    try {
-      const res = await fetch(
-        `/api/v1/milestones/${overrideMilestone.id}/override`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            newStatus: overrideForm.newStatus,
-            note: overrideForm.note.trim(),
-          }),
-        },
-      );
-
-      if (!res.ok) {
-        const body = (await res.json()) as { error?: string };
-        setOverrideError(
-          typeof body.error === 'string'
-            ? body.error
-            : 'Failed to apply override',
-        );
-        return;
-      }
-
-      closeOverrideDialog();
-      loadMilestones();
-    } catch {
-      setOverrideError('Network error — please try again');
-    } finally {
-      setOverriding(false);
-    }
-  }
-
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // Summary stats
+  const totalPaidPaise       = milestones.filter(m => m.paymentStatus === 'paid').reduce((s, m) => s + m.amountPaise, 0);
+  const totalOutstandingPaise = milestones.filter(m => m.paymentStatus !== 'paid').reduce((s, m) => s + m.amountPaise, 0);
+  const paidCount            = milestones.filter(m => m.paymentStatus === 'paid').length;
+  const overdueCount         = milestones.filter(m => m.paymentStatus === 'overdue').length;
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center gap-4">
-        <Link
-          href={`/projects/${projectId}`}
-          className="text-sm text-gray-500 hover:text-gray-700"
-        >
-          &larr; Back to Project
-        </Link>
-      </div>
+    <div className="p-6 space-y-5">
 
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Milestone Payments
-        </h2>
+      {/* Back */}
+      <Link href={`/projects/${projectId}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
+        style={{ color: '#6B6459' }}>
+        <ArrowLeft className="h-4 w-4" />Project Overview
+      </Link>
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Milestone Payments</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+            Track client payments and send payment links
+          </p>
+        </div>
       </div>
 
       {/* Summary cards */}
       {!loading && milestones.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="premium-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Paid</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {formatRupees(totalPaidPaise)}
-                </p>
-              </div>
-              <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-                {totalPaidCount} milestone{totalPaidCount !== 1 ? 's' : ''}
-              </span>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Total Paid</p>
+            <p className="text-2xl font-bold" style={{ color: '#14532D' }}>{formatRupees(totalPaidPaise)}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>{paidCount} milestone{paidCount !== 1 ? 's' : ''}</p>
           </div>
-
-          <div className="premium-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Total Outstanding</p>
-                <p className="text-2xl font-bold text-amber-600">
-                  {formatRupees(totalOutstandingPaise)}
-                </p>
-              </div>
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
-                {totalOutstandingCount} milestone
-                {totalOutstandingCount !== 1 ? 's' : ''}
-              </span>
+          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Outstanding</p>
+            <p className="text-2xl font-bold" style={{ color: '#92400E' }}>{formatRupees(totalOutstandingPaise)}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>{milestones.length - paidCount} remaining</p>
+          </div>
+          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Payment Progress</p>
+            <div className="flex items-end gap-2 mb-2">
+              <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>
+                {milestones.length > 0 ? Math.round((paidCount / milestones.length) * 100) : 0}%
+              </p>
+              {overdueCount > 0 && (
+                <span className="text-xs font-medium mb-0.5" style={{ color: '#DC2626' }}>
+                  {overdueCount} overdue
+                </span>
+              )}
+            </div>
+            <div className="h-1.5 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+              <div className="h-1.5 rounded-full"
+                style={{
+                  width: `${milestones.length > 0 ? Math.round((paidCount / milestones.length) * 100) : 0}%`,
+                  background: '#16A34A',
+                }} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Seed button */}
-      {!loading && milestones.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-gray-300 py-16">
-          <p className="text-sm text-gray-500">No milestones yet.</p>
+      {/* Loading */}
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-32 rounded-2xl" />)}
+        </div>
+
+      ) : milestones.length === 0 ? (
+        /* Empty state */
+        <div className="flex flex-col items-center justify-center py-20 gap-5">
+          <div className="relative">
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center"
+              style={{ background: '#F0FDF4' }}>
+              <CreditCard className="h-10 w-10" style={{ color: '#16A34A' }} />
+            </div>
+            <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
+              style={{ background: '#F5F3FF', border: '2px solid #FFFFFF' }}>
+              <Plus className="h-4 w-4" style={{ color: '#7C3AED' }} />
+            </div>
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No milestones set up yet</h3>
+            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+              Seed default milestones at 10% / 40% / 40% / 10% of the contract value to start collecting payments.
+            </p>
+          </div>
           {seedError && (
-            <p className="text-xs text-red-600">{seedError}</p>
+            <p className="text-xs" style={{ color: '#DC2626' }}>{seedError}</p>
           )}
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={handleSeedDefaults}
-            disabled={seeding}
-          >
-            {seeding ? 'Seeding…' : 'Seed Default Milestones'}
+          <button type="button" onClick={handleSeedDefaults} disabled={seeding}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
+            <IndianRupee className="h-4 w-4" />
+            {seeding ? 'Seeding…' : 'Seed Default Milestones (10/40/40/10%)'}
           </button>
-          <p className="text-xs text-gray-400">
-            Creates 4 milestones at 10% / 40% / 40% / 10% of the contract value.
-          </p>
         </div>
-      )}
 
-      {/* Loading state */}
-      {loading && (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading milestones…</p>
-        </div>
-      )}
-
-      {/* Milestone timeline */}
-      {!loading && milestones.length > 0 && (
-        <div className="relative space-y-0">
-          {milestones.map((milestone, index) => {
-            const isLast = index === milestones.length - 1;
-            const showSendLink =
-              milestone.paymentStatus === 'pending' ||
-              milestone.paymentStatus === 'link_sent' ||
-              milestone.paymentStatus === 'overdue';
-
+      ) : (
+        /* Milestone cards */
+        <div className="space-y-3">
+          {milestones.map(m => {
+            const cfg = STATUS_CONFIG[m.paymentStatus];
+            const canSend = ['pending', 'link_sent', 'overdue'].includes(m.paymentStatus);
             return (
-              <div key={milestone.id} className="relative flex gap-4">
-                {/* Timeline spine */}
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`mt-6 h-4 w-4 shrink-0 rounded-full border-2 ${
-                      milestone.paymentStatus === 'paid'
-                        ? 'border-green-500 bg-green-500'
-                        : milestone.paymentStatus === 'overdue'
-                          ? 'border-red-500 bg-red-100'
-                          : milestone.paymentStatus === 'link_sent'
-                            ? 'border-blue-500 bg-blue-100'
-                            : 'border-gray-300 bg-white'
-                    }`}
-                  />
-                  {!isLast && (
-                    <div className="w-0.5 flex-1 bg-gray-200" />
-                  )}
-                </div>
-
-                {/* Milestone card */}
-                <div className={`flex-1 pb-6 ${isLast ? '' : ''}`}>
-                  <div className="premium-card p-5 transition-shadow hover:shadow-sm">
-                    <div className="pb-3">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="space-y-1">
-                          <p className="text-base font-semibold text-gray-900">
-                            {milestone.label}
-                          </p>
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg font-bold text-gray-800">
-                              {formatRupees(milestone.amountPaise)}
-                            </span>
-                            <span className="text-sm text-gray-400">
-                              {milestone.pctOfTotal}%
-                            </span>
-                          </div>
-                        </div>
-                        <PaymentStatusBadge status={milestone.paymentStatus} />
-                      </div>
+              <div key={m.id} className="rounded-2xl border p-5 transition-all hover:shadow-sm"
+                style={{
+                  background: '#FFFFFF',
+                  borderColor: m.paymentStatus === 'overdue' ? '#FECACA' : '#F0EEE9',
+                  borderLeftWidth: 4,
+                  borderLeftColor: cfg.dot,
+                }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="font-semibold" style={{ color: '#1C1916' }}>{m.label}</p>
+                    <div className="flex items-center gap-3">
+                      <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>
+                        {formatRupees(m.amountPaise)}
+                      </p>
+                      <span className="rounded-full px-2 py-0.5 text-xs font-medium"
+                        style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+                        {m.pctOfTotal}%
+                      </span>
                     </div>
-
-                    <div className="space-y-3">
-                      {/* Paid date */}
-                      {milestone.paidAt && (
-                        <p className="text-sm text-gray-500">
-                          Paid on{' '}
-                          <span className="font-medium text-green-600">
-                            {new Date(milestone.paidAt).toLocaleDateString(
-                              'en-IN',
-                              { day: '2-digit', month: 'short', year: 'numeric' },
-                            )}
-                          </span>
-                        </p>
-                      )}
-
-                      {/* Trigger stage label */}
-                      {milestone.triggerStage && (
-                        <p className="text-xs text-gray-400">
-                          Triggered at: {milestone.triggerStage.replace(/_/g, ' ')}
-                        </p>
-                      )}
-
-                      {/* Action buttons */}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {showSendLink && (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            onClick={() => openSendDialog(milestone)}
-                          >
-                            Send Payment Link
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={() => openOverrideDialog(milestone)}
-                        >
-                          Manual Override
-                        </button>
-                      </div>
-                    </div>
+                    {m.paidAt && (
+                      <p className="text-xs" style={{ color: '#16A34A' }}>
+                        Paid on {new Date(m.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
+                    {m.triggerStage && (
+                      <p className="text-xs" style={{ color: '#A79E8E' }}>
+                        Trigger: {m.triggerStage.replace(/_/g, ' ')}
+                      </p>
+                    )}
                   </div>
+                  <StatusBadge status={m.paymentStatus} />
                 </div>
+
+                {m.paymentStatus !== 'paid' && (
+                  <div className="flex flex-wrap gap-2 mt-4 pt-4"
+                    style={{ borderTop: '1px solid #F0EEE9' }}>
+                    {canSend && (
+                      <button type="button"
+                        onClick={() => { setActiveMilestone(m); setSendOpen(true); }}
+                        className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
+                        <Send className="h-3.5 w-3.5" />
+                        {m.paymentStatus === 'link_sent' ? 'Resend Link' : 'Send Payment Link'}
+                      </button>
+                    )}
+                    <button type="button"
+                      onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
+                      className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
+                      <Settings2 className="h-3.5 w-3.5" />
+                      Manual Override
+                    </button>
+                  </div>
+                )}
+
+                {m.paymentStatus === 'paid' && (
+                  <div className="flex items-center gap-2 mt-3 pt-3"
+                    style={{ borderTop: '1px solid #F0EEE9' }}>
+                    <CheckCircle2 className="h-4 w-4" style={{ color: '#16A34A' }} />
+                    <span className="text-sm font-medium" style={{ color: '#14532D' }}>Payment received</span>
+                    <button type="button"
+                      onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
+                      className="ml-auto text-xs font-medium transition-colors hover:underline"
+                      style={{ color: '#A79E8E' }}>
+                      Override
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* ── Send Payment Link Dialog ── */}
-      <Dialog open={sendDialogOpen} onOpenChange={(open) => !open && closeSendDialog()}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Send Payment Link</DialogTitle>
-            {activeMilestone && (
-              <p className="text-sm text-gray-500">
-                {activeMilestone.label} —{' '}
-                <span className="font-semibold text-gray-700">
-                  {formatRupees(activeMilestone.amountPaise)}
-                </span>
-              </p>
-            )}
-          </DialogHeader>
-
-          {sendResult ? (
-            /* Success state: show the short URL */
-            <div className="space-y-4 py-2">
-              <p className="text-sm font-medium text-green-600">
-                Payment link created successfully.
-              </p>
-              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
-                <span className="flex-1 break-all text-sm text-gray-700">
-                  {sendResult.shortUrl}
-                </span>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => handleCopy(sendResult.shortUrl)}
-                >
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-              <DialogFooter>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={closeSendDialog}
-                >
-                  Close
-                </button>
-              </DialogFooter>
-            </div>
-          ) : (
-            /* Form state */
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="send-clientName">Client Name</Label>
-                <Input
-                  id="send-clientName"
-                  placeholder="Ramesh Sharma"
-                  value={sendForm.clientName}
-                  onChange={(e) => setSendField('clientName', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="send-phone">Contact Phone</Label>
-                <Input
-                  id="send-phone"
-                  placeholder="+91 98765 43210"
-                  value={sendForm.contactPhone}
-                  onChange={(e) => setSendField('contactPhone', e.target.value)}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="send-pos">
-                  Place of Supply{' '}
-                  <span className="text-xs text-gray-400">(optional)</span>
-                </Label>
-                <Input
-                  id="send-pos"
-                  placeholder="Tamil Nadu"
-                  value={sendForm.placeOfSupply}
-                  onChange={(e) => setSendField('placeOfSupply', e.target.value)}
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="send-interstate"
-                  checked={sendForm.isInterstate}
-                  onChange={(e) => setSendField('isInterstate', e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <Label htmlFor="send-interstate" className="cursor-pointer">
-                  Interstate supply (IGST 18%)
-                </Label>
-              </div>
-
-              {sendError && (
-                <p className="text-xs text-red-600">
-                  {sendError}
-                </p>
-              )}
-
-              <DialogFooter>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={closeSendDialog}
-                  disabled={sending}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={handleSendLink}
-                  disabled={sending}
-                >
-                  {sending ? 'Sending…' : 'Send Link'}
-                </button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Manual Override Dialog ── */}
-      <Dialog
-        open={overrideDialogOpen}
-        onOpenChange={(open) => !open && closeOverrideDialog()}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Manual Override</DialogTitle>
-            {overrideMilestone && (
-              <p className="text-sm text-gray-500">
-                {overrideMilestone.label} —{' '}
-                <span className="font-semibold text-gray-700">
-                  {formatRupees(overrideMilestone.amountPaise)}
-                </span>
-              </p>
-            )}
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="override-status">New Status</Label>
-              <Select
-                value={overrideForm.newStatus}
-                onValueChange={(val) =>
-                  setOverrideForm((prev) => ({
-                    ...prev,
-                    newStatus: val as 'paid' | 'overdue',
-                  }))
-                }
-              >
-                <SelectTrigger id="override-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="override-note">Note</Label>
-              <Textarea
-                id="override-note"
-                placeholder="Reason for manual override…"
-                rows={3}
-                value={overrideForm.note}
-                onChange={(e) =>
-                  setOverrideForm((prev) => ({ ...prev, note: e.target.value }))
-                }
-              />
-            </div>
-
-            {overrideError && (
-              <p className="text-xs text-red-600">
-                {overrideError}
-              </p>
-            )}
-          </div>
-
-          <DialogFooter>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={closeOverrideDialog}
-              disabled={overriding}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={overrideForm.newStatus === 'overdue' ? 'btn-secondary' : 'btn-primary'}
-              style={overrideForm.newStatus === 'overdue' ? { backgroundColor: '#b91c1c', color: '#fff', borderColor: '#b91c1c' } : undefined}
-              onClick={handleOverride}
-              disabled={overriding}
-            >
-              {overriding ? 'Applying…' : 'Apply Override'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Modals */}
+      {sendOpen && activeMilestone && (
+        <SendLinkModal
+          milestone={activeMilestone}
+          onClose={() => { setSendOpen(false); setActiveMilestone(null); }}
+          onSuccess={loadMilestones}
+        />
+      )}
+      {overrideOpen && activeMilestone && (
+        <OverrideModal
+          milestone={activeMilestone}
+          onClose={() => { setOverrideOpen(false); setActiveMilestone(null); }}
+          onSuccess={loadMilestones}
+        />
+      )}
     </div>
   );
 }

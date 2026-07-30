@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useRef, useState, KeyboardEvent } from 'react';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import {
   ArrowLeft, Mail, Phone, Building2, MapPin, Tag, User, Calendar,
@@ -13,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LEAD_STAGE_LABEL } from '@/types/customers';
 import type { Customer, CustomerActivity, CustomerActivityType, CustomerSource, CustomerStage, CustomerSummary } from '@/types/customers';
 import type { CustomerHealthBrief } from '@/app/api/v1/customers/[id]/health-brief/route';
 
@@ -198,6 +200,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [messages, setMessages]           = useState<WaMessage[]>([]);
   const [messagesLoaded, setMsgLoaded]    = useState(false);
   const [messagesLoading, setMsgLoading]  = useState(false);
+  const [waDraft, setWaDraft]             = useState('');
+  const [waSending, setWaSending]         = useState(false);
+  const [waError, setWaError]             = useState<string | null>(null);
+  const waThreadRef = useRef<HTMLDivElement | null>(null);
 
   // AI health brief state
   const [health, setHealth]           = useState<CustomerHealthBrief | null>(null);
@@ -256,6 +262,32 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       .catch(() => {})
       .finally(() => setMsgLoading(false));
   }, [id, messagesLoaded]);
+
+  /* ── Send WhatsApp message ── */
+  async function sendWaMessage(e: React.FormEvent) {
+    e.preventDefault();
+    const text = waDraft.trim();
+    if (!text || waSending) return;
+    setWaSending(true);
+    setWaError(null);
+    try {
+      const res = await fetch(`/api/v1/customers/${id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const json = await res.json() as { data?: WaMessage; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed to send');
+      if (json.data) setMessages((prev) => [json.data!, ...prev]);
+      setWaDraft('');
+      // Scroll to top of thread (newest first)
+      waThreadRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      setWaError(err instanceof Error ? err.message : 'Failed to send');
+    } finally {
+      setWaSending(false);
+    }
+  }
 
   /* ── Generate AI health brief ── */
   async function generateHealth() {
@@ -446,6 +478,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <span className="h-1.5 w-1.5 rounded-full" style={{ background: stageSt.dot }} />
                 {STAGE_LABEL[displayed.stage]}
               </span>
+              {displayed.activeLeadId && displayed.activeLeadStage && (
+                <Link
+                  href={`/leads/${displayed.activeLeadId}`}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors hover:opacity-80"
+                  style={{ background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.20)' }}
+                  title="View lead"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                  {LEAD_STAGE_LABEL[displayed.activeLeadStage] ?? displayed.activeLeadStage}
+                </Link>
+              )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
               {displayed.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{displayed.company}</span>}
@@ -514,12 +557,17 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             key={key}
             onClick={() => handleTabChange(key)}
             className="relative flex-shrink-0 px-4 py-3.5 text-sm font-semibold transition-colors"
-            style={{
-              color: activeTab === key ? 'var(--violet-primary, #7c5cfc)' : 'var(--text-secondary)',
-              borderBottom: activeTab === key ? '2px solid var(--violet-primary, #7c5cfc)' : '2px solid transparent',
-            }}
+            style={{ color: activeTab === key ? 'var(--violet-primary, #7c5cfc)' : 'var(--text-secondary)' }}
           >
             {label}
+            {activeTab === key && (
+              <motion.span
+                layoutId="detail-tab-underline"
+                className="absolute bottom-0 left-0 right-0 h-0.5"
+                style={{ background: 'var(--violet-primary, #7c5cfc)' }}
+                transition={{ type: 'spring', stiffness: 500, damping: 42 }}
+              />
+            )}
           </button>
         ))}
       </div>
@@ -1047,54 +1095,97 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               )}
             </div>
 
-            {messagesLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
-              </div>
-            ) : messages.length === 0 ? (
-              <div
-                className="rounded-2xl p-10 text-center"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
-              >
-                <MessageCircle className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
-                <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No messages yet</p>
-                <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  WhatsApp messages sent or received via this number will appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {messages.map((msg) => {
-                  const isInbound = msg.direction === 'inbound';
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}
-                    >
+            {/* Thread */}
+            <div
+              ref={waThreadRef}
+              className="max-h-[420px] overflow-y-auto space-y-2 rounded-2xl p-1"
+            >
+              {messagesLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
+                </div>
+              ) : messages.length === 0 ? (
+                <div
+                  className="rounded-2xl p-10 text-center"
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                >
+                  <MessageCircle className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No messages yet</p>
+                  <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    WhatsApp messages sent or received via this number will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {messages.map((msg) => {
+                    const isInbound = msg.direction === 'inbound';
+                    return (
                       <div
-                        className="max-w-[75%] rounded-2xl px-4 py-2.5"
-                        style={{
-                          background: isInbound ? 'var(--surface-card, #fff)' : 'rgba(124,92,252,0.10)',
-                          border: isInbound ? '1px solid var(--border-subtle, #e8eaf0)' : '1px solid rgba(124,92,252,0.20)',
-                          borderRadius: isInbound ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
-                        }}
+                        key={msg.id}
+                        className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}
                       >
-                        {msg.templateName ? (
-                          <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text-secondary)' }}>
-                            Template: {msg.templateName}
+                        <div
+                          className="max-w-[75%] rounded-2xl px-4 py-2.5"
+                          style={{
+                            background: isInbound ? 'var(--surface-card, #fff)' : 'rgba(124,92,252,0.10)',
+                            border: isInbound ? '1px solid var(--border-subtle, #e8eaf0)' : '1px solid rgba(124,92,252,0.20)',
+                            borderRadius: isInbound ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
+                          }}
+                        >
+                          {msg.templateName ? (
+                            <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text-secondary)' }}>
+                              Template: {msg.templateName}
+                            </p>
+                          ) : null}
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-heading)' }}>
+                            {msg.bodyPreview ?? '(no preview)'}
                           </p>
-                        ) : null}
-                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-heading)' }}>
-                          {msg.bodyPreview ?? '(no preview)'}
-                        </p>
-                        <p className="mt-1 text-[10px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>
-                          {relativeTime(msg.createdAt)}
-                        </p>
+                          <p className="mt-1 text-[10px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                            {relativeTime(msg.createdAt)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Compose bar */}
+            {customer.phone && (
+              <form
+                onSubmit={sendWaMessage}
+                className="flex items-end gap-2 rounded-2xl p-3"
+                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+              >
+                <Textarea
+                  value={waDraft}
+                  onChange={(e) => setWaDraft(e.target.value)}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendWaMessage(e as unknown as React.FormEvent); }
+                  }}
+                  placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+                  rows={2}
+                  disabled={waSending}
+                  className="flex-1 resize-none border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                  style={{ color: 'var(--text-heading)', boxShadow: 'none' }}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!waDraft.trim() || waSending}
+                  className="h-9 w-9 shrink-0 rounded-xl p-0"
+                  style={{ background: '#25d366', color: '#fff' }}
+                >
+                  {waSending
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Send className="h-4 w-4" />
+                  }
+                </Button>
+              </form>
+            )}
+            {waError && (
+              <p className="text-xs" style={{ color: '#dc2626' }}>{waError}</p>
             )}
           </div>
         )}

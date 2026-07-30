@@ -1,17 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, MoreHorizontal, Mail, Phone, Building2, MapPin,
+  Search, Plus, MoreHorizontal, Mail, Phone,
   Trash2, Loader2, Users, UserCheck, Briefcase, Clock,
   Eye, UserCog, ArrowRightLeft, CheckCircle2, X,
 } from 'lucide-react';
 import { NewCustomerDialog } from '@/components/customers/NewCustomerDialog';
 import { GlowOrb } from '@/components/customers/GlowOrb';
 import { CustomerQuickPane } from '@/components/customers/CustomerQuickPane';
-import type { Customer, CustomerStage } from '@/types/customers';
+import type { Customer, CustomerHealthStatus, CustomerStage } from '@/types/customers';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 interface TeamMember { id: string; fullName: string; role: string; }
 
@@ -31,12 +32,22 @@ const STAGE_STYLE: Record<CustomerStage, { bg: string; color: string; dot: strin
   past_client: { bg: 'rgba(148,163,184,0.12)', color: '#64748b', dot: '#cbd5e1' },
 };
 
-const STAGE_TABS: { value: CustomerStage | 'all'; label: string }[] = [
-  { value: 'all',         label: 'All' },
-  { value: 'lead',        label: 'Leads' },
-  { value: 'opportunity', label: 'Opportunities' },
-  { value: 'client',      label: 'Clients' },
-  { value: 'past_client', label: 'Past clients' },
+const HEALTH_DOT: Record<CustomerHealthStatus, { color: string; label: string }> = {
+  hot:      { color: '#f97316', label: '🔥 Hot'      },
+  healthy:  { color: '#10b981', label: '✅ Healthy'   },
+  at_risk:  { color: '#f59e0b', label: '⚠️ At risk'  },
+  inactive: { color: '#94a3b8', label: '💤 Inactive'  },
+};
+
+type FilterTab = CustomerStage | 'all' | 'needs_attention';
+
+const STAGE_TABS: { value: FilterTab; label: string }[] = [
+  { value: 'all',             label: 'All' },
+  { value: 'lead',            label: 'Leads' },
+  { value: 'opportunity',     label: 'Opportunities' },
+  { value: 'client',          label: 'Clients' },
+  { value: 'past_client',     label: 'Past clients' },
+  { value: 'needs_attention', label: '⚠ Needs attention' },
 ];
 
 /* ── Page ──────────────────────────────────────────────────────────────────── */
@@ -45,7 +56,7 @@ export default function CustomersPage() {
   const [rows, setRows]         = useState<Customer[]>([]);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState('');
-  const [stageFilter, setStage] = useState<CustomerStage | 'all'>('all');
+  const [stageFilter, setStage] = useState<FilterTab>('all');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -72,8 +83,8 @@ export default function CustomersPage() {
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [openMenu]);
 
-  /* ── Data load ── */
-  useEffect(() => {
+  /* ── Data load + real-time ── */
+  const refetch = useCallback(() => {
     fetch('/api/v1/customers')
       .then((r) => r.json())
       .then(({ data }: { data: Customer[] | null }) => {
@@ -82,6 +93,11 @@ export default function CustomersPage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => { refetch(); }, [refetch]);
+
+  // Real-time: instant push on leads or customers changes + 30s polling fallback
+  useRealtimeSync(['customers', 'leads'], refetch);
 
   /* ── Toast auto-dismiss ── */
   useEffect(() => {
@@ -203,7 +219,11 @@ export default function CustomersPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
-      if (stageFilter !== 'all' && r.stage !== stageFilter) return false;
+      if (stageFilter === 'needs_attention') {
+        if (r.healthStatus !== 'at_risk' && r.healthStatus !== 'inactive') return false;
+      } else if (stageFilter !== 'all') {
+        if (r.stage !== stageFilter) return false;
+      }
       if (!q) return true;
       return (
         r.fullName.toLowerCase().includes(q) ||
@@ -256,7 +276,7 @@ export default function CustomersPage() {
               className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl"
             >
               <Plus className="h-4 w-4" />
-              Create customer
+              Add walk-in customer
             </button>
           </div>
         </div>
@@ -308,24 +328,28 @@ export default function CustomersPage() {
           {STAGE_TABS.map((tab) => {
             const count = tab.value === 'all'
               ? rows.length
+              : tab.value === 'needs_attention'
+              ? rows.filter((r) => r.healthStatus === 'at_risk' || r.healthStatus === 'inactive').length
               : rows.filter((r) => r.stage === tab.value).length;
             const active = stageFilter === tab.value;
             return (
               <button
                 key={tab.value}
                 onClick={() => setStage(tab.value)}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
-                style={active ? {
-                  background: 'var(--surface-card, #fff)',
-                  color: 'var(--violet-primary, #7c5cfc)',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.10)',
-                } : {
-                  color: 'var(--text-secondary, #6b7280)',
-                }}
+                className="relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+                style={{ color: active ? 'var(--violet-primary, #7c5cfc)' : 'var(--text-secondary, #6b7280)' }}
               >
-                {tab.label}
+                {active && (
+                  <motion.span
+                    layoutId="stage-active-pill"
+                    className="absolute inset-0 rounded-lg"
+                    style={{ background: 'var(--surface-card, #fff)', boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 42 }}
+                  />
+                )}
+                <span className="relative">{tab.label}</span>
                 <span
-                  className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                  className="relative rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                   style={{
                     background: active ? 'rgba(124,92,252,0.12)' : 'rgba(0,0,0,0.06)',
                     color: active ? 'var(--violet-primary)' : 'var(--text-secondary)',
@@ -340,8 +364,13 @@ export default function CustomersPage() {
       </div>
 
       {/* ══ Bulk action bar ══════════════════════════════════════════════════ */}
+      <AnimatePresence>
       {selected.size > 0 && (
-        <div
+        <motion.div
+          initial={{ y: -10, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -10, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 480, damping: 38 }}
           className="flex items-center justify-between px-6 py-2.5 text-sm"
           style={{ background: 'rgba(124,92,252,0.08)', borderBottom: '1px solid rgba(124,92,252,0.2)' }}
         >
@@ -384,8 +413,9 @@ export default function CustomersPage() {
               <Plus className="h-3.5 w-3.5 rotate-45" style={{ color: 'var(--text-secondary)' }} />
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* ══ Table + Quick pane (split layout) ════════════════════════════════ */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -402,7 +432,7 @@ export default function CustomersPage() {
             <table className="w-full border-separate select-none" style={{ borderSpacing: 0 }}>
               <thead>
                 <tr style={{ background: 'var(--surface-card, #fff)' }}>
-                  <th className="sticky top-0 z-10 w-12 px-5 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
+                  <th className="sticky top-0 z-10 w-10 px-4 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
                     <input
                       type="checkbox"
                       checked={allChecked}
@@ -414,24 +444,18 @@ export default function CustomersPage() {
                     />
                   </th>
                   <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
-                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Name</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Customer</span>
                   </th>
                   <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)', display: selectedId ? 'none' : undefined }}>
-                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Company</span>
-                  </th>
-                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Contact</span>
                   </th>
                   <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Stage</span>
                   </th>
                   <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)', display: selectedId ? 'none' : undefined }}>
-                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>City</span>
+                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Last seen</span>
                   </th>
-                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)', display: selectedId ? 'none' : undefined }}>
-                    <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Added</span>
-                  </th>
-                  <th className="sticky top-0 z-10 w-24 px-3 py-3 text-right" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
+                  <th className="sticky top-0 z-10 w-32 px-3 py-3 text-right" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Actions</span>
                   </th>
                 </tr>
@@ -650,6 +674,15 @@ export default function CustomersPage() {
 
 /* ── CustomerRow — extracted to isolate hover state ──────────────────────── */
 
+// Short labels for the pipeline stage chip shown next to the customer stage
+const LEAD_STAGE_SHORT: Record<string, string> = {
+  new:                  'New',
+  site_visit_scheduled: 'Site visit',
+  consultation_done:    'Consultation',
+  proposal_sent:        'Proposal sent',
+  negotiation:          'Negotiating',
+};
+
 interface RowProps {
   r: Customer;
   checked: boolean;
@@ -675,8 +708,12 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
     ? Math.floor((nowMs - new Date(r.lastContactedAt).getTime()) / 86400000)
     : null;
   const dotColor = daysSince === null ? null : daysSince > 21 ? '#ef4444' : daysSince > 7 ? '#f59e0b' : null;
+  const lastSeenColor = daysSince === null ? 'var(--border-subtle)' : daysSince > 21 ? '#ef4444' : daysSince > 7 ? '#f59e0b' : 'var(--text-secondary)';
+  const lastSeenLabel = daysSince === null ? 'Never' : daysSince === 0 ? 'Today' : daysSince === 1 ? 'Yesterday' : `${daysSince}d ago`;
 
   const cellBorder = isLast ? 'none' : '1px solid var(--border-subtle, #e8eaf0)';
+
+  const secondaryLine = [r.company, r.city].filter(Boolean).join(' · ');
 
   return (
     <motion.tr
@@ -685,12 +722,6 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
       transition={{ delay: Math.min(animIndex * 0.025, 0.4), duration: 0.2 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onMouseDown={(e) => {
-        const interactive = (e.target as HTMLElement).closest(
-          'a, button, input, select, textarea, [contenteditable]',
-        );
-        if (!interactive) e.preventDefault();
-      }}
       onClick={(e) => {
         const interactive = (e.target as HTMLElement).closest(
           'a, button, input, select, textarea, [contenteditable]',
@@ -701,13 +732,11 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
         background: isSelected
           ? 'rgba(124,92,252,0.08)'
           : checked
-          ? 'rgba(124,92,252,0.10)'
+          ? 'rgba(124,92,252,0.06)'
           : hovered
-          ? 'rgba(124,92,252,0.04)'
+          ? 'rgba(124,92,252,0.03)'
           : 'var(--surface-card, #fff)',
-        boxShadow: isSelected
-          ? 'inset 3px 0 0 var(--violet-primary, #7c5cfc)'
-          : checked
+        boxShadow: isSelected || checked
           ? 'inset 3px 0 0 var(--violet-primary, #7c5cfc)'
           : 'inset 3px 0 0 transparent',
         cursor: 'default',
@@ -715,7 +744,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
       }}
     >
       {/* Checkbox */}
-      <td className="w-12 px-5 py-3.5" style={{ borderBottom: cellBorder }}>
+      <td className="w-10 px-4 py-4" style={{ borderBottom: cellBorder }}>
         <input
           type="checkbox"
           checked={checked}
@@ -727,41 +756,48 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
         />
       </td>
 
-      {/* Name */}
-      <td className="px-3 py-3.5" style={{ borderBottom: cellBorder }}>
-        <Link
-          href={`/customers/${r.id}`}
-          className="flex items-center gap-3"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Avatar name={r.fullName} dotColor={dotColor} daysSince={daysSince} />
+      {/* Customer — Avatar + Name + Company/City + Tags */}
+      <td className="px-3 py-4" style={{ borderBottom: cellBorder }}>
+        <div className="flex items-center gap-3">
+          <Avatar name={r.fullName} dotColor={dotColor} daysSince={daysSince} healthStatus={r.healthStatus} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold transition-colors" style={{ color: hovered ? 'var(--violet-primary)' : 'var(--text-heading)' }}>
+            <Link
+              href={`/customers/${r.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="block truncate text-sm font-semibold leading-tight transition-colors"
+              style={{ color: hovered ? 'var(--violet-primary)' : 'var(--text-heading)' }}
+            >
               {r.fullName}
-            </p>
-            {r.tags?.length > 0 && (
-              <p className="truncate text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                {r.tags.slice(0, 2).join(' · ')}
+            </Link>
+            {secondaryLine ? (
+              <p className="mt-0.5 truncate text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                {secondaryLine}
               </p>
+            ) : null}
+            {r.tags?.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {r.tags.slice(0, 2).map((t) => (
+                  <span
+                    key={t}
+                    className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                    style={{ background: 'rgba(124,92,252,0.10)', color: 'var(--violet-primary)' }}
+                  >
+                    {t}
+                  </span>
+                ))}
+                {r.tags.length > 2 && (
+                  <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                    +{r.tags.length - 2}
+                  </span>
+                )}
+              </div>
             )}
           </div>
-        </Link>
+        </div>
       </td>
 
-      {/* Company — hidden in compact mode */}
-      <td className="px-3 py-3.5" style={{ borderBottom: cellBorder, display: compact ? 'none' : undefined }}>
-        {r.company ? (
-          <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            <Building2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-            <span className="max-w-[160px] truncate">{r.company}</span>
-          </span>
-        ) : (
-          <span className="text-sm" style={{ color: 'var(--border-subtle)' }}>—</span>
-        )}
-      </td>
-
-      {/* Contact */}
-      <td className="px-3 py-3.5" style={{ borderBottom: cellBorder }}>
+      {/* Contact — hidden in compact mode */}
+      <td className="px-3 py-4" style={{ borderBottom: cellBorder, display: compact ? 'none' : undefined }}>
         <div className="flex flex-col gap-0.5">
           <a
             href={`tel:${r.phone}`}
@@ -769,14 +805,14 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
             className="flex items-center gap-1.5 text-xs font-medium tabular-nums transition-colors hover:text-blue-600 select-text"
             style={{ color: 'var(--text-heading)' }}
           >
-            <Phone className="h-3 w-3 flex-shrink-0 text-blue-500" />
+            <Phone className="h-3 w-3 flex-shrink-0 text-blue-400" />
             {r.phone}
           </a>
           {r.email && (
             <a
               href={`mailto:${r.email}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex max-w-[200px] items-center gap-1.5 truncate text-xs transition-colors hover:text-violet-600 select-text"
+              className="flex max-w-[180px] items-center gap-1.5 truncate text-xs transition-colors hover:text-violet-600 select-text"
               style={{ color: 'var(--text-secondary)' }}
             >
               <Mail className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
@@ -786,63 +822,80 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
         </div>
       </td>
 
-      {/* Stage badge */}
-      <td className="px-3 py-3.5" style={{ borderBottom: cellBorder }}>
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-          style={{ background: stageSt.bg, color: stageSt.color }}
-        >
-          <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: stageSt.dot }} />
-          {STAGE_LABEL[r.stage]}
+      {/* Stage — customer lifecycle + active pipeline stage chip */}
+      <td className="px-3 py-4" style={{ borderBottom: cellBorder }}>
+        <div className="flex flex-col gap-1.5">
+          <span
+            className="inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+            style={{ background: stageSt.bg, color: stageSt.color }}
+          >
+            <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: stageSt.dot }} />
+            {STAGE_LABEL[r.stage]}
+          </span>
+
+          {r.activeLeadStage && (
+            <Link
+              href={r.activeLeadId ? `/leads/${r.activeLeadId}` : '/leads'}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span
+                className="inline-flex w-fit items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-amber-100"
+                style={{ background: 'rgba(245,158,11,0.10)', color: '#92400e' }}
+              >
+                ↗ {LEAD_STAGE_SHORT[r.activeLeadStage] ?? r.activeLeadStage}
+              </span>
+            </Link>
+          )}
+        </div>
+      </td>
+
+      {/* Last seen — hidden in compact mode */}
+      <td className="px-3 py-4" style={{ borderBottom: cellBorder, display: compact ? 'none' : undefined }}>
+        <span className="text-xs tabular-nums" style={{ color: lastSeenColor }}>
+          {lastSeenLabel}
         </span>
       </td>
 
-      {/* City — hidden in compact mode */}
-      <td className="px-3 py-3.5" style={{ borderBottom: cellBorder, display: compact ? 'none' : undefined }}>
-        {r.city ? (
-          <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
-            <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-            {r.city}
-          </span>
-        ) : (
-          <span className="text-sm" style={{ color: 'var(--border-subtle)' }}>—</span>
-        )}
-      </td>
-
-      {/* Created date — hidden in compact mode */}
-      <td
-        className="px-3 py-3.5 text-sm tabular-nums"
-        style={{ borderBottom: cellBorder, color: 'var(--text-secondary)', display: compact ? 'none' : undefined }}
-      >
-        {new Date(r.createdAt).toLocaleDateString('en-IN', {
-          day: '2-digit', month: 'short', year: 'numeric',
-        })}
-      </td>
-
-      {/* Actions */}
-      <td className="relative px-3 py-3.5 text-right" style={{ borderBottom: cellBorder }}>
+      {/* Actions — always reachable (visible at rest, full opacity on hover) */}
+      <td className="relative px-3 py-4 text-right" style={{ borderBottom: cellBorder }}>
         <div className="flex items-center justify-end gap-1">
-          {/* Quick-view button — opens the slide-in pane */}
+
+          {/* Quick-preview pane */}
           <button
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
-            className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
+            title="Quick preview"
+            className="flex h-7 w-7 items-center justify-center rounded-lg transition-all"
             style={{
-              opacity: hovered || isMenuOpen ? 1 : 0,
-              background: isSelected ? 'rgba(124,92,252,0.12)' : 'var(--surface-muted, #f3f4f6)',
-              color: isSelected ? 'var(--violet-primary)' : 'var(--text-heading)',
+              opacity: hovered || isSelected ? 1 : 0.4,
+              background: isSelected ? 'rgba(124,92,252,0.12)' : hovered ? 'var(--surface-muted)' : 'transparent',
+              color: isSelected ? 'var(--violet-primary)' : 'var(--text-secondary)',
             }}
           >
             <Eye className="h-3.5 w-3.5" />
-            View
           </button>
 
-          {/* More menu trigger */}
+          {/* Open full-detail page */}
+          <Link href={`/customers/${r.id}`} onClick={(e) => e.stopPropagation()}>
+            <span
+              className="flex items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all"
+              style={{
+                opacity: hovered ? 1 : 0.45,
+                background: hovered ? 'var(--surface-muted)' : 'transparent',
+                color: 'var(--text-heading)',
+              }}
+            >
+              Open
+              <span style={{ color: 'var(--text-secondary)', marginLeft: 1 }}>→</span>
+            </span>
+          </Link>
+
+          {/* More menu */}
           <div className="relative">
             <button
               onClick={(e) => { e.stopPropagation(); onOpenMenu(); }}
               className="flex h-7 w-7 items-center justify-center rounded-lg transition-all"
               style={{
-                opacity: hovered || isMenuOpen ? 1 : 0,
+                opacity: hovered || isMenuOpen ? 1 : 0.4,
                 background: isMenuOpen ? 'var(--surface-muted)' : 'transparent',
                 color: 'var(--text-secondary)',
               }}
@@ -865,7 +918,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
                   style={{ color: 'var(--text-heading)' }}
                 >
                   <Eye className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-                  View & edit
+                  View &amp; edit
                 </Link>
                 <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '4px 0' }} />
                 <button
@@ -887,7 +940,14 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
 
 /* ── Avatar ─────────────────────────────────────────────────────────────── */
 
-function Avatar({ name, dotColor, daysSince }: { name: string; dotColor: string | null; daysSince: number | null }) {
+function Avatar({
+  name, dotColor, daysSince, healthStatus,
+}: {
+  name: string;
+  dotColor: string | null;
+  daysSince: number | null;
+  healthStatus: CustomerHealthStatus | null;
+}) {
   const initials = name
     .split(/\s+/).filter(Boolean).slice(0, 2)
     .map((p) => p[0]!.toUpperCase()).join('');
@@ -895,23 +955,65 @@ function Avatar({ name, dotColor, daysSince }: { name: string; dotColor: string 
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
   const hue = Math.abs(hash) % 360;
 
+  // Health ring takes priority over staleness ring
+  const ringColor = healthStatus
+    ? HEALTH_DOT[healthStatus].color
+    : dotColor ?? null;
+  const ringTitle = healthStatus
+    ? HEALTH_DOT[healthStatus].label
+    : daysSince !== null ? `Last contacted ${daysSince}d ago` : undefined;
+
   return (
-    <span className="relative flex-shrink-0" aria-hidden="true">
+    <span className="relative flex-shrink-0" aria-hidden="true" title={ringTitle}>
+      {/* Ping ring for hot status */}
+      {healthStatus === 'hot' && (
+        <span
+          className="absolute inset-0 rounded-full motion-safe:animate-ping"
+          style={{ background: HEALTH_DOT.hot.color, opacity: 0.22 }}
+          aria-hidden="true"
+        />
+      )}
       <span
-        className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white"
-        style={{ backgroundColor: `hsl(${hue}, 55%, 45%)` }}
+        className="relative flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-white"
+        style={{
+          backgroundColor: `hsl(${hue}, 55%, 45%)`,
+          boxShadow: ringColor ? `0 0 0 2px #fff, 0 0 0 3.5px ${ringColor}` : undefined,
+          transition: 'box-shadow 0.15s',
+        }}
       >
         {initials || '?'}
       </span>
-      {dotColor && (
-        <span
-          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white"
-          style={{ background: dotColor }}
-          title={daysSince !== null ? `Last contacted ${daysSince}d ago` : undefined}
-        />
-      )}
     </span>
   );
+}
+
+/* ── AnimatedCounter — counts from 0 on mount, syncs directly on later changes ── */
+
+function AnimatedCounter({ value }: { value: number }) {
+  const [displayed, setDisplayed] = useState(0);
+  const hasAnimated = useRef(false);
+
+  useEffect(() => {
+    if (!hasAnimated.current) {
+      hasAnimated.current = true;
+      if (value === 0) return; // useState(0) already initializes to 0
+      const duration = 860;
+      const start = performance.now();
+      let rafId = 0;
+      function tick(now: number) {
+        const p = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 4); // easeOutQuart
+        setDisplayed(Math.round(eased * value));
+        if (p < 1) rafId = requestAnimationFrame(tick);
+      }
+      rafId = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(rafId);
+    } else {
+      setDisplayed(value);
+    }
+  }, [value]);
+
+  return <>{displayed.toLocaleString()}</>;
 }
 
 /* ── StatPill ───────────────────────────────────────────────────────────── */
@@ -943,7 +1045,7 @@ function StatPill({ icon, label, value, color }: { icon: React.ReactNode; label:
         {icon}
       </span>
       <div className="relative">
-        <p className="text-xl font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{value.toLocaleString()}</p>
+        <p className="text-xl font-bold leading-none tabular-nums" style={{ color: 'var(--text-heading)' }}><AnimatedCounter value={value} /></p>
         <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</p>
       </div>
     </div>
@@ -972,21 +1074,56 @@ function EmptyState({ hasQuery, onCreate, onClear }: { hasQuery: boolean; onCrea
     );
   }
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-3">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl" style={{ background: 'rgba(124,92,252,0.08)' }}>
-        <Users className="h-8 w-8" style={{ color: 'var(--violet-primary)' }} />
-      </div>
+    <div className="flex flex-col items-center justify-center py-24 gap-4">
+      {/* Interior design illustration */}
+      <svg width="140" height="108" viewBox="0 0 140 108" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        {/* Floor line */}
+        <rect x="6" y="94" width="128" height="2" rx="1" fill="#e8eaf0" />
+        {/* Sofa back */}
+        <rect x="26" y="58" width="76" height="16" rx="7" fill="#7c5cfc" fillOpacity="0.18" />
+        {/* Sofa seat */}
+        <rect x="26" y="70" width="76" height="24" rx="7" fill="#7c5cfc" fillOpacity="0.12" />
+        {/* Left armrest */}
+        <rect x="19" y="60" width="11" height="30" rx="5.5" fill="#7c5cfc" fillOpacity="0.14" />
+        {/* Right armrest */}
+        <rect x="110" y="60" width="11" height="30" rx="5.5" fill="#7c5cfc" fillOpacity="0.14" />
+        {/* Sofa legs */}
+        <rect x="34" y="92" width="6" height="6" rx="2" fill="#7c5cfc" fillOpacity="0.22" />
+        <rect x="100" y="92" width="6" height="6" rx="2" fill="#7c5cfc" fillOpacity="0.22" />
+        {/* Floor lamp stem */}
+        <rect x="121" y="34" width="3.5" height="60" rx="1.75" fill="#7c5cfc" fillOpacity="0.20" />
+        {/* Lamp shade */}
+        <path d="M110 34 L134 34 L130 16 L114 16 Z" fill="#7c5cfc" fillOpacity="0.14" />
+        {/* Lamp glow */}
+        <ellipse cx="122" cy="34" rx="13" ry="5" fill="#f59e0b" fillOpacity="0.22" />
+        {/* Plant pot */}
+        <rect x="8" y="78" width="11" height="16" rx="3" fill="#7c5cfc" fillOpacity="0.16" />
+        <ellipse cx="13.5" cy="74" rx="9" ry="8" fill="#10b981" fillOpacity="0.22" />
+        <ellipse cx="8" cy="78" rx="5" ry="5" fill="#10b981" fillOpacity="0.16" />
+        <ellipse cx="19" cy="78" rx="5" ry="5" fill="#10b981" fillOpacity="0.16" />
+        {/* Customer avatar circles floating above sofa */}
+        <circle cx="42" cy="40" r="11" fill="#7c5cfc" fillOpacity="0.10" stroke="#7c5cfc" strokeOpacity="0.22" strokeWidth="1.5" />
+        <circle cx="70" cy="30" r="14" fill="#7c5cfc" fillOpacity="0.16" stroke="#7c5cfc" strokeOpacity="0.28" strokeWidth="1.5" />
+        <circle cx="98" cy="40" r="11" fill="#7c5cfc" fillOpacity="0.10" stroke="#7c5cfc" strokeOpacity="0.22" strokeWidth="1.5" />
+        {/* Plus icons on avatar circles */}
+        <line x1="38" y1="40" x2="46" y2="40" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="42" y1="36" x2="42" y2="44" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="66" y1="30" x2="74" y2="30" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="70" y1="26" x2="70" y2="34" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="94" y1="40" x2="102" y2="40" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="98" y1="36" x2="98" y2="44" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
       <p className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>No customers yet</p>
       <p className="text-sm text-center max-w-xs" style={{ color: 'var(--text-secondary)' }}>
-        Add your first customer to start tracking contacts, jobs and revenue.
+        Customers are added automatically when you create a lead. You can also add walk-in customers directly.
       </p>
       <button
         onClick={onCreate}
-        className="mt-2 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
+        className="mt-1 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors hover:opacity-90"
         style={{ background: 'var(--violet-primary)', color: '#fff' }}
       >
         <Plus className="h-4 w-4" />
-        Create customer
+        Add walk-in customer
       </button>
     </div>
   );

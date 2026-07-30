@@ -36,7 +36,9 @@ export const groqProvider: AIProvider = {
   },
 
   async transcribeBlob(audioBuffer: ArrayBuffer, filename = 'voice-note.webm') {
-    const file = new File([audioBuffer], filename, { type: 'audio/webm' });
+    const ext = filename.split('.').pop()?.toLowerCase() ?? 'webm';
+    const type = ext === 'ogg' ? 'audio/ogg' : 'audio/webm';
+    const file = new File([audioBuffer], filename, { type });
     const result = await groq.audio.transcriptions.create({
       file,
       model: 'whisper-large-v3-turbo',

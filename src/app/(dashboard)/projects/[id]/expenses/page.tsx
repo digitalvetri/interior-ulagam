@@ -2,260 +2,173 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { ArrowLeft, Plus, Receipt, AlertTriangle, X, ExternalLink } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import type { Expense, ExpenseCategory } from '@/types/accounts';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+/* ── Category config ───────────────────────────────────────────────────────── */
 
-const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  petty_cash: 'Petty Cash',
-  transport: 'Transport',
-  labour: 'Labour',
-  material: 'Material',
-  other: 'Other',
+const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; bg: string; color: string; dot: string }> = {
+  petty_cash: { label: 'Petty Cash', bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
+  transport:  { label: 'Transport',  bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
+  labour:     { label: 'Labour',     bg: '#FFF7ED', color: '#C2410C', dot: '#F97316' },
+  material:   { label: 'Material',   bg: '#F5F3FF', color: '#6B21A8', dot: '#7C3AED' },
+  other:      { label: 'Other',      bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
 };
 
-const CATEGORY_STYLES: Record<ExpenseCategory, string> = {
-  petty_cash: 'bg-gray-100 text-gray-700 border-gray-200',
-  transport: 'bg-blue-100 text-blue-700 border-blue-200',
-  labour: 'bg-orange-100 text-orange-700 border-orange-200',
-  material: 'bg-purple-100 text-purple-700 border-purple-200',
-  other: 'bg-gray-100 text-gray-700 border-gray-200',
-};
+const ALL_CATEGORIES: ExpenseCategory[] = ['petty_cash', 'transport', 'labour', 'material', 'other'];
 
-const ALL_CATEGORIES: ExpenseCategory[] = [
-  'petty_cash',
-  'transport',
-  'labour',
-  'material',
-  'other',
-];
-
-// ─── Log Expense Dialog ───────────────────────────────────────────────────────
-
-interface LogExpenseDialogProps {
-  projectId: string;
-  onSuccess: () => void;
-}
-
-function LogExpenseDialog({ projectId, onSuccess }: LogExpenseDialogProps) {
-  const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const [category, setCategory] = useState<ExpenseCategory>('petty_cash');
-  const [amountRupees, setAmountRupees] = useState('');
-  const [description, setDescription] = useState('');
-  const [receiptUrl, setReceiptUrl] = useState('');
-
-  const resetForm = () => {
-    setCategory('petty_cash');
-    setAmountRupees('');
-    setDescription('');
-    setReceiptUrl('');
-    setSubmitError(null);
-  };
-
-  const handleSubmit = async () => {
-    setSubmitError(null);
-
-    const parsedAmount = parseFloat(amountRupees);
-    if (!amountRupees || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setSubmitError('Please enter a valid amount in rupees');
-      return;
-    }
-
-    const amountPaise = Math.round(parsedAmount * 100);
-
-    const payload: {
-      projectId: string;
-      category: ExpenseCategory;
-      amountPaise: number;
-      description?: string;
-      receiptUrl?: string;
-    } = {
-      projectId,
-      category,
-      amountPaise,
-    };
-
-    if (description.trim()) {
-      payload.description = description.trim();
-    }
-    if (receiptUrl.trim()) {
-      payload.receiptUrl = receiptUrl.trim();
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch('/api/v1/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const json = (await res.json()) as { error: string };
-        setSubmitError(typeof json.error === 'string' ? json.error : 'Failed to log expense');
-        return;
-      }
-
-      resetForm();
-      setOpen(false);
-      onSuccess();
-    } catch {
-      setSubmitError('Network error — please try again');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+function CategoryBadge({ category }: { category: ExpenseCategory }) {
+  const cfg = CATEGORY_CONFIG[category];
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) resetForm();
-        setOpen(next);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button>Log Expense</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Log Expense</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {/* Category */}
-          <div className="space-y-1.5">
-            <Label htmlFor="category">Category</Label>
-            <Select
-              value={category}
-              onValueChange={(val) => setCategory(val as ExpenseCategory)}
-            >
-              <SelectTrigger id="category">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {ALL_CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Amount */}
-          <div className="space-y-1.5">
-            <Label htmlFor="amount">
-              Amount (₹) <span className="text-xs text-gray-400 font-normal">— stored as paise</span>
-            </Label>
-            <Input
-              id="amount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder="e.g. 1500"
-              value={amountRupees}
-              onChange={(e) => setAmountRupees(e.target.value)}
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              type="text"
-              placeholder="Brief description of the expense"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-
-          {/* Receipt URL */}
-          <div className="space-y-1.5">
-            <Label htmlFor="receiptUrl">
-              Receipt URL <span className="text-xs text-gray-400 font-normal">optional</span>
-            </Label>
-            <Input
-              id="receiptUrl"
-              type="url"
-              placeholder="https://…"
-              value={receiptUrl}
-              onChange={(e) => setReceiptUrl(e.target.value)}
-            />
-          </div>
-
-          {submitError && (
-            <p className="text-sm text-red-600">{submitError}</p>
-          )}
-        </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              resetForm();
-              setOpen(false);
-            }}
-            disabled={submitting}
-          >
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Saving…' : 'Save Expense'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
+      {cfg.label}
+    </span>
   );
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+/* ── Log Expense Modal ─────────────────────────────────────────────────────── */
 
-interface PageProps {
-  params: Promise<{ id: string }>;
+function LogExpenseModal({
+  projectId, onClose, onSuccess,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [category,     setCategory]     = useState<ExpenseCategory>('petty_cash');
+  const [amountRupees, setAmountRupees] = useState('');
+  const [description,  setDescription]  = useState('');
+  const [receiptUrl,   setReceiptUrl]   = useState('');
+  const [submitting,   setSub]          = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setError(null);
+    const parsed = parseFloat(amountRupees);
+    if (!amountRupees || isNaN(parsed) || parsed <= 0) {
+      setError('Please enter a valid amount in rupees'); return;
+    }
+    const amountPaise = Math.round(parsed * 100);
+    const payload: { projectId: string; category: ExpenseCategory; amountPaise: number; description?: string; receiptUrl?: string } = {
+      projectId, category, amountPaise,
+    };
+    if (description.trim()) payload.description = description.trim();
+    if (receiptUrl.trim())  payload.receiptUrl  = receiptUrl.trim();
+
+    setSub(true);
+    try {
+      const res = await fetch('/api/v1/expenses', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setError(json.error ?? 'Failed to log expense'); return;
+      }
+      onSuccess();
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSub(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#FFF7ED' }}>
+              <Receipt className="h-4 w-4" style={{ color: '#F97316' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Log Expense</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="studio-label block mb-2">Category</label>
+            <div className="flex flex-wrap gap-2">
+              {ALL_CATEGORIES.map(cat => {
+                const cfg = CATEGORY_CONFIG[cat];
+                const active = category === cat;
+                return (
+                  <button key={cat} type="button" onClick={() => setCategory(cat)}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border-2 transition-all"
+                    style={{
+                      borderColor: active ? cfg.dot : 'transparent',
+                      background: active ? cfg.bg : '#F5F5F5',
+                      color: active ? cfg.color : '#6B6459',
+                    }}>
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? cfg.dot : '#9CA3AF' }} />
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">
+              Amount (₹) <span style={{ color: '#A79E8E' }}>— stored as paise</span>
+            </label>
+            <input type="number" min="0.01" step="0.01" placeholder="e.g. 1500"
+              value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">Description</label>
+            <input type="text" placeholder="Brief description of the expense"
+              value={description} onChange={e => setDescription(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">
+              Receipt URL <span style={{ color: '#A79E8E' }}>(optional)</span>
+            </label>
+            <input type="url" placeholder="https://…"
+              value={receiptUrl} onChange={e => setReceiptUrl(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSubmit} disabled={submitting}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <Receipt className="h-4 w-4" />
+            {submitting ? 'Saving…' : 'Save Expense'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default function ProjectExpensesPage({ params }: PageProps) {
+/* ── Page ──────────────────────────────────────────────────────────────────── */
+
+export default function ProjectExpensesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
 
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [expenses,   setExpenses]   = useState<Expense[]>([]);
+  const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [modalOpen,  setModalOpen]  = useState(false);
 
   const fetchExpenses = async () => {
-    setLoading(true);
-    setFetchError(null);
+    setLoading(true); setFetchError(null);
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/expenses`);
-      if (!res.ok) {
-        setFetchError('Failed to load expenses');
-        return;
-      }
-      const json = (await res.json()) as { data: Expense[] };
+      if (!res.ok) { setFetchError('Failed to load expenses'); return; }
+      const json = await res.json() as { data: Expense[] };
       setExpenses(json.data);
     } catch {
       setFetchError('Network error — please try again');
@@ -264,142 +177,166 @@ export default function ProjectExpensesPage({ params }: PageProps) {
     }
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    void fetchExpenses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  /* eslint-disable react-hooks/exhaustive-deps */
+  useEffect(() => { void fetchExpenses(); }, [projectId]);
+  /* eslint-enable react-hooks/exhaustive-deps */
 
-  // ─── Summary Calculations ───────────────────────────────────────────────
-
-  const totalPaise = expenses.reduce((sum, e) => sum + e.amountPaise, 0);
-
-  const categoryBreakdown = ALL_CATEGORIES.map((cat) => {
-    const catTotal = expenses
-      .filter((e) => e.category === cat)
-      .reduce((sum, e) => sum + e.amountPaise, 0);
-    return { category: cat, totalPaise: catTotal };
-  }).filter((c) => c.totalPaise > 0);
+  const totalPaise = expenses.reduce((s, e) => s + e.amountPaise, 0);
+  const categoryBreakdown = ALL_CATEGORIES.map(cat => ({
+    category: cat,
+    totalPaise: expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amountPaise, 0),
+  })).filter(c => c.totalPaise > 0);
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="p-6 space-y-5">
+
+      {/* Back */}
+      <Link href={`/projects/${projectId}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
+        style={{ color: '#6B6459' }}>
+        <ArrowLeft className="h-4 w-4" />Project Overview
+      </Link>
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="space-y-1">
-          <Link
-            href={`/projects/${projectId}`}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            ← Back to Project
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Project Expenses</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Project Expenses</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Track site and project expenditure</p>
         </div>
-        <LogExpenseDialog projectId={projectId} onSuccess={fetchExpenses} />
+        <button type="button" onClick={() => setModalOpen(true)}
+          className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm rounded-xl flex-shrink-0">
+          <Plus className="h-4 w-4" />Log Expense
+        </button>
       </div>
 
-      {/* Expenses Table */}
-      <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        {loading && (
-          <div className="p-8 text-center text-sm text-gray-500">
-            Loading expenses…
+      {/* Summary */}
+      {!loading && expenses.length > 0 && (
+        <div className="rounded-2xl border p-5" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+          <div className="flex items-center justify-between mb-4">
+            <p className="font-semibold" style={{ color: '#1C1916' }}>Total Expenses</p>
+            <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>{formatRupees(totalPaise)}</p>
           </div>
-        )}
-        {fetchError && !loading && (
-          <div className="p-8 text-center text-sm text-red-600">{fetchError}</div>
-        )}
-        {!loading && !fetchError && expenses.length === 0 && (
-          <div className="p-8 text-center text-sm text-gray-500">
-            No expenses logged yet. Use &quot;Log Expense&quot; to add one.
-          </div>
-        )}
-        {!loading && !fetchError && expenses.length > 0 && (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
-                  Category
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">
-                  Amount
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
-                  Logged Via
-                </th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">
-                  Date
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {expenses.map((expense) => (
-                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <Badge
-                      variant="outline"
-                      className={CATEGORY_STYLES[expense.category]}
-                    >
-                      {CATEGORY_LABELS[expense.category]}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {expense.description ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {formatRupees(expense.amountPaise)}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 capitalize">
-                    {expense.loggedVia}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(expense.createdAt).toLocaleDateString('en-IN', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Summary Footer */}
-      {!loading && !fetchError && expenses.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">Total Expenses</span>
-            <span className="text-base font-bold text-gray-900">
-              {formatRupees(totalPaise)}
-            </span>
-          </div>
-          {categoryBreakdown.length > 0 && (
-            <div className="border-t border-gray-200 pt-3 space-y-2">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Breakdown by Category
-              </p>
+          {categoryBreakdown.length > 1 && (
+            <>
+              <div className="h-px mb-4" style={{ background: '#F0EEE9' }} />
+              <p className="text-xs font-medium mb-3" style={{ color: '#A79E8E' }}>BREAKDOWN BY CATEGORY</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {categoryBreakdown.map(({ category, totalPaise: catTotal }) => (
-                  <div
-                    key={category}
-                    className="flex items-center justify-between rounded-md bg-white border border-gray-200 px-3 py-2"
-                  >
-                    <span className="text-xs text-gray-600">
-                      {CATEGORY_LABELS[category]}
+                  <div key={category} className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                    style={{ background: CATEGORY_CONFIG[category].bg }}>
+                    <span className="text-xs font-medium" style={{ color: CATEGORY_CONFIG[category].color }}>
+                      {CATEGORY_CONFIG[category].label}
                     </span>
-                    <span className="text-xs font-semibold text-gray-900">
+                    <span className="text-xs font-bold" style={{ color: CATEGORY_CONFIG[category].color }}>
                       {formatRupees(catTotal)}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
+            </>
           )}
         </div>
+      )}
+
+      {/* Table */}
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}
+        </div>
+
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <AlertTriangle className="h-8 w-8" style={{ color: '#DC2626' }} />
+          <p className="text-sm" style={{ color: '#DC2626' }}>{fetchError}</p>
+        </div>
+
+      ) : expenses.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-5">
+          <div className="relative">
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: '#FFF7ED' }}>
+              <Receipt className="h-10 w-10" style={{ color: '#F97316' }} />
+            </div>
+            <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
+              style={{ background: '#F5F3FF', border: '2px solid #FFFFFF' }}>
+              <Plus className="h-4 w-4" style={{ color: '#7C3AED' }} />
+            </div>
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No expenses logged yet</h3>
+            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+              Track petty cash, transport, labour, and material costs to get a full picture of project spend.
+            </p>
+          </div>
+          <button type="button" onClick={() => setModalOpen(true)}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
+            <Receipt className="h-4 w-4" />Log First Expense
+          </button>
+        </div>
+
+      ) : (
+        <div className="rounded-2xl border overflow-hidden" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid #F0EEE9', background: '#FAFAF8' }}>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Category</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Description</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: '#6B6459' }}>Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Logged Via</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Receipt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {expenses.map((expense, idx) => (
+                <tr key={expense.id}
+                  className="transition-colors hover:bg-[#FAFAF8]"
+                  style={{ borderBottom: idx < expenses.length - 1 ? '1px solid #F0EEE9' : 'none' }}>
+                  <td className="px-4 py-3">
+                    <CategoryBadge category={expense.category} />
+                  </td>
+                  <td className="px-4 py-3" style={{ color: '#1C1916' }}>
+                    {expense.description ?? <span style={{ color: '#A79E8E' }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold" style={{ color: '#1C1916' }}>
+                    {formatRupees(expense.amountPaise)}
+                  </td>
+                  <td className="px-4 py-3 capitalize text-xs" style={{ color: '#6B6459' }}>
+                    {expense.loggedVia}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: '#6B6459' }}>
+                    {new Date(expense.createdAt).toLocaleDateString('en-IN', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                    })}
+                  </td>
+                  <td className="px-4 py-3">
+                    {expense.receiptUrl ? (
+                      <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                        style={{ color: '#7C3AED' }}>
+                        <ExternalLink className="h-3 w-3" />View
+                      </a>
+                    ) : (
+                      <span className="text-xs" style={{ color: '#A79E8E' }}>—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Footer total */}
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '2px solid #F0EEE9', background: '#FAFAF8' }}>
+            <span className="text-sm font-semibold" style={{ color: '#6B6459' }}>Total</span>
+            <span className="text-base font-bold" style={{ color: '#1C1916' }}>{formatRupees(totalPaise)}</span>
+          </div>
+        </div>
+      )}
+
+      {modalOpen && (
+        <LogExpenseModal
+          projectId={projectId}
+          onClose={() => setModalOpen(false)}
+          onSuccess={fetchExpenses}
+        />
       )}
     </div>
   );

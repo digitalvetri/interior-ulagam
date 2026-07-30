@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, between, eq, isNotNull } from 'drizzle-orm';
+import { and, between, eq, isNotNull, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { siteVisits, leadActivities, leads } from '@/lib/db/schema';
@@ -10,7 +10,7 @@ const QuerySchema = z.object({
   to:   z.string().datetime(),
 });
 
-export type CalendarEventSource = 'site_visit' | 'lead_activity';
+export type CalendarEventSource = 'site_visit' | 'lead_activity' | 'lead_followup';
 
 export interface CalendarEvent {
   id: string;
@@ -99,6 +99,9 @@ export async function GET(request: NextRequest) {
 
     for (const a of activityRows) {
       if (!a.scheduledAt) continue;
+      // follow_up activities are superseded by leads.followUpDate (canonical, mutable source).
+      // Keeping them would create phantom events when the date is rescheduled or cleared.
+      if (a.type === 'follow_up') continue;
       events.push({
         id: `la_${a.id}`,
         source: 'lead_activity',
@@ -108,6 +111,45 @@ export async function GET(request: NextRequest) {
         end: a.completedAt ? a.completedAt.toISOString() : null,
         href: a.leadId ? `/leads/${a.leadId}` : '/leads',
         color: typeColor[a.type] ?? 'slate',
+      });
+    }
+
+    // Lead follow-ups: drive from leads.followUpDate (single mutable source of truth).
+    // Archived leads are excluded; won/lost leads are included (follow-up may still be relevant).
+    const fuRows = await db
+      .select({
+        id: leads.id,
+        followUpDate: leads.followUpDate,
+        contactName: leads.contactName,
+        stage: leads.stage,
+      })
+      .from(leads)
+      .where(and(
+        eq(leads.tenantId, ctx.tenantId),
+        isNotNull(leads.followUpDate),
+        between(leads.followUpDate, from, to),
+        isNull(leads.archivedAt),
+      ));
+
+    const now = new Date();
+    for (const fu of fuRows) {
+      if (!fu.followUpDate) continue;
+      const d = fu.followUpDate;
+      // Anchor at 9:00 AM UTC so the event lands in a readable week-view slot.
+      const start = new Date(Date.UTC(
+        d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 9, 0, 0, 0,
+      )).toISOString();
+      const stageLabel = fu.stage.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+      const color: CalendarEvent['color'] = d < now ? 'rose' : 'amber';
+      events.push({
+        id: `fu_${fu.id}`,
+        source: 'lead_followup',
+        title: `Follow-up · ${fu.contactName}`,
+        subtitle: stageLabel,
+        start,
+        end: null,
+        href: `/leads/${fu.id}`,
+        color,
       });
     }
 

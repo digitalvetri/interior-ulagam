@@ -32,23 +32,28 @@ export interface Lead {
   tenantId: string;
   contactName: string;
   contactPhone: string;
-  contactEmail?: string;
+  alternatePhone?: string | null;
+  contactEmail?: string | null;
+  contactCity?: string | null;
+  pincode?: string | null;
   source: LeadSource;
   stage: LeadStage;
   priority?: LeadPriority;
-  ownerId?: string;
-  designerName?: string;
-  propertyType?: string;
-  projectLocation?: string;
-  budgetBand?: string;
-  projectValuePaise?: number;
-  followUpDate?: string;
-  notes?: string;
-  lostReason?: string;
+  ownerId?: string | null;
+  designerName?: string | null;
+  propertyType?: string | null;
+  projectName?: string | null;
+  projectLocation?: string | null;
+  budgetBand?: string | null;
+  projectValuePaise?: number | null;
+  followUpDate?: string | null;
+  notes?: string | null;
+  lostReason?: string | null;
   score: number;
   scoreBreakdown?: ScoreBreakdown;
   firstTouchAt: string;
   lastActivityAt: string;
+  archivedAt?: string | null;
   createdAt: string;
 }
 

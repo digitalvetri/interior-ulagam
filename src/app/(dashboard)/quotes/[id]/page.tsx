@@ -2,6 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ArrowLeft, Download, Phone, Tag, Layers } from 'lucide-react';
 import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
 import { MarginSummary } from '@/components/quotes/MarginSummary';
@@ -23,6 +24,7 @@ export default function QuotePage({
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionPending, setActionPending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchQuote = useCallback(() => {
     setLoading(true);
@@ -35,17 +37,14 @@ export default function QuotePage({
       .catch(() => setLoading(false));
   }, [id]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchQuote();
   }, [fetchQuote]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleLineUpdate(
     lineId: string,
     data: { qty?: number; costRatePaise?: number; clientRatePaise?: number },
   ) {
-    // Refetch so totals stay accurate
     setQuote((prev) => {
       if (!prev?.lines) return prev;
       return {
@@ -66,7 +65,6 @@ export default function QuotePage({
         ),
       };
     });
-    // Full refetch to get updated server-side totals
     fetchQuote();
   }
 
@@ -84,9 +82,14 @@ export default function QuotePage({
 
   async function handleSendQuote() {
     setActionPending(true);
+    setActionError(null);
     try {
-      await fetch(`/api/v1/quotes/${id}/send`, { method: 'POST' });
+      const res = await fetch(`/api/v1/quotes/${id}/send`, { method: 'POST' });
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? `Failed (${res.status})`);
       fetchQuote();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to send quote');
     } finally {
       setActionPending(false);
     }
@@ -94,9 +97,14 @@ export default function QuotePage({
 
   async function handleMarkApproved() {
     setActionPending(true);
+    setActionError(null);
     try {
-      await fetch(`/api/v1/quotes/${id}/approve`, { method: 'POST' });
+      const res = await fetch(`/api/v1/quotes/${id}/approve`, { method: 'POST' });
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? `Failed (${res.status})`);
       fetchQuote();
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to mark approved');
     } finally {
       setActionPending(false);
     }
@@ -118,34 +126,83 @@ export default function QuotePage({
     );
   }
 
+  const quoteLabel = `QUO-${quote.id.slice(-6).toUpperCase()}`;
+  const hasLead = Boolean(quote.leadId);
+  const stageLabel = quote.leadStage
+    ? quote.leadStage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+    : null;
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-        <Link
-          href="/projects"
-          className="hover:underline"
-        >
-          Projects
-        </Link>
+        {hasLead ? (
+          <>
+            <Link href="/leads" className="hover:underline">Leads</Link>
+            <span>/</span>
+            <Link href={`/leads/${quote.leadId}`} className="hover:underline flex items-center gap-1">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {quote.leadContactName ?? 'Lead'}
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link href="/projects" className="hover:underline">Projects</Link>
+            <span>/</span>
+            <Link href="/quotes" className="hover:underline">Quotes</Link>
+          </>
+        )}
         <span>/</span>
-        <Link
-          href="/quotes"
-          className="hover:underline"
-        >
-          Quotes
-        </Link>
-        <span>/</span>
-        <span style={{ color: 'var(--text-heading)' }}>
-          Quote #{quote.version}
-        </span>
+        <span style={{ color: 'var(--text-heading)' }}>{quoteLabel}</span>
       </nav>
+
+      {/* Lead / project context banner */}
+      {(hasLead || quote.projectName) && (
+        <div
+          className="flex flex-wrap items-center gap-4 rounded-xl px-4 py-3 text-sm"
+          style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}
+        >
+          {quote.leadContactName && (
+            <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>
+              {quote.leadContactName}
+            </span>
+          )}
+          {quote.leadContactPhone && (
+            <span className="inline-flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+              <Phone className="h-3.5 w-3.5" />
+              {quote.leadContactPhone}
+            </span>
+          )}
+          {stageLabel && (
+            <span className="inline-flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+              <Layers className="h-3.5 w-3.5" />
+              {stageLabel}
+            </span>
+          )}
+          {quote.leadBudgetBand && (
+            <span className="inline-flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+              <Tag className="h-3.5 w-3.5" />
+              {quote.leadBudgetBand}
+            </span>
+          )}
+          {quote.projectName && !hasLead && (
+            <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>
+              {quote.projectName}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
-            Quote #{quote.version}
+            {quoteLabel}
+            {quote.version > 1 && (
+              <span className="ml-2 text-base font-normal" style={{ color: 'var(--text-secondary)' }}>
+                v{quote.version}
+              </span>
+            )}
           </h2>
           <span style={STATUS_BADGE_STYLE[quote.status]}>
             {quote.status}
@@ -153,6 +210,18 @@ export default function QuotePage({
         </div>
 
         <div className="flex items-center gap-2">
+          {quote.pdfUrl && (
+            <a
+              href={quote.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-slate-50"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+            >
+              <Download className="h-4 w-4" />
+              Download PDF
+            </a>
+          )}
           {quote.status === 'draft' && (
             <button
               type="button"
@@ -176,11 +245,14 @@ export default function QuotePage({
         </div>
       </div>
 
+      {actionError && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{actionError}</p>
+      )}
+
       {/* Main grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
         {/* Left: line items */}
         <div className="space-y-4">
-          {/* Table */}
           <div className="premium-card overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -221,11 +293,7 @@ export default function QuotePage({
             </table>
           </div>
 
-          {/* Add line form */}
-          <AddLineForm
-            quoteId={id}
-            onSuccess={handleLineAdded}
-          />
+          <AddLineForm quoteId={id} onSuccess={handleLineAdded} />
         </div>
 
         {/* Right: summary */}

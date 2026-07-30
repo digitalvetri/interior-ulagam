@@ -3,90 +3,68 @@
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Deliverable,
-  DeliverableStatus,
-  DeliverableType,
-} from '@/types/deliverables';
+  ArrowLeft, Plus, FolderOpen, CheckCircle2, AlertTriangle, X,
+  ExternalLink, RefreshCw,
+} from 'lucide-react';
+import { Deliverable, DeliverableStatus, DeliverableType } from '@/types/deliverables';
 
-// ─── Constants & label maps ───────────────────────────────────────────────────
+/* ── Config ────────────────────────────────────────────────────────────────── */
 
-const DELIVERABLE_TYPE_LABELS: Record<DeliverableType, string> = {
-  '2d_plan': '2D Plan',
-  '3d_render': '3D Render',
-  color_palette: 'Color Palette',
-  working_drawings: 'Working Drawings',
-  bom: 'Bill of Materials',
+const TYPE_CONFIG: Record<DeliverableType, { label: string; emoji: string; bg: string; color: string }> = {
+  '2d_plan':        { label: '2D Plan',           emoji: '📐', bg: '#EFF6FF', color: '#1E40AF' },
+  '3d_render':      { label: '3D Render',          emoji: '🏠', bg: '#F5F3FF', color: '#6B21A8' },
+  color_palette:    { label: 'Color Palette',      emoji: '🎨', bg: '#FDF2F8', color: '#BE185D' },
+  working_drawings: { label: 'Working Drawings',   emoji: '📏', bg: '#FFFBEB', color: '#92400E' },
+  bom:              { label: 'Bill of Materials',  emoji: '📋', bg: '#F0FDF4', color: '#14532D' },
 };
 
-const DELIVERABLE_STATUS_LABELS: Record<DeliverableStatus, string> = {
-  pending: 'Pending',
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  approved: 'Approved',
-  rejected: 'Rejected',
+const STATUS_CONFIG: Record<DeliverableStatus, { label: string; bg: string; color: string; dot: string }> = {
+  pending:     { label: 'Pending',     bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
+  in_progress: { label: 'In Progress', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
+  in_review:   { label: 'In Review',   bg: '#FFFBEB', color: '#92400E', dot: '#F59E0B' },
+  approved:    { label: 'Approved',    bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
+  rejected:    { label: 'Rejected',    bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
 };
 
-const DELIVERABLE_STATUS_STYLES: Record<DeliverableStatus, { background: string; color: string }> = {
-  pending:     { background: '#F3F4F6', color: '#374151' },
-  in_progress: { background: '#DBEAFE', color: '#1D4ED8' },
-  in_review:   { background: '#FEF3C7', color: '#92400E' },
-  approved:    { background: '#DCFCE7', color: '#15803D' },
-  rejected:    { background: '#FEE2E2', color: '#B91C1C' },
-};
+const ALL_TYPES: DeliverableType[]   = ['2d_plan', '3d_render', 'color_palette', 'working_drawings', 'bom'];
+const ALL_STATUSES: DeliverableStatus[] = ['pending', 'in_progress', 'in_review', 'approved', 'rejected'];
 
-const ALL_TYPES: DeliverableType[] = [
-  '2d_plan',
-  '3d_render',
-  'color_palette',
-  'working_drawings',
-  'bom',
-];
+/* ── Helpers ───────────────────────────────────────────────────────────────── */
 
-const ALL_STATUSES: DeliverableStatus[] = [
-  'pending',
-  'in_progress',
-  'in_review',
-  'approved',
-  'rejected',
-];
+function StatusBadge({ status }: { status: DeliverableStatus }) {
+  const cfg = STATUS_CONFIG[status];
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  );
+}
 
-// ─── Deliverable card ─────────────────────────────────────────────────────────
+/* ── Deliverable Card ──────────────────────────────────────────────────────── */
 
-interface DeliverableCardProps {
+function DeliverableCard({
+  deliverable: d, changeOrderIds, onStatusChange, onApprove,
+}: {
   deliverable: Deliverable;
   changeOrderIds: Set<string>;
   onStatusChange: (id: string, status: DeliverableStatus) => Promise<void>;
   onApprove: (id: string) => Promise<void>;
-}
-
-function DeliverableCard({
-  deliverable: d,
-  changeOrderIds,
-  onStatusChange,
-  onApprove,
-}: DeliverableCardProps) {
-  const [saving, setSaving] = useState(false);
+}) {
+  const [saving,    setSaving]    = useState(false);
   const [approving, setApproving] = useState(false);
 
-  async function handleStatusChange(value: string) {
+  const overCap = d.revisionCount > d.revisionCap;
+  const showWarning = changeOrderIds.has(d.id) || overCap;
+  const revPct = d.revisionCap > 0
+    ? Math.min(100, Math.round((d.revisionCount / d.revisionCap) * 100))
+    : 0;
+  const typeCfg = TYPE_CONFIG[d.type];
+
+  async function handleStatus(val: string) {
     setSaving(true);
-    await onStatusChange(d.id, value as DeliverableStatus);
+    await onStatusChange(d.id, val as DeliverableStatus);
     setSaving(false);
   }
 
@@ -96,164 +74,129 @@ function DeliverableCard({
     setApproving(false);
   }
 
-  const overCap = d.revisionCount > d.revisionCap;
-  const showChangeOrderWarning = changeOrderIds.has(d.id) || overCap;
-  const statusStyle = DELIVERABLE_STATUS_STYLES[d.status];
-
   return (
-    <div className="premium-card p-5">
-      <div className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base leading-snug text-gray-900 font-semibold">
-            {DELIVERABLE_TYPE_LABELS[d.type]}
-          </h3>
-          <span
-            style={{
-              background: statusStyle.background,
-              color: statusStyle.color,
-            }}
-            className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium"
-          >
-            {DELIVERABLE_STATUS_LABELS[d.status]}
-          </span>
-        </div>
-      </div>
+    <div className="rounded-2xl border p-5 flex flex-col gap-4 transition-all hover:shadow-md"
+      style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
 
-      <div className="space-y-3">
-        {/* Change order warning */}
-        {showChangeOrderWarning && (
-          <div className="rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-xs text-yellow-800">
-            Revision cap exceeded — a change-order quote is required.
+      {/* Top: icon + title + badge */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+            style={{ background: typeCfg.bg }}>
+            {typeCfg.emoji}
           </div>
-        )}
-
-        {/* Revision meter */}
-        <p className="text-sm text-gray-600">
-          <span
-            className={
-              overCap
-                ? 'font-semibold text-red-600'
-                : 'font-medium'
-            }
-          >
-            {d.revisionCount}
-          </span>
-          <span className="text-gray-400"> / {d.revisionCap} revisions</span>
-        </p>
-
-        {/* File link */}
-        {d.latestFileUrl && (
-          <a
-            href={d.latestFileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block truncate text-sm text-blue-600 underline"
-          >
-            View latest file
-          </a>
-        )}
-
-        {/* Approved at */}
-        {d.approvedAt && (
-          <p className="text-xs text-gray-500">
-            Approved on{' '}
-            {new Date(d.approvedAt).toLocaleDateString('en-IN')}
-          </p>
-        )}
-
-        {/* Status change select */}
-        <div className="space-y-1">
-          <Label className="text-xs text-gray-500">Change Status</Label>
-          <Select
-            value={d.status}
-            onValueChange={handleStatusChange}
-            disabled={saving}
-          >
-            <SelectTrigger className="h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {ALL_STATUSES.map((s) => (
-                <SelectItem key={s} value={s} className="text-xs">
-                  {DELIVERABLE_STATUS_LABELS[s]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div>
+            <p className="font-semibold text-sm" style={{ color: '#1C1916' }}>{typeCfg.label}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>
+              {d.approvedAt
+                ? `Approved ${new Date(d.approvedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                : 'Not approved yet'}
+            </p>
+          </div>
         </div>
-
-        {/* Approve button */}
-        {d.status !== 'approved' && (
-          <button
-            className="btn-secondary w-full"
-            onClick={handleApprove}
-            disabled={approving}
-          >
-            {approving ? 'Approving…' : 'Approve'}
-          </button>
-        )}
+        <StatusBadge status={d.status} />
       </div>
+
+      {/* Change-order warning */}
+      {showWarning && (
+        <div className="flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs"
+          style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
+          Revision cap exceeded — a change-order quote is required.
+        </div>
+      )}
+
+      {/* Revision meter */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span style={{ color: '#6B6459' }}>Revisions</span>
+          <span className="font-semibold" style={{ color: overCap ? '#DC2626' : '#1C1916' }}>
+            {d.revisionCount} / {d.revisionCap}
+          </span>
+        </div>
+        <div className="h-1.5 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+          <div className="h-1.5 rounded-full transition-all"
+            style={{
+              width: `${revPct}%`,
+              background: overCap ? '#DC2626' : revPct > 75 ? '#F59E0B' : '#7C3AED',
+            }} />
+        </div>
+      </div>
+
+      {/* File link */}
+      {d.latestFileUrl && (
+        <a href={d.latestFileUrl} target="_blank" rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors hover:underline"
+          style={{ color: '#7C3AED' }}>
+          <ExternalLink className="h-3.5 w-3.5" />
+          View latest file
+        </a>
+      )}
+
+      {/* Status update select */}
+      <div>
+        <label className="studio-label block mb-1.5 text-xs">Update Status</label>
+        <select value={d.status} onChange={e => handleStatus(e.target.value)} disabled={saving}
+          className="studio-input w-full text-xs py-1.5">
+          {ALL_STATUSES.map(s => (
+            <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Approve button */}
+      {d.status !== 'approved' && (
+        <button type="button" onClick={handleApprove} disabled={approving}
+          className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all"
+          style={{
+            background: approving ? '#F0FDF4' : '#16A34A',
+            color: approving ? '#14532D' : '#FFFFFF',
+            border: '1px solid #16A34A',
+          }}>
+          <CheckCircle2 className="h-4 w-4" />
+          {approving ? 'Approving…' : 'Mark Approved'}
+        </button>
+      )}
+
+      {d.status === 'approved' && (
+        <div className="flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-medium"
+          style={{ background: '#F0FDF4', color: '#14532D' }}>
+          <CheckCircle2 className="h-4 w-4" />
+          Approved
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Add deliverable dialog ───────────────────────────────────────────────────
+/* ── Add Deliverable Modal ─────────────────────────────────────────────────── */
 
-interface AddDeliverableDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+function AddDeliverableModal({
+  projectId, onClose, onCreated,
+}: {
   projectId: string;
-  onCreated: (deliverable: Deliverable) => void;
-}
-
-function AddDeliverableDialog({
-  open,
-  onOpenChange,
-  projectId,
-  onCreated,
-}: AddDeliverableDialogProps) {
-  const [type, setType] = useState<DeliverableType>('2d_plan');
+  onClose: () => void;
+  onCreated: (d: Deliverable) => void;
+}) {
+  const [type,        setType]        = useState<DeliverableType>('2d_plan');
   const [revisionCap, setRevisionCap] = useState('2');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleOpenChange(value: boolean) {
-    if (!saving) {
-      setError(null);
-      onOpenChange(value);
-    }
-  }
+  const [saving,      setSaving]      = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
 
   async function handleSubmit() {
     setError(null);
     const cap = parseInt(revisionCap, 10);
-    if (isNaN(cap) || cap < 0) {
-      setError('Revision cap must be a non-negative number');
-      return;
-    }
-
+    if (isNaN(cap) || cap < 0) { setError('Revision cap must be 0 or more'); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/v1/projects/${projectId}/deliverables`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, revisionCap: cap }),
       });
-
-      const body = (await res.json()) as {
-        data?: Deliverable;
-        error?: string;
-      };
-
-      if (!res.ok) {
-        setError(body.error ?? 'Failed to add deliverable');
-        return;
-      }
-
-      if (body.data) {
-        onCreated(body.data);
-      }
-      onOpenChange(false);
+      const body = await res.json() as { data?: Deliverable; error?: string };
+      if (!res.ok) { setError(body.error ?? 'Failed to add deliverable'); return; }
+      onCreated(body.data!);
+      onClose();
     } catch {
       setError('Network error — please try again');
     } finally {
@@ -261,207 +204,204 @@ function AddDeliverableDialog({
     }
   }
 
+  const typeCfg = TYPE_CONFIG[type];
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Deliverable</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          {/* Type */}
-          <div className="space-y-2">
-            <Label htmlFor="del-type">Type</Label>
-            <Select
-              value={type}
-              onValueChange={(v) => setType(v as DeliverableType)}
-            >
-              <SelectTrigger id="del-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ALL_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {DELIVERABLE_TYPE_LABELS[t]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+        <div className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid #F0EEE9' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center text-lg"
+              style={{ background: '#F5F3FF' }}>📁</div>
+            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Add Deliverable</h2>
           </div>
-
-          {/* Revision cap */}
-          <div className="space-y-2">
-            <Label htmlFor="del-cap">Revision Cap</Label>
-            <Input
-              id="del-cap"
-              type="number"
-              min={0}
-              step={1}
-              value={revisionCap}
-              onChange={(e) => setRevisionCap(e.target.value)}
-            />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="studio-label block mb-1.5">Type</label>
+            <select value={type} onChange={e => setType(e.target.value as DeliverableType)}
+              className="studio-input w-full text-sm">
+              {ALL_TYPES.map(t => (
+                <option key={t} value={t}>{TYPE_CONFIG[t].emoji} {TYPE_CONFIG[t].label}</option>
+              ))}
+            </select>
+            {/* Preview of selected type */}
+            <div className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2"
+              style={{ background: typeCfg.bg }}>
+              <span className="text-lg">{typeCfg.emoji}</span>
+              <span className="text-xs font-medium" style={{ color: typeCfg.color }}>{typeCfg.label}</span>
+            </div>
           </div>
-
+          <div>
+            <label className="studio-label block mb-1.5">Revision Cap</label>
+            <div className="flex items-center gap-2">
+              <button type="button"
+                onClick={() => setRevisionCap(v => String(Math.max(0, Number(v) - 1)))}
+                className="h-9 w-9 rounded-xl border flex items-center justify-center text-lg font-medium transition-colors hover:bg-[#F0EEE9]"
+                style={{ borderColor: '#E2DED5', color: '#6B6459' }}>−</button>
+              <input type="number" min={0} step={1} value={revisionCap}
+                onChange={e => setRevisionCap(e.target.value)}
+                className="studio-input flex-1 text-sm text-center" />
+              <button type="button"
+                onClick={() => setRevisionCap(v => String(Number(v) + 1))}
+                className="h-9 w-9 rounded-xl border flex items-center justify-center text-lg font-medium transition-colors hover:bg-[#F0EEE9]"
+                style={{ borderColor: '#E2DED5', color: '#6B6459' }}>+</button>
+            </div>
+            <p className="text-xs mt-1" style={{ color: '#A79E8E' }}>
+              Extra revisions beyond this cap will trigger a change-order quote.
+            </p>
+          </div>
           {error && (
-            <p className="text-xs text-red-600">{error}</p>
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
           )}
         </div>
-
-        <DialogFooter>
-          <button
-            className="btn-secondary"
-            onClick={() => handleOpenChange(false)}
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          <button className="btn-primary" onClick={handleSubmit} disabled={saving}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSubmit} disabled={saving}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <Plus className="h-4 w-4" />
             {saving ? 'Adding…' : 'Add Deliverable'}
           </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+/* ── Page ──────────────────────────────────────────────────────────────────── */
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
-
-export default function DeliverablesPage({ params }: PageProps) {
+export default function DeliverablesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
 
-  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Track which deliverable IDs have a server-reported changeOrderNeeded flag
-  const [changeOrderIds, setChangeOrderIds] = useState<Set<string>>(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deliverables,    setDeliverables]    = useState<Deliverable[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [changeOrderIds,  setChangeOrderIds]  = useState<Set<string>>(new Set());
+  const [modalOpen,       setModalOpen]       = useState(false);
 
   useEffect(() => {
     fetch(`/api/v1/projects/${id}/deliverables`)
-      .then((r) => r.json())
-      .then(({ data }: { data: Deliverable[] }) => {
-        setDeliverables(data ?? []);
-      })
-      .catch(() => {
-        // leave empty state
-      })
+      .then(r => r.json())
+      .then(({ data }: { data: Deliverable[] }) => { setDeliverables(data ?? []); })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, [id]);
 
   function updateDeliverable(updated: Deliverable) {
-    setDeliverables((prev) =>
-      prev.map((d) => (d.id === updated.id ? updated : d)),
-    );
+    setDeliverables(prev => prev.map(d => d.id === updated.id ? updated : d));
   }
 
-  async function handleStatusChange(
-    deliverableId: string,
-    status: DeliverableStatus,
-  ) {
+  async function handleStatusChange(deliverableId: string, status: DeliverableStatus) {
     const res = await fetch(`/api/v1/deliverables/${deliverableId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-
-    const body = (await res.json()) as {
-      data?: Deliverable;
-      changeOrderNeeded?: boolean;
-      error?: string;
-    };
-
+    const body = await res.json() as { data?: Deliverable; changeOrderNeeded?: boolean };
     if (!res.ok || !body.data) return;
-
     updateDeliverable(body.data);
-
-    if (body.changeOrderNeeded) {
-      setChangeOrderIds((prev) => new Set(prev).add(deliverableId));
-    }
+    if (body.changeOrderNeeded) setChangeOrderIds(prev => new Set(prev).add(deliverableId));
   }
 
   async function handleApprove(deliverableId: string) {
-    const res = await fetch(
-      `/api/v1/deliverables/${deliverableId}/approve`,
-      { method: 'POST' },
-    );
-
-    const body = (await res.json()) as {
-      data?: Deliverable;
-      error?: string;
-    };
-
+    const res = await fetch(`/api/v1/deliverables/${deliverableId}/approve`, { method: 'POST' });
+    const body = await res.json() as { data?: Deliverable };
     if (!res.ok || !body.data) return;
-
     updateDeliverable(body.data);
-    // Clear any change-order warning on explicit approval
-    setChangeOrderIds((prev) => {
-      const next = new Set(prev);
-      next.delete(deliverableId);
-      return next;
-    });
+    setChangeOrderIds(prev => { const next = new Set(prev); next.delete(deliverableId); return next; });
   }
 
-  function handleCreated(deliverable: Deliverable) {
-    setDeliverables((prev) => [deliverable, ...prev]);
-  }
+  const approvedCount = deliverables.filter(d => d.status === 'approved').length;
 
   return (
-    <div className="space-y-6">
-      {/* Back link */}
-      <Link
-        href={`/projects/${id}`}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
-      >
-        &larr; Back to Project
+    <div className="p-6 space-y-5">
+
+      {/* Back */}
+      <Link href={`/projects/${id}`}
+        className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
+        style={{ color: '#6B6459' }}>
+        <ArrowLeft className="h-4 w-4" />Project Overview
       </Link>
 
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">
-          Deliverables
-        </h1>
-        <button className="btn-primary" onClick={() => setDialogOpen(true)}>+ Add Deliverable</button>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Deliverables</h1>
+          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+            {deliverables.length > 0
+              ? `${approvedCount} of ${deliverables.length} approved`
+              : '2D plans, renders, working drawings & BOMs'}
+          </p>
+        </div>
+        <button type="button" onClick={() => setModalOpen(true)}
+          className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl flex-shrink-0">
+          <Plus className="h-4 w-4" />Add Deliverable
+        </button>
       </div>
+
+      {/* Progress bar (when items exist) */}
+      {!loading && deliverables.length > 0 && (
+        <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+          <div className="flex items-center justify-between text-xs mb-2">
+            <span style={{ color: '#6B6459' }}>Overall Approval Progress</span>
+            <span className="font-semibold" style={{ color: '#1C1916' }}>
+              {approvedCount}/{deliverables.length} approved
+            </span>
+          </div>
+          <div className="h-2 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+            <div className="h-2 rounded-full transition-all"
+              style={{
+                width: `${deliverables.length > 0 ? Math.round((approvedCount / deliverables.length) * 100) : 0}%`,
+                background: approvedCount === deliverables.length ? '#16A34A' : '#7C3AED',
+              }} />
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       {loading ? (
-        <div className="flex h-32 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading deliverables…</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-52 rounded-2xl" />)}
         </div>
       ) : deliverables.length === 0 ? (
-        <div className="flex h-48 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-300">
-          <p className="text-sm text-gray-500">No deliverables yet.</p>
-          <button
-            className="btn-secondary"
-            onClick={() => setDialogOpen(true)}
-          >
-            Add first deliverable
+        <div className="flex flex-col items-center justify-center py-20 gap-5">
+          <div className="h-20 w-20 rounded-3xl flex items-center justify-center"
+            style={{ background: '#EFF6FF' }}>
+            <FolderOpen className="h-10 w-10" style={{ color: '#3B82F6' }} />
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No deliverables yet</h3>
+            <p className="text-sm max-w-xs" style={{ color: '#6B6459' }}>
+              Add 2D plans, 3D renders, color palettes, and working drawings for this project.
+            </p>
+          </div>
+          <button type="button" onClick={() => setModalOpen(true)}
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
+            <Plus className="h-4 w-4" />Add First Deliverable
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {deliverables.map((d) => (
-            <DeliverableCard
-              key={d.id}
-              deliverable={d}
-              changeOrderIds={changeOrderIds}
-              onStatusChange={handleStatusChange}
-              onApprove={handleApprove}
-            />
+          {deliverables.map(d => (
+            <DeliverableCard key={d.id} deliverable={d} changeOrderIds={changeOrderIds}
+              onStatusChange={handleStatusChange} onApprove={handleApprove} />
           ))}
         </div>
       )}
 
-      {/* Add Deliverable Dialog */}
-      <AddDeliverableDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        projectId={id}
-        onCreated={handleCreated}
-      />
+      {/* Modal */}
+      {modalOpen && (
+        <AddDeliverableModal
+          projectId={id}
+          onClose={() => setModalOpen(false)}
+          onCreated={d => { setDeliverables(prev => [d, ...prev]); setModalOpen(false); }}
+        />
+      )}
     </div>
   );
 }

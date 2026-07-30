@@ -331,6 +331,13 @@ body {
   flex-shrink: 0;
 }
 
+/* Input immediately after a search icon must leave room for the icon.
+   This overrides the studio-input padding shorthand (14px) since it's more specific. */
+.studio-search-icon + .studio-input,
+.studio-search-icon ~ .studio-input {
+  padding-left: 2.75rem; /* 44px — clears 14px offset + 18px icon + 12px gap */
+}
+
 /* Input label */
 .studio-label {
   color: var(--teal);
@@ -594,6 +601,12 @@ body {
 .studio-input-toggle:hover { color: var(--teal); background-color: var(--surface-muted); }
 
 /* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes glow-orb-pulse {
+  0%, 100% { opacity: 1;    transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(0.95); }
+}
+.glow-orb { animation: glow-orb-pulse 3s ease-in-out infinite; }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }

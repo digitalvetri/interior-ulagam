@@ -3,6 +3,8 @@ export type CustomerSource =
 
 export type CustomerStage = 'lead' | 'opportunity' | 'client' | 'past_client';
 
+export type CustomerHealthStatus = 'hot' | 'healthy' | 'at_risk' | 'inactive';
+
 export type CustomerActivityType =
   | 'call' | 'whatsapp' | 'note' | 'site_visit' | 'meeting'
   | 'stage_change' | 'project_created' | 'payment_received' | 'quote_sent' | 'follow_up';
@@ -23,6 +25,9 @@ export interface Customer {
   tags: string[];
   notes: string | null;
   lastContactedAt: string | null;
+  healthScore: number | null;
+  healthStatus: CustomerHealthStatus | null;
+  healthUpdatedAt: string | null;
   createdAt: string;
   // Joined from leads — most recently active (non-terminal) lead for this customer
   activeLeadId: string | null;

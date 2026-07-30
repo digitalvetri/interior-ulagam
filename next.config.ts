@@ -1,6 +1,18 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const isDev = process.env.NODE_ENV === 'development';
+
+const connectSrcDirectives = [
+  "'self'",
+  "https://*.supabase.co",
+  "wss://*.supabase.co",
+  "https://api.groq.com",
+  "https://generativelanguage.googleapis.com",
+  // Turbopack HMR WebSocket — dev only
+  ...(isDev ? ["ws://localhost:*", "wss://localhost:*"] : []),
+];
+
 const securityHeaders = [
   { key: 'X-DNS-Prefetch-Control', value: 'on' },
   { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
@@ -15,11 +27,11 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Next.js requires unsafe-eval in dev
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://theinteriorstudios.in",
       "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.groq.com https://generativelanguage.googleapis.com",
+      `connect-src ${connectSrcDirectives.join(' ')}`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -39,6 +51,11 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-select',
       '@radix-ui/react-label',
       '@radix-ui/react-slot',
+      '@supabase/supabase-js',
+      '@supabase/ssr',
+      '@tanstack/react-query',
+      'drizzle-orm',
+      'inngest',
     ],
   },
   images: {

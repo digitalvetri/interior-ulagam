@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { projects } from '@/lib/db/schema';
+import { projects, leads, customers } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
@@ -21,6 +21,7 @@ const UpdateProjectSchema = z.object({
     .optional(),
   totalContractPaise: z.number().int().nonnegative().optional(),
   designerIds: z.array(z.string().uuid()).optional(),
+  expectedEndAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
 }).strict();
 
 export async function GET(
@@ -35,16 +36,35 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const [project] = await db
-      .select()
+    const [row] = await db
+      .select({
+        id:                 projects.id,
+        tenantId:           projects.tenantId,
+        leadId:             projects.leadId,
+        clientId:           projects.clientId,
+        customerId:         projects.customerId,
+        name:               projects.name,
+        designerIds:        projects.designerIds,
+        totalContractPaise: projects.totalContractPaise,
+        lifecycleStage:     projects.lifecycleStage,
+        timelineJson:       projects.timelineJson,
+        startedAt:          projects.startedAt,
+        expectedEndAt:      projects.expectedEndAt,
+        createdAt:          projects.createdAt,
+        // Lead + customer context for breadcrumb display
+        leadContactName:    leads.contactName,
+        customerFullName:   customers.fullName,
+      })
       .from(projects)
+      .leftJoin(leads, eq(projects.leadId, leads.id))
+      .leftJoin(customers, eq(projects.customerId, customers.id))
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)));
 
-    if (!project) {
+    if (!row) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: project });
+    return NextResponse.json({ data: row });
   } catch (err) {
     console.error('[projects/:id GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -81,9 +101,17 @@ export async function PATCH(
   }
 
   try {
+    const { expectedEndAt, ...rest } = input;
+    const updateData = {
+      ...rest,
+      ...(expectedEndAt !== undefined
+        ? { expectedEndAt: expectedEndAt ? new Date(expectedEndAt + 'T00:00:00.000Z') : null }
+        : {}),
+    };
+
     const [updated] = await db
       .update(projects)
-      .set(input)
+      .set(updateData)
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
       .returning();
 
