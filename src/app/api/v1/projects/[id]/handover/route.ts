@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { projects, snagItems } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, inArray, count } from 'drizzle-orm';
-import { logPendingWorkflow } from '@/jobs/queue';
+import { enqueue, logPendingWorkflow } from '@/jobs/queue';
 
 export async function POST(
   _request: NextRequest,
@@ -59,7 +59,7 @@ export async function POST(
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
       .returning();
 
-    await logPendingWorkflow('project/handover.initiated', {
+    await enqueue('project/handover.initiated', {
         projectId: id,
         tenantId: ctx.tenantId,
         initiatedBy: ctx.userId,

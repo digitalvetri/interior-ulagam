@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Non-blocking: nudge sequence + enrichment + initial score
-    logPendingWorkflow('lead/followup.start', {
+    await enqueueBestEffort('lead/followup.start', {
       leadId: lead.id, tenantId: lead.tenantId,
       contactPhone: lead.contactPhone, contactName: lead.contactName,
     });

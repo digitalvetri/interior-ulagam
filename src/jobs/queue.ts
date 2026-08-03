@@ -24,13 +24,20 @@ export const JOB = {
   clientChatbot: 'wa_message/client_query.received',
   milestonePayment: 'milestone/payment.captured',
   helloWorld: 'test/hello.world',
-  // Multi-day workflows — defined here for completeness but NOT yet registered
-  // with a handler (see registry.ts). Enqueuing one today would only pile up
-  // failures, so their call sites log instead of enqueueing.
+  // Multi-day workflows. Each wait boundary is its own delayed job, scheduled
+  // under a deterministic id so it can be cancelled — see ./workflows/schedule.
   leadFollowup: 'lead/followup.start',
+  leadFollowupDay3: 'lead/followup.day3',
+  leadFollowupDay7: 'lead/followup.day7',
+  leadFollowupDay14: 'lead/followup.day14',
   siteVisitReminders: 'site_visit/scheduled',
+  siteVisitReminder24h: 'site_visit/reminder.24h',
+  siteVisitReminder2h: 'site_visit/reminder.2h',
   handoverReferral: 'project/handover.initiated',
+  handoverComplete: 'project/handover.complete',
+  handoverNps: 'project/handover.nps',
   vendorPoWhatsapp: 'po/sent',
+  poAckCheck: 'po/ack-check',
   // Scheduled
   costOverrunAlert: 'cron/cost-overrun-alert',
   customerHealthWeekly: 'cron/customer-health-weekly',

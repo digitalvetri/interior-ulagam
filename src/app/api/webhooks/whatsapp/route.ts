@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { enqueue, enqueueBestEffort, logPendingWorkflow } from '@/jobs/queue';
+import { cancelFollowupSequence } from '@/jobs/workflows/schedule';
 import { db } from '@/lib/db';
 import { leads, waMessages } from '@/lib/db/schema';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
@@ -129,8 +130,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (inboundPhones.length > 0) {
-    // Fire lead/replied for each (tenantId, contactPhone) pair so cancelOn
-    // in leadFollowupNudge can match correctly.
+    // A reply cancels that lead's queued follow-up nudges and triggers a rescore.
     //
     // WhatsApp sends phone numbers as full international strings without "+"
     // (e.g. "919876543210"). leads.contactPhone may be stored with or without
@@ -175,7 +175,13 @@ export async function POST(request: NextRequest) {
               .where(eq(leads.id, row.id));
 
             await Promise.all([
-              logPendingWorkflow('lead/replied', { tenantId: row.tenantId, contactPhone: phone }),
+              // The client answered — drop any nudges still queued for them.
+              // This replaces Inngest's cancelOn, which matched on
+              // (tenantId, contactPhone); the stages are keyed by lead id, which
+              // we already have here.
+              cancelFollowupSequence(row.id).catch((err) =>
+                console.error('[whatsapp] failed to cancel follow-up nudges:', err),
+              ),
               enqueueBestEffort('lead/score.compute', { leadId: row.id, tenantId: row.tenantId }),
             ]);
           }),

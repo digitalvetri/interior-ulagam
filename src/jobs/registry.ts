@@ -19,18 +19,28 @@ import { costOverrunAlert } from '@/jobs/handlers/cost-overrun-alert';
 import { customerEnrich } from '@/jobs/handlers/customer-enrich';
 import { customerHealthWeekly } from '@/jobs/handlers/customer-health-weekly';
 
+// Multi-day workflows — one handler per wait boundary (see ./workflows/schedule)
+import {
+  leadFollowupStart, leadFollowupDay3, leadFollowupDay7, leadFollowupDay14,
+} from '@/jobs/workflows/lead-followup';
+import {
+  siteVisitRemindersStart, siteVisitReminder24h, siteVisitReminder2h,
+} from '@/jobs/workflows/site-visit-reminders';
+import {
+  handoverReferralStart, handoverComplete, handoverNps,
+} from '@/jobs/workflows/handover-referral';
+import { vendorPoSend, vendorPoAckCheck } from '@/jobs/workflows/vendor-po-whatsapp';
+
 type AnyDefinition = JobDefinition<unknown>;
 
 /**
  * Job name → handler.
  *
- * Deliberately omitted: lead-followup, site-visit-reminders, handover-referral
- * and vendor-po-whatsapp. Those are multi-day workflows built on step.sleep
- * (20h–7d) with event-driven cancellation, which a single BullMQ job cannot
- * express. Registering them here would be worse than leaving them out: each one
- * performs a real side effect (a WhatsApp message) *before* its first sleep, so
- * the handler would message the client, throw at the sleep, retry, and message
- * them again. They are rebuilt as chained delayed jobs in a follow-up phase.
+ * The four multi-day sequences appear here as one entry per stage. Each stage
+ * schedules the next as a delayed job under a deterministic id, so the sequence
+ * survives worker restarts and a cancel is a removal by id rather than extra
+ * bookkeeping. Every stage also re-checks its own preconditions before acting —
+ * cancellation is an optimisation, the re-check is the guarantee.
  */
 export const HANDLERS: Partial<Record<JobName, AnyDefinition>> = {
   [JOB.helloWorld]: helloWorld as AnyDefinition,
@@ -51,6 +61,22 @@ export const HANDLERS: Partial<Record<JobName, AnyDefinition>> = {
   [JOB.leadScoreNightly]: leadScoreCompute as AnyDefinition,
   [JOB.mondayBrief]: mondayBrief as AnyDefinition,
   [JOB.overdueEscalation]: overdueEscalation as AnyDefinition,
+  // Lead follow-up nudges
+  [JOB.leadFollowup]: leadFollowupStart as AnyDefinition,
+  [JOB.leadFollowupDay3]: leadFollowupDay3 as AnyDefinition,
+  [JOB.leadFollowupDay7]: leadFollowupDay7 as AnyDefinition,
+  [JOB.leadFollowupDay14]: leadFollowupDay14 as AnyDefinition,
+  // Site-visit reminders
+  [JOB.siteVisitReminders]: siteVisitRemindersStart as AnyDefinition,
+  [JOB.siteVisitReminder24h]: siteVisitReminder24h as AnyDefinition,
+  [JOB.siteVisitReminder2h]: siteVisitReminder2h as AnyDefinition,
+  // Handover → NPS
+  [JOB.handoverReferral]: handoverReferralStart as AnyDefinition,
+  [JOB.handoverComplete]: handoverComplete as AnyDefinition,
+  [JOB.handoverNps]: handoverNps as AnyDefinition,
+  // Vendor PO
+  [JOB.vendorPoWhatsapp]: vendorPoSend as AnyDefinition,
+  [JOB.poAckCheck]: vendorPoAckCheck as AnyDefinition,
 };
 
 export async function runJob(name: JobName, data: Record<string, unknown>): Promise<unknown> {
