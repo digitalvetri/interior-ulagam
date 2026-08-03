@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, inArray, notInArray, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { customers, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { enqueue } from '@/jobs/queue';
+import { enqueue, enqueueBestEffort } from '@/jobs/queue';
 
 const CustomerSourceEnum = z.enum([
   'referral', 'instagram', 'whatsapp', 'website', 'walk_in', 'imported', 'other',
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
       .returning();
 
     // Trigger background enrichment (links to lead, detects WA history)
-    await enqueue('customer/created', { customerId: row.id, tenantId: ctx.tenantId, phone: row.phone });
+    await enqueueBestEffort('customer/created', { customerId: row.id, tenantId: ctx.tenantId, phone: row.phone });
 
     return NextResponse.json({ data: row }, { status: 201 });
   } catch (e) {

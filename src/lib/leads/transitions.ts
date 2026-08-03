@@ -4,7 +4,7 @@ import {
   leads, projects, quotes as quotesTable, leadActivities, notifications,
 } from '@/lib/db/schema';
 import { propagateLeadStageToCustomer } from '@/lib/customers/sync';
-import { enqueue } from '@/jobs/queue';
+import { enqueue, enqueueBestEffort } from '@/jobs/queue';
 import type { LeadStage } from '@/types/leads';
 
 /**
@@ -63,7 +63,7 @@ export async function applyStageTransition(
     await propagateLeadStageToCustomer(current.customerId, targetStage, tenantId, userId);
   }
 
-  void enqueue('lead/score.compute', { leadId, tenantId });
+  void enqueueBestEffort('lead/score.compute', { leadId, tenantId });
 
   if (targetStage === 'won') {
     const projectName = current.projectName?.trim() || `${current.contactName}'s Project`;

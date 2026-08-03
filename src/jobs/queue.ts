@@ -92,6 +92,27 @@ export async function enqueue(
 }
 
 /**
+ * Enqueue work whose loss is survivable — scoring, enrichment, background
+ * refreshes. Logs and swallows failures.
+ *
+ * Use this, never a bare `void enqueue(...)`: enqueue() rejects when Redis is
+ * unreachable, and an unhandled rejection takes the process down on Node 22.
+ * Use `enqueue` directly where the caller must learn about the failure — a
+ * user asking to send a quote, or a payment webhook that should be retried.
+ */
+export async function enqueueBestEffort(
+  name: JobName,
+  data: Record<string, unknown>,
+  opts?: JobsOptions,
+): Promise<void> {
+  try {
+    await enqueue(name, data, opts);
+  } catch (err) {
+    console.error(`[jobs] best-effort enqueue of "${name}" failed:`, err);
+  }
+}
+
+/**
  * Placeholder for the four multi-day workflows that do not yet have a handler.
  *
  * They cannot simply be enqueued: each performs a real side effect (a WhatsApp

@@ -141,8 +141,12 @@ export const leadScoreCompute = defineJob(
     { cron: '30 20 * * *' },
   ],
   async ({ event, step }) => {
-    // Cron: score active leads only — terminal leads don't benefit from rescoring
-    if (!event.data) {
+    // Cron: score active leads only — terminal leads don't benefit from rescoring.
+    // Branch on the absence of a leadId rather than of event.data: the scheduled
+    // run arrives with an empty object, not undefined, so a truthiness check on
+    // event.data would silently take the single-lead path and score nothing.
+    const payload = (event.data ?? {}) as Partial<LeadScoreData>;
+    if (!payload.leadId) {
       return await step.run('score-all-leads', async () => {
         const allLeads = await db.select(LEAD_SELECT).from(leads)
           .where(notInArray(leads.stage, ['won', 'lost']));
@@ -167,7 +171,7 @@ export const leadScoreCompute = defineJob(
     }
 
     // Event-triggered: score a single lead with live WA engagement query
-    const { leadId, tenantId } = event.data as LeadScoreData;
+    const { leadId, tenantId } = payload as LeadScoreData;
     return await step.run('score-single-lead', async () => {
       const [lead] = await db
         .select(LEAD_SELECT)

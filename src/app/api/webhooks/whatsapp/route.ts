@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
-import { enqueue, logPendingWorkflow } from '@/jobs/queue';
+import { enqueue, enqueueBestEffort, logPendingWorkflow } from '@/jobs/queue';
 import { db } from '@/lib/db';
 import { leads, waMessages } from '@/lib/db/schema';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
 
             await Promise.all([
               logPendingWorkflow('lead/replied', { tenantId: row.tenantId, contactPhone: phone }),
-              enqueue('lead/score.compute', { leadId: row.id, tenantId: row.tenantId }),
+              enqueueBestEffort('lead/score.compute', { leadId: row.id, tenantId: row.tenantId }),
             ]);
           }),
         );
