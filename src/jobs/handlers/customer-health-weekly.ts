@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { customerActivities, customers, tenants, waMessages } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai';
@@ -16,7 +16,7 @@ const HealthSchema = z.object({
 // Runs every Monday at 06:00 IST (00:30 UTC).
 // Scores all customers across all tenants — uses Groq light model (cheap).
 // Results written back to customers.health_score / health_status / health_updated_at.
-export const customerHealthWeekly = inngest.createFunction(
+export const customerHealthWeekly = defineJob(
   { id: 'customer-health-weekly', name: 'Customer Health — Weekly Scoring' },
   { cron: '30 0 * * 1' },
   async ({ step }) => {

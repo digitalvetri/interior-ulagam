@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { enqueue, logPendingWorkflow } from '@/jobs/queue';
 import { db } from '@/lib/db';
 import { leads, waMessages } from '@/lib/db/schema';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
@@ -175,8 +175,8 @@ export async function POST(request: NextRequest) {
               .where(eq(leads.id, row.id));
 
             await Promise.all([
-              inngest.send({ name: 'lead/replied', data: { tenantId: row.tenantId, contactPhone: phone } }),
-              inngest.send({ name: 'lead/score.compute', data: { leadId: row.id, tenantId: row.tenantId } }),
+              logPendingWorkflow('lead/replied', { tenantId: row.tenantId, contactPhone: phone }),
+              enqueue('lead/score.compute', { leadId: row.id, tenantId: row.tenantId }),
             ]);
           }),
         );
@@ -208,23 +208,17 @@ export async function POST(request: NextRequest) {
 
           if (lead && !lead.preferredLanguage) {
             // First message — detect language and persist it
-            await inngest.send({
-              name: 'lead/first_message.received',
-              data: { leadId: lead.id, tenantId: lead.tenantId, messageText },
-            });
+            await enqueue('lead/first_message.received', { leadId: lead.id, tenantId: lead.tenantId, messageText });
           }
 
           if (lead) {
             // Answer or escalate the client query via AI chatbot
-            await inngest.send({
-              name: 'wa_message/client_query.received',
-              data: {
+            await enqueue('wa_message/client_query.received', {
                 tenantId: lead.tenantId,
                 contactPhone: from,
                 messageText,
                 leadId: lead.id,
-              },
-            });
+              });
           }
         }
 
@@ -249,15 +243,12 @@ export async function POST(request: NextRequest) {
               .limit(1);
 
             if (lead2 && urlData.url) {
-              await inngest.send({
-                name: 'wa_message/image.received',
-                data: {
+              await enqueue('wa_message/image.received', {
                   imageUrl: urlData.url,
                   leadId: lead2.id,
                   tenantId: lead2.tenantId,
                   contactPhone: from,
-                },
-              });
+                });
             }
           }
         }
@@ -269,15 +260,12 @@ export async function POST(request: NextRequest) {
         ) {
           const flowResponse = message.interactive.nfm_reply;
           if (flowResponse) {
-            await inngest.send({
-              name: 'wa_flow/response.received',
-              data: {
+            await logPendingWorkflow('wa_flow/response.received', {
                 tenantId: 'unknown',
                 contactPhone: from,
                 flowToken: flowResponse.response_json,
                 flowName: flowResponse.name,
-              },
-            });
+              });
           }
         }
       }

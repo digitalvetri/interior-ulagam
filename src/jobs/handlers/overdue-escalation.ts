@@ -1,5 +1,5 @@
 import { inArray } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { milestones } from '@/lib/db/schema';
 
@@ -8,7 +8,7 @@ interface OverdueMilestone {
   createdAt: Date;
 }
 
-export const overdueEscalation = inngest.createFunction(
+export const overdueEscalation = defineJob(
   {
     id: 'overdue-escalation',
     name: 'Overdue Milestone Escalation',

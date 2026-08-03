@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads, users } from '@/lib/db/schema';
 import { whatsapp } from '@/lib/whatsapp/send';
@@ -31,7 +31,7 @@ async function isLeadNudgeable(
   return !!row && NUDGEABLE_STAGES.has(row.stage);
 }
 
-export const leadFollowupNudge = inngest.createFunction(
+export const leadFollowupNudge = defineJob(
   {
     id: 'lead-followup-nudge',
     name: 'Lead Follow-up Nudge Sequence',

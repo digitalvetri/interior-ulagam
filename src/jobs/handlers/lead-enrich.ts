@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai';
@@ -18,7 +18,7 @@ const EnrichmentSchema = z.object({
   confidence: z.number().min(0).max(100),
 });
 
-export const leadEnrich = inngest.createFunction(
+export const leadEnrich = defineJob(
   { id: 'lead-enrich', name: 'Lead Auto-Enrichment' },
   { event: 'lead/created' },
   async ({ event, step }) => {

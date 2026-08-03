@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { milestones, projects, leads } from '@/lib/db/schema';
 import { whatsapp } from '@/lib/whatsapp/send';
@@ -11,7 +11,7 @@ interface MilestonePaymentCapturedData {
   amountPaise: number;
 }
 
-export const milestonePaymentCaptured = inngest.createFunction(
+export const milestonePaymentCaptured = defineJob(
   {
     id: 'milestone-payment-captured',
     name: 'Milestone Payment Captured',

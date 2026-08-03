@@ -1,5 +1,5 @@
 import { and, eq, ne, sql } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { projects, quotes, quoteLines, expenses, users } from '@/lib/db/schema';
 
@@ -20,7 +20,7 @@ interface OverrunCheckResult {
   eventFired: boolean;
 }
 
-export const costOverrunAlert = inngest.createFunction(
+export const costOverrunAlert = defineJob(
   {
     id: 'cost-overrun-alert',
     name: 'Daily Cost Overrun Alert',

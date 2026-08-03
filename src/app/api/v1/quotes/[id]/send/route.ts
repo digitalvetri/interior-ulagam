@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { quotes } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { inngest } from '@/inngest/client';
+import { enqueue } from '@/jobs/queue';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(
@@ -38,10 +38,7 @@ export async function POST(
       .set({ status: 'sent', sentAt: new Date() })
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
 
-    await inngest.send({
-      name: 'quote/pdf.requested',
-      data: { quoteId: id, tenantId: ctx.tenantId },
-    });
+    await enqueue('quote/pdf.requested', { quoteId: id, tenantId: ctx.tenantId });
 
     return NextResponse.json(
       { data: null, message: 'Quote sent — PDF generation in progress' },

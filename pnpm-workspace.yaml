@@ -1,5 +1,9 @@
 allowBuilds:
   esbuild: true
+  # Optional native accelerator pulled in by BullMQ. pnpm 11 refuses to skip a
+  # build script silently, so leaving this undecided breaks
+  # `pnpm install --frozen-lockfile` inside the Docker build.
+  msgpackr-extract: true
   protobufjs: true
   sharp: true
   unrs-resolver: true

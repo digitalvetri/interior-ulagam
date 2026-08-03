@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai/groq';
@@ -16,7 +16,7 @@ const LangSchema = z.object({
   confidence: z.number(),
 });
 
-export const languageDetection = inngest.createFunction(
+export const languageDetection = defineJob(
   {
     id: 'language-detection',
     name: 'Language Detection',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { deliverables, snagItems } from '@/lib/db/schema';
 import { geminiProvider } from '@/lib/ai/gemini';
@@ -31,7 +31,7 @@ interface DetectedSnag {
   photoUrl: string;
 }
 
-export const aiSnagDetection = inngest.createFunction(
+export const aiSnagDetection = defineJob(
   {
     id: 'ai-snag-detection',
     name: 'AI Snag Detection — Site Photos to Snag Items',

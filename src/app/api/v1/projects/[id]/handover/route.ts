@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { projects, snagItems } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, inArray, count } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { logPendingWorkflow } from '@/jobs/queue';
 
 export async function POST(
   _request: NextRequest,
@@ -59,14 +59,11 @@ export async function POST(
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
       .returning();
 
-    await inngest.send({
-      name: 'project/handover.initiated',
-      data: {
+    await logPendingWorkflow('project/handover.initiated', {
         projectId: id,
         tenantId: ctx.tenantId,
         initiatedBy: ctx.userId,
-      },
-    });
+      });
 
     return NextResponse.json(
       { data: { project: updatedProject, message: 'Handover initiated' } },

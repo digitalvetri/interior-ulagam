@@ -1,5 +1,5 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { customerActivities, customers, waMessages } from '@/lib/db/schema';
 
@@ -13,7 +13,7 @@ interface CustomerCreatedData {
   phone: string;
 }
 
-export const customerEnrich = inngest.createFunction(
+export const customerEnrich = defineJob(
   { id: 'customer-enrich', name: 'Customer Auto-Enrichment' },
   { event: 'customer/created' },
   async ({ event, step }) => {

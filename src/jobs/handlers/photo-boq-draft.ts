@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { geminiProvider } from '@/lib/ai/gemini';
@@ -32,7 +32,7 @@ const RoomAnalysisSchema = z.object({
 
 type RoomAnalysis = z.infer<typeof RoomAnalysisSchema>;
 
-export const photoBOQDraft = inngest.createFunction(
+export const photoBOQDraft = defineJob(
   {
     id: 'photo-boq-draft',
     name: 'Photo BOQ Draft — WhatsApp Image to Room Analysis',

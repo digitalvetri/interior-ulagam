@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads, milestones, projects, siteLogs } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai/groq';
@@ -19,7 +19,7 @@ const ResponseSchema = z.object({
   escalateToDesigner: z.boolean(),
 });
 
-export const clientChatbot = inngest.createFunction(
+export const clientChatbot = defineJob(
   {
     id: 'client-chatbot',
     name: 'WhatsApp Client Chatbot',
@@ -138,9 +138,12 @@ export const clientChatbot = inngest.createFunction(
           text: aiResponse.reply,
         });
       } else {
-        await inngest.send({
-          name: 'client_query/needs_designer',
-          data: { tenantId, contactPhone, messageText, leadId },
+        // No handler has ever consumed 'client_query/needs_designer' — under
+        // Inngest this event was recorded and nothing acted on it. Rather than
+        // enqueue a job that would fail for want of a handler, the escalation is
+        // logged. Wiring it to the notifications module is outstanding work.
+        console.warn('[client-chatbot] query needs a designer:', {
+          tenantId, contactPhone, leadId, messageText,
         });
 
         await whatsapp.send({

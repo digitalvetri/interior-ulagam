@@ -25,6 +25,20 @@ COPY src/lib/db ./src/lib/db
 # because the container has no TTY.
 CMD ["node_modules/.bin/drizzle-kit", "migrate"]
 
+# ---------- worker ----------
+# Drains the BullMQ queue. Long AI calls and PDF renders run here rather than
+# competing with request handling in the web container. Like the migrate stage
+# it needs node_modules, so it cannot be built on the slim standalone runner.
+FROM node:22-alpine AS worker
+RUN corepack enable
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json tsconfig.json ./
+COPY src ./src
+# tsx runs the TypeScript entrypoint directly and honours the "@/*" path alias.
+CMD ["node_modules/.bin/tsx", "src/jobs/worker.ts"]
+
 # ---------- build ----------
 FROM node:22-alpine AS builder
 RUN corepack enable

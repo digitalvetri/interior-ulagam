@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { payments, milestones } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { enqueue } from '@/jobs/queue';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
 
 interface RazorpayPaymentEntity {
@@ -96,18 +96,15 @@ export async function POST(request: NextRequest) {
         .where(eq(milestones.razorpayLinkId, rpLinkId))
         .returning();
 
-      // Fire inngest event
-      await inngest.send({
-        name: 'milestone/payment.captured',
-        data: {
+      // Enqueue the follow-up job
+      await enqueue('milestone/payment.captured', {
           milestoneId: updatedMilestone?.id ?? null,
           paymentId: existingPayment.id,
           invoiceId: existingPayment.invoiceId,
           razorpayPaymentId: rpPaymentId,
           razorpayLinkId: rpLinkId,
           amountPaise,
-        },
-      });
+        });
     } catch (err) {
       console.error('[Razorpay webhook] Error processing payment.captured:', err);
       // Return 200 to prevent Razorpay retrying on non-signature errors

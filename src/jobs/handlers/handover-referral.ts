@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { projects, leads } from '@/lib/db/schema';
 import { whatsapp } from '@/lib/whatsapp/send';
@@ -10,7 +10,7 @@ interface HandoverInitiatedData {
   tenantId: string;
 }
 
-export const handoverReferral = inngest.createFunction(
+export const handoverReferral = defineJob(
   {
     id: 'handover-referral',
     name: 'Handover → NPS Referral Sequence',

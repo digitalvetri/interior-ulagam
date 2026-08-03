@@ -58,7 +58,6 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-slot',
       '@tanstack/react-query',
       'drizzle-orm',
-      'inngest',
     ],
   },
   images: {

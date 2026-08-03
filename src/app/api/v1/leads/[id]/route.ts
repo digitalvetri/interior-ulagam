@@ -4,7 +4,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, waMessages, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { inngest } from '@/inngest/client';
+import { enqueue } from '@/jobs/queue';
 import { applyStageTransition } from '@/lib/leads/transitions';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
@@ -235,7 +235,7 @@ export async function PATCH(
 
     // Rescore when budget, notes, or final price change (helper fires rescore on real stage changes)
     if (d.budgetBand !== undefined || d.notes !== undefined || d.projectValuePaise !== undefined) {
-      void inngest.send({ name: 'lead/score.compute', data: { leadId: id, tenantId: ctx.tenantId } });
+      void enqueue('lead/score.compute', { leadId: id, tenantId: ctx.tenantId });
     }
 
     return NextResponse.json({ data: updated, message: 'Lead updated' });

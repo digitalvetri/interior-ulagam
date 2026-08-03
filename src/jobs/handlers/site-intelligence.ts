@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { siteLogs } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai/groq';
@@ -22,7 +22,7 @@ const ParsedSiteReportSchema = z.object({
 
 type ParsedSiteReport = z.infer<typeof ParsedSiteReportSchema>;
 
-export const siteIntelligence = inngest.createFunction(
+export const siteIntelligence = defineJob(
   {
     id: 'site-intelligence',
     name: 'Site Intelligence — Voice to Structured Log',

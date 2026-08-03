@@ -87,6 +87,37 @@ services:
         condition: service_healthy
     restart: "no"
 
+  # Background job worker — drains the BullMQ queue and owns the cron schedules.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: documents
+      S3_QUOTES_BUCKET: quotes
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_PUBLIC_URL: http://localhost:9002
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      WORKER_CONCURRENCY: "5"
+      CRON_TZ: Asia/Kolkata
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   app:
     build:
       context: .

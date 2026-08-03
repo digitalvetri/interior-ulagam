@@ -4,7 +4,7 @@ import { eq, and, desc, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { inngest } from '@/inngest/client';
+import { enqueue, logPendingWorkflow } from '@/jobs/queue';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
@@ -208,20 +208,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Non-blocking: nudge sequence + enrichment + initial score
-    await inngest.send([
-      {
-        name: 'lead/followup.start',
-        data: { leadId: lead.id, tenantId: lead.tenantId, contactPhone: lead.contactPhone, contactName: lead.contactName },
-      },
-      {
-        name: 'lead/created',
-        data: { leadId: lead.id, tenantId: lead.tenantId, inboundText: notes ?? undefined },
-      },
-      {
-        name: 'lead/score.compute',
-        data: { leadId: lead.id, tenantId: lead.tenantId },
-      },
-    ]);
+    logPendingWorkflow('lead/followup.start', {
+      leadId: lead.id, tenantId: lead.tenantId,
+      contactPhone: lead.contactPhone, contactName: lead.contactName,
+    });
+    await enqueue('lead/created', {
+      leadId: lead.id, tenantId: lead.tenantId, inboundText: notes ?? undefined,
+    });
+    await enqueue('lead/score.compute', { leadId: lead.id, tenantId: lead.tenantId });
 
     return NextResponse.json({ data: { ...lead, customerId }, message: 'Lead created' }, { status: 201 });
   } catch (e) {

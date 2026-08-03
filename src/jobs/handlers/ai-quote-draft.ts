@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { and, eq, desc } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { requirements, materials } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai/groq';
@@ -26,7 +26,7 @@ const DraftSchema = z.object({
 
 type DraftLine = z.infer<typeof LineSchema>;
 
-export const aiQuoteDraft = inngest.createFunction(
+export const aiQuoteDraft = defineJob(
   {
     id: 'ai-quote-draft',
     name: 'AI Quote Draft Generator',

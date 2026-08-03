@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { purchaseOrders } from '@/lib/db/schema';
 import { whatsapp } from '@/lib/whatsapp/send';
@@ -9,7 +9,7 @@ import { whatsapp } from '@/lib/whatsapp/send';
 // inbound webhook (src/app/api/webhooks/whatsapp/route.ts) should:
 //   1. Look up the most recent purchaseOrder in status 'sent' for vendorPhone
 //      matching the sender's phone number.
-//   2. Fire inngest.send({ name: 'po/acknowledged', data: { poId, tenantId } })
+//   2. Enqueue 'po/acknowledged' with { poId, tenantId }
 //      which will update the PO status to 'acknowledged' and cancel any pending
 //      follow-up sequence.
 
@@ -28,7 +28,7 @@ interface FetchedPO {
   expectedDeliveryAt: string | null; // formatted for display — safe across step boundary
 }
 
-export const vendorPOWhatsApp = inngest.createFunction(
+export const vendorPOWhatsApp = defineJob(
   {
     id: 'vendor-po-whatsapp',
     name: 'Vendor PO WhatsApp Delivery',

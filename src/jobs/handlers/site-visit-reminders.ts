@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { siteVisits, leads } from '@/lib/db/schema';
 import { whatsapp } from '@/lib/whatsapp/send';
@@ -10,7 +10,7 @@ interface SiteVisitScheduledData {
   leadId: string;
 }
 
-export const siteVisitReminders = inngest.createFunction(
+export const siteVisitReminders = defineJob(
   {
     id: 'site-visit-reminders',
     name: 'Site Visit Reminders',

@@ -5,7 +5,7 @@ import { milestones, projects, invoices, payments } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, count, sql } from 'drizzle-orm';
 import { razorpayProvider as paymentsProvider } from '@/lib/payments';
-import { inngest } from '@/inngest/client';
+import { enqueue, logPendingWorkflow } from '@/jobs/queue';
 
 const TriggerSchema = z.object({
   clientName: z.string().min(1),
@@ -131,10 +131,8 @@ export async function POST(
       .where(eq(milestones.id, milestoneId))
       .returning();
 
-    // i. Fire inngest event
-    await inngest.send({
-      name: 'milestone/payment-link.sent',
-      data: {
+    // i. Enqueue the follow-up job
+    await logPendingWorkflow('milestone/payment-link.sent', {
         milestoneId: milestone.id,
         projectId: milestone.projectId,
         tenantId: ctx.tenantId,
@@ -145,8 +143,7 @@ export async function POST(
         contactPhone,
         paymentLinkId: link.id,
         paymentLinkUrl: link.shortUrl,
-      },
-    });
+      });
 
     // j. Return response
     return NextResponse.json(

@@ -1,4 +1,4 @@
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, customers, tenants, leads } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -12,7 +12,7 @@ interface QuoteData extends QuotePdfInput {
   quoteVersion: number;
 }
 
-export const quotePdf = inngest.createFunction(
+export const quotePdf = defineJob(
   { id: 'quote-pdf', name: 'Generate Quote PDF' },
   { event: 'quote/pdf.requested' },
   async ({ event, step }) => {
@@ -142,6 +142,19 @@ export const quotePdf = inngest.createFunction(
     //    a document header. Register one and swap the send type when creds land.
     const waResult = await step.run('notify-client-whatsapp', async () => {
       if (!quoteData.clientPhone) return { skipped: 'no-phone' };
+
+      // Idempotency guard. A BullMQ retry re-runs this handler from the top —
+      // unlike Inngest, which memoised completed steps — so without this check a
+      // failure anywhere after the send would deliver the quote to the client a
+      // second time. waMessageId is only set once a send has succeeded.
+      const [existing] = await db
+        .select({ waMessageId: quotes.waMessageId })
+        .from(quotes)
+        .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)))
+        .limit(1);
+      if (existing?.waMessageId) {
+        return { skipped: 'already-sent', messageId: existing.waMessageId };
+      }
       if (!process.env.WHATSAPP_ACCESS_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
         return { skipped: 'missing-whatsapp-env' };
       }

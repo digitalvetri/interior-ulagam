@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { eq, ne, and } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { projects, users } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai/groq';
@@ -21,7 +21,7 @@ interface ProjectRow {
   totalContractPaise: number | null;
 }
 
-export const mondayBrief = inngest.createFunction(
+export const mondayBrief = defineJob(
   {
     id: 'monday-brief',
     name: 'Monday Morning Brief — AI Digest per Tenant',

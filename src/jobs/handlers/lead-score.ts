@@ -1,5 +1,5 @@
 import { and, count, eq, gte, notInArray } from 'drizzle-orm';
-import { inngest } from '@/inngest/client';
+import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads, waMessages } from '@/lib/db/schema';
 import type { ScoreBreakdown } from '@/types/leads';
@@ -133,7 +133,7 @@ const LEAD_SELECT = {
 
 // ─── Inngest function ─────────────────────────────────────────────────────────
 
-export const leadScoreCompute = inngest.createFunction(
+export const leadScoreCompute = defineJob(
   { id: 'lead-score-compute', name: 'Lead Score Compute' },
   [
     { event: 'lead/score.compute' },
