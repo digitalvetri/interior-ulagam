@@ -26,3 +26,7 @@ data/
 .idea
 .vercel
 README.md
+
+# Legacy Supabase-era SQL patches — superseded by drizzle/meta journal
+drizzle/legacy/
+scripts/snap-out/

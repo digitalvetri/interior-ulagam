@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { documents } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { getServiceClient } from '@/lib/supabase/service';
+import { getDownloadUrl } from '@/lib/storage/s3';
 
 // GET /api/v1/documents/:id/download — returns a signed URL (5 min)
 export async function GET(
@@ -30,13 +30,12 @@ export async function GET(
   }
 
   try {
-    const supa = getServiceClient();
-    const { data, error } = await supa
-      .storage
-      .from('documents')
-      .createSignedUrl(row.storagePath, 300, { download: row.name });
-    if (error) throw error;
-    return NextResponse.json({ data: { url: data.signedUrl, name: row.name } });
+    const url = await getDownloadUrl({
+      key: row.storagePath,
+      expiresIn: 300,
+      filename: row.name,
+    });
+    return NextResponse.json({ data: { url, name: row.name } });
   } catch (e) {
     console.error('[GET /api/v1/documents/:id/download]', e);
     return NextResponse.json({ error: 'Failed to sign URL' }, { status: 500 });

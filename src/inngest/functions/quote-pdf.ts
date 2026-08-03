@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, customers, tenants, leads } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { renderQuotePdf, type QuotePdfInput } from '@/lib/pdf/quote';
-import { getServiceClient } from '@/lib/supabase/service';
+import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 import { whatsapp } from '@/lib/whatsapp/send';
 
 // ── Internal step-return type (extends QuotePdfInput with extras for step 4) ─
@@ -112,25 +112,20 @@ export const quotePdf = inngest.createFunction(
         issuedAt: new Date(quoteData.issuedAt),
       });
 
-      const supabase = getServiceClient();
       const storagePath = `${tenantId}/${quoteId}-v${quoteData.quoteVersion}.pdf`;
 
-      // Suppress "already exists" — bucket is created once; this is a no-op after that
-      await supabase.storage
-        .createBucket('quotes', { public: true, fileSizeLimit: 10_485_760 })
-        .catch(() => {});
+      // The quotes bucket is created with public read access by the minio-init
+      // service in docker-compose.yml.
+      await putObject({
+        bucket: QUOTES_BUCKET,
+        key: storagePath,
+        body: buffer,
+        contentType: 'application/pdf',
+      });
 
-      const { error: uploadError } = await supabase.storage
-        .from('quotes')
-        .upload(storagePath, buffer, { contentType: 'application/pdf', upsert: true });
-
-      if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('quotes')
-        .getPublicUrl(storagePath);
-
-      return publicUrl;
+      // Deliberately a public, non-expiring URL: this is persisted on the quote
+      // and sent to the client over WhatsApp.
+      return getPublicUrl(QUOTES_BUCKET, storagePath);
     });
 
     // ── Step 3: Persist the PDF URL and mark as sent ─────────────────────────

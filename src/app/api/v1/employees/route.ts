@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, ilike, or } from 'drizzle-orm';
+import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { users, accounts } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const RoleEnum = z.enum(['owner', 'designer', 'supervisor', 'accountant']);
@@ -56,7 +56,21 @@ export async function GET(request: NextRequest) {
       .orderBy(desc(users.createdAt))
       .limit(500);
 
-    return NextResponse.json({ data: rows });
+    // Who can actually sign in — i.e. Better Auth holds a credential for them.
+    // Replaces the old supabaseUid check. Done as a second query against the
+    // ids we just fetched rather than a correlated subquery, which keeps the
+    // generated SQL obvious.
+    const credentialled = rows.length
+      ? await db
+          .selectDistinct({ userId: accounts.userId })
+          .from(accounts)
+          .where(inArray(accounts.userId, rows.map((r) => r.id)))
+      : [];
+    const withLogin = new Set(credentialled.map((a) => a.userId));
+
+    return NextResponse.json({
+      data: rows.map((r) => ({ ...r, hasLogin: withLogin.has(r.id) })),
+    });
   } catch (e) {
     console.error('[GET /api/v1/employees]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

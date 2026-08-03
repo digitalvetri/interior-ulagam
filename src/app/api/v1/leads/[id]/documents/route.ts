@@ -4,7 +4,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { documents } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { getServiceClient } from '@/lib/supabase/service';
+import { getDownloadUrl } from '@/lib/storage/s3';
 
 // ─── GET /api/v1/leads/[id]/documents ────────────────────────────────────────
 
@@ -39,15 +39,16 @@ export async function GET(
       .where(and(eq(documents.leadId, id), eq(documents.tenantId, ctx.tenantId)))
       .orderBy(desc(documents.createdAt));
 
-    const supa = getServiceClient();
-
-    const rowsWithUrls = rows.map(row => {
-      if (!row.storagePath) return { ...row, downloadUrl: null };
-      const { data: { publicUrl } } = supa.storage
-        .from('documents')
-        .getPublicUrl(row.storagePath);
-      return { ...row, downloadUrl: publicUrl };
-    });
+    // The documents bucket is private, so each row gets its own short-lived
+    // presigned link rather than a public URL.
+    const rowsWithUrls = await Promise.all(
+      rows.map(async (row) => ({
+        ...row,
+        downloadUrl: row.storagePath
+          ? await getDownloadUrl({ key: row.storagePath, expiresIn: 300, filename: row.name })
+          : null,
+      })),
+    );
 
     return NextResponse.json({ data: rowsWithUrls });
   } catch (e) {

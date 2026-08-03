@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 
 const PUBLIC_PREFIXES = [
@@ -16,6 +16,14 @@ function isPublic(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Sign-up stays enabled in the Better Auth config so the first-run setup route
+  // can call it server-side, but this product has no public registration — so the
+  // HTTP endpoint is sealed off. Today the only account-creating caller is
+  // /api/v1/setup, which itself refuses to run once a user exists.
+  if (pathname.startsWith('/api/auth/sign-up')) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   // Short-circuit before touching Supabase for public paths.
   // This prevents AuthRetryableFetchError from crashing all requests
   // when Supabase is temporarily unreachable.
@@ -23,50 +31,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  let supabaseResponse = NextResponse.next({ request });
+  // Optimistic check only: does a session cookie exist and is its signature
+  // intact? This deliberately does not touch the database — every protected
+  // route re-validates the session server-side via requireAuth()/getAuthContext(),
+  // which is where a revoked or expired session is actually caught. Keeping this
+  // stateless also means the proxy behaves identically on the Node and Edge
+  // runtimes.
+  const sessionCookie = getSessionCookie(request);
 
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return supabaseResponse;
-  }
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  // Wrap in try/catch: if Supabase is unreachable the proxy must not crash.
-  // Treat any exception as "no user" → redirect to login.
-  let user = null;
-  try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  } catch {
-    // Supabase unreachable — fall through and redirect to login
-  }
-
-  if (!user) {
+  if (!sessionCookie) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  return NextResponse.next({ request });
 }
 
 export const config = {

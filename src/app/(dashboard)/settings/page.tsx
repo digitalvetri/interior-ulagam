@@ -215,7 +215,7 @@ function UsersTab() {
     });
   }, [rows, search]);
 
-  const hasLogin = (r: Employee) => Boolean(r.supabaseUid);
+  const hasLogin = (r: Employee) => Boolean(r.hasLogin);
 
   async function saveRole(row: Employee) {
     const newRole = drafts[row.id];

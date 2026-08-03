@@ -44,7 +44,10 @@ export async function GET(_request: NextRequest) {
     const allProjectIds = allProjects.map((p) => p.id);
 
     // c) Get approved quote IDs for all tenant projects (in one query)
-    interface ApprovedQuoteRow { id: string; projectId: string }
+    // projectId is nullable on quotes (a quote may hang off a lead instead of a
+    // project). The inArray filter below excludes NULLs at the SQL level, but the
+    // type has to admit them.
+    interface ApprovedQuoteRow { id: string; projectId: string | null }
     let approvedQuotes: ApprovedQuoteRow[] = [];
     if (allProjectIds.length > 0) {
       approvedQuotes = await db
@@ -104,7 +107,9 @@ export async function GET(_request: NextRequest) {
 
     // quoteId → projectId map from approvedQuotes
     const projectIdByQuoteId = new Map<string, string>(
-      approvedQuotes.map((q) => [q.id, q.projectId]),
+      approvedQuotes
+        .filter((q): q is { id: string; projectId: string } => q.projectId !== null)
+        .map((q) => [q.id, q.projectId]),
     );
 
     // projectId → { totalMarginPaise, totalClientPaise }

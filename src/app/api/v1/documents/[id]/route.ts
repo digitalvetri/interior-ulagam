@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { documents } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { getServiceClient } from '@/lib/supabase/service';
+import { deleteObjects } from '@/lib/storage/s3';
 
 const PatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
@@ -140,9 +140,11 @@ export async function DELETE(
 
   try {
     if (filePaths.length) {
-      const supa = getServiceClient();
-      const { error: rmErr } = await supa.storage.from('documents').remove(filePaths);
-      if (rmErr) console.warn('[documents delete] storage remove warning:', rmErr.message);
+      // Storage failures must not block the DB delete — an orphaned object is
+      // recoverable, a row that will not delete is not.
+      await deleteObjects(filePaths).catch((err) =>
+        console.warn('[documents delete] storage remove warning:', err?.message ?? err),
+      );
     }
 
     await db.delete(documents).where(and(eq(documents.id, id), eq(documents.tenantId, ctx.tenantId)));

@@ -2,7 +2,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { NAV_GROUPS } from '@/lib/nav-items';
 import { Menu, X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
@@ -202,13 +201,14 @@ export function Sidebar() {
   const initDone = useRef(false);
 
   useEffect(() => {
-    createClient().auth.getUser()
-      .then(({ data }) => {
-        const meta = data.user?.app_metadata ?? data.user?.user_metadata ?? {};
-        setRole((meta.role as string) ?? '');
-        setFullName((meta.full_name as string) ?? (data.user?.email ?? ''));
+    fetch('/api/v1/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!body?.data) return;
+        setRole(body.data.role ?? '');
+        setFullName(body.data.fullName ?? '');
       })
-      .catch(() => { /* Supabase unreachable — sidebar shows without role */ });
+      .catch(() => { /* identity unavailable — sidebar renders without role */ });
   }, []);
 
   /* eslint-disable react-hooks/set-state-in-effect */

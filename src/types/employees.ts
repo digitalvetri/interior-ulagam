@@ -12,6 +12,8 @@ export interface Employee {
   id: string;
   tenantId: string;
   supabaseUid: string | null;
+  /** True when Better Auth holds a credential for this person, i.e. they can sign in. */
+  hasLogin?: boolean;
   role: UserRole;
   fullName: string;
   phone: string | null;

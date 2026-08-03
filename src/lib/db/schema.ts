@@ -129,7 +129,11 @@ export const users = pgTable('users', {
   role: userRoleEnum('role').notNull().default('designer'),
   fullName: text('full_name').notNull(),
   phone: text('phone'),
-  email: text('email'),
+  // Deliberately nullable: not every employee is a login. Postgres permits
+  // many NULLs under a UNIQUE index, so staff without an email simply have no
+  // way to authenticate, while Better Auth still gets the uniqueness it needs.
+  email: text('email').unique(),
+  emailVerified: boolean('email_verified').notNull().default(false),
   // ── HR extended fields (employees module) ─────────────────
   photoUrl: text('photo_url'),
   jobTitle: text('job_title'),
@@ -142,7 +146,57 @@ export const users = pgTable('users', {
   emergencyContact: jsonb('emergency_contact_json'), // { name, relation, phone }
   status: text('status').notNull().default('active'), // active | on_leave | inactive
   ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ─── Auth (Better Auth) ───────────────────────────────────────────────────────
+// Better Auth is configured to use `users` above as its user model, so the app
+// has exactly one identity per person and the 15 existing FKs to users.id keep
+// working. These three tables are Better Auth's own and are not referenced by
+// application code.
+
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  token: text('token').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('sessions_user_idx').on(t.userId),
+]);
+
+export const accounts = pgTable('accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  // Argon2/scrypt hash for the credential provider; null for OAuth accounts.
+  password: text('password'),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+  scope: text('scope'),
+  ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('accounts_user_idx').on(t.userId),
+]);
+
+export const verifications = pgTable('verifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('verifications_identifier_idx').on(t.identifier),
+]);
 
 export const leads = pgTable('leads', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -13,10 +13,17 @@ if (!DATABASE_URL) {
   process.exit(1);
 }
 
-const sql = postgres(DATABASE_URL, { max: 1, ssl: 'require' });
+// LEGACY: this applied the old hand-rolled baseline to the hosted Supabase DB.
+// The supported path is now `pnpm exec drizzle-kit migrate` against the journal
+// in drizzle/meta. Kept only to re-run against the legacy Supabase database.
+// SSL is required there but must be off for a local/containerised Postgres.
+const sql = postgres(DATABASE_URL, {
+  max: 1,
+  ssl: /supabase\.(co|com)/.test(DATABASE_URL) ? 'require' : false,
+});
 
 const migrationSql = readFileSync(
-  resolve(__dirname, '../drizzle/0000_worthless_quasar.sql'),
+  resolve(__dirname, '../drizzle/legacy/0000_worthless_quasar.sql'),
   'utf8'
 );
 

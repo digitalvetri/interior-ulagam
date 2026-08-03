@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { documents } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { getServiceClient } from '@/lib/supabase/service';
+import { putObject } from '@/lib/storage/s3';
 
 const MAX_BYTES = 50 * 1024 * 1024; // matches bucket cap
 
@@ -39,8 +39,6 @@ export async function POST(request: NextRequest) {
     if (parent.kind !== 'folder') return NextResponse.json({ error: 'Parent is not a folder' }, { status: 400 });
   }
 
-  const supa = getServiceClient();
-
   // Insert the DB row first so we get an id to embed in the storage path.
   const [row] = await db
     .insert(documents)
@@ -60,11 +58,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const buf = Buffer.from(await file.arrayBuffer());
-    const { error: upErr } = await supa
-      .storage
-      .from('documents')
-      .upload(storagePath, buf, { contentType: row.mimeType ?? undefined, upsert: false });
-    if (upErr) throw upErr;
+    await putObject({
+      key: storagePath,
+      body: buf,
+      contentType: row.mimeType ?? undefined,
+    });
 
     // Patch the row with the final path
     const [updated] = await db

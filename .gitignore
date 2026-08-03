@@ -46,7 +46,10 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Drizzle
-drizzle/meta/
+# drizzle/meta/ is intentionally TRACKED: _journal.json records which migrations
+# have been applied, and the snapshots are what `drizzle-kit generate` diffs
+# against. Ignoring it would make a fresh clone regenerate migrations that
+# already exist in the database.
 
 # Docker local volumes
 data/

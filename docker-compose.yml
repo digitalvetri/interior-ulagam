@@ -1,23 +1,10 @@
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    env_file:
-      - path: .env.local
-        required: false
-    environment:
-      # Local dev override — comment out to use hosted Supabase via .env.local
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    restart: unless-stopped
+name: interioos
 
+# Host ports are deliberately non-default: this machine already runs Postgres on
+# 5432/5433/5434/5455 and Redis on 6379/6380 for other projects. Container-to-
+# container traffic still uses the standard ports on the internal network.
+
+services:
   postgres:
     image: postgres:16-alpine
     environment:
@@ -25,11 +12,9 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: interior_studio
     ports:
-      - "5432:5432"
+      - "5442:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-      # Drizzle migrations auto-run on first startup
-      - ./drizzle:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d interior_studio"]
       interval: 5s
@@ -39,8 +24,102 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6379:6379"
+      - "6389:6379"
     volumes:
       - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9002:9000"   # S3 API
+      - "9003:9001"   # web console
+    volumes:
+      - ./data/minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # One-shot: creates the buckets, then exits.
+  #   documents — stays private; the app hands out short-lived presigned URLs.
+  #   quotes    — anonymous read, because a quote PDF's URL is stored on the
+  #               quote and sent to clients, so it must not expire.
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/documents &&
+      mc mb --ignore-existing local/quotes &&
+      mc anonymous set download local/quotes &&
+      echo 'minio: buckets ready'
+      "
+    restart: "no"
+
+  # One-shot: applies drizzle migrations, then exits. The app waits for this
+  # to complete successfully before booting.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Must match S3_PUBLIC_URL below — it is compiled into the CSP header.
+        S3_PUBLIC_URL: http://localhost:9002
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: documents
+      S3_QUOTES_BUCKET: quotes
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      # Browser-facing base for public objects. The app reaches MinIO at
+      # http://minio:9000 inside the network, but a client's browser cannot
+      # resolve that name — public URLs must use the published host port.
+      S3_PUBLIC_URL: http://localhost:9002
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      BETTER_AUTH_URL: http://localhost:3000
+      # BETTER_AUTH_SECRET comes from .env.local — never hard-code it here.
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped

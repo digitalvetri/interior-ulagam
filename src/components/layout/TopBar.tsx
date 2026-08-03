@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CalendarDays, LogOut, Search } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { useRouter, usePathname } from 'next/navigation';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
@@ -46,16 +45,27 @@ export function TopBar() {
   const pathname = usePathname();
 
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      const meta = data.user?.user_metadata ?? {};
-      setFullName((meta.full_name as string) ?? (data.user?.email ?? ''));
-      setRole((meta.role as string) ?? '');
-    });
+    fetch('/api/v1/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!body?.data) return;
+        setFullName(body.data.fullName ?? '');
+        setRole(body.data.role ?? '');
+      })
+      .catch(() => { /* identity unavailable — chrome renders without it */ });
   }, []);
 
   async function handleSignOut() {
-    await createClient().auth.signOut();
+    // Better Auth needs an explicit JSON content type and a body — without them
+    // it answers 415/400. The Origin header its CSRF check requires is added by
+    // the browser automatically.
+    await fetch('/api/auth/sign-out', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     router.push('/login');
+    router.refresh();
   }
 
   const pageTitle = Object.entries(PAGE_TITLES).find(([key]) =>
