@@ -4,7 +4,7 @@ import {
   leads, projects, quotes as quotesTable, leadActivities, notifications,
 } from '@/lib/db/schema';
 import { propagateLeadStageToCustomer } from '@/lib/customers/sync';
-import { enqueue, enqueueBestEffort } from '@/jobs/queue';
+import { enqueueBestEffort } from '@/jobs/queue';
 import type { LeadStage } from '@/types/leads';
 
 /**

@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { projects, snagItems } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, inArray, count } from 'drizzle-orm';
-import { enqueue, logPendingWorkflow } from '@/jobs/queue';
+import { enqueue } from '@/jobs/queue';
 
 export async function POST(
   _request: NextRequest,

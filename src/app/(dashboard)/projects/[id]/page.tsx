@@ -426,7 +426,7 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
                     isCurrent
                       ? 'border-violet-600 bg-violet-600 shadow shadow-violet-200'
                       : isPast
-                      ? 'border-[var(--border-strong)] bg-gray-300'
+                      ? 'border-[var(--border-strong)] bg-[var(--border-strong)]'
                       : 'border-[var(--border-subtle)] bg-[var(--surface-card)]',
                   ].join(' ')}
                 >
@@ -446,7 +446,7 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
                 <div
                   className={[
                     'mx-1 mt-3.5 h-0.5 w-8 shrink-0',
-                    idx < currentIdx ? 'bg-gray-300' : 'bg-[var(--surface-hover)]',
+                    idx < currentIdx ? 'bg-[var(--border-strong)]' : 'bg-[var(--surface-hover)]',
                   ].join(' ')}
                 />
               )}
@@ -1004,7 +1004,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
           {siteLogs.length === 0 ? (
             <div className="flex flex-col items-center py-6 text-center">
-              <Activity className="mb-2 h-8 w-8 text-gray-200" />
+              <Activity className="mb-2 h-8 w-8 text-[var(--text-tertiary)]" />
               <p className="text-sm text-[var(--text-secondary)]">No activities logged yet.</p>
               <p className="mt-1 text-xs text-[var(--text-tertiary)]">Site logs will appear here as work progresses.</p>
             </div>
@@ -1049,7 +1049,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </Link>
           </div>
           <div className="flex flex-col items-center py-6 text-center">
-            <FileText className="mb-2 h-8 w-8 text-gray-200" />
+            <FileText className="mb-2 h-8 w-8 text-[var(--text-tertiary)]" />
             <p className="text-sm text-[var(--text-secondary)]">No documents uploaded yet.</p>
             <Link
               href={`/projects/${id}/deliverables`}

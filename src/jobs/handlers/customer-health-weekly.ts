@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
-import { customerActivities, customers, tenants, waMessages } from '@/lib/db/schema';
+import { customerActivities, customers, waMessages } from '@/lib/db/schema';
 import { groqProvider } from '@/lib/ai';
 import { z } from 'zod';
 

@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Search, Plus, Edit2, Trash2, Package, X, ChevronUp, ChevronDown,
-  Grid3X3, List, MoreVertical, Download, Users, Tag, Clock,
-  CheckCircle, XCircle, ArrowUpDown, ChevronLeft, ChevronRight,
+  Grid3X3, List, MoreVertical, Download, Users, Clock,
+  CheckCircle, XCircle, ChevronLeft, ChevronRight,
   ToggleLeft, ToggleRight,
 } from 'lucide-react';
 

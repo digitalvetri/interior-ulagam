@@ -4,7 +4,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, waMessages, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { enqueue, enqueueBestEffort } from '@/jobs/queue';
+import { enqueueBestEffort } from '@/jobs/queue';
 import { applyStageTransition } from '@/lib/leads/transitions';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────

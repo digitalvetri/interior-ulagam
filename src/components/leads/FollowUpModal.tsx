@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { X, Check, BellRing, ChevronDown, Loader2 } from 'lucide-react';
-import { Lead, LeadStage, STAGE_LABELS } from '@/types/leads';
+import { Lead, LeadStage } from '@/types/leads';
 
 const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
   { value: 'new',                  label: 'New Inquiry' },

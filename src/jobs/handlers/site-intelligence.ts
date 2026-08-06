@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { and, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { siteLogs } from '@/lib/db/schema';

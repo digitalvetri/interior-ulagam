@@ -5,7 +5,7 @@ import { milestones, projects, invoices, payments } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, count, sql } from 'drizzle-orm';
 import { razorpayProvider as paymentsProvider } from '@/lib/payments';
-import { enqueue, logPendingWorkflow } from '@/jobs/queue';
+import { logPendingWorkflow } from '@/jobs/queue';
 
 const TriggerSchema = z.object({
   clientName: z.string().min(1),

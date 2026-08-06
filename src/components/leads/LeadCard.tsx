@@ -26,10 +26,6 @@ const SOURCE_LABELS: Record<string, string> = {
   other: 'Other',
 };
 
-function getInitials(name: string): string {
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
 function getDaysSince(isoDate: string): number {
   return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86400000);
 }
@@ -109,7 +105,6 @@ function getFollowUpUrgency(followUpDate?: string | null): FollowUpUrgency {
 
 export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
-  const initials = getInitials(lead.contactName);
   const daysSince = getDaysSince(lead.lastActivityAt);
   const rottingStatus = getRottingStatus(lead.lastActivityAt);
   const stageIndex = STAGE_ORDER.indexOf(lead.stage);

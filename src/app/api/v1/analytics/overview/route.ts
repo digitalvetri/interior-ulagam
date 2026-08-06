@@ -85,13 +85,13 @@ export async function GET() {
       : 0;
 
     // ─── Quote win rate ─────────────────────────────────────────
-    let quotesApproved = 0, quotesLost = 0, quotesOpen = 0, quotesApprovedValue = 0;
+    let quotesApproved = 0, quotesLost = 0, quotesApprovedValue = 0;
     for (const r of quoteRows) {
       const c = Number(r.count);
       const v = Number(r.totalPaise);
       if (r.status === 'approved')     { quotesApproved += c; quotesApprovedValue += v; }
       else if (r.status === 'rejected'){ quotesLost += c; }
-      else                             { quotesOpen += c; }
+      // Anything else is still open; byStatus below already reports those counts.
     }
     const totalDecidedQuotes = quotesApproved + quotesLost;
     const quoteWinPct = totalDecidedQuotes > 0

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { projects, deliverables, siteLogs, snagItems, expenses } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, sql, ne, inArray } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 
 export async function GET(
   _request: NextRequest,

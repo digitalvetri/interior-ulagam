@@ -101,10 +101,6 @@ export async function GET(_request: NextRequest) {
     }
 
     // Build lookup maps
-    const quoteLineAggByQuoteId = new Map<string, QuoteLineAgg>(
-      quoteLineAggs.map((a) => [a.quoteId, a]),
-    );
-
     // quoteId → projectId map from approvedQuotes
     const projectIdByQuoteId = new Map<string, string>(
       approvedQuotes

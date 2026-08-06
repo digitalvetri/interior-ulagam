@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  Search, Plus, Grid3x3, List, Mail, Phone, MapPin, Briefcase, Filter,
-} from 'lucide-react';
+  Search, Plus, Grid3x3, List, Mail, Phone, MapPin, Briefcase, } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmployeeAvatar } from '@/components/employees/Avatar';

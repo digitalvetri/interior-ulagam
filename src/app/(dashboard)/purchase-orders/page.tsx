@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ShoppingCart, Plus, X, Trash2, Search, ChevronRight,
+  ShoppingCart, Plus, X, Search, ChevronRight,
   Clock, CheckCircle2, XCircle, Truck, FileText,
   Calendar, Package, AlertCircle,
 } from 'lucide-react';

@@ -21,8 +21,8 @@ export async function GET(
   }
 
   try {
-    // Look up the token in the database — check it exists, hasn't expired, and hasn't been revoked.
-    const now = new Date();
+    // Look up the token — must exist, be unexpired and unrevoked. Expiry is
+    // compared with the database's now(), not the app server's clock.
     const [tokenRow] = await db
       .select({
         projectId: clientTokens.projectId,

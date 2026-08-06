@@ -29,6 +29,17 @@ const eslintConfig = defineConfig([
       // during render) and creating components during render — remain errors, and
       // both are now clean.
       "react-hooks/set-state-in-effect": "warn",
+
+      // A leading underscore is the existing convention here for something
+      // deliberately unused — a route handler that must accept `request` to
+      // match Next's signature but never reads it, for instance. Without this
+      // the rule flags intent as an oversight and the real ones get lost.
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+        destructuredArrayIgnorePattern: "^_",
+      }],
     },
   },
 ]);

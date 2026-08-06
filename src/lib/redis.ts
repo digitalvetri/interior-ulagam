@@ -16,10 +16,15 @@ export function getRedis(): Redis | null {
   }
 
   cached = new Redis(url, {
-    // Fail fast rather than queueing commands forever if Redis is unreachable;
-    // callers decide what to do when a command rejects.
+    // Bounded retries: a genuinely unreachable Redis rejects rather than hanging
+    // the request forever.
     maxRetriesPerRequest: 3,
-    enableOfflineQueue: false,
+    // The offline queue must stay ON. With it off, any command issued before the
+    // socket finished connecting failed instantly with "Stream isn't writeable",
+    // and since checkRateLimit fails open, rate limiting was silently skipped for
+    // the first requests after every restart — the exact silent degradation the
+    // Upstash setup was replaced to avoid. Queued commands flush on connect.
+    enableOfflineQueue: true,
     lazyConnect: false,
   });
 

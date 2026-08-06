@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import postgres from 'postgres';
 import { getAuthContext } from '@/lib/auth';
-import { enqueue } from '@/jobs/queue';
 
 /**
  * Server-sent events stream of database changes — replaces Supabase Realtime.

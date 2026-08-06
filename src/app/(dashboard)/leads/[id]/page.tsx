@@ -201,7 +201,6 @@ export default function LeadDetailPage() {
 
   const [lead, setLead]                   = useState<Lead | null>(null);
   const [activities, setActivities]       = useState<LeadActivity[]>([]);
-  const [recentMessages, setMessages]     = useState<WaMessage[]>([]);
   const [customerId, setCustomerId]       = useState<string | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; lifecycleStage: string } | null>(null);
   const [loading, setLoading]             = useState(true);
@@ -283,7 +282,6 @@ export default function LeadDetailPage() {
           linkedProject?: { id: string; name: string; lifecycleStage: string } | null;
         }
       };
-      setMessages(leadData.recentMessages ?? []);
       setCustomerId(leadData.customerId ?? null);
       setLinkedProject(leadData.linkedProject ?? null);
       setLead(leadData);

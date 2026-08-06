@@ -4,8 +4,7 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Plus, FolderOpen, CheckCircle2, AlertTriangle, X,
-  ExternalLink, RefreshCw,
-} from 'lucide-react';
+  ExternalLink, } from 'lucide-react';
 import { Deliverable, DeliverableStatus, DeliverableType } from '@/types/deliverables';
 
 /* ── Config ────────────────────────────────────────────────────────────────── */

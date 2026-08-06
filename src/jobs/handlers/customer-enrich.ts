@@ -1,7 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
-import { customerActivities, customers, waMessages } from '@/lib/db/schema';
+import { customerActivities, waMessages } from '@/lib/db/schema';
 
 // Triggered after a customer record is created (either via lead sync or manually).
 // Checks for WhatsApp history and logs an enrichment activity.

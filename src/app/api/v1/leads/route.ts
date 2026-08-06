@@ -4,7 +4,7 @@ import { eq, and, desc, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { enqueue, enqueueBestEffort, logPendingWorkflow } from '@/jobs/queue';
+import { enqueueBestEffort } from '@/jobs/queue';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
