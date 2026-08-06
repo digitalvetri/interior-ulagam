@@ -94,11 +94,11 @@ export default function EmployeeDetailPage({
     if (res.ok) window.location.href = '/employees';
   }
 
-  if (loading) return <div className="p-8 text-sm text-slate-500">Loading…</div>;
+  if (loading) return <div className="p-8 text-sm text-[var(--text-secondary)]">Loading…</div>;
   if (notFound || !emp) {
     return (
       <div className="p-8">
-        <Link href="/employees" className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+        <Link href="/employees" className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-heading)]">
           <ArrowLeft className="h-4 w-4" /> Back to people
         </Link>
         <p className="mt-4 text-sm text-red-600">Employee not found.</p>
@@ -111,14 +111,14 @@ export default function EmployeeDetailPage({
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Back link */}
-      <div className="border-b border-slate-200 px-6 py-3 dark:border-slate-800">
-        <Link href="/employees" className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-emerald-600 dark:text-slate-400">
+      <div className="border-b border-[var(--border-subtle)] px-6 py-3 ">
+        <Link href="/employees" className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-emerald-600 ">
           <ArrowLeft className="h-4 w-4" /> Back to people
         </Link>
       </div>
 
       {/* Hero */}
-      <header className="border-b border-slate-200 bg-gradient-to-r from-emerald-50 via-emerald-50/40 to-transparent px-6 py-6 dark:border-slate-800 dark:from-emerald-950/40 dark:via-emerald-950/10">
+      <header className="border-b border-[var(--border-subtle)] bg-gradient-to-r from-emerald-50 via-emerald-50/40 to-transparent px-6 py-6 dark:from-emerald-950/40 dark:via-emerald-950/10">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="flex items-center gap-5">
             <EmployeeAvatar name={displayed.fullName} photoUrl={displayed.photoUrl} size={92} />
@@ -129,7 +129,7 @@ export default function EmployeeDetailPage({
               <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {displayed.jobTitle ?? '—'}{displayed.department ? ' · ' + displayed.department : ''}
               </p>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)] ">
                 {displayed.email && (
                   <a href={`mailto:${displayed.email}`} className="inline-flex items-center gap-1.5 hover:text-emerald-700">
                     <Mail className="h-3.5 w-3.5" /> {displayed.email}
@@ -170,13 +170,13 @@ export default function EmployeeDetailPage({
               className={
                 'relative rounded-md px-3 py-1.5 font-medium capitalize transition-colors ' +
                 (tab === k
-                  ? 'text-[#7C5CFC] dark:text-[#A98EFF]'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100')
+                  ? 'text-[var(--accent-base)] dark:text-[#A98EFF]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-heading)] ')
               }
             >
               {k === 'personal' ? 'Personal' : k === 'job' ? 'Job' : 'Contact'}
               {tab === k && (
-                <span className="absolute -bottom-[calc(1.5rem_+_1px)] left-1 right-1 h-0.5 rounded bg-[#7C5CFC]" />
+                <span className="absolute -bottom-[calc(1.5rem_+_1px)] left-1 right-1 h-0.5 rounded bg-[var(--accent-base)]" />
               )}
             </button>
           ))}
@@ -291,7 +291,7 @@ export default function EmployeeDetailPage({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-6 shadow-sm dark:border-slate-800">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 shadow-sm ">
       <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
         {title}
       </h2>
@@ -311,7 +311,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+      <Label className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
         <Icon className="h-3.5 w-3.5" /> {label}
       </Label>
       {children}

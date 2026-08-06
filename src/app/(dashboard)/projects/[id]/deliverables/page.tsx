@@ -11,19 +11,19 @@ import { Deliverable, DeliverableStatus, DeliverableType } from '@/types/deliver
 /* ── Config ────────────────────────────────────────────────────────────────── */
 
 const TYPE_CONFIG: Record<DeliverableType, { label: string; emoji: string; bg: string; color: string }> = {
-  '2d_plan':        { label: '2D Plan',           emoji: '📐', bg: '#EFF6FF', color: '#1E40AF' },
-  '3d_render':      { label: '3D Render',          emoji: '🏠', bg: '#F5F3FF', color: '#6B21A8' },
+  '2d_plan':        { label: '2D Plan',           emoji: '📐', bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
+  '3d_render':      { label: '3D Render',          emoji: '🏠', bg: 'var(--accent-soft)', color: '#6B21A8' },
   color_palette:    { label: 'Color Palette',      emoji: '🎨', bg: '#FDF2F8', color: '#BE185D' },
-  working_drawings: { label: 'Working Drawings',   emoji: '📏', bg: '#FFFBEB', color: '#92400E' },
-  bom:              { label: 'Bill of Materials',  emoji: '📋', bg: '#F0FDF4', color: '#14532D' },
+  working_drawings: { label: 'Working Drawings',   emoji: '📏', bg: 'var(--warning-soft)', color: 'var(--warning-text)' },
+  bom:              { label: 'Bill of Materials',  emoji: '📋', bg: 'var(--success-soft)', color: 'var(--success-text)' },
 };
 
 const STATUS_CONFIG: Record<DeliverableStatus, { label: string; bg: string; color: string; dot: string }> = {
-  pending:     { label: 'Pending',     bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
-  in_progress: { label: 'In Progress', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
-  in_review:   { label: 'In Review',   bg: '#FFFBEB', color: '#92400E', dot: '#F59E0B' },
-  approved:    { label: 'Approved',    bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
-  rejected:    { label: 'Rejected',    bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
+  pending:     { label: 'Pending',     bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+  in_progress: { label: 'In Progress', bg: 'var(--accent-soft)', color: 'var(--accent-text)', dot: 'var(--accent-base)' },
+  in_review:   { label: 'In Review',   bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
+  approved:    { label: 'Approved',    bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  rejected:    { label: 'Rejected',    bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
 };
 
 const ALL_TYPES: DeliverableType[]   = ['2d_plan', '3d_render', 'color_palette', 'working_drawings', 'bom'];
@@ -76,7 +76,7 @@ function DeliverableCard({
 
   return (
     <div className="rounded-2xl border p-5 flex flex-col gap-4 transition-all hover:shadow-md"
-      style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
 
       {/* Top: icon + title + badge */}
       <div className="flex items-start justify-between gap-3">
@@ -86,8 +86,8 @@ function DeliverableCard({
             {typeCfg.emoji}
           </div>
           <div>
-            <p className="font-semibold text-sm" style={{ color: '#1C1916' }}>{typeCfg.label}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>
+            <p className="font-semibold text-sm" style={{ color: 'var(--text-heading)' }}>{typeCfg.label}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
               {d.approvedAt
                 ? `Approved ${new Date(d.approvedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
                 : 'Not approved yet'}
@@ -100,7 +100,7 @@ function DeliverableCard({
       {/* Change-order warning */}
       {showWarning && (
         <div className="flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs"
-          style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+          style={{ background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)', color: 'var(--warning-text)' }}>
           <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
           Revision cap exceeded — a change-order quote is required.
         </div>
@@ -109,16 +109,16 @@ function DeliverableCard({
       {/* Revision meter */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-xs">
-          <span style={{ color: '#6B6459' }}>Revisions</span>
-          <span className="font-semibold" style={{ color: overCap ? '#DC2626' : '#1C1916' }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Revisions</span>
+          <span className="font-semibold" style={{ color: overCap ? 'var(--danger)' : 'var(--text-heading)' }}>
             {d.revisionCount} / {d.revisionCap}
           </span>
         </div>
-        <div className="h-1.5 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+        <div className="h-1.5 w-full rounded-full" style={{ background: 'var(--border-subtle)' }}>
           <div className="h-1.5 rounded-full transition-all"
             style={{
               width: `${revPct}%`,
-              background: overCap ? '#DC2626' : revPct > 75 ? '#F59E0B' : '#7C3AED',
+              background: overCap ? 'var(--danger)' : revPct > 75 ? 'var(--warning)' : 'var(--accent-base)',
             }} />
         </div>
       </div>
@@ -127,7 +127,7 @@ function DeliverableCard({
       {d.latestFileUrl && (
         <a href={d.latestFileUrl} target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors hover:underline"
-          style={{ color: '#7C3AED' }}>
+          style={{ color: 'var(--accent-base)' }}>
           <ExternalLink className="h-3.5 w-3.5" />
           View latest file
         </a>
@@ -149,9 +149,9 @@ function DeliverableCard({
         <button type="button" onClick={handleApprove} disabled={approving}
           className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium transition-all"
           style={{
-            background: approving ? '#F0FDF4' : '#16A34A',
-            color: approving ? '#14532D' : '#FFFFFF',
-            border: '1px solid #16A34A',
+            background: approving ? 'var(--success-soft)' : 'var(--success)',
+            color: approving ? 'var(--success-text)' : 'var(--surface-card)',
+            border: '1px solid var(--success)',
           }}>
           <CheckCircle2 className="h-4 w-4" />
           {approving ? 'Approving…' : 'Mark Approved'}
@@ -160,7 +160,7 @@ function DeliverableCard({
 
       {d.status === 'approved' && (
         <div className="flex items-center justify-center gap-2 rounded-xl py-2 text-sm font-medium"
-          style={{ background: '#F0FDF4', color: '#14532D' }}>
+          style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
           <CheckCircle2 className="h-4 w-4" />
           Approved
         </div>
@@ -209,16 +209,16 @@ function AddDeliverableModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
         <div className="flex items-center justify-between px-6 py-4"
-          style={{ borderBottom: '1px solid #F0EEE9' }}>
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl flex items-center justify-center text-lg"
-              style={{ background: '#F5F3FF' }}>📁</div>
-            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Add Deliverable</h2>
+              style={{ background: 'var(--accent-soft)' }}>📁</div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Add Deliverable</h2>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -242,17 +242,17 @@ function AddDeliverableModal({
             <div className="flex items-center gap-2">
               <button type="button"
                 onClick={() => setRevisionCap(v => String(Math.max(0, Number(v) - 1)))}
-                className="h-9 w-9 rounded-xl border flex items-center justify-center text-lg font-medium transition-colors hover:bg-[#F0EEE9]"
-                style={{ borderColor: '#E2DED5', color: '#6B6459' }}>−</button>
+                className="h-9 w-9 rounded-xl border flex items-center justify-center text-lg font-medium transition-colors hover:bg-[var(--border-subtle)]"
+                style={{ borderColor: 'var(--border-strong)', color: 'var(--text-secondary)' }}>−</button>
               <input type="number" min={0} step={1} value={revisionCap}
                 onChange={e => setRevisionCap(e.target.value)}
                 className="studio-input flex-1 text-sm text-center" />
               <button type="button"
                 onClick={() => setRevisionCap(v => String(Number(v) + 1))}
-                className="h-9 w-9 rounded-xl border flex items-center justify-center text-lg font-medium transition-colors hover:bg-[#F0EEE9]"
-                style={{ borderColor: '#E2DED5', color: '#6B6459' }}>+</button>
+                className="h-9 w-9 rounded-xl border flex items-center justify-center text-lg font-medium transition-colors hover:bg-[var(--border-subtle)]"
+                style={{ borderColor: 'var(--border-strong)', color: 'var(--text-secondary)' }}>+</button>
             </div>
-            <p className="text-xs mt-1" style={{ color: '#A79E8E' }}>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
               Extra revisions beyond this cap will trigger a change-order quote.
             </p>
           </div>
@@ -262,7 +262,7 @@ function AddDeliverableModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
           <button type="button" onClick={handleSubmit} disabled={saving}
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
@@ -324,15 +324,15 @@ export default function DeliverablesPage({ params }: { params: Promise<{ id: str
       {/* Back */}
       <Link href={`/projects/${id}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
-        style={{ color: '#6B6459' }}>
+        style={{ color: 'var(--text-secondary)' }}>
         <ArrowLeft className="h-4 w-4" />Project Overview
       </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Deliverables</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Deliverables</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             {deliverables.length > 0
               ? `${approvedCount} of ${deliverables.length} approved`
               : '2D plans, renders, working drawings & BOMs'}
@@ -346,18 +346,18 @@ export default function DeliverablesPage({ params }: { params: Promise<{ id: str
 
       {/* Progress bar (when items exist) */}
       {!loading && deliverables.length > 0 && (
-        <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+        <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center justify-between text-xs mb-2">
-            <span style={{ color: '#6B6459' }}>Overall Approval Progress</span>
-            <span className="font-semibold" style={{ color: '#1C1916' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Overall Approval Progress</span>
+            <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>
               {approvedCount}/{deliverables.length} approved
             </span>
           </div>
-          <div className="h-2 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+          <div className="h-2 w-full rounded-full" style={{ background: 'var(--border-subtle)' }}>
             <div className="h-2 rounded-full transition-all"
               style={{
                 width: `${deliverables.length > 0 ? Math.round((approvedCount / deliverables.length) * 100) : 0}%`,
-                background: approvedCount === deliverables.length ? '#16A34A' : '#7C3AED',
+                background: approvedCount === deliverables.length ? 'var(--success)' : 'var(--accent-base)',
               }} />
           </div>
         </div>
@@ -371,12 +371,12 @@ export default function DeliverablesPage({ params }: { params: Promise<{ id: str
       ) : deliverables.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-5">
           <div className="h-20 w-20 rounded-3xl flex items-center justify-center"
-            style={{ background: '#EFF6FF' }}>
-            <FolderOpen className="h-10 w-10" style={{ color: '#3B82F6' }} />
+            style={{ background: 'var(--accent-soft)' }}>
+            <FolderOpen className="h-10 w-10" style={{ color: 'var(--accent-base)' }} />
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No deliverables yet</h3>
-            <p className="text-sm max-w-xs" style={{ color: '#6B6459' }}>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-heading)' }}>No deliverables yet</h3>
+            <p className="text-sm max-w-xs" style={{ color: 'var(--text-secondary)' }}>
               Add 2D plans, 3D renders, color palettes, and working drawings for this project.
             </p>
           </div>

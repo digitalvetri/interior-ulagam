@@ -53,9 +53,9 @@ function parseBlockers(blockersJson: unknown): string[] {
 }
 
 function progressColor(pct: number): string {
-  if (pct < 40) return '#EF4444';
-  if (pct < 70) return '#F59E0B';
-  return '#16A34A';
+  if (pct < 40) return 'var(--danger)';
+  if (pct < 70) return 'var(--warning)';
+  return 'var(--success)';
 }
 
 /* ── Add Log Modal ─────────────────────────────────────────────────────────── */
@@ -108,16 +108,16 @@ function AddLogModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
-              <HardHat className="h-4 w-4" style={{ color: '#7C3AED' }} />
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <HardHat className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             </div>
-            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Add Log Entry</h2>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Add Log Entry</h2>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
@@ -128,7 +128,7 @@ function AddLogModal({
                 className="studio-input w-full text-sm" />
             </div>
             <div>
-              <label className="studio-label block mb-1.5">Progress % <span style={{ color: '#A79E8E' }}>(0–100)</span></label>
+              <label className="studio-label block mb-1.5">Progress % <span style={{ color: 'var(--text-tertiary)' }}>(0–100)</span></label>
               <input type="number" min={0} max={100} placeholder="e.g. 65" value={form.progressPct}
                 onChange={e => set('progressPct', e.target.value)} className="studio-input w-full text-sm" />
             </div>
@@ -147,12 +147,12 @@ function AddLogModal({
           </div>
           <label className="flex items-center gap-3 cursor-pointer px-1">
             <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-              style={{ background: form.delayFlag ? '#EF4444' : '#D1D5DB' }}
+              style={{ background: form.delayFlag ? 'var(--danger)' : 'var(--border-strong)' }}
               onClick={() => set('delayFlag', !form.delayFlag)}>
-              <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
+              <div className="absolute top-1 w-4 h-4 bg-[var(--surface-card)] rounded-full transition-all"
                 style={{ left: form.delayFlag ? 22 : 4 }} />
             </div>
-            <span className="text-sm" style={{ color: '#1C1916' }}>Flag as delayed</span>
+            <span className="text-sm" style={{ color: 'var(--text-heading)' }}>Flag as delayed</span>
           </label>
           <div>
             <label className="studio-label block mb-1.5">Notes / Observations</label>
@@ -166,7 +166,7 @@ function AddLogModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
@@ -207,15 +207,15 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
       {/* Back */}
       <Link href={`/projects/${projectId}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
-        style={{ color: '#6B6459' }}>
+        style={{ color: 'var(--text-secondary)' }}>
         <ArrowLeft className="h-4 w-4" />Project Overview
       </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Site Execution Tracker</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Daily site logs from WhatsApp and manual entries</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Site Execution Tracker</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>Daily site logs from WhatsApp and manual entries</p>
         </div>
         <button type="button" onClick={() => setModalOpen(true)}
           className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm rounded-xl flex-shrink-0">
@@ -226,28 +226,28 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
       {/* Progress summary */}
       {!loading && logs.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Latest Progress</p>
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Latest Progress</p>
             {latestPct !== null ? (
               <>
-                <p className="text-2xl font-bold mb-2" style={{ color: '#1C1916' }}>{latestPct}%</p>
-                <div className="h-1.5 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+                <p className="text-2xl font-bold mb-2" style={{ color: 'var(--text-heading)' }}>{latestPct}%</p>
+                <div className="h-1.5 w-full rounded-full" style={{ background: 'var(--border-subtle)' }}>
                   <div className="h-1.5 rounded-full" style={{ width: `${latestPct}%`, background: progressColor(latestPct) }} />
                 </div>
               </>
-            ) : <p className="text-sm" style={{ color: '#A79E8E' }}>Not logged yet</p>}
+            ) : <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Not logged yet</p>}
           </div>
-          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Total Log Entries</p>
-            <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>{logs.length}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Total Log Entries</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>{logs.length}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
               {logs.filter(l => l.source === 'whatsapp').length} via WhatsApp
             </p>
           </div>
-          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: delayCount > 0 ? '#FECACA' : '#F0EEE9' }}>
-            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Delay Flags</p>
-            <p className="text-2xl font-bold" style={{ color: delayCount > 0 ? '#DC2626' : '#1C1916' }}>{delayCount}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>out of {logs.length} entries</p>
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: delayCount > 0 ? 'var(--danger-soft)' : 'var(--border-subtle)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Delay Flags</p>
+            <p className="text-2xl font-bold" style={{ color: delayCount > 0 ? 'var(--danger)' : 'var(--text-heading)' }}>{delayCount}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>out of {logs.length} entries</p>
           </div>
         </div>
       )}
@@ -261,17 +261,17 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
       ) : logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-5">
           <div className="relative">
-            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
-              <HardHat className="h-10 w-10" style={{ color: '#7C3AED' }} />
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <HardHat className="h-10 w-10" style={{ color: 'var(--accent-base)' }} />
             </div>
             <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
-              style={{ background: '#F0FDF4', border: '2px solid #FFFFFF' }}>
-              <Plus className="h-4 w-4" style={{ color: '#16A34A' }} />
+              style={{ background: 'var(--success-soft)', border: '2px solid var(--surface-card)' }}>
+              <Plus className="h-4 w-4" style={{ color: 'var(--success)' }} />
             </div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No site logs yet</h3>
-            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-heading)' }}>No site logs yet</h3>
+            <p className="text-sm max-w-sm" style={{ color: 'var(--text-secondary)' }}>
               Site supervisors can send daily updates via WhatsApp, or you can add manual entries here.
             </p>
           </div>
@@ -288,34 +288,34 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
             return (
               <div key={log.id} className="rounded-2xl border p-5 transition-all hover:shadow-sm"
                 style={{
-                  background: '#FFFFFF',
-                  borderColor: log.delayFlag ? '#FECACA' : '#F0EEE9',
+                  background: 'var(--surface-card)',
+                  borderColor: log.delayFlag ? 'var(--danger-soft)' : 'var(--border-subtle)',
                   borderLeftWidth: 4,
-                  borderLeftColor: log.delayFlag ? '#EF4444' : log.progressPct !== null ? progressColor(log.progressPct) : '#E2DED5',
+                  borderLeftColor: log.delayFlag ? 'var(--danger)' : log.progressPct !== null ? progressColor(log.progressPct) : 'var(--border-strong)',
                 }}>
                 <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ background: '#F5F5F5' }}>
-                      <Calendar className="h-4 w-4" style={{ color: '#6B6459' }} />
+                      style={{ background: 'var(--surface-muted)' }}>
+                      <Calendar className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
                     </div>
                     <div>
-                      <p className="font-semibold" style={{ color: '#1C1916' }}>
+                      <p className="font-semibold" style={{ color: 'var(--text-heading)' }}>
                         {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </p>
-                      <p className="text-xs capitalize" style={{ color: '#A79E8E' }}>{log.source === 'whatsapp' ? 'via WhatsApp' : 'Manual entry'}</p>
+                      <p className="text-xs capitalize" style={{ color: 'var(--text-tertiary)' }}>{log.source === 'whatsapp' ? 'via WhatsApp' : 'Manual entry'}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {log.delayFlag && (
                       <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                        style={{ background: '#FEF2F2', color: '#DC2626' }}>
+                        style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
                         <AlertTriangle className="h-3 w-3" />Delay Flagged
                       </span>
                     )}
                     {log.stage && (
                       <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-                        style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
                         {log.stage}
                       </span>
                     )}
@@ -325,18 +325,18 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                 {/* Progress bar */}
                 {log.progressPct !== null && (
                   <div className="mb-3">
-                    <div className="flex justify-between text-xs mb-1" style={{ color: '#6B6459' }}>
+                    <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
                       <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />Progress</span>
                       <span className="font-semibold">{log.progressPct}%</span>
                     </div>
-                    <div className="h-2 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+                    <div className="h-2 w-full rounded-full" style={{ background: 'var(--border-subtle)' }}>
                       <div className="h-2 rounded-full transition-all"
                         style={{ width: `${log.progressPct}%`, background: progressColor(log.progressPct) }} />
                     </div>
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-4 text-sm mb-3" style={{ color: '#6B6459' }}>
+                <div className="flex flex-wrap gap-4 text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
                   {log.labourCount !== null && (
                     <span className="flex items-center gap-1.5">
                       <Users className="h-3.5 w-3.5" />{log.labourCount} workers on site
@@ -346,23 +346,23 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
 
                 {/* Transcript */}
                 {log.transcript && (
-                  <div className="rounded-xl p-3 mb-3" style={{ background: '#FAFAF8' }}>
-                    <p className="text-xs font-medium mb-1 flex items-center gap-1" style={{ color: '#6B6459' }}>
+                  <div className="rounded-xl p-3 mb-3" style={{ background: 'var(--surface-muted)' }}>
+                    <p className="text-xs font-medium mb-1 flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
                       <FileText className="h-3 w-3" />Notes
                     </p>
-                    <p className="text-sm line-clamp-3" style={{ color: '#1C1916' }}>{log.transcript}</p>
+                    <p className="text-sm line-clamp-3" style={{ color: 'var(--text-heading)' }}>{log.transcript}</p>
                   </div>
                 )}
 
                 {/* Blockers */}
                 {blockers.length > 0 && (
-                  <div className="rounded-xl p-3 mb-3" style={{ background: '#FEF2F2' }}>
-                    <p className="text-xs font-medium mb-2 flex items-center gap-1" style={{ color: '#DC2626' }}>
+                  <div className="rounded-xl p-3 mb-3" style={{ background: 'var(--danger-soft)' }}>
+                    <p className="text-xs font-medium mb-2 flex items-center gap-1" style={{ color: 'var(--danger)' }}>
                       <AlertTriangle className="h-3 w-3" />Blockers
                     </p>
                     <ul className="space-y-1">
                       {blockers.map((b, i) => (
-                        <li key={i} className="text-sm flex items-start gap-2" style={{ color: '#B91C1C' }}>
+                        <li key={i} className="text-sm flex items-start gap-2" style={{ color: 'var(--danger-text)' }}>
                           <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-red-400 flex-shrink-0" />{b}
                         </li>
                       ))}
@@ -376,7 +376,7 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                     {log.photos.slice(0, 4).map((url, i) => (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                         className="relative group h-16 w-16 rounded-xl overflow-hidden border"
-                        style={{ borderColor: '#E2DED5' }}>
+                        style={{ borderColor: 'var(--border-strong)' }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt={`Site photo ${i + 1}`} className="h-full w-full object-cover" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center transition-all">
@@ -386,7 +386,7 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
                     ))}
                     {log.photos.length > 4 && (
                       <div className="h-16 w-16 rounded-xl flex items-center justify-center text-xs font-medium"
-                        style={{ background: '#F0EEE9', color: '#6B6459' }}>
+                        style={{ background: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
                         <ImageIcon className="h-4 w-4 mb-0.5" />+{log.photos.length - 4}
                       </div>
                     )}

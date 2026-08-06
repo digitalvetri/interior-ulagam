@@ -30,7 +30,7 @@ const COLOR_CLASSES: Record<CalendarEvent['color'], { chip: string; dot: string 
   amber:  { chip: 'bg-amber-100 text-amber-800 hover:bg-amber-200',        dot: 'bg-amber-500'   },
   violet: { chip: 'bg-violet-100 text-violet-800 hover:bg-violet-200',     dot: 'bg-violet-500'  },
   rose:   { chip: 'bg-rose-100 text-rose-800 hover:bg-rose-200',           dot: 'bg-rose-500'    },
-  slate:  { chip: 'bg-slate-100 text-slate-700 hover:bg-slate-200',        dot: 'bg-slate-400'   },
+  slate:  { chip: 'bg-[var(--surface-muted)] text-[var(--text-primary)] hover:bg-[var(--surface-hover)]',        dot: 'bg-slate-400'   },
 };
 
 const SOURCE_ICON: Record<CalendarEvent['source'], typeof CalendarDays> = {
@@ -99,7 +99,7 @@ export default function CalendarPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Toolbar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-3 ">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
             Today
@@ -108,23 +108,23 @@ export default function CalendarPage() {
             <button
               onClick={() => shift(-1)}
               aria-label="Previous"
-              className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800"
+              className="rounded p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-heading)] "
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={() => shift(1)}
               aria-label="Next"
-              className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-800"
+              className="rounded p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-heading)] "
             >
               <ChevronRight className="h-5 w-5" />
             </button>
           </div>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-50">{title}</h1>
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+          <h1 className="text-lg font-semibold text-[var(--text-heading)] ">{title}</h1>
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-[var(--text-tertiary)]" />}
         </div>
 
-        <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] p-0.5 text-xs ">
           {(['week', 'month'] as const).map((v) => (
             <button
               key={v}
@@ -132,8 +132,8 @@ export default function CalendarPage() {
               className={
                 'rounded px-3 py-1 font-medium capitalize transition-colors ' +
                 (view === v
-                  ? 'bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+                  ? 'bg-[var(--surface-card)] text-white '
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
               }
             >
               {v}
@@ -148,7 +148,7 @@ export default function CalendarPage() {
           : <WeekView  anchor={anchor} eventsByDay={eventsByDay} />}
       </div>
 
-      <footer className="flex flex-wrap items-center gap-4 border-t border-slate-200 bg-white px-6 py-2 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950">
+      <footer className="flex flex-wrap items-center gap-4 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-6 py-2 text-xs text-[var(--text-secondary)] ">
         <Legend color="blue"   label="Site visit"      />
         <Legend color="green"  label="Call / WhatsApp" />
         <Legend color="violet" label="Meeting"         />
@@ -173,9 +173,9 @@ function MonthView({
 
   return (
     <div className="flex h-full min-h-[600px] flex-col">
-      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid grid-cols-7 border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)] ">
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
-          <div key={d} className="border-r border-slate-200 px-2 py-2 last:border-r-0 dark:border-slate-800">
+          <div key={d} className="border-r border-[var(--border-subtle)] px-2 py-2 last:border-r-0 ">
             {d}
           </div>
         ))}
@@ -194,10 +194,10 @@ function MonthView({
             <div
               key={i}
               className={
-                'group relative min-h-[110px] overflow-hidden p-1.5 text-xs transition-colors hover:bg-slate-50 dark:hover:bg-slate-900 ' +
-                (isLastCol ? '' : 'border-r border-slate-200 dark:border-slate-800 ') +
-                (isLastRow ? '' : 'border-b border-slate-200 dark:border-slate-800 ') +
-                (dim ? 'bg-slate-50/40 dark:bg-slate-950/40' : 'bg-white dark:bg-slate-950')
+                'group relative min-h-[110px] overflow-hidden p-1.5 text-xs transition-colors hover:bg-[var(--surface-muted)] ' +
+                (isLastCol ? '' : 'border-r border-[var(--border-subtle)] ') +
+                (isLastRow ? '' : 'border-b border-[var(--border-subtle)] ') +
+                (dim ? 'bg-slate-50/40 /40' : 'bg-[var(--surface-card)] ')
               }
             >
               <div className="mb-1 flex items-center justify-between">
@@ -207,8 +207,8 @@ function MonthView({
                     (today
                       ? 'bg-blue-600 text-white'
                       : dim
-                        ? 'text-slate-400'
-                        : 'text-slate-700 dark:text-slate-300')
+                        ? 'text-[var(--text-tertiary)]'
+                        : 'text-[var(--text-primary)] ')
                   }
                 >
                   {day.getDate()}
@@ -220,7 +220,7 @@ function MonthView({
                   <MonthEventChip key={ev.id} ev={ev} />
                 ))}
                 {dayEvents.length > 3 && (
-                  <span className="block px-1 text-[10px] font-medium text-slate-500">
+                  <span className="block px-1 text-[10px] font-medium text-[var(--text-secondary)]">
                     +{dayEvents.length - 3} more
                   </span>
                 )}
@@ -268,22 +268,22 @@ function WeekView({
 
   return (
     <div className="flex h-full min-h-[600px] flex-col">
-      <div className="sticky top-0 z-10 grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
+      <div className="sticky top-0 z-10 grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-[var(--border-subtle)] bg-[var(--surface-card)] ">
         <div />
         {days.map((d) => {
           const today = isToday(d);
           return (
             <div
               key={d.toISOString()}
-              className="border-l border-slate-200 px-2 py-3 text-center dark:border-slate-800"
+              className="border-l border-[var(--border-subtle)] px-2 py-3 text-center "
             >
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="text-[11px] uppercase tracking-wide text-[var(--text-secondary)]">
                 {d.toLocaleDateString('en-IN', { weekday: 'short' })}
               </div>
               <div
                 className={
                   'mx-auto mt-1 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ' +
-                  (today ? 'bg-blue-600 text-white' : 'text-slate-800 dark:text-slate-100')
+                  (today ? 'bg-blue-600 text-white' : 'text-[var(--text-heading)] ')
                 }
               >
                 {d.getDate()}
@@ -300,9 +300,9 @@ function WeekView({
               <div
                 key={h}
                 style={{ height: HOUR_H }}
-                className="relative border-b border-slate-100 pr-2 text-right text-[11px] text-slate-400 dark:border-slate-800"
+                className="relative border-b border-[var(--border-subtle)] pr-2 text-right text-[11px] text-[var(--text-tertiary)] "
               >
-                <span className="absolute -top-2 right-2 bg-white px-0.5 dark:bg-slate-950">
+                <span className="absolute -top-2 right-2 bg-[var(--surface-card)] px-0.5 ">
                   {formatHour(h)}
                 </span>
               </div>
@@ -315,13 +315,13 @@ function WeekView({
             return (
               <div
                 key={day.toISOString()}
-                className="relative border-l border-slate-200 dark:border-slate-800"
+                className="relative border-l border-[var(--border-subtle)] "
               >
                 {hours.map((h) => (
                   <div
                     key={h}
                     style={{ height: HOUR_H }}
-                    className="border-b border-slate-100 dark:border-slate-800"
+                    className="border-b border-[var(--border-subtle)] "
                   />
                 ))}
                 {dayEvents.map((ev) => (

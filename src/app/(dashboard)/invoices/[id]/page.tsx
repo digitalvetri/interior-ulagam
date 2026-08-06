@@ -96,12 +96,12 @@ export default function InvoiceDetailPage({
   }
 
   if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Loading invoice…</div>;
+    return <div className="p-6 text-sm text-[var(--text-secondary)]">Loading invoice…</div>;
   }
   if (notFound || !detail) {
     return (
       <div className="p-6">
-        <Link href="/invoices" className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900">
+        <Link href="/invoices" className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-heading)]">
           <ArrowLeft className="h-4 w-4" /> Back to invoices
         </Link>
         <p className="mt-4 text-sm text-red-600">Invoice not found.</p>
@@ -123,7 +123,7 @@ export default function InvoiceDetailPage({
       {/* Back */}
       <Link
         href="/invoices"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-heading)] dark:hover:text-white"
       >
         <ArrowLeft className="h-4 w-4" /> Back to invoices
       </Link>
@@ -131,10 +131,10 @@ export default function InvoiceDetailPage({
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-2xl font-bold text-[var(--text-heading)] dark:text-white">
             {invoice.invoiceNumber}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
             Issued {new Date(invoice.invoiceDate).toLocaleDateString('en-IN', {
               day: '2-digit', month: 'short', year: 'numeric',
             })}
@@ -151,7 +151,7 @@ export default function InvoiceDetailPage({
             )}
           </p>
           {sourceMilestone && (
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
               From milestone:{' '}
               <Link
                 href={`/projects/${sourceMilestone.projectId}/payments`}
@@ -180,8 +180,8 @@ export default function InvoiceDetailPage({
 
       {/* Summary grid: totals + GST */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 ">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
             Amount
           </h2>
           <dl className="mt-4 space-y-2 text-sm">
@@ -194,7 +194,7 @@ export default function InvoiceDetailPage({
                 <Row label="SGST (9%)" value={formatRupees(invoice.sgstPaise)} />
               </>
             )}
-            <div className="mt-2 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <div className="mt-2 border-t border-[var(--border-subtle)] pt-3 ">
               <Row label="Total" value={formatRupees(totalPaise)} strong />
             </div>
             <Row label="Paid" value={formatRupees(paidPaise)} tone={paidPaise > 0 ? 'pos' : 'default'} />
@@ -208,8 +208,8 @@ export default function InvoiceDetailPage({
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 ">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Tax details
             </h2>
             <dl className="mt-2 space-y-1 text-xs">
@@ -224,7 +224,7 @@ export default function InvoiceDetailPage({
                   alt="Invoice QR"
                   width={120}
                   height={120}
-                  className="rounded border border-gray-200 dark:border-gray-700"
+                  className="rounded border border-[var(--border-subtle)] "
                 />
               </div>
             )}
@@ -234,19 +234,20 @@ export default function InvoiceDetailPage({
 
       {/* Payments */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
           Payments
         </h2>
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+        <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] ">
           {payments.length === 0 ? (
-            <div className="flex items-center gap-3 p-5 text-sm text-gray-500">
-              <IndianRupee className="h-4 w-4 text-gray-400" />
+            <div className="flex items-center gap-3 p-5 text-sm text-[var(--text-secondary)]">
+              <IndianRupee className="h-4 w-4 text-[var(--text-tertiary)]" />
               No payments recorded yet.
             </div>
           ) : (
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] ">
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3 text-right">Amount</th>
                   <th className="px-4 py-3">Status</th>
@@ -258,11 +259,11 @@ export default function InvoiceDetailPage({
                 {payments.map((p: InvoicePayment) => {
                   const isManual = !!p.manualOverrideBy;
                   return (
-                    <tr key={p.id} className="border-b border-gray-100 last:border-b-0 dark:border-gray-800">
-                      <td className="px-4 py-3 text-gray-500">
+                    <tr key={p.id} className="border-b border-[var(--border-subtle)] last:border-b-0 ">
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">
                         {new Date(p.reconciledAt ?? p.createdAt).toLocaleDateString('en-IN')}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">
+                      <td className="px-4 py-3 text-right font-medium text-[var(--text-heading)] dark:text-white">
                         {formatRupees(p.amountPaise)}
                       </td>
                       <td className="px-4 py-3">
@@ -271,13 +272,13 @@ export default function InvoiceDetailPage({
                             'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ' +
                             (p.status === 'captured'
                               ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300')
+                              : 'bg-[var(--surface-muted)] text-[var(--text-primary)] ')
                           }
                         >
                           {p.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                      <td className="px-4 py-3 text-xs text-[var(--text-secondary)] ">
                         {isManual ? (
                           <span className="inline-flex items-center gap-1">Manual entry</span>
                         ) : p.razorpayPaymentId ? (
@@ -289,7 +290,7 @@ export default function InvoiceDetailPage({
                           'Payment link'
                         )}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
+                      <td className="px-4 py-3 text-xs text-[var(--text-secondary)] ">
                         {p.manualOverrideNote ?? '—'}
                       </td>
                     </tr>
@@ -297,6 +298,7 @@ export default function InvoiceDetailPage({
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
@@ -371,10 +373,10 @@ function Row({
       ? 'text-green-700 dark:text-green-400'
       : tone === 'warn'
       ? 'text-amber-700 dark:text-amber-400'
-      : 'text-gray-900 dark:text-white';
+      : 'text-[var(--text-heading)] dark:text-white';
   return (
     <div className="flex items-center justify-between">
-      <dt className={strong ? 'text-sm font-semibold text-gray-900 dark:text-white' : 'text-sm text-gray-500'}>
+      <dt className={strong ? 'text-sm font-semibold text-[var(--text-heading)] dark:text-white' : 'text-sm text-[var(--text-secondary)]'}>
         {label}
       </dt>
       <dd className={`text-sm ${strong ? 'font-semibold' : ''} ${valClass}`}>
@@ -387,8 +389,8 @@ function Row({
 function MetaRow({ label, value, monospace = false }: { label: string; value: string; monospace?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-3">
-      <dt className="text-gray-500">{label}</dt>
-      <dd className={`text-right text-gray-900 dark:text-white ${monospace ? 'font-mono' : ''}`}>
+      <dt className="text-[var(--text-secondary)]">{label}</dt>
+      <dd className={`text-right text-[var(--text-heading)] dark:text-white ${monospace ? 'font-mono' : ''}`}>
         {value}
       </dd>
     </div>

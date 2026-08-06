@@ -9,9 +9,9 @@ function formatMarginPct(pct: number | null): string {
 }
 
 function marginColor(pct: number): string {
-  if (pct >= 30) return '#16A34A';
-  if (pct >= 15) return '#D97706';
-  return '#DC2626';
+  if (pct >= 30) return 'var(--success)';
+  if (pct >= 15) return 'var(--warning)';
+  return 'var(--danger)';
 }
 
 function barWidth(pct: number): string {
@@ -23,17 +23,17 @@ function DesignerCard({ designer }: { designer: DesignerMetrics }) {
   const revisionWarn = avgRevisionCount !== null && avgRevisionCount > 2;
 
   const chips = [
-    { label: `Active: ${activeProjectCount}`,  bg: '#EFF6FF', color: '#1E40AF' },
-    { label: `Done: ${completedProjects}`,       bg: '#F0FDF4', color: '#14532D' },
+    { label: `Active: ${activeProjectCount}`,  bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
+    { label: `Done: ${completedProjects}`,       bg: 'var(--success-soft)', color: 'var(--success-text)' },
     {
       label: `Margin: ${formatMarginPct(avgMarginPct)}`,
-      bg: avgMarginPct === null ? '#F5F5F5' : avgMarginPct >= 30 ? '#F0FDF4' : avgMarginPct >= 15 ? '#FFFBEB' : '#FEF2F2',
+      bg: avgMarginPct === null ? 'var(--surface-muted)' : avgMarginPct >= 30 ? 'var(--success-soft)' : avgMarginPct >= 15 ? 'var(--warning-soft)' : 'var(--danger-soft)',
       color: avgMarginPct === null ? '#6B6B6B' : marginColor(avgMarginPct),
     },
     {
       label: `Revisions: ${avgRevisionCount !== null ? avgRevisionCount.toFixed(1) : '—'}${revisionWarn ? ' ⚠' : ''}`,
-      bg: revisionWarn ? '#FFF7ED' : '#F5F5F5',
-      color: revisionWarn ? '#EA580C' : '#6B6B6B',
+      bg: revisionWarn ? 'var(--warning-soft)' : 'var(--surface-muted)',
+      color: revisionWarn ? 'var(--warning)' : '#6B6B6B',
     },
   ];
 

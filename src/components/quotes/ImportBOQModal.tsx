@@ -175,23 +175,23 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
         className="w-full max-w-3xl max-h-[90vh] flex flex-col rounded-2xl shadow-2xl overflow-hidden"
-        style={{ background: '#FFFFFF', border: '1px solid #F0EEE9' }}>
+        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4"
-          style={{ borderBottom: '1px solid #F0EEE9' }}>
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
-              <FileSpreadsheet className="h-5 w-5" style={{ color: '#7C3AED' }} />
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <FileSpreadsheet className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />
             </div>
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Import BOQ</h2>
-              <p className="text-xs" style={{ color: '#A79E8E' }}>Upload Excel (.xlsx, .xls) or CSV</p>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Import BOQ</h2>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Upload Excel (.xlsx, .xls) or CSV</p>
             </div>
           </div>
           <button type="button" onClick={onClose}
-            className="inline-flex items-center rounded-lg p-2 transition-all hover:bg-gray-100"
-            style={{ color: '#6B6459' }}>
+            className="inline-flex items-center rounded-lg p-2 transition-all hover:bg-[var(--surface-muted)]"
+            style={{ color: 'var(--text-secondary)' }}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -202,13 +202,13 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
           {/* Success banner */}
           {imported ? (
             <div className="flex items-center gap-3 rounded-xl p-5"
-              style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-              <CheckCircle2 className="h-6 w-6 flex-shrink-0" style={{ color: '#16A34A' }} />
+              style={{ background: 'var(--success-soft)', border: '1px solid var(--success-soft)' }}>
+              <CheckCircle2 className="h-6 w-6 flex-shrink-0" style={{ color: 'var(--success)' }} />
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#14532D' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--success-text)' }}>
                   {validRows.length} line{validRows.length !== 1 ? 's' : ''} imported successfully!
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>Refreshing quotation…</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--success)' }}>Refreshing quotation…</p>
               </div>
             </div>
           ) : (
@@ -216,14 +216,14 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
               {/* Drop zone / file picker */}
               <div
                 className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed py-8 cursor-pointer transition-colors hover:border-violet-400"
-                style={{ borderColor: rows.length > 0 ? '#EDE9FE' : '#E5E0F8', background: rows.length > 0 ? '#FAFAF8' : undefined }}
+                style={{ borderColor: rows.length > 0 ? 'var(--accent-soft)' : '#E5E0F8', background: rows.length > 0 ? 'var(--surface-muted)' : undefined }}
                 onClick={() => fileRef.current?.click()}>
-                <Upload className="h-7 w-7" style={{ color: '#7C3AED' }} />
+                <Upload className="h-7 w-7" style={{ color: 'var(--accent-base)' }} />
                 <div className="text-center">
-                  <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
                     {fileName ?? 'Click to select file'}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                     {rows.length > 0 ? 'Click to replace with a different file' : '.xlsx, .xls, or .csv — first row must be headers'}
                   </p>
                 </div>
@@ -242,8 +242,8 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
 
               {/* Expected columns hint */}
               {rows.length === 0 && !parseError && (
-                <div className="rounded-xl p-4 text-xs space-y-2" style={{ background: '#FAFAF8', color: '#6B6459' }}>
-                  <p className="font-semibold text-sm" style={{ color: '#1C1916' }}>Expected column headers (case-insensitive):</p>
+                <div className="rounded-xl p-4 text-xs space-y-2" style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+                  <p className="font-semibold text-sm" style={{ color: 'var(--text-heading)' }}>Expected column headers (case-insensitive):</p>
                   <div className="grid grid-cols-2 gap-y-1.5">
                     <span><strong>Room</strong> — e.g. Kitchen, Living Room</span>
                     <span><strong>Item</strong> or Description — item name</span>
@@ -258,9 +258,9 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
               {/* Parse error */}
               {parseError && (
                 <div className="flex items-start gap-2 rounded-xl p-4"
-                  style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#DC2626' }} />
-                  <p className="text-sm" style={{ color: '#DC2626' }}>{parseError}</p>
+                  style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-soft)' }}>
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                  <p className="text-sm" style={{ color: 'var(--danger)' }}>{parseError}</p>
                 </div>
               )}
 
@@ -268,35 +268,35 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
               {rows.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold" style={{ color: '#1C1916' }}>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
                       {rows.length} rows parsed
                     </span>
                     {validRows.length > 0 && (
                       <span className="text-xs rounded-full px-2 py-0.5 font-semibold"
-                        style={{ background: '#F0FDF4', color: '#14532D' }}>
+                        style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
                         {validRows.length} valid
                       </span>
                     )}
                     {invalidRows.length > 0 && (
                       <span className="text-xs rounded-full px-2 py-0.5 font-semibold"
-                        style={{ background: '#FEF2F2', color: '#DC2626' }}>
+                        style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
                         {invalidRows.length} with errors — will be skipped
                       </span>
                     )}
                   </div>
 
-                  <div className="overflow-x-auto rounded-xl border" style={{ borderColor: '#F0EEE9' }}>
+                  <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border-subtle)' }}>
                     <table className="w-full text-xs">
                       <thead>
-                        <tr style={{ background: '#FAFAF8', borderBottom: '1px solid #F0EEE9' }}>
-                          <th className="px-3 py-2 text-left font-semibold w-10" style={{ color: '#A79E8E' }}>#</th>
-                          <th className="px-3 py-2 text-left font-semibold" style={{ color: '#A79E8E' }}>Room</th>
-                          <th className="px-3 py-2 text-left font-semibold" style={{ color: '#A79E8E' }}>Item</th>
-                          <th className="px-3 py-2 text-left font-semibold" style={{ color: '#A79E8E' }}>Unit</th>
-                          <th className="px-3 py-2 text-right font-semibold" style={{ color: '#A79E8E' }}>Qty</th>
-                          <th className="px-3 py-2 text-right font-semibold" style={{ color: '#A79E8E' }}>Cost ₹</th>
-                          <th className="px-3 py-2 text-right font-semibold" style={{ color: '#A79E8E' }}>Client ₹</th>
-                          <th className="px-3 py-2 text-left font-semibold" style={{ color: '#A79E8E' }}>Status</th>
+                        <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                          <th className="px-3 py-2 text-left font-semibold w-10" style={{ color: 'var(--text-tertiary)' }}>#</th>
+                          <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-tertiary)' }}>Room</th>
+                          <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-tertiary)' }}>Item</th>
+                          <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-tertiary)' }}>Unit</th>
+                          <th className="px-3 py-2 text-right font-semibold" style={{ color: 'var(--text-tertiary)' }}>Qty</th>
+                          <th className="px-3 py-2 text-right font-semibold" style={{ color: 'var(--text-tertiary)' }}>Cost ₹</th>
+                          <th className="px-3 py-2 text-right font-semibold" style={{ color: 'var(--text-tertiary)' }}>Client ₹</th>
+                          <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--text-tertiary)' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -304,35 +304,35 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
                           <tr
                             key={r.rowIndex}
                             style={{
-                              borderBottom: '1px solid #F0EEE9',
+                              borderBottom: '1px solid var(--border-subtle)',
                               background: r.errors.length > 0 ? '#FEF9F9' : undefined,
                             }}>
-                            <td className="px-3 py-2" style={{ color: '#A79E8E' }}>{r.rowIndex}</td>
-                            <td className="px-3 py-2" style={{ color: r.room ? '#1C1916' : '#EF4444' }}>
+                            <td className="px-3 py-2" style={{ color: 'var(--text-tertiary)' }}>{r.rowIndex}</td>
+                            <td className="px-3 py-2" style={{ color: r.room ? 'var(--text-heading)' : 'var(--danger)' }}>
                               {r.room || '—'}
                             </td>
-                            <td className="px-3 py-2 max-w-[200px] truncate" style={{ color: r.item ? '#1C1916' : '#EF4444' }}>
+                            <td className="px-3 py-2 max-w-[200px] truncate" style={{ color: r.item ? 'var(--text-heading)' : 'var(--danger)' }}>
                               {r.item || '—'}
                             </td>
-                            <td className="px-3 py-2" style={{ color: r.unit ? '#6B6459' : '#EF4444' }}>
+                            <td className="px-3 py-2" style={{ color: r.unit ? 'var(--text-secondary)' : 'var(--danger)' }}>
                               {r.unit || '—'}
                             </td>
-                            <td className="px-3 py-2 text-right" style={{ color: r.qty >= 1 ? '#1C1916' : '#EF4444' }}>
+                            <td className="px-3 py-2 text-right" style={{ color: r.qty >= 1 ? 'var(--text-heading)' : 'var(--danger)' }}>
                               {r.qty}
                             </td>
-                            <td className="px-3 py-2 text-right" style={{ color: '#1C1916' }}>
+                            <td className="px-3 py-2 text-right" style={{ color: 'var(--text-heading)' }}>
                               {formatRupees(r.costRatePaise)}
                             </td>
-                            <td className="px-3 py-2 text-right" style={{ color: '#1C1916' }}>
+                            <td className="px-3 py-2 text-right" style={{ color: 'var(--text-heading)' }}>
                               {formatRupees(r.clientRatePaise)}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap">
                               {r.errors.length > 0 ? (
-                                <span title={r.errors.join('; ')} style={{ color: '#DC2626' }}>
+                                <span title={r.errors.join('; ')} style={{ color: 'var(--danger)' }}>
                                   ✗ {r.errors[0]}{r.errors.length > 1 ? ` +${r.errors.length - 1}` : ''}
                                 </span>
                               ) : (
-                                <span style={{ color: '#16A34A' }}>✓ OK</span>
+                                <span style={{ color: 'var(--success)' }}>✓ OK</span>
                               )}
                             </td>
                           </tr>
@@ -346,9 +346,9 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
               {/* Import error */}
               {importError && (
                 <div className="flex items-start gap-2 rounded-xl p-4"
-                  style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#DC2626' }} />
-                  <p className="text-sm" style={{ color: '#DC2626' }}>{importError}</p>
+                  style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-soft)' }}>
+                  <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                  <p className="text-sm" style={{ color: 'var(--danger)' }}>{importError}</p>
                 </div>
               )}
             </>
@@ -358,16 +358,16 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
         {/* Footer */}
         {rows.length > 0 && !imported && (
           <div className="flex items-center justify-between px-6 py-4"
-            style={{ borderTop: '1px solid #F0EEE9', background: '#FAFAF8' }}>
-            <p className="text-xs" style={{ color: '#A79E8E' }}>
+            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {invalidRows.length > 0
                 ? `${invalidRows.length} row${invalidRows.length !== 1 ? 's' : ''} with errors will be skipped.`
                 : 'All rows valid — ready to import.'}
             </p>
             <div className="flex items-center gap-2">
               <button type="button" onClick={onClose}
-                className="inline-flex items-center rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-gray-50"
-                style={{ borderColor: '#F0EEE9', color: '#6B6459' }}>
+                className="inline-flex items-center rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)]"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
                 Cancel
               </button>
               <button
@@ -375,7 +375,7 @@ export function ImportBOQModal({ quoteId, onImported, onClose }: ImportBOQModalP
                 onClick={handleImport}
                 disabled={validRows.length === 0 || importing}
                 className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: '#7C3AED' }}>
+                style={{ background: 'var(--accent-base)' }}>
                 {importing ? 'Importing…' : `Import ${validRows.length} line${validRows.length !== 1 ? 's' : ''}`}
               </button>
             </div>

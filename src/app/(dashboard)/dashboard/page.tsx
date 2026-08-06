@@ -77,9 +77,9 @@ function StageBadge({ stage }: { stage: string }) {
   const map: Record<string, { label: string; bg: string; text: string }> = {
     planning:     { label: 'Planning',     bg: 'var(--surface-app)', text: 'var(--teal)' },
     design:       { label: 'Design',       bg: 'var(--accent-orange-bg)', text: '#C2410C' },
-    procurement:  { label: 'Procurement',  bg: 'var(--accent-blue-bg)', text: '#1D4ED8' },
+    procurement:  { label: 'Procurement',  bg: 'var(--accent-blue-bg)', text: 'var(--accent-text)' },
     execution:    { label: 'Execution',    bg: 'var(--teal-soft)', text: 'var(--teal)' },
-    complete:     { label: 'Complete',     bg: 'var(--accent-green-bg)',  text: '#15803D' },
+    complete:     { label: 'Complete',     bg: 'var(--accent-green-bg)',  text: 'var(--success-text)' },
   };
   const s = map[stage] ?? { label: stage, bg: 'var(--surface-muted)', text: 'var(--text-heading)' };
   return (
@@ -102,7 +102,7 @@ function QuickAction({
       href={href}
       className="group flex items-center gap-3 rounded-xl border p-4 transition-all duration-150 hover:-translate-y-0.5"
       style={{
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--surface-card)',
         borderColor: 'var(--border-subtle)',
         boxShadow: '0 1px 4px rgba(22,20,15,0.05)',
         color: 'var(--text-heading)',
@@ -304,12 +304,12 @@ export default function DashboardPage() {
               className="flex items-center gap-4 rounded-xl p-5"
               style={{ backgroundColor: 'var(--accent-green-bg)' }}
             >
-              <div className="flex h-11 w-11 items-center justify-center rounded-full flex-shrink-0" style={{ backgroundColor: '#FFFFFF' }}>
+              <div className="flex h-11 w-11 items-center justify-center rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--surface-card)' }}>
                 <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--accent-green)' }} />
               </div>
               <div>
-                <p className="text-sm font-bold" style={{ color: '#15803D' }}>All payments up to date.</p>
-                <p className="text-xs mt-0.5" style={{ color: '#166534' }}>Great job! No pending payments.</p>
+                <p className="text-sm font-bold" style={{ color: 'var(--success-text)' }}>All payments up to date.</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)' }}>Great job! No pending payments.</p>
               </div>
             </div>
           ) : (
@@ -364,7 +364,7 @@ function EmptyState({
       <div className="flex flex-col items-center justify-center py-10 text-center">
         <div className="relative mb-4" style={{ width: 72, height: 72 }}>
           <div className="absolute inset-0 rounded-2xl rotate-6" style={{ backgroundColor: 'var(--teal-soft)' }} />
-          <div className="absolute inset-0 rounded-2xl -rotate-3 flex items-center justify-center" style={{ backgroundColor: '#FFFFFF', border: '1px solid var(--border-subtle)' }}>
+          <div className="absolute inset-0 rounded-2xl -rotate-3 flex items-center justify-center" style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
             <Icon className="h-7 w-7" style={{ color: 'var(--teal)' }} />
           </div>
         </div>

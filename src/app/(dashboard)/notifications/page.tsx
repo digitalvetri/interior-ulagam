@@ -22,7 +22,7 @@ interface Notification {
 }
 
 const SEV: Record<Severity, { Icon: typeof Info; ring: string; bg: string; iconClass: string }> = {
-  info:     { Icon: Info,         ring: 'ring-slate-200 dark:ring-slate-700',    bg: 'bg-slate-50 dark:bg-slate-800/60',    iconClass: 'text-slate-500'    },
+  info:     { Icon: Info,         ring: 'ring-slate-200 dark:ring-slate-700',    bg: 'bg-[var(--surface-muted)] /60',    iconClass: 'text-[var(--text-secondary)]'    },
   success:  { Icon: CircleCheck,  ring: 'ring-emerald-200 dark:ring-emerald-800',bg: 'bg-emerald-50 dark:bg-emerald-950/40',iconClass: 'text-emerald-600'  },
   warning:  { Icon: AlertTriangle,ring: 'ring-amber-200 dark:ring-amber-800',   bg: 'bg-amber-50 dark:bg-amber-950/40',    iconClass: 'text-amber-600'    },
   critical: { Icon: AlertOctagon, ring: 'ring-red-200 dark:ring-red-800',       bg: 'bg-red-50 dark:bg-red-950/40',        iconClass: 'text-red-600'      },
@@ -79,9 +79,9 @@ export default function NotificationsPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
         <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900">
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--surface-card)] text-white ">
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
@@ -109,7 +109,7 @@ export default function NotificationsPage() {
       </header>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
+      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] px-6 py-3 ">
         {(['all', 'unread'] as const).map((f) => (
           <button
             key={f}
@@ -117,8 +117,8 @@ export default function NotificationsPage() {
             className={
               'inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium capitalize ' +
               (filter === f
-                ? 'bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900'
-                : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+                ? 'bg-[var(--surface-card)] text-white '
+                : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
             }
           >
             {f}
@@ -134,10 +134,10 @@ export default function NotificationsPage() {
       {/* List */}
       <div className="flex-1 overflow-auto p-6">
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-500">Loading notifications…</div>
+          <div className="p-12 text-center text-sm text-[var(--text-secondary)]">Loading notifications…</div>
         ) : filtered.length === 0 ? (
           <div className="mx-auto max-w-md p-16 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-tertiary)] ">
               <Bell className="h-7 w-7" />
             </div>
             <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
@@ -161,8 +161,8 @@ export default function NotificationsPage() {
                   className={
                     'group relative flex items-start gap-3 rounded-xl border p-4 shadow-sm transition-shadow hover:shadow-md ' +
                     (unread
-                      ? 'border-slate-300 bg-[var(--surface-card)] dark:border-slate-700'
-                      : 'border-slate-200 bg-transparent opacity-70 dark:border-slate-800')
+                      ? 'border-[var(--border-strong)] bg-[var(--surface-card)] '
+                      : 'border-[var(--border-subtle)] bg-transparent opacity-70 ')
                   }
                 >
                   {unread && (
@@ -179,7 +179,7 @@ export default function NotificationsPage() {
                       >
                         {n.title}
                       </h3>
-                      <span className="flex-shrink-0 text-[11px] tabular-nums text-slate-400">
+                      <span className="flex-shrink-0 text-[11px] tabular-nums text-[var(--text-tertiary)]">
                         {relativeTime(new Date(n.createdAt))}
                       </span>
                     </div>
@@ -198,14 +198,14 @@ export default function NotificationsPage() {
                     <button
                       onClick={() => toggleRead(n)}
                       title={unread ? 'Mark as read' : 'Mark as unread'}
-                      className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-800"
+                      className="rounded p-1.5 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-heading)] "
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => remove(n)}
                       title="Delete"
-                      className="rounded p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                      className="rounded p-1.5 text-[var(--text-secondary)] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

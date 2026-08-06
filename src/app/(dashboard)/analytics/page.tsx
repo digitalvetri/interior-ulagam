@@ -71,7 +71,7 @@ export default function AnalyticsOverviewPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-tertiary)]" />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export default function AnalyticsOverviewPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--text-heading)' }}>Analytics</h1>
           <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -96,7 +96,7 @@ export default function AnalyticsOverviewPage() {
         </div>
         <Link
           href="/analytics/designers"
-          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
+          className="inline-flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 py-1.5 text-xs font-medium hover:bg-[var(--surface-muted)] "
           style={{ color: 'var(--text-heading)' }}
         >
           Designer performance <ArrowRight className="h-3.5 w-3.5" />
@@ -138,10 +138,10 @@ export default function AnalyticsOverviewPage() {
 
         {/* Conversion + revenue trend row */}
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm ">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Lead conversion</h2>
-              <Percent className="h-4 w-4 text-slate-400" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Lead conversion</h2>
+              <Percent className="h-4 w-4 text-[var(--text-tertiary)]" />
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold" style={{ color: 'var(--text-heading)' }}>
@@ -157,12 +157,12 @@ export default function AnalyticsOverviewPage() {
                 </span>
               )}
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               {data.leads.won} won of {data.leads.won + data.leads.lost} decided
             </p>
 
             <div className="mt-4">
-              <div className="flex h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div className="flex h-2 overflow-hidden rounded-full bg-[var(--surface-muted)] ">
                 {data.leads.won > 0 && (
                   <div
                     className="bg-emerald-500"
@@ -176,22 +176,22 @@ export default function AnalyticsOverviewPage() {
                   />
                 )}
               </div>
-              <div className="mt-1.5 flex justify-between text-[10px] text-slate-500">
+              <div className="mt-1.5 flex justify-between text-[10px] text-[var(--text-secondary)]">
                 <span>Won</span><span>Lost</span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm ">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Quote win rate</h2>
-              <FileText className="h-4 w-4 text-slate-400" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Quote win rate</h2>
+              <FileText className="h-4 w-4 text-[var(--text-tertiary)]" />
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold" style={{ color: 'var(--text-heading)' }}>{data.quotes.winPct}%</span>
-              <span className="text-xs text-slate-500">of decided quotes</span>
+              <span className="text-xs text-[var(--text-secondary)]">of decided quotes</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               {data.quotes.approved} approved · {data.quotes.total} total
             </p>
 
@@ -199,8 +199,8 @@ export default function AnalyticsOverviewPage() {
               {data.quotes.byStatus.map((s) => (
                 <div key={s.status} className="flex items-center gap-2 text-xs">
                   <span className={'h-2 w-2 rounded-full ' + (QUOTE_STATUS_COLOR[s.status] ?? 'bg-slate-300')} />
-                  <span className="w-16 capitalize text-slate-600 dark:text-slate-300">{s.status}</span>
-                  <span className="ml-auto tabular-nums text-slate-500">{s.count}</span>
+                  <span className="w-16 capitalize text-[var(--text-secondary)] ">{s.status}</span>
+                  <span className="ml-auto tabular-nums text-[var(--text-secondary)]">{s.count}</span>
                   <span className="w-20 text-right tabular-nums font-medium" style={{ color: 'var(--text-heading)' }}>
                     {formatRupees(s.valuePaise)}
                   </span>
@@ -209,26 +209,26 @@ export default function AnalyticsOverviewPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800 lg:col-span-1">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm lg:col-span-1">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Collection ratio</h2>
-              <IndianRupee className="h-4 w-4 text-slate-400" />
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Collection ratio</h2>
+              <IndianRupee className="h-4 w-4 text-[var(--text-tertiary)]" />
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-bold" style={{ color: 'var(--text-heading)' }}>{paidRatio}%</span>
-              <span className="text-xs text-slate-500">collected</span>
+              <span className="text-xs text-[var(--text-secondary)]">collected</span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
               {formatRupees(data.finance.capturedPaise)} of {formatRupees(data.finance.totalInvoicedPaise)}
             </p>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-[var(--surface-muted)] ">
               <div
                 className="h-full rounded-full bg-emerald-500"
                 style={{ width: `${paidRatio}%` }}
               />
             </div>
             <div className="mt-3 flex items-center justify-between text-xs">
-              <span className="text-slate-500">Outstanding</span>
+              <span className="text-[var(--text-secondary)]">Outstanding</span>
               <span className="tabular-nums font-medium text-red-600">
                 {formatRupees(data.finance.outstandingPaise)}
               </span>
@@ -237,17 +237,17 @@ export default function AnalyticsOverviewPage() {
         </section>
 
         {/* Revenue trend sparkline */}
-        <section className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800">
+        <section className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm ">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Revenue — last 30 days</h2>
-              <p className="mt-1 text-xs text-slate-500">Daily captured payments</p>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Revenue — last 30 days</h2>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Daily captured payments</p>
             </div>
             <div className="text-right">
               <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
                 {formatRupees(data.trend30d.reduce((s, d) => s + d.amountPaise, 0))}
               </p>
-              <p className="text-[11px] text-slate-500">30-day total</p>
+              <p className="text-[11px] text-[var(--text-secondary)]">30-day total</p>
             </div>
           </div>
           <div className="flex h-32 items-end gap-1">
@@ -261,7 +261,7 @@ export default function AnalyticsOverviewPage() {
                   title={`${d.day}: ${formatRupees(d.amountPaise)}`}
                 >
                   {d.amountPaise > 0 && (
-                    <div className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-medium text-white group-hover:block">
+                    <div className="pointer-events-none absolute -top-6 left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded bg-[var(--surface-card)] px-1.5 py-0.5 text-[10px] font-medium text-white group-hover:block">
                       {formatRupees(d.amountPaise)}
                     </div>
                   )}
@@ -269,7 +269,7 @@ export default function AnalyticsOverviewPage() {
               );
             })}
           </div>
-          <div className="mt-2 flex justify-between text-[10px] text-slate-400">
+          <div className="mt-2 flex justify-between text-[10px] text-[var(--text-tertiary)]">
             <span>{data.trend30d[0]?.day}</span>
             <span>{data.trend30d[data.trend30d.length - 1]?.day}</span>
           </div>
@@ -277,8 +277,8 @@ export default function AnalyticsOverviewPage() {
 
         {/* Lead funnel + project pipeline */}
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Lead funnel</h2>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm ">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Lead funnel</h2>
             <Funnel
               stages={LEAD_STAGES.map((s) => {
                 const c = data.leads.byStage.find((r) => r.stage === s.key)?.count ?? 0;
@@ -287,8 +287,8 @@ export default function AnalyticsOverviewPage() {
             />
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-500">Project pipeline</h2>
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm ">
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Project pipeline</h2>
             <div className="space-y-3">
               {PROJECT_STAGES.map((s) => {
                 const c = data.projects.byStage.find((r) => r.stage === s.key)?.count ?? 0;
@@ -297,16 +297,16 @@ export default function AnalyticsOverviewPage() {
                   <div key={s.key}>
                     <div className="mb-1 flex items-center justify-between text-xs">
                       <span style={{ color: 'var(--text-heading)' }}>{s.label}</span>
-                      <span className="tabular-nums text-slate-500">{c}</span>
+                      <span className="tabular-nums text-[var(--text-secondary)]">{c}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                    <div className="h-2 overflow-hidden rounded-full bg-[var(--surface-muted)] ">
                       <div className={'h-full rounded-full ' + s.color} style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 );
               })}
               {data.projects.total === 0 && (
-                <p className="py-6 text-center text-xs text-slate-500">No projects yet.</p>
+                <p className="py-6 text-center text-xs text-[var(--text-secondary)]">No projects yet.</p>
               )}
             </div>
           </div>
@@ -334,15 +334,15 @@ function Kpi({
     emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
   }[accent];
   return (
-    <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-5 shadow-sm dark:border-slate-800">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 shadow-sm ">
       <div className="mb-3 flex items-center justify-between">
         <span className={'flex h-9 w-9 items-center justify-center rounded-lg ' + bg}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">{label}</p>
       <p className="mt-1 text-2xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{sub}</p>
+      <p className="mt-1 text-xs text-[var(--text-secondary)]">{sub}</p>
     </div>
   );
 }
@@ -359,10 +359,10 @@ function Funnel({ stages }: { stages: { label: string; count: number }[] }) {
                     : 'bg-slate-400';
         return (
           <div key={s.label} className="flex items-center gap-3">
-            <div className="w-24 flex-shrink-0 text-xs text-slate-600 dark:text-slate-400" style={{ opacity: isWonLost ? 1 : 0.9 }}>
+            <div className="w-24 flex-shrink-0 text-xs text-[var(--text-secondary)] " style={{ opacity: isWonLost ? 1 : 0.9 }}>
               {s.label}
             </div>
-            <div className="relative flex-1 rounded bg-slate-100 dark:bg-slate-800">
+            <div className="relative flex-1 rounded bg-[var(--surface-muted)] ">
               <div
                 className={'h-6 rounded ' + color}
                 style={{ width: `${Math.max(w, s.count > 0 ? 6 : 0)}%`, opacity: 0.15 + (i / stages.length) * 0.75 }}

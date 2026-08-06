@@ -12,10 +12,10 @@ import { Milestone, MilestonePaymentStatus } from '@/types/milestones';
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
 const STATUS_CONFIG: Record<MilestonePaymentStatus, { label: string; bg: string; color: string; dot: string }> = {
-  pending:   { label: 'Pending',   bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
-  link_sent: { label: 'Link Sent', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
-  paid:      { label: 'Paid',      bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
-  overdue:   { label: 'Overdue',   bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
+  pending:   { label: 'Pending',   bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+  link_sent: { label: 'Link Sent', bg: 'var(--accent-soft)', color: 'var(--accent-text)', dot: 'var(--accent-base)' },
+  paid:      { label: 'Paid',      bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  overdue:   { label: 'Overdue',   bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
 };
 
 function StatusBadge({ status }: { status: MilestonePaymentStatus }) {
@@ -86,38 +86,38 @@ function SendLinkModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#F5F3FF' }}>
-              <Send className="h-4 w-4" style={{ color: '#7C3AED' }} />
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <Send className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             </div>
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Send Payment Link</h2>
-              <p className="text-xs" style={{ color: '#A79E8E' }}>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Send Payment Link</h2>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {milestone.label} · {formatRupees(milestone.amountPaise)}
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
 
         {shortUrl ? (
           <div className="px-6 py-5 space-y-4">
             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-              style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}>
+              style={{ background: 'var(--success-soft)', border: '1px solid #86EFAC' }}>
               <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
               <span className="text-sm font-medium text-green-700">Payment link created!</span>
             </div>
-            <div className="rounded-xl border p-3" style={{ borderColor: '#F0EEE9', background: '#FAFAF8' }}>
-              <p className="text-xs mb-2" style={{ color: '#A79E8E' }}>Payment URL</p>
+            <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
+              <p className="text-xs mb-2" style={{ color: 'var(--text-tertiary)' }}>Payment URL</p>
               <div className="flex items-center gap-2">
-                <p className="flex-1 text-xs font-mono break-all" style={{ color: '#1C1916' }}>{shortUrl}</p>
+                <p className="flex-1 text-xs font-mono break-all" style={{ color: 'var(--text-heading)' }}>{shortUrl}</p>
                 <button type="button" onClick={handleCopy}
                   className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
-                  style={{ background: copied ? '#F0FDF4' : '#F5F3FF', color: copied ? '#14532D' : '#7C3AED' }}>
+                  style={{ background: copied ? 'var(--success-soft)' : 'var(--accent-soft)', color: copied ? 'var(--success-text)' : 'var(--accent-base)' }}>
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
@@ -141,19 +141,19 @@ function SendLinkModal({
                 </div>
                 <div>
                   <label className="studio-label block mb-1.5">
-                    Place of Supply <span style={{ color: '#A79E8E' }}>(optional)</span>
+                    Place of Supply <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
                   </label>
                   <input type="text" value={form.placeOfSupply} onChange={e => set('placeOfSupply', e.target.value)}
                     placeholder="Tamil Nadu" className="studio-input w-full text-sm" />
                 </div>
                 <label className="flex items-center gap-3 cursor-pointer px-1">
                   <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-                    style={{ background: form.isInterstate ? '#7C3AED' : '#D1D5DB' }}
+                    style={{ background: form.isInterstate ? 'var(--accent-base)' : 'var(--border-strong)' }}
                     onClick={() => set('isInterstate', !form.isInterstate)}>
-                    <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
+                    <div className="absolute top-1 w-4 h-4 bg-[var(--surface-card)] rounded-full transition-all"
                       style={{ left: form.isInterstate ? 22 : 4 }} />
                   </div>
-                  <span className="text-sm" style={{ color: '#1C1916' }}>Interstate supply (IGST 18%)</span>
+                  <span className="text-sm" style={{ color: 'var(--text-heading)' }}>Interstate supply (IGST 18%)</span>
                 </label>
               </div>
               {error && (
@@ -162,7 +162,7 @@ function SendLinkModal({
                 </div>
               )}
             </div>
-            <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+            <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
               <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
               <button type="button" onClick={handleSend} disabled={sending}
                 className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
@@ -216,21 +216,21 @@ function OverrideModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#FFFBEB' }}>
-              <Settings2 className="h-4 w-4" style={{ color: '#D97706' }} />
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--warning-soft)' }}>
+              <Settings2 className="h-4 w-4" style={{ color: 'var(--warning)' }} />
             </div>
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Manual Override</h2>
-              <p className="text-xs" style={{ color: '#A79E8E' }}>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Manual Override</h2>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {milestone.label} · {formatRupees(milestone.amountPaise)}
               </p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -241,9 +241,9 @@ function OverrideModal({
                 <button key={s} type="button" onClick={() => setNewStatus(s)}
                   className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium border-2 transition-all"
                   style={{
-                    borderColor: newStatus === s ? cfg.dot : '#E2DED5',
-                    background:  newStatus === s ? cfg.bg : '#FFFFFF',
-                    color:       newStatus === s ? cfg.color : '#6B6459',
+                    borderColor: newStatus === s ? cfg.dot : 'var(--border-strong)',
+                    background:  newStatus === s ? cfg.bg : 'var(--surface-card)',
+                    color:       newStatus === s ? cfg.color : 'var(--text-secondary)',
                   }}>
                   <span className="h-2 w-2 rounded-full" style={{ background: cfg.dot }} />
                   {cfg.label}
@@ -263,13 +263,13 @@ function OverrideModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
           <button type="button" onClick={handleOverride} disabled={saving}
             className="flex-1 py-2.5 text-sm font-medium rounded-xl transition-all"
             style={{
-              background: newStatus === 'overdue' ? '#DC2626' : '#7C3AED',
-              color: '#FFFFFF',
+              background: newStatus === 'overdue' ? 'var(--danger)' : 'var(--accent-base)',
+              color: 'var(--surface-card)',
               opacity: saving ? 0.7 : 1,
             }}>
             {saving ? 'Applying…' : 'Apply Override'}
@@ -335,15 +335,15 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
       {/* Back */}
       <Link href={`/projects/${projectId}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
-        style={{ color: '#6B6459' }}>
+        style={{ color: 'var(--text-secondary)' }}>
         <ArrowLeft className="h-4 w-4" />Project Overview
       </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Milestone Payments</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Milestone Payments</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             Track client payments and send payment links
           </p>
         </div>
@@ -352,33 +352,33 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
       {/* Summary cards */}
       {!loading && milestones.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Total Paid</p>
-            <p className="text-2xl font-bold" style={{ color: '#14532D' }}>{formatRupees(totalPaidPaise)}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>{paidCount} milestone{paidCount !== 1 ? 's' : ''}</p>
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Total Paid</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--success-text)' }}>{formatRupees(totalPaidPaise)}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{paidCount} milestone{paidCount !== 1 ? 's' : ''}</p>
           </div>
-          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Outstanding</p>
-            <p className="text-2xl font-bold" style={{ color: '#92400E' }}>{formatRupees(totalOutstandingPaise)}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>{milestones.length - paidCount} remaining</p>
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Outstanding</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--warning-text)' }}>{formatRupees(totalOutstandingPaise)}</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{milestones.length - paidCount} remaining</p>
           </div>
-          <div className="rounded-xl border p-4" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-            <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>Payment Progress</p>
+          <div className="rounded-xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Payment Progress</p>
             <div className="flex items-end gap-2 mb-2">
-              <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>
+              <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
                 {milestones.length > 0 ? Math.round((paidCount / milestones.length) * 100) : 0}%
               </p>
               {overdueCount > 0 && (
-                <span className="text-xs font-medium mb-0.5" style={{ color: '#DC2626' }}>
+                <span className="text-xs font-medium mb-0.5" style={{ color: 'var(--danger)' }}>
                   {overdueCount} overdue
                 </span>
               )}
             </div>
-            <div className="h-1.5 w-full rounded-full" style={{ background: '#F0EEE9' }}>
+            <div className="h-1.5 w-full rounded-full" style={{ background: 'var(--border-subtle)' }}>
               <div className="h-1.5 rounded-full"
                 style={{
                   width: `${milestones.length > 0 ? Math.round((paidCount / milestones.length) * 100) : 0}%`,
-                  background: '#16A34A',
+                  background: 'var(--success)',
                 }} />
             </div>
           </div>
@@ -396,22 +396,22 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
         <div className="flex flex-col items-center justify-center py-20 gap-5">
           <div className="relative">
             <div className="h-20 w-20 rounded-3xl flex items-center justify-center"
-              style={{ background: '#F0FDF4' }}>
-              <CreditCard className="h-10 w-10" style={{ color: '#16A34A' }} />
+              style={{ background: 'var(--success-soft)' }}>
+              <CreditCard className="h-10 w-10" style={{ color: 'var(--success)' }} />
             </div>
             <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
-              style={{ background: '#F5F3FF', border: '2px solid #FFFFFF' }}>
-              <Plus className="h-4 w-4" style={{ color: '#7C3AED' }} />
+              style={{ background: 'var(--accent-soft)', border: '2px solid var(--surface-card)' }}>
+              <Plus className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             </div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No milestones set up yet</h3>
-            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-heading)' }}>No milestones set up yet</h3>
+            <p className="text-sm max-w-sm" style={{ color: 'var(--text-secondary)' }}>
               Seed default milestones at 10% / 40% / 40% / 10% of the contract value to start collecting payments.
             </p>
           </div>
           {seedError && (
-            <p className="text-xs" style={{ color: '#DC2626' }}>{seedError}</p>
+            <p className="text-xs" style={{ color: 'var(--danger)' }}>{seedError}</p>
           )}
           <button type="button" onClick={handleSeedDefaults} disabled={seeding}
             className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
@@ -429,30 +429,30 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
             return (
               <div key={m.id} className="rounded-2xl border p-5 transition-all hover:shadow-sm"
                 style={{
-                  background: '#FFFFFF',
-                  borderColor: m.paymentStatus === 'overdue' ? '#FECACA' : '#F0EEE9',
+                  background: 'var(--surface-card)',
+                  borderColor: m.paymentStatus === 'overdue' ? 'var(--danger-soft)' : 'var(--border-subtle)',
                   borderLeftWidth: 4,
                   borderLeftColor: cfg.dot,
                 }}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="font-semibold" style={{ color: '#1C1916' }}>{m.label}</p>
+                    <p className="font-semibold" style={{ color: 'var(--text-heading)' }}>{m.label}</p>
                     <div className="flex items-center gap-3">
-                      <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>
+                      <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
                         {formatRupees(m.amountPaise)}
                       </p>
                       <span className="rounded-full px-2 py-0.5 text-xs font-medium"
-                        style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
                         {m.pctOfTotal}%
                       </span>
                     </div>
                     {m.paidAt && (
-                      <p className="text-xs" style={{ color: '#16A34A' }}>
+                      <p className="text-xs" style={{ color: 'var(--success)' }}>
                         Paid on {new Date(m.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </p>
                     )}
                     {m.triggerStage && (
-                      <p className="text-xs" style={{ color: '#A79E8E' }}>
+                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                         Trigger: {m.triggerStage.replace(/_/g, ' ')}
                       </p>
                     )}
@@ -462,7 +462,7 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
 
                 {m.paymentStatus !== 'paid' && (
                   <div className="flex flex-wrap gap-2 mt-4 pt-4"
-                    style={{ borderTop: '1px solid #F0EEE9' }}>
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     {canSend && (
                       <button type="button"
                         onClick={() => { setActiveMilestone(m); setSendOpen(true); }}
@@ -482,13 +482,13 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
 
                 {m.paymentStatus === 'paid' && (
                   <div className="flex items-center gap-2 mt-3 pt-3"
-                    style={{ borderTop: '1px solid #F0EEE9' }}>
-                    <CheckCircle2 className="h-4 w-4" style={{ color: '#16A34A' }} />
-                    <span className="text-sm font-medium" style={{ color: '#14532D' }}>Payment received</span>
+                    style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success)' }} />
+                    <span className="text-sm font-medium" style={{ color: 'var(--success-text)' }}>Payment received</span>
                     <button type="button"
                       onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
                       className="ml-auto text-xs font-medium transition-colors hover:underline"
-                      style={{ color: '#A79E8E' }}>
+                      style={{ color: 'var(--text-tertiary)' }}>
                       Override
                     </button>
                   </div>

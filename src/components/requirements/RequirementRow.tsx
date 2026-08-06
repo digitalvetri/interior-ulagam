@@ -86,7 +86,7 @@ export function RequirementRow({ room, onEdit, onDelete }: RequirementRowProps) 
           <button
             onClick={() => { setConfirmDelete(false); setError(null); }}
             disabled={deleting}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
+            className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] disabled:opacity-50"
           >
             Cancel
           </button>
@@ -100,38 +100,38 @@ export function RequirementRow({ room, onEdit, onDelete }: RequirementRowProps) 
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600">
+            <label className="block text-xs font-medium text-[var(--text-secondary)]">
               Room Name <span className="text-red-500">*</span>
             </label>
             <input type="text" required value={name} onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none" />
+              className="mt-1 block w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-card)] px-3 py-1.5 text-sm focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600">Style Preference</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)]">Style Preference</label>
             <input type="text" value={stylePreference}
               onChange={(e) => setStylePreference(e.target.value)}
               placeholder="e.g. Contemporary, Minimalist"
-              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none" />
+              className="mt-1 block w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-card)] px-3 py-1.5 text-sm focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600">Budget Band (₹)</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)]">Budget Band (₹)</label>
             <input type="number" min={0} value={budgetInput}
               onChange={(e) => setBudgetInput(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none" />
+              className="mt-1 block w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-card)] px-3 py-1.5 text-sm focus:outline-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600">Notes</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)]">Notes</label>
             <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none" />
+              className="mt-1 block w-full rounded-md border border-[var(--border-strong)] bg-[var(--surface-card)] px-3 py-1.5 text-sm focus:outline-none" />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button onClick={handleSave} disabled={saving || !name.trim()}
-              className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+              className="rounded-md bg-[var(--surface-card)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
               {saving ? 'Saving…' : 'Save'}
             </button>
             <button onClick={handleCancel} disabled={saving}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50">
+              className="rounded-md border border-[var(--border-strong)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] disabled:opacity-50">
               Cancel
             </button>
           </div>
@@ -141,27 +141,27 @@ export function RequirementRow({ room, onEdit, onDelete }: RequirementRowProps) 
   }
 
   return (
-    <div className="flex items-start justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="flex items-start justify-between rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 shadow-sm">
       <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm font-semibold text-gray-900">{room.name}</p>
+        <p className="text-sm font-semibold text-[var(--text-heading)]">{room.name}</p>
         {room.stylePreference && (
-          <p className="text-xs text-gray-500">Style: {room.stylePreference}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Style: {room.stylePreference}</p>
         )}
         {room.budgetBandPaise != null && (
-          <p className="text-xs text-gray-500">Budget: {formatRupees(room.budgetBandPaise)}</p>
+          <p className="text-xs text-[var(--text-secondary)]">Budget: {formatRupees(room.budgetBandPaise)}</p>
         )}
         {room.notes && (
-          <p className="text-xs text-gray-500">{room.notes}</p>
+          <p className="text-xs text-[var(--text-secondary)]">{room.notes}</p>
         )}
         {error && <p className="text-xs text-red-600 font-medium mt-1">{error}</p>}
       </div>
       <div className="ml-4 flex shrink-0 gap-2">
         <button onClick={() => setEditing(true)} aria-label="Edit"
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+          className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]">
           <Pencil className="h-4 w-4" />
         </button>
         <button onClick={() => setConfirmDelete(true)} aria-label="Delete"
-          className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600">
+          className="rounded p-1 text-[var(--text-tertiary)] hover:bg-red-50 hover:text-red-600">
           <Trash2 className="h-4 w-4" />
         </button>
       </div>

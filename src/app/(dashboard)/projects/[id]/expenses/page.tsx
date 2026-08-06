@@ -9,11 +9,11 @@ import type { Expense, ExpenseCategory } from '@/types/accounts';
 /* ── Category config ───────────────────────────────────────────────────────── */
 
 const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; bg: string; color: string; dot: string }> = {
-  petty_cash: { label: 'Petty Cash', bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
-  transport:  { label: 'Transport',  bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
-  labour:     { label: 'Labour',     bg: '#FFF7ED', color: '#C2410C', dot: '#F97316' },
-  material:   { label: 'Material',   bg: '#F5F3FF', color: '#6B21A8', dot: '#7C3AED' },
-  other:      { label: 'Other',      bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
+  petty_cash: { label: 'Petty Cash', bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+  transport:  { label: 'Transport',  bg: 'var(--accent-soft)', color: 'var(--accent-text)', dot: 'var(--accent-base)' },
+  labour:     { label: 'Labour',     bg: 'var(--warning-soft)', color: '#C2410C', dot: '#F97316' },
+  material:   { label: 'Material',   bg: 'var(--accent-soft)', color: '#6B21A8', dot: 'var(--accent-base)' },
+  other:      { label: 'Other',      bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
 };
 
 const ALL_CATEGORIES: ExpenseCategory[] = ['petty_cash', 'transport', 'labour', 'material', 'other'];
@@ -78,16 +78,16 @@ function LogExpenseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#FFF7ED' }}>
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--warning-soft)' }}>
               <Receipt className="h-4 w-4" style={{ color: '#F97316' }} />
             </div>
-            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Log Expense</h2>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Log Expense</h2>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -102,10 +102,10 @@ function LogExpenseModal({
                     className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border-2 transition-all"
                     style={{
                       borderColor: active ? cfg.dot : 'transparent',
-                      background: active ? cfg.bg : '#F5F5F5',
-                      color: active ? cfg.color : '#6B6459',
+                      background: active ? cfg.bg : 'var(--surface-muted)',
+                      color: active ? cfg.color : 'var(--text-secondary)',
                     }}>
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? cfg.dot : '#9CA3AF' }} />
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? cfg.dot : 'var(--text-tertiary)' }} />
                     {cfg.label}
                   </button>
                 );
@@ -114,7 +114,7 @@ function LogExpenseModal({
           </div>
           <div>
             <label className="studio-label block mb-1.5">
-              Amount (₹) <span style={{ color: '#A79E8E' }}>— stored as paise</span>
+              Amount (₹) <span style={{ color: 'var(--text-tertiary)' }}>— stored as paise</span>
             </label>
             <input type="number" min="0.01" step="0.01" placeholder="e.g. 1500"
               value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
@@ -128,7 +128,7 @@ function LogExpenseModal({
           </div>
           <div>
             <label className="studio-label block mb-1.5">
-              Receipt URL <span style={{ color: '#A79E8E' }}>(optional)</span>
+              Receipt URL <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
             </label>
             <input type="url" placeholder="https://…"
               value={receiptUrl} onChange={e => setReceiptUrl(e.target.value)}
@@ -140,7 +140,7 @@ function LogExpenseModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
           <button type="button" onClick={handleSubmit} disabled={submitting}
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
@@ -193,15 +193,15 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
       {/* Back */}
       <Link href={`/projects/${projectId}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
-        style={{ color: '#6B6459' }}>
+        style={{ color: 'var(--text-secondary)' }}>
         <ArrowLeft className="h-4 w-4" />Project Overview
       </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Project Expenses</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Track site and project expenditure</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Project Expenses</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>Track site and project expenditure</p>
         </div>
         <button type="button" onClick={() => setModalOpen(true)}
           className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm rounded-xl flex-shrink-0">
@@ -211,15 +211,15 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
 
       {/* Summary */}
       {!loading && expenses.length > 0 && (
-        <div className="rounded-2xl border p-5" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center justify-between mb-4">
-            <p className="font-semibold" style={{ color: '#1C1916' }}>Total Expenses</p>
-            <p className="text-2xl font-bold" style={{ color: '#1C1916' }}>{formatRupees(totalPaise)}</p>
+            <p className="font-semibold" style={{ color: 'var(--text-heading)' }}>Total Expenses</p>
+            <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>{formatRupees(totalPaise)}</p>
           </div>
           {categoryBreakdown.length > 1 && (
             <>
-              <div className="h-px mb-4" style={{ background: '#F0EEE9' }} />
-              <p className="text-xs font-medium mb-3" style={{ color: '#A79E8E' }}>BREAKDOWN BY CATEGORY</p>
+              <div className="h-px mb-4" style={{ background: 'var(--border-subtle)' }} />
+              <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-tertiary)' }}>BREAKDOWN BY CATEGORY</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {categoryBreakdown.map(({ category, totalPaise: catTotal }) => (
                   <div key={category} className="rounded-xl px-3 py-2.5 flex items-center justify-between"
@@ -246,24 +246,24 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
 
       ) : fetchError ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <AlertTriangle className="h-8 w-8" style={{ color: '#DC2626' }} />
-          <p className="text-sm" style={{ color: '#DC2626' }}>{fetchError}</p>
+          <AlertTriangle className="h-8 w-8" style={{ color: 'var(--danger)' }} />
+          <p className="text-sm" style={{ color: 'var(--danger)' }}>{fetchError}</p>
         </div>
 
       ) : expenses.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-5">
           <div className="relative">
-            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: '#FFF7ED' }}>
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: 'var(--warning-soft)' }}>
               <Receipt className="h-10 w-10" style={{ color: '#F97316' }} />
             </div>
             <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
-              style={{ background: '#F5F3FF', border: '2px solid #FFFFFF' }}>
-              <Plus className="h-4 w-4" style={{ color: '#7C3AED' }} />
+              style={{ background: 'var(--accent-soft)', border: '2px solid var(--surface-card)' }}>
+              <Plus className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             </div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No expenses logged yet</h3>
-            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-heading)' }}>No expenses logged yet</h3>
+            <p className="text-sm max-w-sm" style={{ color: 'var(--text-secondary)' }}>
               Track petty cash, transport, labour, and material costs to get a full picture of project spend.
             </p>
           </div>
@@ -274,36 +274,37 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
         </div>
 
       ) : (
-        <div className="rounded-2xl border overflow-hidden" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-          <table className="w-full text-sm">
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: '1px solid #F0EEE9', background: '#FAFAF8' }}>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Category</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Description</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: '#6B6459' }}>Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Logged Via</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Date</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: '#6B6459' }}>Receipt</th>
+              <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Category</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Description</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Logged Via</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Receipt</th>
               </tr>
             </thead>
             <tbody>
               {expenses.map((expense, idx) => (
                 <tr key={expense.id}
-                  className="transition-colors hover:bg-[#FAFAF8]"
-                  style={{ borderBottom: idx < expenses.length - 1 ? '1px solid #F0EEE9' : 'none' }}>
+                  className="transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ borderBottom: idx < expenses.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
                   <td className="px-4 py-3">
                     <CategoryBadge category={expense.category} />
                   </td>
-                  <td className="px-4 py-3" style={{ color: '#1C1916' }}>
-                    {expense.description ?? <span style={{ color: '#A79E8E' }}>—</span>}
+                  <td className="px-4 py-3" style={{ color: 'var(--text-heading)' }}>
+                    {expense.description ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold" style={{ color: '#1C1916' }}>
+                  <td className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-heading)' }}>
                     {formatRupees(expense.amountPaise)}
                   </td>
-                  <td className="px-4 py-3 capitalize text-xs" style={{ color: '#6B6459' }}>
+                  <td className="px-4 py-3 capitalize text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {expense.loggedVia}
                   </td>
-                  <td className="px-4 py-3 text-xs" style={{ color: '#6B6459' }}>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {new Date(expense.createdAt).toLocaleDateString('en-IN', {
                       day: '2-digit', month: 'short', year: 'numeric',
                     })}
@@ -312,21 +313,22 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
                     {expense.receiptUrl ? (
                       <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs font-medium hover:underline"
-                        style={{ color: '#7C3AED' }}>
+                        style={{ color: 'var(--accent-base)' }}>
                         <ExternalLink className="h-3 w-3" />View
                       </a>
                     ) : (
-                      <span className="text-xs" style={{ color: '#A79E8E' }}>—</span>
+                      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>—</span>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+            </div>
           {/* Footer total */}
-          <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '2px solid #F0EEE9', background: '#FAFAF8' }}>
-            <span className="text-sm font-semibold" style={{ color: '#6B6459' }}>Total</span>
-            <span className="text-base font-bold" style={{ color: '#1C1916' }}>{formatRupees(totalPaise)}</span>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</span>
+            <span className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>{formatRupees(totalPaise)}</span>
           </div>
         </div>
       )}

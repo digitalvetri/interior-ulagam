@@ -13,14 +13,14 @@ import { formatRupees } from '@/lib/utils';
 type LifecycleStage = Project['lifecycleStage'];
 
 const STAGE_STYLE: Record<LifecycleStage, { bg: string; color: string; label: string }> = {
-  design_pending:     { bg: '#EFF6FF', color: '#1E40AF', label: 'Design Pending' },
-  design_in_progress: { bg: '#FFF7ED', color: '#9A3412', label: 'In Progress' },
-  design_approved:    { bg: '#F0FDF4', color: '#14532D', label: 'Design Approved' },
-  procurement:        { bg: '#FEF3C7', color: '#92400E', label: 'Procurement' },
-  execution:          { bg: '#F5F3FF', color: '#6B21A8', label: 'Execution' },
+  design_pending:     { bg: 'var(--accent-soft)', color: 'var(--accent-text)', label: 'Design Pending' },
+  design_in_progress: { bg: 'var(--warning-soft)', color: '#9A3412', label: 'In Progress' },
+  design_approved:    { bg: 'var(--success-soft)', color: 'var(--success-text)', label: 'Design Approved' },
+  procurement:        { bg: 'var(--warning-soft)', color: 'var(--warning-text)', label: 'Procurement' },
+  execution:          { bg: 'var(--accent-soft)', color: '#6B21A8', label: 'Execution' },
   snagging:           { bg: '#FDF2F8', color: '#BE185D', label: 'Snagging' },
-  handover:           { bg: '#FEF2F2', color: '#991B1B', label: 'Handover' },
-  complete:           { bg: '#F0FDF4', color: '#14532D', label: 'Complete' },
+  handover:           { bg: 'var(--danger-soft)', color: 'var(--danger-text)', label: 'Handover' },
+  complete:           { bg: 'var(--success-soft)', color: 'var(--success-text)', label: 'Complete' },
 };
 
 interface NewProjectForm {
@@ -86,21 +86,21 @@ function LeadSelector({
         onClick={() => setOpen(o => !o)}
       >
         {value.id ? (
-          <span style={{ color: '#221F1B' }}>{value.label}</span>
+          <span style={{ color: 'var(--text-primary)' }}>{value.label}</span>
         ) : (
-          <span style={{ color: '#A79E8E' }}>Search and select a lead…</span>
+          <span style={{ color: 'var(--text-tertiary)' }}>Search and select a lead…</span>
         )}
       </div>
 
       {open && (
         <div
           className="absolute z-50 top-full left-0 right-0 mt-1 rounded-xl border overflow-hidden"
-          style={{ background: '#FFFFFF', border: '1px solid #E2DED5', boxShadow: '0 8px 24px rgba(22,20,15,0.12)' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-strong)', boxShadow: '0 8px 24px rgba(22,20,15,0.12)' }}
         >
           {/* Search box inside dropdown */}
-          <div className="p-2 border-b" style={{ borderColor: '#F0EEE9' }}>
+          <div className="p-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: '#A79E8E' }} />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
               <input
                 type="text"
                 value={search}
@@ -117,9 +117,9 @@ function LeadSelector({
           {/* Options */}
           <div className="max-h-52 overflow-y-auto">
             {loading ? (
-              <div className="px-4 py-3 text-sm" style={{ color: '#6B6459' }}>Loading leads…</div>
+              <div className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>Loading leads…</div>
             ) : filtered.length === 0 ? (
-              <div className="px-4 py-3 text-sm" style={{ color: '#6B6459' }}>
+              <div className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
                 {search ? 'No leads match your search.' : 'No leads found.'}
               </div>
             ) : (
@@ -131,19 +131,19 @@ function LeadSelector({
                   style={{ borderBottom: '1px solid #F0EBE5' }}
                   onClick={() => select(lead)}
                 >
-                  <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
                     {lead.contactName}
                   </p>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <span className="text-xs" style={{ color: '#6B6459' }}>{lead.contactPhone}</span>
+                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</span>
                     {lead.budgetBand && (
-                      <span className="text-xs font-medium" style={{ color: '#24211E' }}>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
                         {lead.budgetBand}
                       </span>
                     )}
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: '#F0EEE9', color: '#24211E' }}
+                      style={{ background: 'var(--border-subtle)', color: 'var(--text-primary)' }}
                     >
                       {lead.stage.replace(/_/g, ' ')}
                     </span>
@@ -160,15 +160,15 @@ function LeadSelector({
 
 /* ── Customer color palette — deterministic per name ─────────────────────── */
 const CUSTOMER_PALETTES = [
-  { bg: '#EDE9FE', color: '#6D28D9', ring: '#C4B5FD' }, // violet
-  { bg: '#DCFCE7', color: '#15803D', ring: '#86EFAC' }, // green
-  { bg: '#FEF3C7', color: '#92400E', ring: '#FCD34D' }, // amber
-  { bg: '#DBEAFE', color: '#1E40AF', ring: '#93C5FD' }, // blue
+  { bg: 'var(--accent-soft)', color: 'var(--accent-text)', ring: 'var(--accent-soft)' }, // violet
+  { bg: 'var(--success-soft)', color: 'var(--success-text)', ring: '#86EFAC' }, // green
+  { bg: 'var(--warning-soft)', color: 'var(--warning-text)', ring: '#FCD34D' }, // amber
+  { bg: 'var(--accent-soft)', color: 'var(--accent-text)', ring: '#93C5FD' }, // blue
   { bg: '#FCE7F3', color: '#9D174D', ring: '#F9A8D4' }, // pink
-  { bg: '#FEF2F2', color: '#991B1B', ring: '#FCA5A5' }, // red
+  { bg: 'var(--danger-soft)', color: 'var(--danger-text)', ring: '#FCA5A5' }, // red
   { bg: '#F0F9FF', color: '#0369A1', ring: '#7DD3FC' }, // sky
-  { bg: '#FFF7ED', color: '#9A3412', ring: '#FDBA74' }, // orange
-  { bg: '#F0FDF4', color: '#065F46', ring: '#6EE7B7' }, // emerald
+  { bg: 'var(--warning-soft)', color: '#9A3412', ring: '#FDBA74' }, // orange
+  { bg: 'var(--success-soft)', color: 'var(--success-text)', ring: '#6EE7B7' }, // emerald
   { bg: '#FDF2F8', color: '#BE185D', ring: '#F0ABFC' }, // fuchsia
 ];
 
@@ -217,7 +217,7 @@ function ProjectCard({ project }: { project: ProjectWithContext }) {
 
         {/* Project name + stage badge */}
         <div className="flex items-start justify-between gap-2 mb-3">
-          <h3 className="text-sm font-bold leading-snug" style={{ color: '#221F1B' }}>
+          <h3 className="text-sm font-bold leading-snug" style={{ color: 'var(--text-primary)' }}>
             {project.name}
           </h3>
           <span
@@ -233,7 +233,7 @@ function ProjectCard({ project }: { project: ProjectWithContext }) {
             {formatRupees(project.totalContractPaise)}
           </p>
         )}
-        <p className="text-xs" style={{ color: '#A79E8E' }}>
+        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
           Created {new Date(project.createdAt).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short', year: 'numeric',
           })}
@@ -328,8 +328,8 @@ export default function ProjectsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Projects</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Projects</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             {projects.length} {projects.length === 1 ? 'project' : 'projects'}
           </p>
         </div>
@@ -346,15 +346,15 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <div
           className="flex h-52 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed"
-          style={{ borderColor: '#F0EEE9' }}
+          style={{ borderColor: 'var(--border-subtle)' }}
         >
           <div
             className="h-14 w-14 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(36,33,30,0.08)' }}
           >
-            <FolderKanban className="h-7 w-7" style={{ color: '#E2DED5' }} />
+            <FolderKanban className="h-7 w-7" style={{ color: 'var(--border-strong)' }} />
           </div>
-          <p className="text-sm" style={{ color: '#6B6459' }}>No projects yet.</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No projects yet.</p>
           <button type="button" onClick={openDialog} className="btn-secondary px-4 py-2 text-sm">
             Create your first project
           </button>
@@ -369,7 +369,7 @@ export default function ProjectsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle style={{ color: '#1C1916' }}>New Project</DialogTitle>
+            <DialogTitle style={{ color: 'var(--text-heading)' }}>New Project</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
@@ -411,7 +411,7 @@ export default function ProjectsPage() {
             <div className="space-y-1.5">
               <label className="studio-label block" htmlFor="proj-contract">
                 Total Contract ₹
-                <span className="ml-1 text-[11px] font-normal" style={{ color: '#A79E8E' }}>(optional)</span>
+                <span className="ml-1 text-[11px] font-normal" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
               </label>
               <input
                 id="proj-contract"
@@ -424,7 +424,7 @@ export default function ProjectsPage() {
                 className="studio-input w-full text-sm"
               />
               {form.totalContractRupees && Number(form.totalContractRupees) > 0 && (
-                <p className="text-xs" style={{ color: '#24211E' }}>
+                <p className="text-xs" style={{ color: 'var(--text-primary)' }}>
                   = ₹{Number(form.totalContractRupees).toLocaleString('en-IN')}
                 </p>
               )}

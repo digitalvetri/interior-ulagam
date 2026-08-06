@@ -44,14 +44,14 @@ function NavGroupSection({
         >
           <span
             className="text-[10.5px] font-semibold uppercase tracking-[0.08em]"
-            style={{ color: groupHasActive ? '#7C5CFC' : '#9CA3AF' }}
+            style={{ color: groupHasActive ? 'var(--accent-base)' : 'var(--text-tertiary)' }}
           >
             {group.label}
           </span>
           <ChevronDown
             className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-all duration-150"
             style={{
-              color: '#9CA3AF',
+              color: 'var(--text-tertiary)',
               transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
             }}
           />
@@ -59,7 +59,7 @@ function NavGroupSection({
       )}
 
       {/* Divider in icon-only mode */}
-      {iconOnly && <div className="mx-2 my-2 h-px bg-gray-100" />}
+      {iconOnly && <div className="mx-2 my-2 h-px bg-[var(--surface-muted)]" />}
 
       {/* Nav items */}
       {(open || iconOnly) && (
@@ -74,23 +74,23 @@ function NavGroupSection({
                 title={iconOnly ? label : undefined}
                 className={`nav-item ${active ? 'active' : ''}`}
                 style={{
-                  padding: iconOnly ? '9px 0' : '7px 10px',
+                  padding: iconOnly ? '11px 0' : '9px 12px',
                   justifyContent: iconOnly ? 'center' : 'flex-start',
-                  gap: iconOnly ? 0 : 9,
+                  gap: iconOnly ? 0 : 11,
                 }}
               >
                 {/* Active left indicator */}
                 {active && !iconOnly && (
                   <span
                     className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                    style={{ backgroundColor: '#7C5CFC' }}
+                    style={{ backgroundColor: 'var(--accent-base)' }}
                   />
                 )}
 
-                <Icon className="nav-icon flex-shrink-0" style={{ width: 16, height: 16 }} />
+                <Icon className="nav-icon flex-shrink-0" style={{ width: 17, height: 17 }} />
 
                 {!iconOnly && (
-                  <span className="flex-1 text-[13px] font-medium leading-none">{label}</span>
+                  <span className="flex-1 text-[13.5px] font-medium leading-none">{label}</span>
                 )}
               </Link>
             );
@@ -116,7 +116,7 @@ function SidebarBody({
     <>
       {/* ── Logo ─────────────────────────────────────────────────────── */}
       <div
-        className="flex h-[60px] flex-shrink-0 items-center border-b border-gray-100"
+        className="flex h-[60px] flex-shrink-0 items-center border-b border-[var(--border-subtle)]"
         style={{ padding: iconOnly ? '0 12px' : '0 16px', gap: iconOnly ? 0 : 10, justifyContent: iconOnly ? 'center' : 'flex-start' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -128,8 +128,8 @@ function SidebarBody({
         />
         {!iconOnly && (
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-[13px] font-bold text-gray-900">The Interior Studio</p>
-            <p className="text-[10px] font-medium text-gray-400">Studio OS</p>
+            <p className="truncate text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>The Interior Studio</p>
+            <p className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Studio OS</p>
           </div>
         )}
       </div>
@@ -139,7 +139,7 @@ function SidebarBody({
         <div className="px-4 pt-3 pb-0">
           <span
             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: '#EDE9FE', color: '#6D4FE0' }}
+            style={{ backgroundColor: 'var(--accent-soft)', color: '#6D4FE0' }}
           >
             {ROLE_LABELS[role] ?? role}
           </span>
@@ -164,26 +164,26 @@ function SidebarBody({
       </nav>
 
       {/* ── User footer ──────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 border-t border-gray-100 p-3">
+      <div className="flex-shrink-0 border-t border-[var(--border-subtle)] p-3">
         <div
           className={`flex items-center rounded-xl p-2 ${iconOnly ? 'justify-center' : 'gap-2.5'}`}
-          style={{ backgroundColor: '#F7F7FB' }}
+          style={{ backgroundColor: 'var(--surface-muted)' }}
         >
           <div
             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-            style={{ backgroundColor: '#7C5CFC' }}
+            style={{ backgroundColor: 'var(--accent-base)' }}
           >
             {initials}
           </div>
           {!iconOnly && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-gray-800">{fullName || 'Account'}</p>
-              <p className="text-[10px] text-gray-400">{ROLE_LABELS[role] ?? (role || '—')}</p>
+              <p className="truncate text-[12px] font-semibold text-[var(--text-heading)]">{fullName || 'Account'}</p>
+              <p className="text-[10px] text-[var(--text-tertiary)]">{ROLE_LABELS[role] ?? (role || '—')}</p>
             </div>
           )}
         </div>
         {!iconOnly && (
-          <p className="mt-2 px-1 text-[10px] text-gray-300">Built by DigitalVetri</p>
+          <p className="mt-2 px-1 text-[10px] text-[var(--text-tertiary)]">Built by DigitalVetri</p>
         )}
       </div>
     </>
@@ -239,16 +239,16 @@ export function Sidebar() {
   return (
     <>
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-gray-100 bg-white px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-card)] px-4">
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/logo-icon.png" alt="" className="h-7 w-7 rounded object-contain" width={28} height={28} />
-          <span className="text-sm font-bold text-gray-900">Interior Studio</span>
+          <span className="text-sm font-bold text-[var(--text-heading)]">Interior Studio</span>
         </div>
         <button
           type="button"
           onClick={() => setMobileOpen(o => !o)}
-          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+          className="rounded-lg p-2 text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-heading)] transition-colors"
           aria-label="Toggle menu"
           suppressHydrationWarning
         >
@@ -277,7 +277,7 @@ export function Sidebar() {
 
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside
-        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[64px]' : 'w-[220px]'}`}
+        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
         <SidebarBody
           role={role} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
@@ -288,12 +288,12 @@ export function Sidebar() {
           type="button"
           onClick={toggleIconOnly}
           aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-md border border-gray-200 hover:border-violet-300 transition-all"
+          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--surface-card)] shadow-md border border-[var(--border-subtle)] hover:border-violet-300 transition-all"
           suppressHydrationWarning
         >
           {iconOnly
-            ? <ChevronRight className="h-3 w-3 text-gray-500" />
-            : <ChevronLeft  className="h-3 w-3 text-gray-500" />
+            ? <ChevronRight className="h-3 w-3 text-[var(--text-secondary)]" />
+            : <ChevronLeft  className="h-3 w-3 text-[var(--text-secondary)]" />
           }
         </button>
       </aside>

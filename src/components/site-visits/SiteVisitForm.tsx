@@ -88,8 +88,8 @@ export function SiteVisitForm({ leadId, onSuccess }: SiteVisitFormProps) {
     );
   }
 
-  const inputCls = 'mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white';
-  const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300';
+  const inputCls = 'mt-1 block w-full rounded-lg border border-[var(--border-strong)] bg-[var(--surface-card)] px-3 py-2 text-sm shadow-sm focus:border-[var(--border-strong)] focus:outline-none focus:ring-1 focus:ring-gray-400 dark:text-white';
+  const labelCls = 'block text-sm font-medium text-[var(--text-primary)] ';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -162,7 +162,7 @@ export function SiteVisitForm({ leadId, onSuccess }: SiteVisitFormProps) {
       <button
         type="submit"
         disabled={loading}
-        className="rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:opacity-50 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+        className="rounded-lg bg-[var(--surface-card)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 disabled:opacity-50 dark:bg-[var(--surface-card)] "
       >
         {loading ? 'Scheduling…' : 'Schedule Site Visit'}
       </button>

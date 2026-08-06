@@ -45,8 +45,8 @@ function getRottingStatus(lastActivityAt: string): RottingStatus {
 
 const ROTTING_RING: Record<RottingStatus, string> = {
   fresh:   'transparent',
-  stale:   '#F59E0B',
-  rotting: '#EF4444',
+  stale:   'var(--warning)',
+  rotting: 'var(--danger)',
 };
 
 type FollowUpUrgency = 'overdue' | 'today' | 'upcoming' | null;
@@ -54,9 +54,9 @@ type FollowUpUrgency = 'overdue' | 'today' | 'upcoming' | null;
 // ── Score arc (SVG) ──────────────────────────────────────────────────────────
 
 function scoreColor(score: number): string {
-  if (score >= 70) return '#16A34A'; // green
-  if (score >= 40) return '#EA580C'; // amber
-  return '#6B7280';                   // grey
+  if (score >= 70) return 'var(--success)'; // green
+  if (score >= 40) return 'var(--warning)'; // amber
+  return 'var(--text-secondary)';                   // grey
 }
 
 function ScoreArc({ score, breakdown }: { score: number; breakdown?: ScoreBreakdown }) {
@@ -74,7 +74,7 @@ function ScoreArc({ score, breakdown }: { score: number; breakdown?: ScoreBreakd
     <div title={tooltip} className="flex flex-col items-center flex-shrink-0" style={{ width: 32, height: 32 }}>
       <svg width="32" height="32" viewBox="0 0 32 32" style={{ transform: 'rotate(-90deg)' }}>
         {/* Track */}
-        <circle cx="16" cy="16" r={r} fill="none" stroke="#E5E7EB" strokeWidth="3" />
+        <circle cx="16" cy="16" r={r} fill="none" stroke="var(--border-subtle)" strokeWidth="3" />
         {/* Arc */}
         <circle
           cx="16" cy="16" r={r}
@@ -119,9 +119,9 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
   const followUpDate = lead.followUpDate ? new Date(lead.followUpDate) : null;
 
   const fuStyle =
-    followUpUrgency === 'overdue' ? { bg: '#FEF2F2', color: '#DC2626' } :
-    followUpUrgency === 'today'   ? { bg: '#FFF7ED', color: '#EA580C' } :
-                                    { bg: '#FAF9F6', color: '#6B6459' };
+    followUpUrgency === 'overdue' ? { bg: 'var(--danger-soft)', color: 'var(--danger)' } :
+    followUpUrgency === 'today'   ? { bg: 'var(--warning-soft)', color: 'var(--warning)' } :
+                                    { bg: '#FAF9F6', color: 'var(--text-secondary)' };
 
   const ringColor = ROTTING_RING[rottingStatus];
 
@@ -129,9 +129,9 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
     <div
       className="premium-card p-4 mb-3 group transition-all cursor-pointer"
       style={{
-        borderColor: ringColor !== 'transparent' ? ringColor : '#E2DED5',
+        borderColor: ringColor !== 'transparent' ? ringColor : 'var(--border-strong)',
         boxShadow: rottingStatus === 'rotting'
-          ? '0 0 0 1px #EF4444, 0 0 8px #EF444430'
+          ? '0 0 0 1px var(--danger), 0 0 8px var(--danger)30'
           : undefined,
       }}
       onClick={() => onSelect?.(lead)}
@@ -142,7 +142,7 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="text-sm font-semibold" style={{ color: '#221F1B', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {lead.contactName}
             </p>
             {priorityCfg && (
@@ -155,25 +155,25 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
               </span>
             )}
             {rottingStatus === 'rotting' && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
                 Rotting
               </span>
             )}
             {rottingStatus === 'stale' && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0" style={{ background: '#FFF3CD', color: '#92400E' }}>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0" style={{ background: '#FFF3CD', color: 'var(--warning-text)' }}>
                 Stale
               </span>
             )}
           </div>
-          <p className="text-xs mt-0.5" style={{ color: '#6B6459' }}>{lead.contactPhone}</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</p>
         </div>
 
         <Link
           href={`/leads/${lead.id}`}
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-[#F0EEE9]"
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 p-0.5 rounded hover:bg-[var(--border-subtle)]"
           onClick={e => e.stopPropagation()}
         >
-          <ExternalLink className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+          <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
         </Link>
       </div>
 
@@ -181,13 +181,13 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
       {(lead.propertyType || lead.budgetBand) && (
         <div className="flex items-center gap-3 mb-2.5 flex-wrap">
           {lead.propertyType && (
-            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: '#6B6459' }}>
+            <span className="inline-flex items-center gap-1 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
               <Home className="h-3 w-3" />
               {lead.propertyType}
             </span>
           )}
           {lead.budgetBand && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: '#24211E' }}>
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: 'var(--text-primary)' }}>
               <IndianRupee className="h-3 w-3" />
               {lead.budgetBand}
             </span>
@@ -201,7 +201,7 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
           <span className="text-sm font-bold" style={{ color: '#8F6F2E' }}>
             ₹{((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </span>
-          <span className="text-[10px]" style={{ color: '#6B6459' }}>est. value</span>
+          <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>est. value</span>
         </div>
       )}
 
@@ -223,12 +223,12 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
         <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-            style={{ background: '#F0EEE9', color: '#24211E' }}
+            style={{ background: 'var(--border-subtle)', color: 'var(--text-primary)' }}
           >
             {SOURCE_LABELS[lead.source] ?? lead.source}
           </span>
           {lead.designerName && (
-            <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: '#6B6459' }}>
+            <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
               <User className="h-2.5 w-2.5" />
               {lead.designerName}
             </span>
@@ -236,18 +236,18 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
         </div>
         <span
           className="text-[10px] font-medium"
-          style={{ color: rottingStatus === 'rotting' ? '#EF4444' : rottingStatus === 'stale' ? '#D97706' : '#6B6459' }}
+          style={{ color: rottingStatus === 'rotting' ? 'var(--danger)' : rottingStatus === 'stale' ? 'var(--warning)' : 'var(--text-secondary)' }}
         >
           {daysSince === 0 ? 'Today' : `${daysSince}d ago`}
         </span>
       </div>
 
       {/* ── Action row ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 pt-2.5" style={{ borderTop: '1px solid #F0EEE9' }}>
+      <div className="flex items-center gap-1 pt-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
         <a
           href={`tel:${lead.contactPhone}`}
-          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
-          style={{ color: '#24211E' }}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--border-subtle)]"
+          style={{ color: 'var(--text-primary)' }}
           onClick={e => e.stopPropagation()}
           title="Call"
         >
@@ -259,8 +259,8 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
           href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '')}`}
           target="_blank"
           rel="noreferrer"
-          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
-          style={{ color: '#24211E' }}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--border-subtle)]"
+          style={{ color: 'var(--text-primary)' }}
           onClick={e => e.stopPropagation()}
           title="WhatsApp"
         >
@@ -270,8 +270,8 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
 
         <Link
           href={`/leads/${lead.id}`}
-          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
-          style={{ color: '#24211E' }}
+          className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--border-subtle)]"
+          style={{ color: 'var(--text-primary)' }}
           onClick={e => e.stopPropagation()}
           title="View Details"
         >
@@ -281,12 +281,12 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
 
         <button
           type="button"
-          className="flex items-center justify-center px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[#F0EEE9] flex-shrink-0"
+          className="flex items-center justify-center px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[var(--border-subtle)] flex-shrink-0"
           style={{
-            color: followUpUrgency === 'overdue' ? '#DC2626'
-                 : followUpUrgency === 'today'   ? '#EA580C'
-                 : followUpUrgency === 'upcoming' ? '#7C3AED'
-                 : '#A79E8E',
+            color: followUpUrgency === 'overdue' ? 'var(--danger)'
+                 : followUpUrgency === 'today'   ? 'var(--warning)'
+                 : followUpUrgency === 'upcoming' ? 'var(--accent-base)'
+                 : 'var(--text-tertiary)',
           }}
           onClick={e => { e.stopPropagation(); setShowFollowUpModal(true); }}
           title={
@@ -303,8 +303,8 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
         {nextStage && (
           <button
             type="button"
-            className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[#F0EEE9]"
-            style={{ color: '#24211E' }}
+            className="flex flex-1 items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--border-subtle)]"
+            style={{ color: 'var(--text-primary)' }}
             onClick={() => onStageChange(lead.id, nextStage)}
             title={`Move to ${STAGE_LABELS[nextStage]}`}
           >

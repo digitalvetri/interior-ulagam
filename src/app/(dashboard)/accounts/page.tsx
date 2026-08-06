@@ -114,7 +114,7 @@ export default function AccountsPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-tertiary)]" />
       </div>
     );
   }
@@ -129,7 +129,7 @@ export default function AccountsPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--text-heading)' }}>Accounts &amp; Payments</h1>
           <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -163,7 +163,7 @@ export default function AccountsPage() {
       )}
 
       {/* KPI row */}
-      <section className="grid grid-cols-2 gap-3 border-b border-slate-200 p-6 dark:border-slate-800 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 border-b border-[var(--border-subtle)] p-6 md:grid-cols-4">
         <Kpi
           icon={Wallet}
           label="Outstanding"
@@ -195,8 +195,8 @@ export default function AccountsPage() {
       </section>
 
       {/* Tabs + search + filters */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
-        <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-6 py-3 ">
+        <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] p-0.5 text-xs ">
           <TabButton
             active={tab === 'receivables'}
             onClick={() => setTab('receivables')}
@@ -222,7 +222,7 @@ export default function AccountsPage() {
         </div>
 
         {tab === 'receivables' && (
-          <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] p-0.5 text-xs ">
             {(['all', 'pending', 'link_sent', 'overdue'] as const).map((s) => (
               <button
                 key={s}
@@ -230,8 +230,8 @@ export default function AccountsPage() {
                 className={
                   'rounded px-2.5 py-1 font-medium capitalize ' +
                   (statusFilter === s
-                    ? 'bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+                    ? 'bg-[var(--surface-card)] text-white '
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
                 }
               >
                 {s === 'all' ? 'All' : s === 'link_sent' ? 'Link sent' : s}
@@ -267,18 +267,18 @@ function Kpi({
     red:     'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
     emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
     blue:    'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-    slate:   'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    slate:   'bg-[var(--surface-muted)] text-[var(--text-secondary)] ',
   }[accent];
   return (
-    <div className="rounded-xl border border-slate-200 bg-[var(--surface-card)] p-4 shadow-sm dark:border-slate-800">
+    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 shadow-sm ">
       <div className="mb-2 flex items-center justify-between">
         <span className={'flex h-8 w-8 items-center justify-center rounded-lg ' + bg}>
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-secondary)]">{label}</p>
       <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{value}</p>
-      <p className="mt-0.5 text-[11px] text-slate-500">{sub}</p>
+      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{sub}</p>
     </div>
   );
 }
@@ -294,12 +294,12 @@ function TabButton({
       className={
         'inline-flex items-center gap-1.5 rounded px-3 py-1 font-medium ' +
         (active
-          ? 'bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900'
-          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+          ? 'bg-[var(--surface-card)] text-white '
+          : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
       }
     >
       {label}
-      <span className={'rounded-full px-1.5 text-[10px] font-bold ' + (active ? 'bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900' : 'bg-slate-200 text-slate-600 dark:bg-slate-800')}>
+      <span className={'rounded-full px-1.5 text-[10px] font-bold ' + (active ? 'bg-white/20 text-white /20 ' : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] ')}>
         {count}
       </span>
     </button>
@@ -316,14 +316,15 @@ function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
           <IndianRupee className="h-6 w-6" />
         </div>
         <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>All caught up</h2>
-        <p className="mt-1 text-sm text-slate-500">No outstanding milestones match your filters.</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">No outstanding milestones match your filters.</p>
       </div>
     );
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-[var(--surface-card)] shadow-sm dark:border-slate-800">
-      <table className="w-full text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-sm ">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+        <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-wide text-[var(--text-secondary)] ">
           <tr>
             <th className="px-4 py-3 text-left font-semibold">Project</th>
             <th className="px-3 py-3 text-left font-semibold">Milestone</th>
@@ -335,7 +336,7 @@ function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-900">
+            <tr key={r.id} className="border-b border-[var(--border-subtle)] last:border-b-0 ">
               <td className="px-4 py-2.5">
                 <Link
                   href={`/projects/${r.projectId}/payments`}
@@ -345,7 +346,7 @@ function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
                   {r.projectName}
                 </Link>
               </td>
-              <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{r.label}</td>
+              <td className="px-3 py-2.5 text-[var(--text-secondary)] ">{r.label}</td>
               <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
                 {formatRupees(r.amountPaise)}
               </td>
@@ -354,7 +355,7 @@ function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
                   {r.paymentStatus.replace('_', ' ')}
                 </span>
               </td>
-              <td className="px-3 py-2.5 text-right text-xs tabular-nums text-slate-500">
+              <td className="px-3 py-2.5 text-right text-xs tabular-nums text-[var(--text-secondary)]">
                 {r.daysSinceCreation}d
               </td>
               <td className="px-3 py-2.5 text-right">
@@ -369,6 +370,7 @@ function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
           ))}
         </tbody>
       </table>
+            </div>
     </div>
   );
 }
@@ -379,27 +381,28 @@ const PAY_STATUS_STYLES: Record<string, string> = {
   captured:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300',
   pending:   'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300',
   failed:    'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/40 dark:text-red-300',
-  refunded:  'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-800 dark:text-slate-300',
+  refunded:  'bg-[var(--surface-muted)] text-[var(--text-secondary)] ring-1 ring-inset ring-slate-200 ',
 };
 
 function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
   if (rows.length === 0) {
     return (
       <div className="mx-auto max-w-md p-16 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-tertiary)] ">
           <IndianRupee className="h-6 w-6" />
         </div>
         <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>No payments recorded yet</h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-[var(--text-secondary)]">
           Payments show up here as clients pay via Razorpay links or you record manual entries against an invoice.
         </p>
       </div>
     );
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-[var(--surface-card)] shadow-sm dark:border-slate-800">
-      <table className="w-full text-sm">
-        <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-sm ">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+        <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-wide text-[var(--text-secondary)] ">
           <tr>
             <th className="px-4 py-3 text-left font-semibold">Date</th>
             <th className="px-3 py-3 text-left font-semibold">Project</th>
@@ -412,8 +415,8 @@ function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
         </thead>
         <tbody>
           {rows.map((p) => (
-            <tr key={p.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-900">
-              <td className="px-4 py-2.5 tabular-nums text-slate-500">
+            <tr key={p.id} className="border-b border-[var(--border-subtle)] last:border-b-0 ">
+              <td className="px-4 py-2.5 tabular-nums text-[var(--text-secondary)]">
                 {new Date(p.reconciledAt ?? p.createdAt).toLocaleDateString('en-IN', {
                   day: '2-digit', month: 'short', year: 'numeric',
                 })}
@@ -428,19 +431,19 @@ function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
                     {p.projectName}
                   </Link>
                 ) : (
-                  <span className="text-slate-400">—</span>
+                  <span className="text-[var(--text-tertiary)]">—</span>
                 )}
               </td>
               <td className="px-3 py-2.5">
                 {p.invoiceNumber ? (
                   <Link
                     href={`/invoices/${p.invoiceId}`}
-                    className="font-mono text-xs text-slate-700 hover:text-emerald-600 dark:text-slate-300"
+                    className="font-mono text-xs text-[var(--text-primary)] hover:text-emerald-600 "
                   >
                     {p.invoiceNumber}
                   </Link>
                 ) : (
-                  <span className="text-slate-400">—</span>
+                  <span className="text-[var(--text-tertiary)]">—</span>
                 )}
               </td>
               <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
@@ -452,18 +455,19 @@ function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
                 </span>
               </td>
               <td className="px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400">
-                  {p.source === 'razorpay' ? <Zap className="h-3 w-3 text-blue-500" /> : <HandCoins className="h-3 w-3 text-slate-400" />}
+                <span className="inline-flex items-center gap-1 text-xs text-[var(--text-secondary)] ">
+                  {p.source === 'razorpay' ? <Zap className="h-3 w-3 text-blue-500" /> : <HandCoins className="h-3 w-3 text-[var(--text-tertiary)]" />}
                   {p.source === 'razorpay' ? 'Razorpay' : 'Manual'}
                 </span>
               </td>
-              <td className="px-3 py-2.5 truncate font-mono text-xs text-slate-500" style={{ maxWidth: 220 }}>
+              <td className="px-3 py-2.5 truncate font-mono text-xs text-[var(--text-secondary)]" style={{ maxWidth: 220 }}>
                 {p.reference ?? '—'}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+            </div>
     </div>
   );
 }

@@ -99,16 +99,16 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
     >
       <div
         className="rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden"
-        style={{ background: '#FFFFFF' }}
+        style={{ background: 'var(--surface-card)' }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-5 py-4"
-          style={{ background: '#FAFAF8', borderBottom: '1px solid #F0EEE9' }}
+          style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}
         >
           <div className="flex items-center gap-2">
-            <BellRing className="h-4 w-4" style={{ color: '#7C3AED' }} />
-            <h2 className="text-sm font-bold truncate" style={{ color: '#1C1916' }}>
+            <BellRing className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+            <h2 className="text-sm font-bold truncate" style={{ color: 'var(--text-heading)' }}>
               Add Follow-up — {lead.contactName}
             </h2>
           </div>
@@ -118,7 +118,7 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
               onClick={handleSave}
               disabled={saving}
               className="h-8 px-4 rounded-lg flex items-center gap-1.5 text-xs font-semibold text-white transition-opacity disabled:opacity-60"
-              style={{ background: '#7C3AED' }}
+              style={{ background: 'var(--accent-base)' }}
             >
               {saving
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -128,8 +128,8 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
             <button
               type="button"
               onClick={onClose}
-              className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[#F0EEE9]"
-              style={{ color: '#6B6459' }}
+              className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--border-subtle)]"
+              style={{ color: 'var(--text-secondary)' }}
             >
               <X className="h-4 w-4" />
             </button>
@@ -176,7 +176,7 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
                 </select>
                 <ChevronDown
                   className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4"
-                  style={{ color: '#A79E8E' }}
+                  style={{ color: 'var(--text-tertiary)' }}
                 />
               </div>
             </div>
@@ -194,7 +194,7 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
                 </select>
                 <ChevronDown
                   className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4"
-                  style={{ color: '#A79E8E' }}
+                  style={{ color: 'var(--text-tertiary)' }}
                 />
               </div>
             </div>
@@ -206,10 +206,10 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
               type="checkbox"
               checked={addToCalendar}
               onChange={e => setAddToCalendar(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
-              style={{ accentColor: '#7C3AED' }}
+              className="h-4 w-4 rounded border-[var(--border-strong)]"
+              style={{ accentColor: 'var(--accent-base)' }}
             />
-            <span className="text-sm" style={{ color: '#24211E' }}>Add event to Calendar</span>
+            <span className="text-sm" style={{ color: 'var(--text-primary)' }}>Add event to Calendar</span>
           </label>
 
           {/* Comments */}
@@ -227,7 +227,7 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
           {error && (
             <p
               className="text-xs rounded-lg px-3 py-2"
-              style={{ background: '#FEF2F2', color: '#DC2626' }}
+              style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}
             >
               {error}
             </p>

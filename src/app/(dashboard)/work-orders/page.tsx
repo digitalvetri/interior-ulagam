@@ -16,14 +16,14 @@ import {
 import type { DesignTask, DesignTaskPriority, DesignTaskStatus } from '@/types/design-tasks';
 
 const STATUSES: { value: DesignTaskStatus; label: string; icon: typeof Circle; color: string }[] = [
-  { value: 'todo',        label: 'To do',       icon: Circle,        color: 'text-slate-400'  },
+  { value: 'todo',        label: 'To do',       icon: Circle,        color: 'text-[var(--text-tertiary)]'  },
   { value: 'in_progress', label: 'In progress', icon: CircleDot,     color: 'text-blue-500'   },
   { value: 'review',      label: 'In review',   icon: Eye,           color: 'text-violet-500' },
   { value: 'done',        label: 'Done',        icon: CheckCircle2,  color: 'text-emerald-500' },
 ];
 
 const PRIORITY_STYLES: Record<DesignTaskPriority, string> = {
-  low:    'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  low:    'bg-[var(--surface-muted)] text-[var(--text-secondary)] ',
   normal: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
   high:   'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
   urgent: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
@@ -107,7 +107,7 @@ export default function DesignTasksPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--text-heading)' }}>Design Tasks</h1>
           <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
@@ -124,7 +124,7 @@ export default function DesignTasksPage() {
       </header>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-6 py-3 dark:border-slate-800">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-6 py-3 ">
         <div className="relative min-w-[260px] flex-1 max-w-md">
           <Search className="studio-search-icon" />
           <Input
@@ -135,7 +135,7 @@ export default function DesignTasksPage() {
           />
         </div>
 
-        <div className="flex items-center gap-1 rounded-md border border-slate-200 bg-white p-0.5 text-xs dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] p-0.5 text-xs ">
           {(['all', 'todo', 'in_progress', 'review', 'done'] as const).map((s) => {
             const label = s === 'all' ? 'All' : STATUSES.find((x) => x.value === s)!.label;
             return (
@@ -145,12 +145,12 @@ export default function DesignTasksPage() {
                 className={
                   'inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium ' +
                   (statusFilter === s
-                    ? 'bg-slate-900 text-white dark:bg-slate-50 dark:text-slate-900'
-                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800')
+                    ? 'bg-[var(--surface-card)] text-white '
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
                 }
               >
                 {label}
-                <span className="rounded-full bg-slate-100 px-1.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800">
+                <span className="rounded-full bg-[var(--surface-muted)] px-1.5 text-[10px] font-semibold text-[var(--text-secondary)] ">
                   {counts[s]}
                 </span>
               </button>
@@ -167,7 +167,7 @@ export default function DesignTasksPage() {
           </div>
         )}
         {loading ? (
-          <div className="p-12 text-center text-sm text-slate-500">Loading tasks…</div>
+          <div className="p-12 text-center text-sm text-[var(--text-secondary)]">Loading tasks…</div>
         ) : filtered.length === 0 ? (
           <EmptyState hasQuery={search.trim().length > 0 || statusFilter !== 'all'} onCreate={() => setDialog(true)} />
         ) : (
@@ -179,13 +179,13 @@ export default function DesignTasksPage() {
               return (
                 <li
                   key={t.id}
-                  className="group relative flex items-center gap-3 rounded-lg border border-slate-200 bg-[var(--surface-card)] p-3 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800"
+                  className="group relative flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-3 shadow-sm transition-shadow hover:shadow-md "
                 >
                   <button
                     onClick={() => cycleStatus(t)}
                     aria-label={`Cycle status (currently ${status.label})`}
                     title="Click to advance status"
-                    className={'flex-shrink-0 rounded-full p-1 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800 ' + status.color}
+                    className={'flex-shrink-0 rounded-full p-1 transition-colors hover:bg-[var(--surface-muted)] ' + status.color}
                   >
                     <StatusIcon className="h-5 w-5" />
                   </button>
@@ -194,14 +194,14 @@ export default function DesignTasksPage() {
                     <p
                       className={
                         'truncate text-sm font-medium ' +
-                        (t.status === 'done' ? 'text-slate-400 line-through' : '')
+                        (t.status === 'done' ? 'text-[var(--text-tertiary)] line-through' : '')
                       }
                       style={{ color: t.status === 'done' ? undefined : 'var(--text-heading)' }}
                     >
                       {t.title}
                     </p>
                     {t.description && (
-                      <p className="mt-0.5 truncate text-xs text-slate-500">{t.description}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{t.description}</p>
                     )}
                   </div>
 
@@ -213,7 +213,7 @@ export default function DesignTasksPage() {
                     <span
                       className={
                         'hidden items-center gap-1 text-xs tabular-nums sm:inline-flex ' +
-                        (overdue ? 'text-red-600 font-medium' : 'text-slate-500')
+                        (overdue ? 'text-red-600 font-medium' : 'text-[var(--text-secondary)]')
                       }
                       title={overdue ? 'Overdue' : 'Due'}
                     >
@@ -225,7 +225,7 @@ export default function DesignTasksPage() {
                   <div className="relative flex-shrink-0">
                     <button
                       onClick={() => setOpenMenu(openMenu === t.id ? null : t.id)}
-                      className="rounded p-1 text-slate-400 opacity-0 transition-opacity hover:bg-slate-100 hover:text-slate-700 group-hover:opacity-100 dark:hover:bg-slate-800"
+                      className="rounded p-1 text-[var(--text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] group-hover:opacity-100 "
                       aria-label="Row actions"
                     >
                       <MoreHorizontal className="h-4 w-4" />
@@ -234,11 +234,11 @@ export default function DesignTasksPage() {
                       <div
                         ref={menuRef}
                         role="menu"
-                        className="absolute right-0 top-8 z-20 w-36 overflow-hidden rounded-md border border-slate-200 bg-white py-1 text-left text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900"
+                        className="absolute right-0 top-8 z-20 w-36 overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] py-1 text-left text-xs shadow-lg "
                       >
                         <button
                           onClick={() => { setOpenMenu(null); void cycleStatus(t); }}
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-[var(--text-primary)] hover:bg-[var(--surface-muted)] "
                         >
                           <Check className="h-3.5 w-3.5" /> Advance status
                         </button>
@@ -274,14 +274,14 @@ function startOfToday(): Date {
 function EmptyState({ hasQuery, onCreate }: { hasQuery: boolean; onCreate: () => void }) {
   if (hasQuery) {
     return (
-      <div className="p-16 text-center text-sm text-slate-500">
+      <div className="p-16 text-center text-sm text-[var(--text-secondary)]">
         No tasks match your filters.
       </div>
     );
   }
   return (
     <div className="mx-auto max-w-md p-16 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(124,92,252,0.1)', color: '#7C5CFC' }}>
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full" style={{ background: 'rgba(124,92,252,0.1)', color: 'var(--accent-base)' }}>
         <Plus className="h-7 w-7" />
       </div>
       <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>

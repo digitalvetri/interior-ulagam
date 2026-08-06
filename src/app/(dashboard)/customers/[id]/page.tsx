@@ -39,8 +39,8 @@ const SOURCES: { value: CustomerSource; label: string }[] = [
 
 const STAGE_STYLE: Record<CustomerStage, { bg: string; color: string; dot: string }> = {
   lead:        { bg: 'rgba(100,116,139,0.10)', color: '#475569', dot: '#94a3b8' },
-  opportunity: { bg: 'rgba(245,158,11,0.12)',  color: '#b45309', dot: '#f59e0b' },
-  client:      { bg: 'rgba(16,185,129,0.12)',  color: '#065f46', dot: '#10b981' },
+  opportunity: { bg: 'rgba(245,158,11,0.12)',  color: 'var(--warning-text)', dot: 'var(--warning)' },
+  client:      { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success-text)', dot: 'var(--success)' },
   past_client: { bg: 'rgba(148,163,184,0.12)', color: '#64748b', dot: '#cbd5e1' },
 };
 
@@ -49,11 +49,11 @@ const STAGE_LABEL: Record<CustomerStage, string> = {
 };
 
 const ACTIVITY_META: Record<CustomerActivityType, { label: string; color: string; icon: React.ReactNode }> = {
-  note:              { label: 'Note',             color: '#f59e0b', icon: <StickyNote  className="h-3.5 w-3.5" /> },
-  call:              { label: 'Call',             color: '#3b82f6', icon: <Phone       className="h-3.5 w-3.5" /> },
+  note:              { label: 'Note',             color: 'var(--warning)', icon: <StickyNote  className="h-3.5 w-3.5" /> },
+  call:              { label: 'Call',             color: 'var(--accent-base)', icon: <Phone       className="h-3.5 w-3.5" /> },
   whatsapp:          { label: 'WhatsApp',         color: '#25d366', icon: <MessageCircle className="h-3.5 w-3.5" /> },
-  meeting:           { label: 'Meeting',          color: '#7c5cfc', icon: <Users       className="h-3.5 w-3.5" /> },
-  site_visit:        { label: 'Site visit',       color: '#d97706', icon: <MapPin      className="h-3.5 w-3.5" /> },
+  meeting:           { label: 'Meeting',          color: 'var(--accent-base)', icon: <Users       className="h-3.5 w-3.5" /> },
+  site_visit:        { label: 'Site visit',       color: 'var(--warning)', icon: <MapPin      className="h-3.5 w-3.5" /> },
   stage_change:      { label: 'Stage changed',    color: '#64748b', icon: <ArrowRightCircle className="h-3.5 w-3.5" /> },
   project_created:   { label: 'Project created',  color: '#6366f1', icon: <FolderOpen  className="h-3.5 w-3.5" /> },
   payment_received:  { label: 'Payment received', color: '#14b8a6', icon: <CreditCard  className="h-3.5 w-3.5" /> },
@@ -94,12 +94,12 @@ const LIFECYCLE_PROGRESS: Record<string, number> = {
 const LIFECYCLE_STAGE_COLOR: Record<string, { bg: string; color: string }> = {
   design_pending:     { bg: 'rgba(100,116,139,0.10)', color: '#475569' },
   design_in_progress: { bg: 'rgba(99,102,241,0.12)',  color: '#4f46e5' },
-  design_approved:    { bg: 'rgba(16,185,129,0.12)',  color: '#065f46' },
-  procurement:        { bg: 'rgba(245,158,11,0.12)',  color: '#b45309' },
-  execution:          { bg: 'rgba(59,130,246,0.12)',  color: '#1d4ed8' },
+  design_approved:    { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success-text)' },
+  procurement:        { bg: 'rgba(245,158,11,0.12)',  color: 'var(--warning-text)' },
+  execution:          { bg: 'rgba(59,130,246,0.12)',  color: 'var(--accent-text)' },
   snagging:           { bg: 'rgba(249,115,22,0.12)',  color: '#c2410c' },
   handover:           { bg: 'rgba(168,85,247,0.12)',  color: '#7e22ce' },
-  complete:           { bg: 'rgba(16,185,129,0.12)',  color: '#065f46' },
+  complete:           { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success-text)' },
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
@@ -182,8 +182,8 @@ interface WaMessage {
 
 const HEALTH_STATUS_META: Record<CustomerHealthBrief['status'], { label: string; color: string; bg: string }> = {
   hot:      { label: '🔥 Hot',     color: '#f97316', bg: 'rgba(249,115,22,0.10)' },
-  healthy:  { label: '✅ Healthy', color: '#10b981', bg: 'rgba(16,185,129,0.10)' },
-  at_risk:  { label: '⚠️ At risk', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' },
+  healthy:  { label: '✅ Healthy', color: 'var(--success)', bg: 'rgba(16,185,129,0.10)' },
+  at_risk:  { label: '⚠️ At risk', color: 'var(--warning)', bg: 'rgba(245,158,11,0.10)' },
   inactive: { label: '💤 Inactive', color: '#94a3b8', bg: 'rgba(148,163,184,0.10)' },
 };
 
@@ -461,7 +461,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   if (notFound || !customer) {
     return (
       <div className="p-8">
-        <Link href="/customers" className="inline-flex items-center gap-1.5 text-sm text-slate-600 hover:text-slate-900">
+        <Link href="/customers" className="inline-flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-heading)]">
           <ArrowLeft className="h-4 w-4" /> Back to customers
         </Link>
         <p className="mt-4 text-sm text-red-600">Customer not found.</p>
@@ -480,14 +480,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header
         className="flex flex-col"
-        style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}
+        style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}
       >
         {/* Main info row */}
         <div className="flex flex-wrap items-start justify-between gap-4 px-6 pt-4 pb-3">
           <div className="flex items-center gap-4 min-w-0">
             <Link
               href="/customers"
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
               aria-label="Back"
             >
               <ArrowLeft className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
@@ -571,7 +571,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         {/* Stats strip */}
         <div
           className="flex flex-wrap items-center gap-2 px-6 py-2.5"
-          style={{ borderTop: '1px solid var(--border-subtle, #e8eaf0)' }}
+          style={{ borderTop: '1px solid var(--border-subtle, var(--border-subtle))' }}
         >
           <button
             onClick={() => handleTabChange('projects')}
@@ -586,7 +586,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <button
               onClick={() => handleTabChange('finance')}
               className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80"
-              style={{ background: 'rgba(16,185,129,0.09)', color: '#065f46' }}
+              style={{ background: 'rgba(16,185,129,0.09)', color: 'var(--success-text)' }}
             >
               <IndianRupee className="h-3.5 w-3.5" />
               {formatRupees(summary.totalContractPaise)} contracted
@@ -598,7 +598,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
               style={{
                 background: daysSinceContact > 21 ? 'rgba(239,68,68,0.09)' : daysSinceContact > 7 ? 'rgba(245,158,11,0.09)' : 'rgba(100,116,139,0.09)',
-                color: daysSinceContact > 21 ? '#dc2626' : daysSinceContact > 7 ? '#b45309' : '#475569',
+                color: daysSinceContact > 21 ? 'var(--danger)' : daysSinceContact > 7 ? 'var(--warning-text)' : '#475569',
               }}
             >
               <Clock className="h-3.5 w-3.5" />
@@ -621,7 +621,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       {/* ── Tab bar ─────────────────────────────────────────────────────── */}
       <div
         className="flex items-center gap-0 px-6 overflow-x-auto"
-        style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}
+        style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}
       >
         {([
           { key: 'overview',  label: 'Overview'  },
@@ -634,14 +634,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             key={key}
             onClick={() => handleTabChange(key)}
             className="relative flex-shrink-0 px-4 py-3.5 text-sm font-semibold transition-colors"
-            style={{ color: activeTab === key ? 'var(--violet-primary, #7c5cfc)' : 'var(--text-secondary)' }}
+            style={{ color: activeTab === key ? 'var(--violet-primary, var(--accent-base))' : 'var(--text-secondary)' }}
           >
             {label}
             {activeTab === key && (
               <motion.span
                 layoutId="detail-tab-underline"
                 className="absolute bottom-0 left-0 right-0 h-0.5"
-                style={{ background: 'var(--violet-primary, #7c5cfc)' }}
+                style={{ background: 'var(--violet-primary, var(--accent-base))' }}
                 transition={{ type: 'spring', stiffness: 500, damping: 42 }}
               />
             )}
@@ -660,7 +660,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="space-y-4">
               <div
                 className="rounded-2xl p-5"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
               >
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
@@ -731,7 +731,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {/* Notes */}
               <div
                 className="rounded-2xl p-5"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
               >
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Notes</h2>
@@ -760,11 +760,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {/* AI Health Card */}
               <div
                 className="rounded-2xl p-5"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
               >
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                    <Sparkles className="h-3.5 w-3.5" style={{ color: '#7c5cfc' }} />
+                    <Sparkles className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
                     AI health brief
                   </h2>
                   <button
@@ -785,7 +785,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <div className="flex items-center gap-3">
                       <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
                         <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full -rotate-90">
-                          <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border-subtle, #e8eaf0)" strokeWidth="3" />
+                          <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border-subtle, var(--border-subtle))" strokeWidth="3" />
                           <circle
                             cx="18" cy="18" r="15" fill="none"
                             stroke={HEALTH_STATUS_META[health.status].color}
@@ -815,7 +815,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         className="flex items-start gap-2 rounded-xl p-3"
                         style={{ background: 'rgba(124,92,252,0.06)', border: '1px solid rgba(124,92,252,0.15)' }}
                       >
-                        <TrendingUp className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: '#7c5cfc' }} />
+                        <TrendingUp className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--accent-base)' }} />
                         <p className="text-xs leading-relaxed" style={{ color: 'var(--text-heading)' }}>{health.nudge}</p>
                       </div>
                     )}
@@ -853,14 +853,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   label="Contract value"
                   value={summaryLoading && !summary ? '…' : summary ? formatRupees(summary.totalContractPaise) : '₹0'}
                   icon={<IndianRupee className="h-4 w-4" />}
-                  color="#10b981"
+                  color="var(--success)"
                   onClick={() => handleTabChange('finance')}
                 />
                 <SummaryCard
                   label="Activities"
                   value={activitiesLoading && !activitiesLoaded ? '…' : activities.length}
                   icon={<Activity className="h-4 w-4" />}
-                  color="#f59e0b"
+                  color="var(--warning)"
                   onClick={() => handleTabChange('activity')}
                 />
               </div>
@@ -869,9 +869,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {summary && summary.projects.length > 0 && (
                 <div
                   className="rounded-2xl overflow-hidden"
-                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                 >
-                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}>
                     <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                       Recent projects
                     </h2>
@@ -890,7 +890,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         <Link
                           key={p.id}
                           href={`/projects/${p.id}`}
-                          className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-gray-50"
+                          className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
@@ -919,9 +919,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {activities.length > 0 && (
                 <div
                   className="rounded-2xl overflow-hidden"
-                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                 >
-                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}>
                     <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                       Recent activity
                     </h2>
@@ -961,7 +961,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {!summaryLoading && !activitiesLoading && (!summary || summary.projects.length === 0) && activities.length === 0 && (
                 <div
                   className="rounded-2xl p-8 text-center"
-                  style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, var(--border-subtle))' }}
                 >
                   <Users className="mx-auto mb-2 h-7 w-7" style={{ color: 'var(--text-secondary)' }} />
                   <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No activity yet</p>
@@ -989,7 +989,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             <div className="lg:col-span-1">
             <div
               className="rounded-2xl p-5"
-              style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+              style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
             >
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
@@ -1010,7 +1010,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       onClick={() => setComposerType(ct.type)}
                       className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all"
                       style={{
-                        background: active ? `${meta.color}18` : 'var(--surface-muted, #f3f4f6)',
+                        background: active ? `${meta.color}18` : 'var(--surface-muted, var(--surface-muted))',
                         color: active ? meta.color : 'var(--text-secondary)',
                         border: active ? `1.5px solid ${meta.color}40` : '1.5px solid transparent',
                       }}
@@ -1029,11 +1029,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   placeholder={`${ACTIVITY_META[composerType].label} summary…`}
                   className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-shadow"
                   style={{
-                    background: 'var(--surface-muted, #f3f4f6)',
+                    background: 'var(--surface-muted, var(--surface-muted))',
                     border: '1.5px solid transparent',
                     color: 'var(--text-heading)',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--violet-primary, #7c5cfc)')}
+                  onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--violet-primary, var(--accent-base))')}
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'transparent')}
                 />
                 <Textarea
@@ -1068,7 +1068,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             ) : activities.length === 0 ? (
               <div
                 className="rounded-2xl p-10 text-center"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, var(--border-subtle))' }}
               >
                 <StickyNote className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
                 <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No activities yet</p>
@@ -1091,7 +1091,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                             className="group flex gap-3 rounded-xl p-3.5 transition-shadow hover:shadow-sm"
                             style={{
                               background: 'var(--surface-card, #fff)',
-                              border: '1px solid var(--border-subtle, #e8eaf0)',
+                              border: '1px solid var(--border-subtle, var(--border-subtle))',
                               borderLeft: `3px solid ${meta.color}`,
                             }}
                           >
@@ -1160,7 +1160,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
               <div
                 className="rounded-2xl p-10 text-center"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, var(--border-subtle))' }}
               >
                 <FolderOpen className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
                 <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No linked projects</p>
@@ -1190,7 +1190,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   {summary.totalContractPaise > 0 && (
                     <span
                       className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-                      style={{ background: 'rgba(16,185,129,0.09)', color: '#065f46' }}
+                      style={{ background: 'rgba(16,185,129,0.09)', color: 'var(--success-text)' }}
                     >
                       <IndianRupee className="h-3.5 w-3.5" />
                       {formatRupees(summary.totalContractPaise)} contracted
@@ -1199,7 +1199,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   {summary.leads.length > 0 && (
                     <span
                       className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
-                      style={{ background: 'rgba(245,158,11,0.09)', color: '#b45309' }}
+                      style={{ background: 'rgba(245,158,11,0.09)', color: 'var(--warning-text)' }}
                     >
                       <Bell className="h-3.5 w-3.5" />
                       {summary.leads.length} active {summary.leads.length !== 1 ? 'enquiries' : 'enquiry'}
@@ -1216,8 +1216,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <Link
                             key={p.id}
                             href={`/projects/${p.id}`}
-                            className="block rounded-xl p-4 transition-colors hover:bg-gray-50"
-                            style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                            className="block rounded-xl p-4 transition-colors hover:bg-[var(--surface-muted)]"
+                            style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
@@ -1265,8 +1265,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         <Link
                           key={l.id}
                           href={`/leads/${l.id}`}
-                          className="flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-gray-50"
-                          style={{ background: 'var(--surface-muted, #f8f9fc)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                          className="flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-[var(--surface-muted)]"
+                          style={{ background: 'var(--surface-muted, #f8f9fc)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                         >
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
@@ -1282,7 +1282,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           <div className="ml-3 flex shrink-0 items-center gap-2">
                             <span
                               className="rounded-full px-2 py-0.5 text-xs font-medium"
-                              style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}
+                              style={{ background: 'rgba(245,158,11,0.12)', color: 'var(--warning-text)' }}
                             >
                               {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
                             </span>
@@ -1311,11 +1311,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <div
                     className="rounded-2xl p-5"
-                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                   >
                     <div
                       className="flex h-10 w-10 items-center justify-center rounded-xl"
-                      style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}
+                      style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--success)' }}
                     >
                       <IndianRupee className="h-5 w-5" />
                     </div>
@@ -1329,7 +1329,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
                   <div
                     className="rounded-2xl p-5"
-                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                   >
                     <div
                       className="flex h-10 w-10 items-center justify-center rounded-xl"
@@ -1350,11 +1350,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 {summary && summary.projects.length > 0 && (
                   <div
                     className="overflow-hidden rounded-2xl"
-                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                   >
                     <div
                       className="px-5 py-3.5"
-                      style={{ borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}
+                      style={{ borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}
                     >
                       <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                         Project breakdown
@@ -1367,8 +1367,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         return (
                           <div
                             key={p.id}
-                            className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-gray-50"
-                            style={idx > 0 ? { borderTop: '1px solid var(--border-subtle, #e8eaf0)' } : undefined}
+                            className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-[var(--surface-muted)]"
+                            style={idx > 0 ? { borderTop: '1px solid var(--border-subtle, var(--border-subtle))' } : undefined}
                           >
                             <div className="min-w-0 flex-1">
                               <Link
@@ -1385,7 +1385,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                               )}
                               {/* Progress bar */}
                               <div className="mt-2.5 flex items-center gap-2">
-                                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle, #e8eaf0)' }}>
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle, var(--border-subtle))' }}>
                                   <div
                                     className="h-full rounded-full transition-all"
                                     style={{ width: `${progress}%`, background: sc.color }}
@@ -1447,7 +1447,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 {!summary && (
                   <div
                     className="rounded-2xl p-10 text-center"
-                    style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, var(--border-subtle))' }}
                   >
                     <IndianRupee className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
                     <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No financial data yet</p>
@@ -1469,7 +1469,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {/* Info card */}
               <div
                 className="rounded-2xl p-5"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
               >
                 <div className="mb-4 flex items-center gap-3">
                   <span
@@ -1516,7 +1516,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <form
                   onSubmit={sendWaMessage}
                   className="flex flex-col gap-2 rounded-2xl p-4"
-                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
                 >
                   <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Send message</p>
                   <Textarea
@@ -1543,7 +1543,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       {waSending ? 'Sending…' : 'Send'}
                     </Button>
                   </div>
-                  {waError && <p className="text-xs" style={{ color: '#dc2626' }}>{waError}</p>}
+                  {waError && <p className="text-xs" style={{ color: 'var(--danger)' }}>{waError}</p>}
                 </form>
               )}
             </div>
@@ -1553,7 +1553,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <div
                 ref={waThreadRef}
                 className="h-full min-h-[400px] overflow-y-auto rounded-2xl p-4 space-y-3"
-                style={{ background: 'rgba(240,242,245,0.6)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                style={{ background: 'rgba(240,242,245,0.6)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
               >
                 {messagesLoading ? (
                   <div className="flex justify-center py-10">
@@ -1579,7 +1579,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           className="max-w-[70%] px-4 py-2.5 shadow-sm"
                           style={{
                             background: isInbound ? '#fff' : 'rgba(124,92,252,0.12)',
-                            border: isInbound ? '1px solid var(--border-subtle, #e8eaf0)' : '1px solid rgba(124,92,252,0.22)',
+                            border: isInbound ? '1px solid var(--border-subtle, var(--border-subtle))' : '1px solid rgba(124,92,252,0.22)',
                             borderRadius: isInbound ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
                           }}
                         >
@@ -1634,8 +1634,8 @@ function InlineField({
 /* ── TagsChipEditor ──────────────────────────────────────────────────────── */
 
 const TAG_COLORS = [
-  '#7c5cfc', '#3b82f6', '#10b981', '#f59e0b',
-  '#ef4444', '#ec4899', '#06b6d4', '#8b5cf6',
+  'var(--accent-base)', 'var(--accent-base)', 'var(--success)', 'var(--warning)',
+  'var(--danger)', '#ec4899', '#06b6d4', 'var(--accent-base)',
 ];
 
 function tagColor(tag: string): string {
@@ -1666,7 +1666,7 @@ function TagsChipEditor({ tags, onChange }: { tags: string[]; onChange: (t: stri
   return (
     <div
       className="flex flex-wrap gap-1.5 rounded-xl border p-2 min-h-[36px] cursor-text"
-      style={{ background: 'var(--surface-muted, #f3f4f6)', border: '1.5px solid transparent' }}
+      style={{ background: 'var(--surface-muted, var(--surface-muted))', border: '1.5px solid transparent' }}
       onClick={(e) => (e.currentTarget.querySelector('input') as HTMLInputElement | null)?.focus()}
     >
       {tags.map((tag) => (
@@ -1712,7 +1712,7 @@ function SummaryCard({
     <button
       onClick={onClick}
       className="group w-full rounded-2xl p-4 text-left transition-all hover:shadow-md"
-      style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+      style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, var(--border-subtle))' }}
     >
       <div className="flex items-center gap-2.5">
         <span

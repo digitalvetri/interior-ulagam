@@ -34,13 +34,13 @@ const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
 
 /* ── Stage badge style ──────────────────────────────────────────────────────── */
 const STAGE_STYLE: Record<LeadStage, { bg: string; color: string }> = {
-  new:                  { bg: '#EFF6FF', color: '#1D4ED8' },
+  new:                  { bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
   site_visit_scheduled: { bg: '#FEF9C3', color: '#854D0E' },
-  consultation_done:    { bg: '#FFF7ED', color: '#C2410C' },
+  consultation_done:    { bg: 'var(--warning-soft)', color: '#C2410C' },
   proposal_sent:        { bg: '#EEF2FF', color: '#4338CA' },
-  negotiation:          { bg: '#F5F3FF', color: '#7C3AED' },
-  won:                  { bg: '#F0FDF4', color: '#15803D' },
-  lost:                 { bg: '#F9FAFB', color: '#4B5563' },
+  negotiation:          { bg: 'var(--accent-soft)', color: 'var(--accent-base)' },
+  won:                  { bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  lost:                 { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
@@ -69,21 +69,21 @@ function getRottingStatus(lastActivityAt: string): RottingStatus {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 70) return '#16A34A';
-  if (score >= 40) return '#EA580C';
-  return '#9CA3AF';
+  if (score >= 70) return 'var(--success)';
+  if (score >= 40) return 'var(--warning)';
+  return 'var(--text-tertiary)';
 }
 
 const FU_STYLE = {
-  overdue:  { bg: '#FEF2F2', color: '#DC2626' },
-  today:    { bg: '#FFF7ED', color: '#EA580C' },
-  upcoming: { bg: '#F0FDF4', color: '#15803D' },
+  overdue:  { bg: 'var(--danger-soft)', color: 'var(--danger)' },
+  today:    { bg: 'var(--warning-soft)', color: 'var(--warning)' },
+  upcoming: { bg: 'var(--success-soft)', color: 'var(--success-text)' },
 };
 
 const ROTTING_BORDER: Record<RottingStatus, string> = {
   fresh:   'var(--border-subtle)',
-  stale:   '#F59E0B',
-  rotting: '#EF4444',
+  stale:   'var(--warning)',
+  rotting: 'var(--danger)',
 };
 
 /* ── Lead list card ──────────────────────────────────────────────────────────── */
@@ -131,7 +131,7 @@ const LeadListCard = memo(function LeadListCard({
         background: 'var(--surface-card)',
         border: `1.5px solid ${borderColor}`,
         boxShadow: rotting === 'rotting'
-          ? '0 0 0 1px #EF4444, 0 1px 4px rgba(0,0,0,0.06)'
+          ? '0 0 0 1px var(--danger), 0 1px 4px rgba(0,0,0,0.06)'
           : '0 1px 4px rgba(0,0,0,0.06)',
       }}
       onClick={() => router.push(`/leads/${lead.id}`)}
@@ -141,7 +141,7 @@ const LeadListCard = memo(function LeadListCard({
           <div className="flex flex-col items-center gap-1 flex-shrink-0">
             <div
               className="h-11 w-11 rounded-full flex items-center justify-center text-[13px] font-bold text-white select-none"
-              style={{ background: 'linear-gradient(135deg, #7C5CFC 0%, #9B8AFB 100%)' }}
+              style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}
             >
               {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
             </div>
@@ -203,7 +203,7 @@ const LeadListCard = memo(function LeadListCard({
             {/* Row 1: name + badges + action icons */}
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-2 flex-wrap min-w-0">
-                <h3 className="text-[15px] font-semibold text-gray-900 truncate">
+                <h3 className="text-[15px] font-semibold text-[var(--text-heading)] truncate">
                   {lead.contactName}
                 </h3>
                 <span
@@ -222,12 +222,12 @@ const LeadListCard = memo(function LeadListCard({
                   </span>
                 )}
                 {rotting === 'rotting' && (
-                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold flex-shrink-0" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold flex-shrink-0" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
                     Rotting
                   </span>
                 )}
                 {rotting === 'stale' && (
-                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold flex-shrink-0" style={{ background: '#FFF3CD', color: '#92400E' }}>
+                  <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold flex-shrink-0" style={{ background: '#FFF3CD', color: 'var(--warning-text)' }}>
                     Stale
                   </span>
                 )}
@@ -269,10 +269,10 @@ const LeadListCard = memo(function LeadListCard({
                   <BellRing
                     className="h-3.5 w-3.5"
                     style={{
-                      color: fuState === 'overdue'  ? '#DC2626'
-                           : fuState === 'today'    ? '#EA580C'
-                           : fuState === 'upcoming' ? '#7C3AED'
-                           : '#9CA3AF',
+                      color: fuState === 'overdue'  ? 'var(--danger)'
+                           : fuState === 'today'    ? 'var(--warning)'
+                           : fuState === 'upcoming' ? 'var(--accent-base)'
+                           : 'var(--text-tertiary)',
                     }}
                   />
                 </button>
@@ -282,7 +282,7 @@ const LeadListCard = memo(function LeadListCard({
                     type="button"
                     title="More actions"
                     onClick={() => setShowMenu(v => !v)}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+                    className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
                   >
                     <MoreVertical className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
                   </button>
@@ -294,7 +294,7 @@ const LeadListCard = memo(function LeadListCard({
                       <button
                         type="button"
                         onClick={() => { setShowMenu(false); router.push(`/leads/${lead.id}`); }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
                         style={{ color: 'var(--text-heading)' }}
                       >
                         <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Edit Lead
@@ -332,18 +332,18 @@ const LeadListCard = memo(function LeadListCard({
 
             {/* Row 2: phone, project type, location, budget */}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
-              <span className="flex items-center gap-1.5 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                 <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                 {lead.contactPhone}
               </span>
               {lead.propertyType && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                   <Home className="h-3.5 w-3.5 flex-shrink-0" />
                   {lead.propertyType}
                 </span>
               )}
               {lead.projectLocation && (
-                <span className="flex items-center gap-1.5 text-sm text-gray-500">
+                <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                   <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                   {lead.projectLocation}
                 </span>
@@ -358,7 +358,7 @@ const LeadListCard = memo(function LeadListCard({
             {/* Row 3: assigned, follow-up, last updated */}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
               {lead.designerName && (
-                <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                <span className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
                   <User className="h-3.5 w-3.5 flex-shrink-0" />
                   {lead.designerName}
                 </span>
@@ -375,7 +375,7 @@ const LeadListCard = memo(function LeadListCard({
               )}
               <span
                 className="flex items-center gap-1 text-xs"
-                style={{ color: rotting === 'rotting' ? '#EF4444' : rotting === 'stale' ? '#D97706' : 'var(--text-secondary)' }}
+                style={{ color: rotting === 'rotting' ? 'var(--danger)' : rotting === 'stale' ? 'var(--warning)' : 'var(--text-secondary)' }}
               >
                 <Clock className="h-3 w-3 flex-shrink-0" />
                 {age === 0 ? 'Today' : `${age}d ago`}
@@ -427,22 +427,22 @@ function PipelinePanel({ leads }: { leads: Lead[] }) {
             ₹{(totalPipeline / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
         </div>
-        <div className="rounded-xl p-3 text-center" style={{ background: '#F0FDF4' }}>
-          <p className="text-[11px] font-medium" style={{ color: '#16A34A' }}>Win Rate</p>
-          <p className="text-base font-bold mt-0.5" style={{ color: '#14532D' }}>{convRate}%</p>
+        <div className="rounded-xl p-3 text-center" style={{ background: 'var(--success-soft)' }}>
+          <p className="text-[11px] font-medium" style={{ color: 'var(--success)' }}>Win Rate</p>
+          <p className="text-base font-bold mt-0.5" style={{ color: 'var(--success-text)' }}>{convRate}%</p>
         </div>
-        <div className="rounded-xl p-3 text-center" style={{ background: rottingCount > 0 ? '#FEF2F2' : 'var(--surface-muted)' }}>
-          <p className="text-[11px] font-medium" style={{ color: rottingCount > 0 ? '#DC2626' : 'var(--text-secondary)' }}>
+        <div className="rounded-xl p-3 text-center" style={{ background: rottingCount > 0 ? 'var(--danger-soft)' : 'var(--surface-muted)' }}>
+          <p className="text-[11px] font-medium" style={{ color: rottingCount > 0 ? 'var(--danger)' : 'var(--text-secondary)' }}>
             <span className="flex items-center justify-center gap-1">
               {rottingCount > 0 && <AlertTriangle className="h-3 w-3" />}
               Rotting
             </span>
           </p>
-          <p className="text-base font-bold mt-0.5" style={{ color: rottingCount > 0 ? '#DC2626' : 'var(--text-primary)' }}>{rottingCount}</p>
+          <p className="text-base font-bold mt-0.5" style={{ color: rottingCount > 0 ? 'var(--danger)' : 'var(--text-primary)' }}>{rottingCount}</p>
         </div>
-        <div className="rounded-xl p-3 text-center" style={{ background: overdueCount > 0 ? '#FFF7ED' : 'var(--surface-muted)' }}>
-          <p className="text-[11px] font-medium" style={{ color: overdueCount > 0 ? '#EA580C' : 'var(--text-secondary)' }}>Overdue F/U</p>
-          <p className="text-base font-bold mt-0.5" style={{ color: overdueCount > 0 ? '#EA580C' : 'var(--text-primary)' }}>{overdueCount}</p>
+        <div className="rounded-xl p-3 text-center" style={{ background: overdueCount > 0 ? 'var(--warning-soft)' : 'var(--surface-muted)' }}>
+          <p className="text-[11px] font-medium" style={{ color: overdueCount > 0 ? 'var(--warning)' : 'var(--text-secondary)' }}>Overdue F/U</p>
+          <p className="text-base font-bold mt-0.5" style={{ color: overdueCount > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>{overdueCount}</p>
         </div>
       </div>
 
@@ -496,7 +496,7 @@ function ListConfirmDialog({ open, title, message, confirmLabel, danger, onConfi
           </button>
           <button type="button" onClick={onConfirm} disabled={loading}
             className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50"
-            style={{ background: danger ? '#DC2626' : 'var(--violet-primary)', color: '#fff' }}>
+            style={{ background: danger ? 'var(--danger)' : 'var(--violet-primary)', color: '#fff' }}>
             {loading ? 'Please wait…' : confirmLabel}
           </button>
         </div>
@@ -703,7 +703,7 @@ export default function LeadsPage() {
               style={{
                 background: showPipeline ? 'var(--purple-soft)' : 'var(--surface-card)',
                 color: showPipeline ? 'var(--violet-primary)' : 'var(--text-primary)',
-                border: showPipeline ? '1.5px solid #C4B5FD' : '1.5px solid var(--border-subtle)',
+                border: showPipeline ? '1.5px solid var(--accent-soft)' : '1.5px solid var(--border-subtle)',
               }}
               onClick={() => setShowPipeline(v => !v)}
             >
@@ -761,7 +761,7 @@ export default function LeadsPage() {
             style={{
               background: showFilters ? 'var(--purple-soft)' : 'var(--surface-card)',
               color: showFilters ? 'var(--violet-primary)' : 'var(--text-primary)',
-              border: showFilters ? '1.5px solid #C4B5FD' : '1.5px solid var(--border-subtle)',
+              border: showFilters ? '1.5px solid var(--accent-soft)' : '1.5px solid var(--border-subtle)',
             }}
             onClick={() => setShowFilters(v => !v)}
           >
@@ -833,7 +833,7 @@ export default function LeadsPage() {
                 className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all"
                 style={isActive ? {
                   background: 'var(--violet-primary)',
-                  color: '#FFFFFF',
+                  color: 'var(--surface-card)',
                   boxShadow: '0 2px 8px rgba(124,92,252,0.35)',
                 } : {
                   background: 'var(--surface-card)',
@@ -847,7 +847,7 @@ export default function LeadsPage() {
                     className="text-[11px] rounded-full px-1.5 py-0.5 font-semibold"
                     style={{
                       background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--surface-muted)',
-                      color:      isActive ? '#FFFFFF' : 'var(--text-secondary)',
+                      color:      isActive ? 'var(--surface-card)' : 'var(--text-secondary)',
                     }}
                   >
                     {count}

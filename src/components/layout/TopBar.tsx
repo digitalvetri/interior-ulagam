@@ -27,10 +27,10 @@ const PAGE_TITLES: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
-  owner:      { bg: '#0D1B2A', text: '#FFFFFF' },
-  designer:   { bg: '#00B894', text: '#FFFFFF' },
-  accountant: { bg: '#6C5CE7', text: '#FFFFFF' },
-  supervisor: { bg: '#F9C74F', text: '#0D1B2A' },
+  owner:      { bg: 'var(--text-heading)', text: 'var(--surface-card)' },
+  designer:   { bg: 'var(--success)', text: 'var(--surface-card)' },
+  accountant: { bg: 'var(--accent-base)', text: 'var(--surface-card)' },
+  supervisor: { bg: 'var(--warning)', text: 'var(--text-heading)' },
 };
 
 const GREETINGS: Record<string, string> = {
@@ -109,9 +109,9 @@ export function TopBar() {
           aria-label="Open command palette"
           suppressHydrationWarning
         >
-          <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
-          <span style={{ fontSize: 12, color: '#9CA3AF', flex: 1 }}>Search…</span>
-          <kbd style={{ fontSize: 10, background: 'var(--surface-app)', color: '#9CA3AF', borderRadius: 4, padding: '1px 4px', border: '1px solid var(--border-subtle)' }}>⌘K</kbd>
+          <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', flex: 1 }}>Search…</span>
+          <kbd style={{ fontSize: 10, background: 'var(--surface-app)', color: 'var(--text-tertiary)', borderRadius: 4, padding: '1px 4px', border: '1px solid var(--border-subtle)' }}>⌘K</kbd>
         </button>
 
         {/* Calendar shortcut */}
@@ -154,7 +154,7 @@ export function TopBar() {
           aria-label="Sign out"
           className="ml-1 rounded-lg p-2 transition-colors hover:bg-red-50"
           style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = '#DC2626')}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
           onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
         >
           <LogOut className="h-4 w-4" />

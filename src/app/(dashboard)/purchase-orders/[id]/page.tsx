@@ -36,8 +36,8 @@ const STATUS_STYLES: Record<POStatus, React.CSSProperties> = {
   sent:         { background: 'var(--purple-soft)', color: 'var(--purple)' },
   acknowledged: { background: 'var(--gold-soft)', color: 'var(--text-gold)' },
   partial:      { background: 'var(--teal-soft)', color: 'var(--text-accent)' },
-  complete:     { background: 'var(--teal)', color: '#FFFFFF' },
-  cancelled:    { background: '#FEE2E2', color: '#B91C1C' },
+  complete:     { background: 'var(--teal)', color: 'var(--surface-card)' },
+  cancelled:    { background: 'var(--danger-soft)', color: 'var(--danger-text)' },
 };
 
 interface GRNForm {

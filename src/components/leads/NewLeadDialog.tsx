@@ -337,7 +337,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false }: NewLeadDialogP
                       <button
                         key={c.id}
                         type="button"
-                        className="w-full px-3 py-2.5 text-left hover:bg-gray-50 transition-colors border-b last:border-b-0"
+                        className="w-full px-3 py-2.5 text-left hover:bg-[var(--surface-muted)] transition-colors border-b last:border-b-0"
                         style={{ borderColor: 'var(--border-subtle)' }}
                         onClick={() => selectCustomer(c)}
                       >

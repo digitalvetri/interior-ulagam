@@ -56,14 +56,14 @@ const INITIAL_FORM: MaterialForm = {
 
 /* ── Category config ──────────────────────────────────────────────────────── */
 const CATEGORY_CONFIG: Record<MaterialCategory, { label: string; emoji: string; bg: string; color: string }> = {
-  wood_plywood:       { label: 'Wood / Plywood',       emoji: '🪵', bg: '#FDF3E8', color: '#92400E' },
-  laminates_veneers:  { label: 'Laminates & Veneers',  emoji: '📋', bg: '#F0FDF4', color: '#14532D' },
-  tiles_flooring:     { label: 'Tiles & Flooring',     emoji: '🏛️', bg: '#EFF6FF', color: '#1E40AF' },
-  hardware_fittings:  { label: 'Hardware & Fittings',  emoji: '🔩', bg: '#F5F5F5', color: '#374151' },
+  wood_plywood:       { label: 'Wood / Plywood',       emoji: '🪵', bg: '#FDF3E8', color: 'var(--warning-text)' },
+  laminates_veneers:  { label: 'Laminates & Veneers',  emoji: '📋', bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  tiles_flooring:     { label: 'Tiles & Flooring',     emoji: '🏛️', bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
+  hardware_fittings:  { label: 'Hardware & Fittings',  emoji: '🔩', bg: 'var(--surface-muted)', color: 'var(--text-primary)' },
   paints_finishes:    { label: 'Paints & Finishes',    emoji: '🎨', bg: '#FDF2F8', color: '#BE185D' },
-  fabrics_upholstery: { label: 'Fabrics & Upholstery', emoji: '🧵', bg: '#F5F3FF', color: '#6B21A8' },
+  fabrics_upholstery: { label: 'Fabrics & Upholstery', emoji: '🧵', bg: 'var(--accent-soft)', color: '#6B21A8' },
   lighting:           { label: 'Lighting',             emoji: '💡', bg: '#FEFCE8', color: '#713F12' },
-  other:              { label: 'Other',                emoji: '📦', bg: '#FAF9F6', color: '#24211E' },
+  other:              { label: 'Other',                emoji: '📦', bg: '#FAF9F6', color: 'var(--text-primary)' },
 };
 
 const UNIT_OPTIONS = ['sqft', 'piece', 'running ft', 'box', 'litre', 'kg', 'set', 'pair'];
@@ -110,11 +110,11 @@ function StatCard({
 }) {
   return (
     <div className="rounded-xl border p-4 flex items-start justify-between gap-3"
-      style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
       <div className="min-w-0">
-        <p className="text-xs font-medium mb-1 truncate" style={{ color: '#6B6459' }}>{label}</p>
-        <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: '#1C1916' }}>{value}</p>
-        {sub && <p className="text-[11px] mt-0.5" style={{ color: '#A79E8E' }}>{sub}</p>}
+        <p className="text-xs font-medium mb-1 truncate" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+        <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: 'var(--text-heading)' }}>{value}</p>
+        {sub && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
       </div>
       <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
         style={{ background: iconBg, color: iconColor }}>
@@ -153,31 +153,31 @@ function AdjustStockModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.4)' }}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
         <div className="flex items-center justify-between px-6 py-4"
-          style={{ borderBottom: '1px solid #F0EEE9' }}>
-          <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Adjust Stock Status</h2>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Adjust Stock Status</h2>
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
           <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: cat.bg }}>
             <span className="text-2xl">{cat.emoji}</span>
             <div>
-              <p className="font-semibold text-sm" style={{ color: '#1C1916' }}>{material.name}</p>
-              <p className="text-xs" style={{ color: '#6B6459' }}>{cat.label}</p>
+              <p className="font-semibold text-sm" style={{ color: 'var(--text-heading)' }}>{material.name}</p>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{cat.label}</p>
             </div>
           </div>
           <div>
-            <p className="text-xs font-medium mb-3" style={{ color: '#6B6459' }}>Stock Status</p>
+            <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>Stock Status</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setInStock(true)}
                 className="flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all"
                 style={{
-                  borderColor: inStock ? '#16A34A' : '#E2DED5',
-                  background: inStock ? '#F0FDF4' : '#FFFFFF',
-                  color: inStock ? '#14532D' : '#6B6459',
+                  borderColor: inStock ? 'var(--success)' : 'var(--border-strong)',
+                  background: inStock ? 'var(--success-soft)' : 'var(--surface-card)',
+                  color: inStock ? 'var(--success-text)' : 'var(--text-secondary)',
                 }}>
                 <CheckCircle className="h-4 w-4" />
                 In Stock
@@ -185,9 +185,9 @@ function AdjustStockModal({
               <button type="button" onClick={() => setInStock(false)}
                 className="flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all"
                 style={{
-                  borderColor: !inStock ? '#DC2626' : '#E2DED5',
-                  background: !inStock ? '#FEF2F2' : '#FFFFFF',
-                  color: !inStock ? '#DC2626' : '#6B6459',
+                  borderColor: !inStock ? 'var(--danger)' : 'var(--border-strong)',
+                  background: !inStock ? 'var(--danger-soft)' : 'var(--surface-card)',
+                  color: !inStock ? 'var(--danger)' : 'var(--text-secondary)',
                 }}>
                 <XCircle className="h-4 w-4" />
                 Out of Stock
@@ -198,7 +198,7 @@ function AdjustStockModal({
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{err}</div>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
           <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm">
             {saving ? 'Saving…' : 'Save'}
@@ -274,14 +274,14 @@ function MaterialModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.4)' }}>
       <div className="w-full max-w-lg rounded-2xl overflow-hidden"
-        style={{ background: '#FFFFFF', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+        style={{ background: 'var(--surface-card)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid #F0EEE9' }}>
-          <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>
             {initial ? 'Edit Material' : 'Add Material'}
           </h2>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
@@ -333,8 +333,8 @@ function MaterialModal({
           </div>
           {margin > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{ background: '#F0FDF4', border: '1px solid #86EFAC' }}>
-              <span className="text-xs font-semibold" style={{ color: '#14532D' }}>
+              style={{ background: 'var(--success-soft)', border: '1px solid #86EFAC' }}>
+              <span className="text-xs font-semibold" style={{ color: 'var(--success-text)' }}>
                 Margin: {margin}% on sell price
               </span>
             </div>
@@ -351,12 +351,12 @@ function MaterialModal({
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
             <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-              style={{ background: form.inStock ? '#24211E' : '#D1D5DB' }}
+              style={{ background: form.inStock ? 'var(--text-primary)' : 'var(--border-strong)' }}
               onClick={() => set('inStock', !form.inStock)}>
-              <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
+              <div className="absolute top-1 w-4 h-4 bg-[var(--surface-card)] rounded-full transition-all"
                 style={{ left: form.inStock ? 22 : 4 }} />
             </div>
-            <span className="text-sm font-medium" style={{ color: '#221F1B' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               {form.inStock ? 'In Stock' : 'Out of Stock'}
             </span>
           </label>
@@ -366,7 +366,7 @@ function MaterialModal({
             {apiError}
           </div>
         )}
-        <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
           <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm">
             {saving ? 'Saving…' : initial ? 'Save Changes' : 'Add Material'}
@@ -403,7 +403,7 @@ function Th({
 }) {
   return (
     <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none ${align === 'right' ? 'text-right' : 'text-left'}`}
-      style={{ color: '#6B6459', background: '#FAFAF8', whiteSpace: 'nowrap' }}
+      style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', whiteSpace: 'nowrap' }}
       onClick={() => onSort(col)}>
       <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
         {label}
@@ -428,25 +428,25 @@ function RowMenu({
     <div className="relative">
       <button type="button"
         onClick={e => { e.stopPropagation(); onToggle(open ? null : m.id); }}
-        className="p-1.5 rounded-lg transition-colors hover:bg-[#F0EEE9]">
-        <MoreVertical className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+        className="p-1.5 rounded-lg transition-colors hover:bg-[var(--border-subtle)]">
+        <MoreVertical className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
       </button>
       {open && (
         <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border shadow-lg overflow-hidden"
-          style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+          style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <button type="button" onClick={() => onEdit(m)}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#FAFAF8] transition-colors">
-            <Edit2 className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
-            <span style={{ color: '#1C1916' }}>Edit</span>
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors">
+            <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+            <span style={{ color: 'var(--text-heading)' }}>Edit</span>
           </button>
           <button type="button" onClick={() => onAdjust(m)}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#FAFAF8] transition-colors">
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors">
             {m.inStock
-              ? <ToggleRight className="h-3.5 w-3.5" style={{ color: '#16A34A' }} />
-              : <ToggleLeft  className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />}
-            <span style={{ color: '#1C1916' }}>Adjust Stock</span>
+              ? <ToggleRight className="h-3.5 w-3.5" style={{ color: 'var(--success)' }} />
+              : <ToggleLeft  className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />}
+            <span style={{ color: 'var(--text-heading)' }}>Adjust Stock</span>
           </button>
-          <div style={{ borderTop: '1px solid #F0EEE9' }} />
+          <div style={{ borderTop: '1px solid var(--border-subtle)' }} />
           <button type="button" onClick={() => onDelete(m.id)}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-red-50 transition-colors">
             <Trash2 className="h-3.5 w-3.5 text-red-500" />
@@ -621,8 +621,8 @@ export default function MaterialsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Material Library</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Material Library</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             Manage and track all materials across your projects
           </p>
         </div>
@@ -637,16 +637,16 @@ export default function MaterialsPage() {
       {/* ── Stat Cards ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard label="Total Materials" value={stats.total}
-          icon={Package} iconBg="#F5F3FF" iconColor="#7C3AED" />
+          icon={Package} iconBg="var(--accent-soft)" iconColor="var(--accent-base)" />
         <StatCard label="In Stock" value={stats.inStockCount}
           sub={stats.total ? `${Math.round(stats.inStockCount / stats.total * 100)}% available` : undefined}
-          icon={CheckCircle} iconBg="#F0FDF4" iconColor="#16A34A" />
+          icon={CheckCircle} iconBg="var(--success-soft)" iconColor="var(--success)" />
         <StatCard label="Out of Stock" value={stats.outStockCount}
-          icon={XCircle} iconBg="#FEF2F2" iconColor="#DC2626" />
+          icon={XCircle} iconBg="var(--danger-soft)" iconColor="var(--danger)" />
         <StatCard label="Vendors" value={stats.uniqueVendors}
-          icon={Users} iconBg="#EFF6FF" iconColor="#2563EB" />
+          icon={Users} iconBg="var(--accent-soft)" iconColor="var(--accent-base)" />
         <StatCard label="Recently Added" value={stats.recentCount} sub="last 30 days"
-          icon={Clock} iconBg="#FEFCE8" iconColor="#D97706" />
+          icon={Clock} iconBg="#FEFCE8" iconColor="var(--warning)" />
       </div>
 
       {/* ── Search + Export ─────────────────────────────────────────────── */}
@@ -659,14 +659,14 @@ export default function MaterialsPage() {
           {search && (
             <button type="button" onClick={() => setSearch('')}
               className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="h-3.5 w-3.5" style={{ color: '#A79E8E' }} />
+              <X className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
             </button>
           )}
         </div>
         <button type="button"
           onClick={() => exportCSV(filtered)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:bg-[#FAFAF8]"
-          style={{ borderColor: '#E2DED5', color: '#24211E', background: '#FFFFFF' }}>
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--surface-card)' }}>
           <Download className="h-4 w-4" />
           Export
         </button>
@@ -676,7 +676,7 @@ export default function MaterialsPage() {
       <div className="flex flex-wrap items-center gap-2">
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as StatusFilter); setPage(1); }}
           className="text-sm rounded-xl border px-3 py-2 h-9 pr-8 appearance-none cursor-pointer"
-          style={{ borderColor: statusFilter !== 'all' ? '#7C3AED' : '#E2DED5', background: statusFilter !== 'all' ? '#F5F3FF' : '#FFFFFF', color: '#24211E' }}>
+          style={{ borderColor: statusFilter !== 'all' ? 'var(--accent-base)' : 'var(--border-strong)', background: statusFilter !== 'all' ? 'var(--accent-soft)' : 'var(--surface-card)', color: 'var(--text-primary)' }}>
           <option value="all">All Status</option>
           <option value="in_stock">In Stock</option>
           <option value="out_of_stock">Out of Stock</option>
@@ -685,7 +685,7 @@ export default function MaterialsPage() {
         {vendorOptions.length > 0 && (
           <select value={vendorFilter} onChange={e => { setVendorFilter(e.target.value); setPage(1); }}
             className="text-sm rounded-xl border px-3 py-2 h-9 pr-8 appearance-none cursor-pointer max-w-[180px] truncate"
-            style={{ borderColor: vendorFilter !== 'all' ? '#7C3AED' : '#E2DED5', background: vendorFilter !== 'all' ? '#F5F3FF' : '#FFFFFF', color: '#24211E' }}>
+            style={{ borderColor: vendorFilter !== 'all' ? 'var(--accent-base)' : 'var(--border-strong)', background: vendorFilter !== 'all' ? 'var(--accent-soft)' : 'var(--surface-card)', color: 'var(--text-primary)' }}>
             <option value="all">All Vendors</option>
             {vendorOptions.map(v => <option key={v} value={v}>{v}</option>)}
           </select>
@@ -697,7 +697,7 @@ export default function MaterialsPage() {
             setSortKey(k as SortKey); setSortDir(d as 'asc' | 'desc'); setPage(1);
           }}
           className="text-sm rounded-xl border px-3 py-2 h-9 pr-8 appearance-none cursor-pointer"
-          style={{ borderColor: '#E2DED5', background: '#FFFFFF', color: '#24211E' }}>
+          style={{ borderColor: 'var(--border-strong)', background: 'var(--surface-card)', color: 'var(--text-primary)' }}>
           <option value="name:asc">Name A–Z</option>
           <option value="name:desc">Name Z–A</option>
           <option value="sellPricePaise:desc">Price High–Low</option>
@@ -709,22 +709,22 @@ export default function MaterialsPage() {
         {hasFilters && (
           <button type="button" onClick={clearFilters}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border transition-colors hover:bg-red-50"
-            style={{ borderColor: '#FECACA', color: '#DC2626', background: '#FEF2F2' }}>
+            style={{ borderColor: 'var(--danger-soft)', color: 'var(--danger)', background: 'var(--danger-soft)' }}>
             <X className="h-3.5 w-3.5" />Clear filters
           </button>
         )}
 
         <div className="ml-auto flex items-center gap-1 rounded-xl border p-1"
-          style={{ borderColor: '#E2DED5', background: '#FFFFFF' }}>
+          style={{ borderColor: 'var(--border-strong)', background: 'var(--surface-card)' }}>
           <button type="button" onClick={() => setViewMode('table')}
             className="p-1.5 rounded-lg transition-colors"
-            style={{ background: viewMode === 'table' ? '#24211E' : 'transparent' }}>
-            <List className="h-4 w-4" style={{ color: viewMode === 'table' ? '#FFFFFF' : '#6B6459' }} />
+            style={{ background: viewMode === 'table' ? 'var(--text-primary)' : 'transparent' }}>
+            <List className="h-4 w-4" style={{ color: viewMode === 'table' ? 'var(--surface-card)' : 'var(--text-secondary)' }} />
           </button>
           <button type="button" onClick={() => setViewMode('grid')}
             className="p-1.5 rounded-lg transition-colors"
-            style={{ background: viewMode === 'grid' ? '#24211E' : 'transparent' }}>
-            <Grid3X3 className="h-4 w-4" style={{ color: viewMode === 'grid' ? '#FFFFFF' : '#6B6459' }} />
+            style={{ background: viewMode === 'grid' ? 'var(--text-primary)' : 'transparent' }}>
+            <Grid3X3 className="h-4 w-4" style={{ color: viewMode === 'grid' ? 'var(--surface-card)' : 'var(--text-secondary)' }} />
           </button>
         </div>
       </div>
@@ -734,9 +734,9 @@ export default function MaterialsPage() {
         <button type="button" onClick={() => { setActiveCategory('all'); setPage(1); }}
           className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
           style={{
-            background: activeCategory === 'all' ? '#24211E' : '#FFFFFF',
-            color: activeCategory === 'all' ? '#FFFFFF' : '#24211E',
-            border: '1px solid #E2DED5',
+            background: activeCategory === 'all' ? 'var(--text-primary)' : 'var(--surface-card)',
+            color: activeCategory === 'all' ? 'var(--surface-card)' : 'var(--text-primary)',
+            border: '1px solid var(--border-strong)',
           }}>
           All ({materials.length})
         </button>
@@ -749,7 +749,7 @@ export default function MaterialsPage() {
               className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
               style={{
                 background: activeCategory === cat ? cfg.color : cfg.bg,
-                color:      activeCategory === cat ? '#FFFFFF' : cfg.color,
+                color:      activeCategory === cat ? 'var(--surface-card)' : cfg.color,
                 border: `1px solid ${cfg.color}33`,
               }}>
               {cfg.emoji} {cfg.label} ({count})
@@ -761,7 +761,7 @@ export default function MaterialsPage() {
       {/* ── Results header ─────────────────────────────────────────────── */}
       {!loading && filtered.length > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs" style={{ color: '#A79E8E' }}>
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
             Showing {Math.min((safePage - 1) * PAGE_SIZE + 1, filtered.length)}–
             {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} material
             {filtered.length !== 1 ? 's' : ''}
@@ -769,8 +769,8 @@ export default function MaterialsPage() {
           {totalPages > 1 && (
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                className="p-1 rounded-lg disabled:opacity-30 hover:bg-[#F0EEE9] transition-colors">
-                <ChevronLeft className="h-4 w-4" style={{ color: '#6B6459' }} />
+                className="p-1 rounded-lg disabled:opacity-30 hover:bg-[var(--border-subtle)] transition-colors">
+                <ChevronLeft className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 const n = i + 1;
@@ -778,17 +778,17 @@ export default function MaterialsPage() {
                   <button key={n} type="button" onClick={() => setPage(n)}
                     className="min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors"
                     style={{
-                      background: safePage === n ? '#24211E' : 'transparent',
-                      color: safePage === n ? '#FFFFFF' : '#6B6459',
+                      background: safePage === n ? 'var(--text-primary)' : 'transparent',
+                      color: safePage === n ? 'var(--surface-card)' : 'var(--text-secondary)',
                     }}>
                     {n}
                   </button>
                 );
               })}
-              {totalPages > 5 && <span className="text-xs px-1" style={{ color: '#A79E8E' }}>…{totalPages}</span>}
+              {totalPages > 5 && <span className="text-xs px-1" style={{ color: 'var(--text-tertiary)' }}>…{totalPages}</span>}
               <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                className="p-1 rounded-lg disabled:opacity-30 hover:bg-[#F0EEE9] transition-colors">
-                <ChevronRight className="h-4 w-4" style={{ color: '#6B6459' }} />
+                className="p-1 rounded-lg disabled:opacity-30 hover:bg-[var(--border-subtle)] transition-colors">
+                <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
             </div>
           )}
@@ -802,12 +802,12 @@ export default function MaterialsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed"
-          style={{ borderColor: '#F0EEE9' }}>
+          style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
             style={{ background: 'rgba(36,33,30,0.08)' }}>
-            <Package className="h-7 w-7" style={{ color: '#E2DED5' }} />
+            <Package className="h-7 w-7" style={{ color: 'var(--border-strong)' }} />
           </div>
-          <p className="text-sm" style={{ color: '#6B6459' }}>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {hasFilters ? 'No materials match your filters.' : 'No materials yet.'}
           </p>
           {isOwner && !hasFilters ? (
@@ -823,25 +823,25 @@ export default function MaterialsPage() {
 
       ) : viewMode === 'table' ? (
         /* ── Table view ─────────────────────────────────────────────────── */
-        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: '#F0EEE9' }}>
+        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid #F0EEE9' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <Th col="name" label="Name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <Th col="category" label="Category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: '#6B6459', background: '#FAFAF8' }}>Unit</th>
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Unit</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: '#6B6459', background: '#FAFAF8' }}>Vendor</th>
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Vendor</th>
                   <Th col="costPricePaise" label="Cost" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <Th col="sellPricePaise" label="Sell Price" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <Th col="margin" label="Margin" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-center"
-                    style={{ color: '#6B6459', background: '#FAFAF8' }}>Status</th>
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Status</th>
                   {isOwner && (
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-right"
-                      style={{ color: '#6B6459', background: '#FAFAF8', width: 48 }} />
+                      style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', width: 48 }} />
                   )}
                 </tr>
               </thead>
@@ -859,12 +859,12 @@ export default function MaterialsPage() {
                           {m.imageUrl ? (
                             <img src={m.imageUrl} alt={m.name}
                               className="h-9 w-9 rounded-lg object-cover flex-shrink-0"
-                              style={{ border: '1px solid #F0EEE9' }} />
+                              style={{ border: '1px solid var(--border-subtle)' }} />
                           ) : (
                             <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 text-base"
                               style={{ background: cat.bg }}>{cat.emoji}</div>
                           )}
-                          <p className="font-semibold whitespace-nowrap" style={{ color: '#221F1B' }}>{m.name}</p>
+                          <p className="font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{m.name}</p>
                         </div>
                       </td>
 
@@ -877,17 +877,17 @@ export default function MaterialsPage() {
                       </td>
 
                       {/* Unit */}
-                      <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: '#6B6459' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
                         {m.unit}
                       </td>
 
                       {/* Vendor */}
-                      <td className="px-4 py-3 text-xs max-w-[140px]" style={{ color: '#6B6459' }}>
+                      <td className="px-4 py-3 text-xs max-w-[140px]" style={{ color: 'var(--text-secondary)' }}>
                         <span className="truncate block">{m.vendorName ?? '—'}</span>
                       </td>
 
                       {/* Cost */}
-                      <td className="px-4 py-3 text-right tabular-nums text-xs font-medium" style={{ color: '#6B6459' }}>
+                      <td className="px-4 py-3 text-right tabular-nums text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                         {fmt(m.costPricePaise)}
                       </td>
 
@@ -895,14 +895,14 @@ export default function MaterialsPage() {
                       <td className="px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap"
                         style={{ color: '#8F6F2E' }}>
                         {fmt(m.sellPricePaise)}
-                        <span className="text-[10px] font-normal ml-0.5" style={{ color: '#A79E8E' }}>/{m.unit}</span>
+                        <span className="text-[10px] font-normal ml-0.5" style={{ color: 'var(--text-tertiary)' }}>/{m.unit}</span>
                       </td>
 
                       {/* Margin */}
                       <td className="px-4 py-3 text-right">
                         {margin > 0 ? (
                           <span className="inline-block rounded-full px-2 py-0.5 text-xs font-bold"
-                            style={{ background: '#F0FDF4', color: '#14532D' }}>{margin}%</span>
+                            style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>{margin}%</span>
                         ) : (
                           <span className="text-xs" style={{ color: '#D1CBB8' }}>—</span>
                         )}
@@ -912,11 +912,11 @@ export default function MaterialsPage() {
                       <td className="px-4 py-3 text-center">
                         <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap"
                           style={{
-                            background: m.inStock ? '#F0FDF4' : '#FEF2F2',
-                            color:      m.inStock ? '#14532D' : '#DC2626',
+                            background: m.inStock ? 'var(--success-soft)' : 'var(--danger-soft)',
+                            color:      m.inStock ? 'var(--success-text)' : 'var(--danger)',
                           }}>
                           <span className="h-1.5 w-1.5 rounded-full inline-block"
-                            style={{ background: m.inStock ? '#16A34A' : '#DC2626' }} />
+                            style={{ background: m.inStock ? 'var(--success)' : 'var(--danger)' }} />
                           {m.inStock ? 'In Stock' : 'Out of Stock'}
                         </span>
                       </td>
@@ -937,11 +937,11 @@ export default function MaterialsPage() {
 
           {/* Table footer */}
           <div className="flex items-center justify-between px-4 py-2.5 text-xs"
-            style={{ borderTop: '1px solid #F0EEE9', background: '#FAFAF8', color: '#A79E8E' }}>
+            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
             <span>{filtered.length} material{filtered.length !== 1 ? 's' : ''}</span>
             {hasFilters && (
               <button type="button" onClick={clearFilters} className="font-medium hover:underline"
-                style={{ color: '#7C5CFC' }}>Clear filters</button>
+                style={{ color: 'var(--accent-base)' }}>Clear filters</button>
             )}
           </div>
         </div>
@@ -954,15 +954,15 @@ export default function MaterialsPage() {
             const margin = marginPct(m.sellPricePaise, m.costPricePaise);
             return (
               <div key={m.id} className="rounded-xl border p-4 hover:shadow-md transition-all"
-                style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+                style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                       style={{ background: cat.bg }}>{cat.emoji}</div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate" style={{ color: '#1C1916' }}>{m.name}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: '#A79E8E' }}>per {m.unit}</p>
+                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-heading)' }}>{m.name}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>per {m.unit}</p>
                     </div>
                   </div>
                   {isOwner && <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
@@ -977,20 +977,20 @@ export default function MaterialsPage() {
 
                 {/* Vendor */}
                 {m.vendorName && (
-                  <p className="text-xs mb-3 truncate" style={{ color: '#6B6459' }}>
-                    <span style={{ color: '#A79E8E' }}>Vendor: </span>{m.vendorName}
+                  <p className="text-xs mb-3 truncate" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>Vendor: </span>{m.vendorName}
                   </p>
                 )}
 
                 {/* Price row */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-[10px]" style={{ color: '#A79E8E' }}>Sell Price</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Sell Price</p>
                     <p className="font-bold text-sm" style={{ color: '#8F6F2E' }}>{fmt(m.sellPricePaise)}</p>
                   </div>
                   {margin > 0 && (
                     <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
-                      style={{ background: '#F0FDF4', color: '#14532D' }}>{margin}%</span>
+                      style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>{margin}%</span>
                   )}
                 </div>
 
@@ -998,11 +998,11 @@ export default function MaterialsPage() {
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold"
                     style={{
-                      background: m.inStock ? '#F0FDF4' : '#FEF2F2',
-                      color:      m.inStock ? '#14532D' : '#DC2626',
+                      background: m.inStock ? 'var(--success-soft)' : 'var(--danger-soft)',
+                      color:      m.inStock ? 'var(--success-text)' : 'var(--danger)',
                     }}>
                     <span className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: m.inStock ? '#16A34A' : '#DC2626' }} />
+                      style={{ background: m.inStock ? 'var(--success)' : 'var(--danger)' }} />
                     {m.inStock ? 'In Stock' : 'Out of Stock'}
                   </span>
                 </div>

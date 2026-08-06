@@ -12,12 +12,12 @@ import type { PurchaseOrder, POStatus } from '@/types/purchase-orders';
 
 /* ── Status config ────────────────────────────────────────────────────────── */
 const STATUS_CONFIG: Record<POStatus, { label: string; bg: string; color: string; dot: string }> = {
-  draft:        { label: 'Draft',        bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
-  sent:         { label: 'Sent',         bg: '#F5F3FF', color: '#6B21A8', dot: '#7C3AED' },
-  acknowledged: { label: 'Acknowledged', bg: '#FFFBEB', color: '#92400E', dot: '#D97706' },
+  draft:        { label: 'Draft',        bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+  sent:         { label: 'Sent',         bg: 'var(--accent-soft)', color: '#6B21A8', dot: 'var(--accent-base)' },
+  acknowledged: { label: 'Acknowledged', bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
   partial:      { label: 'Partial',      bg: '#F0FDFA', color: '#115E59', dot: '#14B8A6' },
-  complete:     { label: 'Complete',     bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
-  cancelled:    { label: 'Cancelled',    bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
+  complete:     { label: 'Complete',     bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  cancelled:    { label: 'Cancelled',    bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
 };
 
 const UNITS = ['sqft', 'piece', 'running ft', 'box', 'litre', 'kg', 'set', 'pair', 'bag', 'roll'];
@@ -54,15 +54,15 @@ function StatCard({
       onClick={onClick}
       className="rounded-xl border p-4 text-left transition-all hover:shadow-md w-full"
       style={{
-        background: active ? iconBg : '#FFFFFF',
-        borderColor: active ? iconColor + '66' : '#F0EEE9',
+        background: active ? iconBg : 'var(--surface-card)',
+        borderColor: active ? iconColor + '66' : 'var(--border-subtle)',
         outline: active ? `2px solid ${iconColor}33` : 'none',
       }}
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-xs font-medium mb-1" style={{ color: '#6B6459' }}>{label}</p>
-          <p className="text-2xl font-bold tabular-nums" style={{ color: '#1C1916' }}>{value}</p>
+          <p className="text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+          <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{value}</p>
         </div>
         <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: iconBg, color: iconColor }}>
@@ -140,23 +140,23 @@ function NewPOModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.45)' }}>
       <div className="w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
-        style={{ background: '#FFFFFF', maxHeight: '90vh' }}>
+        style={{ background: 'var(--surface-card)', maxHeight: '90vh' }}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid #F0EEE9' }}>
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl flex items-center justify-center"
-              style={{ background: '#F5F3FF' }}>
-              <ShoppingCart className="h-4 w-4" style={{ color: '#7C3AED' }} />
+              style={{ background: 'var(--accent-soft)' }}>
+              <ShoppingCart className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             </div>
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>New Purchase Order</h2>
-              <p className="text-xs" style={{ color: '#A79E8E' }}>Add line items and set delivery date</p>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>New Purchase Order</h2>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Add line items and set delivery date</p>
             </div>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9] transition-colors">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)] transition-colors">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
 
@@ -174,7 +174,7 @@ function NewPOModal({
             <div>
               <label className="studio-label block mb-1.5">Expected Delivery</label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: '#A79E8E' }} />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
                 <input type="date" value={expectedDate} onChange={e => setExpectedDate(e.target.value)}
                   className="studio-input w-full text-sm pl-9" />
               </div>
@@ -185,15 +185,15 @@ function NewPOModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="studio-label">Line Items *</label>
-              <span className="text-xs font-medium" style={{ color: '#7C3AED' }}>
+              <span className="text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
                 {lines.length} item{lines.length !== 1 ? 's' : ''}
               </span>
             </div>
 
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#F0EEE9' }}>
+            <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               {/* Column headers */}
               <div className="grid text-[10px] font-semibold uppercase tracking-wide px-3 py-2"
-                style={{ background: '#FAFAF8', color: '#A79E8E', gridTemplateColumns: '1fr 64px 80px 90px 80px 32px' }}>
+                style={{ background: 'var(--surface-muted)', color: 'var(--text-tertiary)', gridTemplateColumns: '1fr 64px 80px 90px 80px 32px' }}>
                 <span>Description</span>
                 <span className="text-right">Qty</span>
                 <span className="pl-2">Unit</span>
@@ -203,7 +203,7 @@ function NewPOModal({
               </div>
 
               {/* Rows */}
-              <div className="divide-y" style={{ borderColor: '#F0EEE9' }}>
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                 {lines.map(row => {
                   const total = lineTotal(row);
                   return (
@@ -233,7 +233,7 @@ function NewPOModal({
                       <button type="button" onClick={() => removeLine(row._key)}
                         className="p-1 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center"
                         title="Remove">
-                        <X className="h-3.5 w-3.5" style={{ color: lines.length > 1 ? '#DC2626' : '#D1CBB8' }} />
+                        <X className="h-3.5 w-3.5" style={{ color: lines.length > 1 ? 'var(--danger)' : '#D1CBB8' }} />
                       </button>
                     </div>
                   );
@@ -242,14 +242,14 @@ function NewPOModal({
 
               {/* Footer: add + grand total */}
               <div className="flex items-center justify-between px-3 py-2"
-                style={{ borderTop: '1px solid #F0EEE9', background: '#FAFAF8' }}>
+                style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                 <button type="button" onClick={addLine}
                   className="flex items-center gap-1.5 text-xs font-medium transition-colors hover:underline"
-                  style={{ color: '#7C3AED' }}>
+                  style={{ color: 'var(--accent-base)' }}>
                   <Plus className="h-3.5 w-3.5" />Add line
                 </button>
                 {grandTotal > 0 && (
-                  <p className="text-xs font-bold tabular-nums" style={{ color: '#1C1916' }}>
+                  <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
                     Grand Total: ₹{grandTotal.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                   </p>
                 )}
@@ -266,7 +266,7 @@ function NewPOModal({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
           <button type="button" onClick={handleCreate} disabled={saving}
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
@@ -356,8 +356,8 @@ export default function PurchaseOrdersPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Purchase Orders</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>
+          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Purchase Orders</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             Track procurement from vendors across all projects
           </p>
         </div>
@@ -372,20 +372,20 @@ export default function PurchaseOrdersPage() {
       {!loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <StatCard label="Total POs" value={stats.total}
-            icon={FileText} iconBg="#F5F3FF" iconColor="#7C3AED"
+            icon={FileText} iconBg="var(--accent-soft)" iconColor="var(--accent-base)"
             active={statusFilter === 'all'} onClick={() => setStatusFilter('all')} />
           <StatCard label="Draft" value={stats.draft}
-            icon={Package} iconBg="#F5F5F5" iconColor="#374151"
+            icon={Package} iconBg="var(--surface-muted)" iconColor="var(--text-primary)"
             active={statusFilter === 'draft'} onClick={() => setStatusFilter('draft')} />
           <StatCard label="Active" value={stats.active}
             icon={Truck} iconBg="#F0FDFA" iconColor="#14B8A6"
             active={['sent','acknowledged','partial'].includes(statusFilter)}
             onClick={() => setStatusFilter('sent')} />
           <StatCard label="Complete" value={stats.complete}
-            icon={CheckCircle2} iconBg="#F0FDF4" iconColor="#16A34A"
+            icon={CheckCircle2} iconBg="var(--success-soft)" iconColor="var(--success)"
             active={statusFilter === 'complete'} onClick={() => setStatusFilter('complete')} />
           <StatCard label="Cancelled" value={stats.cancelled}
-            icon={XCircle} iconBg="#FEF2F2" iconColor="#DC2626"
+            icon={XCircle} iconBg="var(--danger-soft)" iconColor="var(--danger)"
             active={statusFilter === 'cancelled'} onClick={() => setStatusFilter('cancelled')} />
         </div>
       )}
@@ -401,7 +401,7 @@ export default function PurchaseOrdersPage() {
             {search && (
               <button type="button" onClick={() => setSearch('')}
                 className="absolute right-3 top-1/2 -translate-y-1/2">
-                <X className="h-3.5 w-3.5" style={{ color: '#A79E8E' }} />
+                <X className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
               </button>
             )}
           </div>
@@ -417,9 +417,9 @@ export default function PurchaseOrdersPage() {
                 <button key={p.key} type="button" onClick={() => setStatusFilter(p.key)}
                   className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all border"
                   style={{
-                    background: isActive ? (cfg?.bg ?? '#F5F3FF') : '#FFFFFF',
-                    color:      isActive ? (cfg?.color ?? '#7C3AED') : '#6B6459',
-                    borderColor: isActive ? (cfg?.dot ?? '#7C3AED') + '66' : '#E2DED5',
+                    background: isActive ? (cfg?.bg ?? 'var(--accent-soft)') : 'var(--surface-card)',
+                    color:      isActive ? (cfg?.color ?? 'var(--accent-base)') : 'var(--text-secondary)',
+                    borderColor: isActive ? (cfg?.dot ?? 'var(--accent-base)') + '66' : 'var(--border-strong)',
                   }}>
                   {p.label}
                 </button>
@@ -440,19 +440,19 @@ export default function PurchaseOrdersPage() {
         <div className="flex flex-col items-center justify-center py-20 gap-5">
           <div className="relative">
             <div className="h-24 w-24 rounded-3xl flex items-center justify-center"
-              style={{ background: '#F5F3FF' }}>
-              <ShoppingCart className="h-12 w-12" style={{ color: '#7C3AED' }} />
+              style={{ background: 'var(--accent-soft)' }}>
+              <ShoppingCart className="h-12 w-12" style={{ color: 'var(--accent-base)' }} />
             </div>
             <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
-              style={{ background: '#EEF2FF', border: '2px solid #FFFFFF' }}>
-              <Plus className="h-4 w-4" style={{ color: '#7C3AED' }} />
+              style={{ background: '#EEF2FF', border: '2px solid var(--surface-card)' }}>
+              <Plus className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             </div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-heading)' }}>
               No purchase orders yet
             </h3>
-            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+            <p className="text-sm max-w-sm" style={{ color: 'var(--text-secondary)' }}>
               Create your first purchase order to start tracking material procurement for your projects.
             </p>
           </div>
@@ -466,24 +466,24 @@ export default function PurchaseOrdersPage() {
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
-            style={{ background: '#F5F5F5' }}>
-            <Search className="h-6 w-6" style={{ color: '#9CA3AF' }} />
+            style={{ background: 'var(--surface-muted)' }}>
+            <Search className="h-6 w-6" style={{ color: 'var(--text-tertiary)' }} />
           </div>
-          <p className="text-sm" style={{ color: '#6B6459' }}>No purchase orders match your filters.</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No purchase orders match your filters.</p>
           <button type="button" onClick={() => { setSearch(''); setStatusFilter('all'); }}
             className="btn-secondary text-sm px-4 py-2">Clear filters</button>
         </div>
 
       ) : (
         /* ── Table ────────────────────────────────────────────────────── */
-        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: '#F0EEE9' }}>
+        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid #F0EEE9', background: '#FAFAF8' }}>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                   {['PO Number', 'Project', 'Status', 'PO Value', 'Advance Paid', 'Expected Delivery', 'Created', ''].map(h => (
                     <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                      style={{ color: '#6B6459', whiteSpace: 'nowrap' }}>
+                      style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                       {h}
                     </th>
                   ))}
@@ -502,17 +502,17 @@ export default function PurchaseOrdersPage() {
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
                           <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                            style={{ background: '#F5F3FF' }}>
-                            <ShoppingCart className="h-3.5 w-3.5" style={{ color: '#7C3AED' }} />
+                            style={{ background: 'var(--accent-soft)' }}>
+                            <ShoppingCart className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
                           </div>
-                          <span className="font-semibold" style={{ color: '#1C1916' }}>{po.poNumber}</span>
+                          <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>{po.poNumber}</span>
                         </div>
                       </td>
 
                       {/* Project ID (truncated) */}
                       <td className="px-4 py-3.5">
                         <span className="font-mono text-xs px-2 py-1 rounded-md"
-                          style={{ background: '#F5F5F5', color: '#6B6459' }}>
+                          style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                           {po.projectId.slice(0, 8)}…
                         </span>
                       </td>
@@ -529,22 +529,22 @@ export default function PurchaseOrdersPage() {
                       </td>
 
                       {/* Advance Paid */}
-                      <td className="px-4 py-3.5 tabular-nums" style={{ color: '#6B6459' }}>
+                      <td className="px-4 py-3.5 tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {po.advancePaidPaise > 0 ? formatRupees(po.advancePaidPaise) : '—'}
                       </td>
 
                       {/* Expected Delivery */}
-                      <td className="px-4 py-3.5" style={{ color: '#6B6459' }}>
+                      <td className="px-4 py-3.5" style={{ color: 'var(--text-secondary)' }}>
                         {po.expectedDeliveryAt ? (
                           <span className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#A79E8E' }} />
+                            <Calendar className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
                             {new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN')}
                           </span>
                         ) : '—'}
                       </td>
 
                       {/* Created */}
-                      <td className="px-4 py-3.5 whitespace-nowrap" style={{ color: '#A79E8E' }}>
+                      <td className="px-4 py-3.5 whitespace-nowrap" style={{ color: 'var(--text-tertiary)' }}>
                         <span className="flex items-center gap-1.5">
                           <Clock className="h-3.5 w-3.5 flex-shrink-0" />
                           {new Date(po.createdAt).toLocaleDateString('en-IN')}
@@ -554,7 +554,7 @@ export default function PurchaseOrdersPage() {
                       {/* Arrow */}
                       <td className="px-3 py-3.5">
                         <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                          style={{ color: '#7C3AED' }} />
+                          style={{ color: 'var(--accent-base)' }} />
                       </td>
                     </tr>
                   );
@@ -565,11 +565,11 @@ export default function PurchaseOrdersPage() {
 
           {/* Footer */}
           <div className="flex items-center justify-between px-4 py-2.5 text-xs"
-            style={{ borderTop: '1px solid #F0EEE9', background: '#FAFAF8', color: '#A79E8E' }}>
+            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
             <span>{filtered.length} purchase order{filtered.length !== 1 ? 's' : ''}</span>
             {(search || statusFilter !== 'all') && (
               <button type="button" onClick={() => { setSearch(''); setStatusFilter('all'); }}
-                className="font-medium hover:underline" style={{ color: '#7C3AED' }}>
+                className="font-medium hover:underline" style={{ color: 'var(--accent-base)' }}>
                 Clear filters
               </button>
             )}

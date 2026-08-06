@@ -60,16 +60,16 @@ interface SiteLog {
 // ─── Customer colour palette (deterministic hash) ─────────────────────────────
 
 const CUSTOMER_PALETTES = [
-  { bg: '#EDE9FE', color: '#6D28D9', ring: '#7C3AED' },
-  { bg: '#DCFCE7', color: '#15803D', ring: '#16A34A' },
-  { bg: '#FEF3C7', color: '#B45309', ring: '#D97706' },
-  { bg: '#DBEAFE', color: '#1D4ED8', ring: '#2563EB' },
+  { bg: 'var(--accent-soft)', color: 'var(--accent-text)', ring: 'var(--accent-base)' },
+  { bg: 'var(--success-soft)', color: 'var(--success-text)', ring: 'var(--success)' },
+  { bg: 'var(--warning-soft)', color: 'var(--warning-text)', ring: 'var(--warning)' },
+  { bg: 'var(--accent-soft)', color: 'var(--accent-text)', ring: 'var(--accent-base)' },
   { bg: '#FCE7F3', color: '#9D174D', ring: '#DB2777' },
   { bg: '#CCFBF1', color: '#0F766E', ring: '#0D9488' },
-  { bg: '#FEE2E2', color: '#B91C1C', ring: '#DC2626' },
+  { bg: 'var(--danger-soft)', color: 'var(--danger-text)', ring: 'var(--danger)' },
   { bg: '#F3E8FF', color: '#7E22CE', ring: '#9333EA' },
   { bg: '#E0F2FE', color: '#0369A1', ring: '#0284C7' },
-  { bg: '#FFF7ED', color: '#C2410C', ring: '#EA580C' },
+  { bg: 'var(--warning-soft)', color: '#C2410C', ring: 'var(--warning)' },
 ];
 
 function customerPalette(name: string) {
@@ -94,16 +94,16 @@ function StageProgressBar({ currentIdx, total }: { currentIdx: number; total: nu
   return (
     <div className="w-full">
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs text-gray-500">Overall Progress</span>
-        <span className="text-xs font-semibold text-gray-700">{pct}%</span>
+        <span className="text-xs text-[var(--text-secondary)]">Overall Progress</span>
+        <span className="text-xs font-semibold text-[var(--text-primary)]">{pct}%</span>
       </div>
-      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2 w-full rounded-full bg-[var(--surface-muted)] overflow-hidden">
         <div
           className="h-full rounded-full transition-all"
-          style={{ width: `${pct}%`, background: 'var(--violet-primary, #7c3aed)' }}
+          style={{ width: `${pct}%`, background: 'var(--violet-primary, var(--accent-base))' }}
         />
       </div>
-      <p className="mt-1 text-[10px] text-gray-400">
+      <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
         Stage {currentIdx + 1} of {total}
       </p>
     </div>
@@ -116,14 +116,14 @@ function DonutChart({ pct, size = 100, strokeWidth = 10 }: { pct: number; size?:
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - Math.min(Math.max(pct, 0), 100) / 100);
-  const color = pct < 60 ? '#22c55e' : pct < 80 ? '#f59e0b' : '#ef4444';
+  const color = pct < 60 ? 'var(--success)' : pct < 80 ? 'var(--warning)' : 'var(--danger)';
   const cx = size / 2;
   const cy = size / 2;
   const fontSize = Math.round(size * 0.18);
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth} />
+      <circle cx={cx} cy={cy} r={radius} fill="none" stroke="var(--border-subtle)" strokeWidth={strokeWidth} />
       <circle
         cx={cx} cy={cy} r={radius} fill="none"
         stroke={color}
@@ -133,7 +133,7 @@ function DonutChart({ pct, size = 100, strokeWidth = 10 }: { pct: number; size?:
         strokeLinecap="round"
         transform={`rotate(-90 ${cx} ${cy})`}
       />
-      <text x={cx} y={cy + fontSize * 0.35} textAnchor="middle" fontSize={fontSize} fontWeight="700" fill="#111827">
+      <text x={cx} y={cy + fontSize * 0.35} textAnchor="middle" fontSize={fontSize} fontWeight="700" fill="var(--text-heading)">
         {pct}%
       </text>
     </svg>
@@ -148,7 +148,7 @@ function GateItem({ label, passed }: { label: string; passed: boolean }) {
       {passed
         ? <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
         : <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />}
-      <span className={passed ? 'text-gray-700' : 'text-red-600'}>{label}</span>
+      <span className={passed ? 'text-[var(--text-primary)]' : 'text-red-600'}>{label}</span>
     </div>
   );
 }
@@ -183,14 +183,14 @@ function ConfirmAdvanceDialog({
           <DialogTitle>Advance Stage?</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-1">
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-[var(--text-primary)]">
             Move <strong>{projectName}</strong> from{' '}
             <strong>{LIFECYCLE_STAGE_LABELS[currentStage]}</strong> to{' '}
             <strong>{LIFECYCLE_STAGE_LABELS[nextStage]}</strong>.
           </p>
           {needsGate && (
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-3 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1">
                 Requirements for Procurement
               </p>
               <GateItem label="Design Approved" passed={isDesignApproved} />
@@ -202,7 +202,7 @@ function ConfirmAdvanceDialog({
               )}
             </div>
           )}
-          <p className="text-xs text-gray-400">This stage advance cannot be reversed from this page.</p>
+          <p className="text-xs text-[var(--text-tertiary)]">This stage advance cannot be reversed from this page.</p>
         </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="outline" onClick={onClose} disabled={advancing}>Cancel</Button>
@@ -312,10 +312,10 @@ function EditProjectDialog({ open, onClose, project, onSuccess }: EditProjectDia
 // ─── Payment status constants ─────────────────────────────────────────────────
 
 const PAYMENT_STATUS_STYLES: Record<MilestonePaymentStatus, CSSProperties> = {
-  pending:   { backgroundColor: 'rgba(107,114,128,0.12)', color: '#374151' },
-  link_sent: { backgroundColor: 'rgba(59,130,246,0.12)',  color: '#1d4ed8' },
-  paid:      { backgroundColor: 'rgba(22,163,74,0.12)',   color: '#15803d' },
-  overdue:   { backgroundColor: 'rgba(220,38,38,0.12)',   color: '#b91c1c' },
+  pending:   { backgroundColor: 'rgba(107,114,128,0.12)', color: 'var(--text-primary)' },
+  link_sent: { backgroundColor: 'rgba(59,130,246,0.12)',  color: 'var(--accent-text)' },
+  paid:      { backgroundColor: 'rgba(22,163,74,0.12)',   color: 'var(--success-text)' },
+  overdue:   { backgroundColor: 'rgba(220,38,38,0.12)',   color: 'var(--danger-text)' },
 };
 
 const PAYMENT_STATUS_LABELS: Record<MilestonePaymentStatus, string> = {
@@ -426,17 +426,17 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
                     isCurrent
                       ? 'border-violet-600 bg-violet-600 shadow shadow-violet-200'
                       : isPast
-                      ? 'border-gray-300 bg-gray-300'
-                      : 'border-gray-200 bg-white',
+                      ? 'border-[var(--border-strong)] bg-gray-300'
+                      : 'border-[var(--border-subtle)] bg-[var(--surface-card)]',
                   ].join(' ')}
                 >
                   {isPast && <CheckCircle2 className="h-4 w-4 text-white" />}
-                  {isCurrent && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
+                  {isCurrent && <div className="h-2.5 w-2.5 rounded-full bg-[var(--surface-card)]" />}
                 </div>
                 <span
                   className={[
                     'max-w-[68px] text-center text-[9px] font-medium leading-tight',
-                    isCurrent ? 'text-violet-700' : isPast ? 'text-gray-400' : 'text-gray-300',
+                    isCurrent ? 'text-violet-700' : isPast ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-tertiary)]',
                   ].join(' ')}
                 >
                   {LIFECYCLE_STAGE_LABELS[stage]}
@@ -446,7 +446,7 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
                 <div
                   className={[
                     'mx-1 mt-3.5 h-0.5 w-8 shrink-0',
-                    idx < currentIdx ? 'bg-gray-300' : 'bg-gray-200',
+                    idx < currentIdx ? 'bg-gray-300' : 'bg-[var(--surface-hover)]',
                   ].join(' ')}
                 />
               )}
@@ -478,7 +478,7 @@ function QuickActionBtn({ action }: { action: QuickAction }) {
         'inline-flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3 text-center transition-all cursor-pointer',
         action.accent
           ? 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
-          : 'border-gray-100 bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-50',
+          : 'border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]',
         (action.disabled) ? 'opacity-50 cursor-not-allowed' : '',
       ].join(' ')}
     >
@@ -597,7 +597,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-gray-500">Loading project…</p>
+        <p className="text-sm text-[var(--text-secondary)]">Loading project…</p>
       </div>
     );
   }
@@ -606,7 +606,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   if (fetchError || !project) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-4">
-        <div className="flex items-center gap-2 text-gray-500">
+        <div className="flex items-center gap-2 text-[var(--text-secondary)]">
           <AlertTriangle className="h-5 w-5 text-amber-500" />
           <p className="text-sm">
             {fetchError
@@ -618,7 +618,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {fetchError && (
             <button
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)]"
             >
               <RefreshCw className="h-4 w-4" />
               Retry
@@ -665,16 +665,16 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Link href="/projects" className="font-medium text-gray-500 hover:text-gray-700">
+        <Link href="/projects" className="font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
           ← All Projects
         </Link>
         {project.leadId && (
           <>
-            <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+            <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
             <Link
               href={`/leads/${project.leadId}`}
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
-              style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309', border: '1px solid rgba(245,158,11,0.3)' }}
+              style={{ background: 'rgba(245,158,11,0.12)', color: 'var(--warning-text)', border: '1px solid rgba(245,158,11,0.3)' }}
             >
               Lead{project.leadContactName ? ` · ${project.leadContactName}` : ''}
             </Link>
@@ -682,11 +682,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         )}
         {project.customerId && (
           <>
-            <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+            <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
             <Link
               href={`/customers/${project.customerId}`}
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
-              style={{ background: 'rgba(16,185,129,0.12)', color: '#065f46', border: '1px solid rgba(16,185,129,0.3)' }}
+              style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--success-text)', border: '1px solid rgba(16,185,129,0.3)' }}
             >
               Customer{project.customerFullName ? ` · ${project.customerFullName}` : ''}
             </Link>
@@ -710,15 +710,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 {initials}
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Customer</p>
-                <p className="text-sm font-semibold text-gray-900">{customerName}</p>
+                <p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)] mb-0.5">Customer</p>
+                <p className="text-sm font-semibold text-[var(--text-heading)]">{customerName}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setEditOpen(true)}
               title="Edit project details"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 flex-shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] flex-shrink-0"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit
@@ -726,12 +726,12 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           {/* Project name */}
-          <h1 className="mb-2 text-2xl font-bold text-gray-900 leading-tight">
+          <h1 className="mb-2 text-2xl font-bold text-[var(--text-heading)] leading-tight">
             {project.name}
           </h1>
 
           {/* Meta row */}
-          <div className="mb-5 flex flex-wrap items-center gap-2.5 text-xs text-gray-500">
+          <div className="mb-5 flex flex-wrap items-center gap-2.5 text-xs text-[var(--text-secondary)]">
             <span
               className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
               style={{ backgroundColor: `${palette.bg}`, color: palette.color, border: `1px solid ${palette.ring}40` }}
@@ -754,15 +754,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
           {/* Finance strip */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Contract Value</p>
-              <p className="text-base font-bold text-gray-900">
+            <div className="rounded-xl bg-[var(--surface-muted)] p-3">
+              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Contract Value</p>
+              <p className="text-base font-bold text-[var(--text-heading)]">
                 {project.totalContractPaise ? formatRupees(project.totalContractPaise) : '—'}
               </p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Amount Spent</p>
-              <p className="text-base font-bold text-gray-900">
+            <div className="rounded-xl bg-[var(--surface-muted)] p-3">
+              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Amount Spent</p>
+              <p className="text-base font-bold text-[var(--text-heading)]">
                 {costData && costData.actualExpensesPaise > 0
                   ? formatRupees(costData.actualExpensesPaise)
                   : summary && summary.expenseTotalPaise > 0
@@ -770,9 +770,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   : '₹0'}
               </p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Remaining</p>
-              <p className={['text-base font-bold', costData && costData.remainingPaise < 0 ? 'text-red-600' : 'text-gray-900'].join(' ')}>
+            <div className="rounded-xl bg-[var(--surface-muted)] p-3">
+              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Remaining</p>
+              <p className={['text-base font-bold', costData && costData.remainingPaise < 0 ? 'text-red-600' : 'text-[var(--text-heading)]'].join(' ')}>
                 {costData && costData.quotedCostPaise > 0
                   ? formatRupees(Math.abs(costData.remainingPaise))
                   : '—'}
@@ -781,7 +781,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-[10px] text-red-600 mt-0.5">Over budget</p>
               )}
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
+            <div className="rounded-xl bg-[var(--surface-muted)] p-3">
               <StageProgressBar
                 currentIdx={currentIdx}
                 total={LIFECYCLE_STAGE_ORDER.length}
@@ -795,9 +795,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
       <div className="premium-card p-5">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-gray-900">Project Journey</p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Currently at <span className="font-medium text-gray-600">{LIFECYCLE_STAGE_LABELS[project.lifecycleStage]}</span>
+            <p className="text-sm font-semibold text-[var(--text-heading)]">Project Journey</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
+              Currently at <span className="font-medium text-[var(--text-secondary)]">{LIFECYCLE_STAGE_LABELS[project.lifecycleStage]}</span>
               {' '}· Stage {currentIdx + 1} of {LIFECYCLE_STAGE_ORDER.length}
             </p>
           </div>
@@ -808,7 +808,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 onClick={() => setConfirmOpen(true)}
                 disabled={advancingStage}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ background: 'var(--violet-primary, #7c3aed)' }}
+                style={{ background: 'var(--violet-primary, var(--accent-base))' }}
               >
                 <ArrowRight className="h-3.5 w-3.5" />
                 {advancingStage ? 'Advancing…' : `Advance to ${LIFECYCLE_STAGE_LABELS[nextStage]}`}
@@ -816,7 +816,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             ) : (
               <span
                 className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold"
-                style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: '#15803d' }}
+                style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: 'var(--success-text)' }}
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Project Complete
@@ -832,7 +832,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* ── Quick Actions ──────────────────────────────────────────────────── */}
       <div className="premium-card p-5">
-        <p className="mb-3 text-sm font-semibold text-gray-900">Quick Actions</p>
+        <p className="mb-3 text-sm font-semibold text-[var(--text-heading)]">Quick Actions</p>
         <div className="flex flex-wrap gap-2">
           {quickActions.map(action => (
             <QuickActionBtn key={action.label} action={action} />
@@ -845,10 +845,10 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         <div className="premium-card p-5 lg:col-span-3">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">
+            <h2 className="text-sm font-semibold text-[var(--text-heading)]">
               Milestones
               {milestones.length > 0 && (
-                <span className="ml-1.5 text-xs font-normal text-gray-400">
+                <span className="ml-1.5 text-xs font-normal text-[var(--text-tertiary)]">
                   ({paidCount}/{milestones.length} paid)
                 </span>
               )}
@@ -863,17 +863,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
           {milestones.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
-              <div className="mb-3 rounded-full bg-gray-100 p-3">
-                <CreditCard className="h-6 w-6 text-gray-400" />
+              <div className="mb-3 rounded-full bg-[var(--surface-muted)] p-3">
+                <CreditCard className="h-6 w-6 text-[var(--text-tertiary)]" />
               </div>
-              <p className="mb-1 text-sm font-medium text-gray-700">No milestones set up yet</p>
-              <p className="mb-4 max-w-xs text-xs text-gray-500">
+              <p className="mb-1 text-sm font-medium text-[var(--text-primary)]">No milestones set up yet</p>
+              <p className="mb-4 max-w-xs text-xs text-[var(--text-secondary)]">
                 Milestones track client payments — typically 10% / 40% / 40% / 10% of the contract value.
               </p>
               <Link
                 href={`/projects/${id}/payments`}
                 className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium text-white"
-                style={{ background: 'var(--violet-primary, #7c3aed)' }}
+                style={{ background: 'var(--violet-primary, var(--accent-base))' }}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Set Up Milestones
@@ -882,11 +882,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {milestones.map(m => (
-                <div key={m.id} className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-2">
-                  <p className="text-sm font-medium text-gray-900">{m.label}</p>
-                  <p className="text-xl font-bold text-gray-900">{formatRupees(m.amountPaise)}</p>
+                <div key={m.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 space-y-2">
+                  <p className="text-sm font-medium text-[var(--text-heading)]">{m.label}</p>
+                  <p className="text-xl font-bold text-[var(--text-heading)]">{formatRupees(m.amountPaise)}</p>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500">{m.pctOfTotal}% of total</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{m.pctOfTotal}% of total</p>
                     <span
                       className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                       style={PAYMENT_STATUS_STYLES[m.paymentStatus]}
@@ -902,7 +902,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         <div className="premium-card p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Cost-to-Complete</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-heading)]">Cost-to-Complete</h2>
             {costData && costData.quotedCostPaise > 0 && (
               <Link
                 href={`/projects/${id}/expenses`}
@@ -918,8 +918,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <div className="mb-3 rounded-full bg-amber-50 p-3">
                 <AlertTriangle className="h-6 w-6 text-amber-400" />
               </div>
-              <p className="mb-1 text-sm font-medium text-gray-700">No approved quote yet</p>
-              <p className="mb-3 text-xs text-gray-500">Cost tracking starts when a quote is approved.</p>
+              <p className="mb-1 text-sm font-medium text-[var(--text-primary)]">No approved quote yet</p>
+              <p className="mb-3 text-xs text-[var(--text-secondary)]">Cost tracking starts when a quote is approved.</p>
               <Link href="/quotes" className="text-xs font-medium text-violet-600 hover:underline">
                 Create &amp; approve a quote →
               </Link>
@@ -929,15 +929,15 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               <DonutChart pct={burnPct} size={120} strokeWidth={12} />
               <div className="w-full space-y-2.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Budget (from Quote)</span>
-                  <span className="font-semibold text-gray-900">{formatRupees(costData.quotedCostPaise)}</span>
+                  <span className="text-[var(--text-secondary)]">Budget (from Quote)</span>
+                  <span className="font-semibold text-[var(--text-heading)]">{formatRupees(costData.quotedCostPaise)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Spent</span>
-                  <span className="font-semibold text-gray-900">{formatRupees(costData.actualExpensesPaise)}</span>
+                  <span className="text-[var(--text-secondary)]">Spent</span>
+                  <span className="font-semibold text-[var(--text-heading)]">{formatRupees(costData.actualExpensesPaise)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-gray-100 pt-2.5 text-sm">
-                  <span className="text-gray-500">Remaining</span>
+                <div className="flex items-center justify-between border-t border-[var(--border-subtle)] pt-2.5 text-sm">
+                  <span className="text-[var(--text-secondary)]">Remaining</span>
                   <span className={['font-bold', costData.remainingPaise < 0 ? 'text-red-600' : 'text-green-600'].join(' ')}>
                     {costData.remainingPaise < 0 && '−'}
                     {formatRupees(Math.abs(costData.remainingPaise))}
@@ -956,7 +956,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
       {/* ── Project Sections ───────────────────────────────────────────────── */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-gray-900">Project Sections</h2>
+        <h2 className="mb-3 text-sm font-semibold text-[var(--text-heading)]">Project Sections</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {tiles.map(tile => (
             <Link key={tile.href} href={tile.href}>
@@ -968,17 +968,17 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                   {tile.badge && (
                     <span
                       className="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
-                      style={{ backgroundColor: 'rgba(107,114,128,0.12)', color: '#374151' }}
+                      style={{ backgroundColor: 'rgba(107,114,128,0.12)', color: 'var(--text-primary)' }}
                     >
                       {tile.badge}
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-semibold text-gray-900 transition-colors group-hover:text-violet-700">
+                <p className="text-sm font-semibold text-[var(--text-heading)] transition-colors group-hover:text-violet-700">
                   {tile.label}
                 </p>
-                <p className="mt-0.5 text-xs leading-snug text-gray-500">{tile.description}</p>
-                <div className="mt-2.5 flex items-center gap-0.5 text-xs font-medium text-gray-400 transition-colors group-hover:text-violet-600">
+                <p className="mt-0.5 text-xs leading-snug text-[var(--text-secondary)]">{tile.description}</p>
+                <div className="mt-2.5 flex items-center gap-0.5 text-xs font-medium text-[var(--text-tertiary)] transition-colors group-hover:text-violet-600">
                   {tile.actionLabel}
                   <ChevronRight className="h-3 w-3" />
                 </div>
@@ -993,7 +993,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         <div className="premium-card p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Recent Activities</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-heading)]">Recent Activities</h2>
             <Link
               href={`/projects/${id}/site`}
               className="text-xs font-medium text-violet-600 hover:text-violet-700"
@@ -1005,31 +1005,31 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           {siteLogs.length === 0 ? (
             <div className="flex flex-col items-center py-6 text-center">
               <Activity className="mb-2 h-8 w-8 text-gray-200" />
-              <p className="text-sm text-gray-500">No activities logged yet.</p>
-              <p className="mt-1 text-xs text-gray-400">Site logs will appear here as work progresses.</p>
+              <p className="text-sm text-[var(--text-secondary)]">No activities logged yet.</p>
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">Site logs will appear here as work progresses.</p>
             </div>
           ) : (
             <div className="space-y-2">
               {siteLogs.map(log => (
-                <div key={log.id} className="flex items-start gap-3 rounded-xl bg-gray-50 p-3">
+                <div key={log.id} className="flex items-start gap-3 rounded-xl bg-[var(--surface-muted)] p-3">
                   <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
                     <ClipboardList className="h-4 w-4 text-amber-600" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-[var(--text-heading)]">
                       Site Log —{' '}
                       {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', {
                         day: 'numeric', month: 'short',
                       })}
                     </p>
                     {log.transcript && (
-                      <p className="mt-0.5 truncate text-xs text-gray-500">{log.transcript}</p>
+                      <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{log.transcript}</p>
                     )}
                     {log.progressPct !== null && (
-                      <p className="mt-0.5 text-xs text-gray-400">{log.progressPct}% progress reported</p>
+                      <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{log.progressPct}% progress reported</p>
                     )}
                   </div>
-                  <span className="flex-shrink-0 text-xs text-gray-400">
+                  <span className="flex-shrink-0 text-xs text-[var(--text-tertiary)]">
                     {new Date(log.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                   </span>
                 </div>
@@ -1040,7 +1040,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
         <div className="premium-card p-5">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Recent Documents</h2>
+            <h2 className="text-sm font-semibold text-[var(--text-heading)]">Recent Documents</h2>
             <Link
               href={`/projects/${id}/deliverables`}
               className="text-xs font-medium text-violet-600 hover:text-violet-700"
@@ -1050,7 +1050,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
           <div className="flex flex-col items-center py-6 text-center">
             <FileText className="mb-2 h-8 w-8 text-gray-200" />
-            <p className="text-sm text-gray-500">No documents uploaded yet.</p>
+            <p className="text-sm text-[var(--text-secondary)]">No documents uploaded yet.</p>
             <Link
               href={`/projects/${id}/deliverables`}
               className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100"

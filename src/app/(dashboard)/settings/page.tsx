@@ -43,7 +43,7 @@ function SaveToast({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <div className="fixed bottom-6 right-6 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg z-50 animate-fade-in"
-      style={{ background: '#221F1B', color: '#FFFFFF' }}>
+      style={{ background: 'var(--text-primary)', color: 'var(--surface-card)' }}>
       <Check className="h-4 w-4 text-green-400" />
       <span className="text-sm font-medium">Settings saved!</span>
     </div>
@@ -51,15 +51,15 @@ function SaveToast({ show }: { show: boolean }) {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-base font-bold mb-4" style={{ color: '#1C1916' }}>{children}</h3>;
+  return <h3 className="text-base font-bold mb-4" style={{ color: 'var(--text-heading)' }}>{children}</h3>;
 }
 
 function FormRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-3 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+    <div className="flex flex-col sm:flex-row sm:items-start gap-3 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <div className="sm:w-48 flex-shrink-0">
-        <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{label}</p>
-        {hint && <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>{hint}</p>}
+        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</p>
+        {hint && <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{hint}</p>}
       </div>
       <div className="flex-1">{children}</div>
     </div>
@@ -70,12 +70,12 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
   return (
     <label className="flex items-center gap-3 cursor-pointer">
       <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-        style={{ background: checked ? '#24211E' : '#D1D5DB' }}
+        style={{ background: checked ? 'var(--text-primary)' : 'var(--border-strong)' }}
         onClick={() => onChange(!checked)}>
-        <div className="absolute top-1 w-4 h-4 bg-white rounded-full transition-all"
+        <div className="absolute top-1 w-4 h-4 bg-[var(--surface-card)] rounded-full transition-all"
           style={{ left: checked ? 22 : 4 }} />
       </div>
-      <span className="text-sm" style={{ color: '#221F1B' }}>{label}</span>
+      <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
     </label>
   );
 }
@@ -137,7 +137,7 @@ function ProfileTab({ onSave }: { onSave: () => void }) {
     }
   }
 
-  if (loading) return <div className="py-12 text-center text-sm" style={{ color: '#6B6459' }}>Loading profile…</div>;
+  if (loading) return <div className="py-12 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading profile…</div>;
 
   return (
     <div>
@@ -179,7 +179,7 @@ const ROLE_LABEL: Record<UserRole, string> = {
   owner: 'Owner', designer: 'Designer', supervisor: 'Supervisor', accountant: 'Accountant',
 };
 const ROLE_COLORS: Record<UserRole, string> = {
-  owner:      'bg-slate-900 text-white',
+  owner:      'bg-[var(--surface-card)] text-white',
   designer:   'bg-emerald-600 text-white',
   supervisor: 'bg-amber-500 text-white',
   accountant: 'bg-violet-600 text-white',
@@ -260,9 +260,10 @@ function UsersTab() {
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-[var(--surface-card)] dark:border-slate-800">
-        <table className="w-full text-sm">
-          <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-900">
+      <div className="overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] ">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+          <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-wide text-[var(--text-secondary)] ">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Member</th>
               <th className="px-3 py-3 text-left font-semibold">Email</th>
@@ -273,30 +274,30 @@ function UsersTab() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="p-10 text-center text-slate-500">Loading…</td></tr>
+              <tr><td colSpan={5} className="p-10 text-center text-[var(--text-secondary)]">Loading…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="p-10 text-center text-slate-500">
+              <tr><td colSpan={5} className="p-10 text-center text-[var(--text-secondary)]">
                 {search ? 'No members match your search.' : 'No members yet.'}
               </td></tr>
             ) : filtered.map((r) => {
               const draftRole = drafts[r.id];
               const dirty = draftRole && draftRole !== r.role;
               return (
-                <tr key={r.id} className="border-b border-slate-100 last:border-b-0 dark:border-slate-900">
+                <tr key={r.id} className="border-b border-[var(--border-subtle)] last:border-b-0 ">
                   <td className="px-4 py-2.5">
                     <Link href={`/employees/${r.id}`} className="flex items-center gap-3 font-medium hover:text-emerald-600" style={{ color: 'var(--text-heading)' }}>
                       <EmployeeAvatar name={r.fullName} photoUrl={r.photoUrl} size={32} />
                       {r.fullName}
                     </Link>
                   </td>
-                  <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">{r.email ?? '—'}</td>
+                  <td className="px-3 py-2.5 text-[var(--text-secondary)] ">{r.email ?? '—'}</td>
                   <td className="px-3 py-2.5">
                     {hasLogin(r) ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
                         <KeyRound className="h-3 w-3" /> Has login
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-muted)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-secondary)] ">
                         No login
                       </span>
                     )}
@@ -338,10 +339,11 @@ function UsersTab() {
             })}
           </tbody>
         </table>
+            </div>
       </div>
 
-      <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-3 text-center text-xs text-slate-500 dark:border-slate-700">
-        <MailPlus className="mx-auto mb-1 h-4 w-4 text-slate-400" />
+      <div className="mt-5 rounded-lg border border-dashed border-[var(--border-strong)] p-3 text-center text-xs text-[var(--text-secondary)] ">
+        <MailPlus className="mx-auto mb-1 h-4 w-4 text-[var(--text-tertiary)]" />
         To grant login access to a new member, add them in{' '}
         <Link href="/employees" className="font-medium text-emerald-600 underline">People</Link>{' '}
         first.
@@ -365,7 +367,7 @@ function NotificationsTab({ onSave }: { onSave: () => void }) {
     <div>
       <SectionTitle>Notification Preferences</SectionTitle>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>WhatsApp</p>
+        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>WhatsApp</p>
         <div className="space-y-3">
           <Toggle checked={waLeadAlert}   onChange={setWaLeadAlert}   label="New lead received alert" />
           <Toggle checked={waPayment}     onChange={setWaPayment}     label="Payment captured notification" />
@@ -374,14 +376,14 @@ function NotificationsTab({ onSave }: { onSave: () => void }) {
         </div>
       </div>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>Email</p>
+        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Email</p>
         <div className="space-y-3">
           <Toggle checked={emailDigest}  onChange={setEmailDigest}  label="Weekly digest (every Monday)" />
           <Toggle checked={emailInvoice} onChange={setEmailInvoice} label="Invoice sent confirmation" />
         </div>
       </div>
       <div className="mb-5">
-        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#A79E8E' }}>Alerts</p>
+        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Alerts</p>
         <div className="space-y-3">
           <Toggle checked={overdueAlert} onChange={setOverdueAlert} label="Overdue payment alert (Day 3, 7, 10)" />
           <Toggle checked={mondayBrief}  onChange={setMondayBrief}  label="Monday AI project brief" />
@@ -412,7 +414,7 @@ function InvoiceTab({ onSave }: { onSave: () => void }) {
           {(['works_contract', 'goods'] as const).map(t => (
             <button key={t} type="button" onClick={() => setGstType(t)}
               className="px-4 py-2 rounded-xl text-sm font-medium border transition-colors"
-              style={{ background: gstType === t ? '#24211E' : '#FFFFFF', color: gstType === t ? '#FFFFFF' : '#24211E', borderColor: '#24211E' }}>
+              style={{ background: gstType === t ? 'var(--text-primary)' : 'var(--surface-card)', color: gstType === t ? 'var(--surface-card)' : 'var(--text-primary)', borderColor: 'var(--text-primary)' }}>
               {t === 'works_contract' ? 'Works Contract (18%)' : 'Goods (per HSN)'}
             </button>
           ))}
@@ -465,7 +467,7 @@ function SecurityTab({ onSave }: { onSave: () => void }) {
           <input type={showPw ? 'text' : 'password'} value={confirm} onChange={e => setConfirm(e.target.value)}
             placeholder="Confirm new password" className="studio-input w-full text-sm" />
           <button type="button" onClick={() => setShowPw(s => !s)}
-            className="flex items-center gap-1.5 text-xs" style={{ color: '#24211E' }}>
+            className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-primary)' }}>
             {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
             {showPw ? 'Hide' : 'Show'} passwords
           </button>
@@ -481,14 +483,14 @@ function SecurityTab({ onSave }: { onSave: () => void }) {
             { device: 'Safari — iPhone',     location: 'Coimbatore, India', current: false },
           ].map(s => (
             <div key={s.device} className="flex items-center justify-between p-3 rounded-xl"
-              style={{ border: '1px solid #F0EEE9', background: s.current ? '#FAF9F6' : '#FFFFFF' }}>
+              style={{ border: '1px solid var(--border-subtle)', background: s.current ? '#FAF9F6' : 'var(--surface-card)' }}>
               <div>
-                <p className="text-xs font-medium" style={{ color: '#221F1B' }}>{s.device}</p>
-                <p className="text-[10px]" style={{ color: '#A79E8E' }}>{s.location}</p>
+                <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{s.device}</p>
+                <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>{s.location}</p>
               </div>
               {s.current
-                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#F0FDF4', color: '#14532D' }}>Current</span>
-                : <button type="button" className="text-xs" style={{ color: '#DC2626' }}>Revoke</button>
+                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>Current</span>
+                : <button type="button" className="text-xs" style={{ color: 'var(--danger)' }}>Revoke</button>
               }
             </div>
           ))}
@@ -520,20 +522,20 @@ function IntegrationsTab() {
       <div className="space-y-3">
         {integrations.map(i => (
           <div key={i.name} className="flex items-center justify-between px-4 py-4 rounded-xl"
-            style={{ border: '1px solid #F0EEE9', background: '#FFFFFF' }}>
+            style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-card)' }}>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: i.status === 'connected' ? 'rgba(36,33,30,0.10)' : 'rgba(107,107,107,0.08)' }}>
-                <Plug className="h-5 w-5" style={{ color: i.status === 'connected' ? '#24211E' : '#9CA3AF' }} />
+                <Plug className="h-5 w-5" style={{ color: i.status === 'connected' ? 'var(--text-primary)' : 'var(--text-tertiary)' }} />
               </div>
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{i.name}</p>
-                <p className="text-xs" style={{ color: '#6B6459' }}>{i.desc}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{i.name}</p>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{i.desc}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
               <span className="text-[10px] font-bold px-2.5 py-1 rounded-full"
-                style={{ background: i.status === 'connected' ? '#F0FDF4' : '#F3F4F6', color: i.status === 'connected' ? '#14532D' : '#6B7280' }}>
+                style={{ background: i.status === 'connected' ? 'var(--success-soft)' : 'var(--surface-muted)', color: i.status === 'connected' ? 'var(--success-text)' : 'var(--text-secondary)' }}>
                 {i.status === 'connected' ? 'Live' : 'Available'}
               </span>
               {i.status === 'available' && (
@@ -591,7 +593,7 @@ function ExportTab() {
   return (
     <div>
       <SectionTitle>Data Export & Backup</SectionTitle>
-      <p className="text-sm mb-5" style={{ color: '#6B6459' }}>
+      <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
         Your data belongs to you. Export anytime in standard formats.
       </p>
       {error && (
@@ -604,10 +606,10 @@ function ExportTab() {
           const busy = downloadingKind === e.kind;
           return (
             <div key={e.kind} className="flex items-center justify-between px-4 py-4 rounded-xl"
-              style={{ border: '1px solid #F0EEE9', background: '#FFFFFF' }}>
+              style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-card)' }}>
               <div>
-                <p className="text-sm font-semibold" style={{ color: '#221F1B' }}>{e.label}</p>
-                <p className="text-xs" style={{ color: '#6B6459' }}>{e.desc}</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{e.label}</p>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{e.desc}</p>
               </div>
               <button
                 type="button"
@@ -622,8 +624,8 @@ function ExportTab() {
           );
         })}
       </div>
-      <div className="mt-6 p-4 rounded-xl" style={{ background: '#FFF7ED', border: '1px solid #FCD34D' }}>
-        <p className="text-sm font-semibold mb-1" style={{ color: '#92400E' }}>Data Retention</p>
+      <div className="mt-6 p-4 rounded-xl" style={{ background: 'var(--warning-soft)', border: '1px solid #FCD34D' }}>
+        <p className="text-sm font-semibold mb-1" style={{ color: 'var(--warning-text)' }}>Data Retention</p>
         <p className="text-xs" style={{ color: '#A16207' }}>
           Data is stored securely in Supabase (India region). Archived leads are retained for 7 years as per
           GST record-keeping requirements. GDPR erasure requests can be submitted via this settings page.
@@ -656,8 +658,8 @@ export default function SettingsPage() {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Settings</h2>
-        <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Manage your studio workspace</p>
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Settings</h2>
+        <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>Manage your studio workspace</p>
       </div>
 
       <div className="flex gap-6 flex-col lg:flex-row">
@@ -674,8 +676,8 @@ export default function SettingsPage() {
                     background: isActive ? 'rgba(36,33,30,0.10)' : 'transparent',
                     borderLeft: isActive ? '3px solid #8F6F2E' : '3px solid transparent',
                   }}>
-                  <Icon className="h-4 w-4 flex-shrink-0" style={{ color: isActive ? '#24211E' : '#A79E8E' }} />
-                  <span className="text-sm font-semibold truncate" style={{ color: isActive ? '#1C1916' : '#6B6459' }}>
+                  <Icon className="h-4 w-4 flex-shrink-0" style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)' }} />
+                  <span className="text-sm font-semibold truncate" style={{ color: isActive ? 'var(--text-heading)' : 'var(--text-secondary)' }}>
                     {tab.label}
                   </span>
                 </button>

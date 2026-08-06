@@ -15,14 +15,14 @@ export function MarginSummary({ lines, subtotalPaise, gstPaise, totalPaise }: Ma
   const marginPctStr     = marginPct.toFixed(1);
 
   const marginColor =
-    marginPct >= 20 ? '#16A34A' :
-    marginPct >= 10 ? '#D97706' :
-    '#DC2626';
+    marginPct >= 20 ? 'var(--success)' :
+    marginPct >= 10 ? 'var(--warning)' :
+    'var(--danger)';
 
   const marginBarColor =
-    marginPct >= 20 ? '#16A34A' :
-    marginPct >= 10 ? '#F59E0B' :
-    '#EF4444';
+    marginPct >= 20 ? 'var(--success)' :
+    marginPct >= 10 ? 'var(--warning)' :
+    'var(--danger)';
 
   const barWidth = Math.min(100, Math.max(0, marginPct));
 
@@ -30,51 +30,51 @@ export function MarginSummary({ lines, subtotalPaise, gstPaise, totalPaise }: Ma
     <div className="space-y-4">
 
       {/* ── Totals ──────────────────────────────────────────────────────── */}
-      <div className="rounded-2xl border p-5" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+      <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-2 mb-4">
           <div className="h-8 w-8 rounded-lg flex items-center justify-center"
-            style={{ background: '#EFF6FF' }}>
-            <IndianRupee className="h-4 w-4" style={{ color: '#1E40AF' }} />
+            style={{ background: 'var(--accent-soft)' }}>
+            <IndianRupee className="h-4 w-4" style={{ color: 'var(--accent-text)' }} />
           </div>
-          <h3 className="text-sm font-bold" style={{ color: '#1C1916' }}>Quote Summary</h3>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Quote Summary</h3>
         </div>
 
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between">
-            <dt style={{ color: '#6B6459' }}>Items</dt>
-            <dd className="font-medium" style={{ color: '#1C1916' }}>{lines.length}</dd>
+            <dt style={{ color: 'var(--text-secondary)' }}>Items</dt>
+            <dd className="font-medium" style={{ color: 'var(--text-heading)' }}>{lines.length}</dd>
           </div>
           <div className="flex justify-between">
-            <dt style={{ color: '#6B6459' }}>Subtotal</dt>
-            <dd className="font-medium" style={{ color: '#1C1916' }}>{formatRupees(subtotalPaise)}</dd>
+            <dt style={{ color: 'var(--text-secondary)' }}>Subtotal</dt>
+            <dd className="font-medium" style={{ color: 'var(--text-heading)' }}>{formatRupees(subtotalPaise)}</dd>
           </div>
           <div className="flex justify-between">
-            <dt style={{ color: '#6B6459' }}>GST (18%)</dt>
-            <dd className="font-medium" style={{ color: '#1C1916' }}>{formatRupees(gstPaise)}</dd>
+            <dt style={{ color: 'var(--text-secondary)' }}>GST (18%)</dt>
+            <dd className="font-medium" style={{ color: 'var(--text-heading)' }}>{formatRupees(gstPaise)}</dd>
           </div>
-          <div className="flex justify-between pt-3" style={{ borderTop: '2px solid #F0EEE9' }}>
-            <dt className="text-base font-bold" style={{ color: '#1C1916' }}>Total</dt>
-            <dd className="text-base font-bold" style={{ color: '#7C3AED' }}>{formatRupees(totalPaise)}</dd>
+          <div className="flex justify-between pt-3" style={{ borderTop: '2px solid var(--border-subtle)' }}>
+            <dt className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Total</dt>
+            <dd className="text-base font-bold" style={{ color: 'var(--accent-base)' }}>{formatRupees(totalPaise)}</dd>
           </div>
         </dl>
       </div>
 
       {/* ── Margin health ───────────────────────────────────────────────── */}
-      <div className="rounded-2xl border p-5" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+      <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-2 mb-4">
           <div className="h-8 w-8 rounded-lg flex items-center justify-center"
-            style={{ background: marginPct >= 20 ? '#F0FDF4' : marginPct >= 10 ? '#FFFBEB' : '#FEF2F2' }}>
+            style={{ background: marginPct >= 20 ? 'var(--success-soft)' : marginPct >= 10 ? 'var(--warning-soft)' : 'var(--danger-soft)' }}>
             <TrendingUp className="h-4 w-4" style={{ color: marginColor }} />
           </div>
-          <h3 className="text-sm font-bold" style={{ color: '#1C1916' }}>Margin Health</h3>
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Margin Health</h3>
         </div>
 
         <div className="mb-4">
           <div className="flex items-baseline gap-2 mb-2">
             <span className="text-2xl font-bold" style={{ color: marginColor }}>{marginPctStr}%</span>
-            <span className="text-xs" style={{ color: '#A79E8E' }}>margin</span>
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>margin</span>
           </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: '#F0EEE9' }}>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{ width: `${barWidth}%`, background: marginBarColor }}
@@ -87,9 +87,9 @@ export function MarginSummary({ lines, subtotalPaise, gstPaise, totalPaise }: Ma
           </div>
         </div>
 
-        <div className="flex justify-between text-sm pt-3" style={{ borderTop: '1px solid #F0EEE9' }}>
-          <span style={{ color: '#6B6459' }}>Total Margin</span>
-          <span className="font-semibold" style={{ color: totalMarginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+        <div className="flex justify-between text-sm pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <span style={{ color: 'var(--text-secondary)' }}>Total Margin</span>
+          <span className="font-semibold" style={{ color: totalMarginPaise >= 0 ? 'var(--success)' : 'var(--danger)' }}>
             {formatRupees(totalMarginPaise)}
           </span>
         </div>

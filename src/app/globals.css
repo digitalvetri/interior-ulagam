@@ -5,45 +5,77 @@
    deterministically controls the theme. */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* ── InterioOS Brand Theme ─────────────────────────────────────────────────
-   Deep navy structure, teal as the primary interactive color, purple + gold
-   as supporting accents. Exact hexes from the brand color sheet:
-   Primary #0D1B2A · Secondary #00B894 · Accent #6C5CE7 · Highlight #F9C74F ·
-   Neutral #F3F5F9. Teal (not navy) drives buttons/active-states/links —
-   that's how the brand's own reference dashboard actually uses it; navy is
-   reserved for structural surfaces (sidebar) and heading text. */
+/* ── InterioOS Design System ───────────────────────────────────────────────
+   Refined light: near-white warm-neutral surfaces, hairline borders, a single
+   indigo accent, and colour reserved for meaning rather than decoration.
+
+   The app previously carried two competing palettes — a navy/teal/purple/gold
+   token set here, and a warm-stone set hardcoded across the pages. Everything
+   now resolves to the scale below, so a component that reaches for a token gets
+   a consistent result and dark mode follows automatically.
+
+   ONE accent. Green, amber and red appear only as status, never as chrome. */
 
 :root {
-  /* ── Core palette ─────────────────────────────────────── */
-  --navy:            #0D1B2A;   /* Primary   — sidebar / structural dark    */
-  --navy-soft:       #16283A;   /* lighter navy — hover panels on dark      */
-  --teal:            #00B894;   /* Secondary — buttons, active states, CTAs */
-  --teal-dark:       #00996F;   /* hover state for teal                     */
-  --teal-soft:       #E3F9F1;   /* light teal tint — active pill / badges   */
-  --purple:          #6C5CE7;   /* Accent    — supporting accent            */
-  --purple-soft:     #EEEBFD;
-  --violet-primary:  #7C5CFC;   /* Brand violet — primary buttons & CTAs    */
-  --violet-hover:    #6C4FF5;   /* Darker violet for button hover states     */
-  --violet-soft:     rgba(124,92,252,0.10); /* Light tint for focus glow    */
-  --gold:            #F9C74F;   /* Highlight — supporting accent            */
-  --gold-soft:       #FEF6E0;
-  --surface-app:     #F3F5F9;   /* Neutral   — main app background          */
-  --surface-card:    #FFFFFF;
-  --surface-muted:   #EDF1F5;   /* alternate rows / muted                   */
-  --border-subtle:   #E1E7EE;
+  /* ── Neutrals — the 95% of the interface ──────────────── */
+  --surface-app:     #FAFAF9;   /* page background — warm near-white         */
+  --surface-card:    #FFFFFF;   /* raised surfaces                           */
+  --surface-muted:   #F5F5F3;   /* table stripes, inert fills                */
+  --surface-hover:   #F0F0ED;   /* row / item hover                          */
+  --border-subtle:   #E7E7E4;   /* hairline — the default separator          */
+  --border-strong:   #D8D8D3;   /* emphasised edges, inputs                  */
 
-  /* ── Text ─────────────────────────────────────────────── */
-  --text-primary:    #0D1B2A;
-  --text-secondary:  #5C6B7A;
-  --text-heading:    #0D1B2A;
-  --text-accent:     #00805F;   /* AA-safe dark teal for small accent text (≈4.9:1 on white) */
-  --text-gold:       #8A6D0A;   /* AA-safe dark gold for small text on light bg (≈4.9:1) */
+  /* ── Text — four steps, no more ───────────────────────── */
+  --text-heading:    #111110;   /* headings                                  */
+  --text-primary:    #1C1C1A;   /* body                                      */
+  --text-secondary:  #6B6B66;   /* supporting copy, labels                   */
+  --text-tertiary:   #96968F;   /* metadata, placeholders                    */
 
-  /* ── Per-metric pastel accents ──────────────────────────── */
-  --accent-purple-bg: var(--purple-soft); --accent-purple: var(--purple);
-  --accent-blue-bg:   var(--teal-soft);   --accent-blue:   var(--teal);
-  --accent-orange-bg: var(--gold-soft);   --accent-orange: var(--text-gold);
-  --accent-green-bg:  var(--teal-soft);   --accent-green:  var(--teal-dark);
+  /* ── Accent — indigo, used sparingly ──────────────────── */
+  --accent-base:     #5B5BD6;
+  --accent-hover:    #4E4EC4;
+  --accent-soft:     #EEEEFB;   /* tinted background for active states       */
+  --accent-text:     #4A4AB8;   /* AA-safe accent text on white (≈5.2:1)     */
+
+  /* ── Status — meaning only ────────────────────────────── */
+  --success:         #0F9D6E;  --success-soft: #E7F7F1;  --success-text: #0A7A55;
+  --warning:         #C4841D;  --warning-soft: #FBF2E2;  --warning-text: #8A6D0A;
+  --danger:          #D64545;  --danger-soft:  #FDECEC;  --danger-text:  #B02B2B;
+
+  /* ── Elevation — restrained; borders do most of the work ─ */
+  --shadow-sm:  0 1px 2px rgba(17, 17, 16, 0.04);
+  --shadow-md:  0 2px 4px rgba(17, 17, 16, 0.04), 0 1px 2px rgba(17, 17, 16, 0.03);
+  --shadow-lg:  0 8px 24px rgba(17, 17, 16, 0.07), 0 2px 6px rgba(17, 17, 16, 0.04);
+
+  /* ── Shell metrics ────────────────────────────────────── */
+  --sidebar-width:        272px;  /* was 220px — roomier, calmer nav          */
+  --sidebar-width-icon:   72px;
+  --topbar-height:        64px;
+
+  /* ── Legacy aliases ───────────────────────────────────────
+     Kept so the many components still referencing the old names resolve to the
+     new scale instead of the old second palette. The four former accents all
+     collapse onto the single accent — that unification is the point. */
+  --navy:            var(--text-heading);
+  --navy-soft:       var(--text-primary);
+  --teal:            var(--accent-base);
+  --teal-dark:       var(--accent-hover);
+  --teal-soft:       var(--accent-soft);
+  --purple:          var(--accent-base);
+  --purple-soft:     var(--accent-soft);
+  --violet-primary:  var(--accent-base);
+  --violet-hover:    var(--accent-hover);
+  --violet-soft:     rgba(91, 91, 214, 0.10);
+  --gold:            var(--warning);
+  --gold-soft:       var(--warning-soft);
+  --text-accent:     var(--accent-text);
+  --text-gold:       var(--warning-text);
+
+  /* ── Per-metric accents — differentiated by tint, not hue ─ */
+  --accent-purple-bg: var(--accent-soft);  --accent-purple: var(--accent-base);
+  --accent-blue-bg:   var(--accent-soft);  --accent-blue:   var(--accent-base);
+  --accent-orange-bg: var(--warning-soft); --accent-orange: var(--warning-text);
+  --accent-green-bg:  var(--success-soft); --accent-green:  var(--success-text);
 
   /* ── shadcn/ui tokens (mapped to palette) ─────────────── */
   --background:          var(--surface-app);
@@ -52,20 +84,22 @@
   --card-foreground:     var(--text-primary);
   --popover:             #FFFFFF;
   --popover-foreground:  var(--text-primary);
-  --primary:             var(--violet-primary);
+  --primary:             var(--accent-base);
   --primary-foreground:  #FFFFFF;
   --secondary:           var(--surface-muted);
   --secondary-foreground: var(--text-primary);
   --muted:               var(--surface-muted);
   --muted-foreground:    var(--text-secondary);
-  --accent:              var(--teal);
+  --accent:              var(--accent-base);
   --accent-foreground:   #FFFFFF;
-  --destructive:         #DC2626;
+  --destructive:         var(--danger);
   --destructive-foreground: #FFFFFF;
   --border:              var(--border-subtle);
-  --input:               var(--border-subtle);
-  --ring:                var(--violet-primary);
-  --radius:              0.75rem;
+  --input:               var(--border-strong);
+  --ring:                var(--accent-base);
+  /* Tighter than the previous 0.75rem — large radii read as consumer app;
+     restrained corners read as a tool. */
+  --radius:              0.5rem;
 }
 
 /* ── Dark mode ────────────────────────────────────────────────────────────
@@ -73,25 +107,33 @@
    the surface + text tokens so every component keyed to the CSS vars swaps
    without touching the components. */
 :root[data-theme="dark"] {
-  /* Aligned to Tailwind slate-950 / slate-900 / slate-800 so the many
-     `dark:bg-slate-950` / `dark:border-slate-800` utility classes across
-     the app blend seamlessly with the layout background. */
-  --navy:            #020617;   /* slate-950 */
-  --navy-soft:       #0F172A;   /* slate-900 */
-  --surface-app:     #020617;
-  --surface-card:    #0F172A;
-  --surface-muted:   #1E293B;   /* slate-800 */
-  --border-subtle:   #1E293B;
+  /* Warm-neutral charcoal rather than blue-black, so the two themes read as the
+     same product. Surfaces step up as they come forward, never down. */
+  --surface-app:     #101010;
+  --surface-card:    #191918;
+  --surface-muted:   #212120;
+  --surface-hover:   #262625;
+  --border-subtle:   #2A2A28;
+  --border-strong:   #3A3A37;
 
-  --text-primary:    #E5E7EB;
-  --text-secondary:  #94A3B8;
-  --text-heading:    #F1F5F9;
-  --text-accent:     #34D399;
-  --text-gold:       #FCD34D;
+  --text-heading:    #F5F5F3;
+  --text-primary:    #E8E8E4;
+  --text-secondary:  #A1A19A;
+  --text-tertiary:   #74746D;
 
-  --teal-soft:       rgba(0, 184, 148, 0.15);
-  --purple-soft:     rgba(108, 92, 231, 0.18);
-  --gold-soft:       rgba(249, 199, 79, 0.15);
+  /* Lifted and slightly desaturated — full-strength indigo vibrates on black. */
+  --accent-base:     #7B7BE8;
+  --accent-hover:    #8E8EEF;
+  --accent-soft:     rgba(123, 123, 232, 0.16);
+  --accent-text:     #A5A5F0;
+
+  --success:  #2FBE8A;  --success-soft: rgba(47, 190, 138, 0.16);  --success-text: #4FD3A2;
+  --warning:  #D9A03C;  --warning-soft: rgba(217, 160, 60, 0.16);  --warning-text: #E8B75C;
+  --danger:   #E86A6A;  --danger-soft:  rgba(232, 106, 106, 0.16); --danger-text:  #F08A8A;
+
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:  0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
   --background:      var(--surface-app);
   --foreground:      var(--text-primary);
@@ -142,25 +184,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Premium Card ────────────────────────────────────────────────────────── */
-/* White bg, light border, layered shadow + soft top highlight, hover lift */
+/* ── Card ────────────────────────────────────────────────────────────────────
+   Definition comes from a hairline border, not a drop shadow. The previous
+   version stacked two shadows and lifted 2px on hover, which reads as a
+   marketing page; a dense tool wants surfaces that sit still. */
 .premium-card {
-  background: #FFFFFF;
+  background: var(--surface-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 14px;
-  box-shadow:
-    0 1px 2px rgba(22,20,15, 0.05),
-    0 6px 20px rgba(22,20,15, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .premium-card:hover {
-  border-color: rgba(0,184,148, 0.22);
-  box-shadow:
-    0 2px 4px rgba(22,20,15, 0.06),
-    0 12px 32px rgba(22,20,15, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── Stat icon badge — used by KPI cards for a distinct per-metric accent ── */
@@ -176,30 +213,33 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background: #FFFFFF;
-  border-right: 1px solid #E7E7ED;
+  background: var(--surface-card);
+  border-right: 1px solid var(--border-subtle);
 }
 
-/* Sidebar nav item hover/active states via CSS — avoids JS event handlers */
+/* Hover and active states live in CSS so the nav needs no JS event handlers.
+   Active is carried by a tinted fill plus the accent — never by weight alone,
+   which is invisible to anyone who cannot distinguish the tint. */
 .nav-item {
   display: flex;
   align-items: center;
-  border-radius: 8px;
+  border-radius: var(--radius);
   transition: background-color 0.12s ease, color 0.12s ease;
-  color: #4B5563;
+  color: var(--text-secondary);
   position: relative;
 }
 .nav-item:hover {
-  background-color: #F5F3FF;
-  color: #111827;
+  background-color: var(--surface-hover);
+  color: var(--text-heading);
 }
 .nav-item.active {
-  background-color: #EDE9FE;
-  color: #6D4FE0;
+  background-color: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 550;
 }
-.nav-item .nav-icon   { color: #9CA3AF; transition: color 0.12s; }
-.nav-item:hover .nav-icon  { color: #6D4FE0; }
-.nav-item.active .nav-icon { color: #7C5CFC; }
+.nav-item .nav-icon        { color: var(--text-tertiary); transition: color 0.12s; }
+.nav-item:hover .nav-icon  { color: var(--text-secondary); }
+.nav-item.active .nav-icon { color: var(--accent-base); }
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 /* Pure white with subtle shadow */

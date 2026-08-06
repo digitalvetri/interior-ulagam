@@ -121,7 +121,7 @@ function ConfirmDialog({ open, title, message, confirmLabel, danger, onConfirm, 
             onClick={onConfirm}
             disabled={loading}
             className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50"
-            style={{ background: danger ? '#DC2626' : 'var(--violet-primary)', color: '#fff' }}
+            style={{ background: danger ? 'var(--danger)' : 'var(--violet-primary)', color: '#fff' }}
           >
             {loading ? 'Please wait…' : confirmLabel}
           </button>
@@ -177,7 +177,7 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
             onClick={onConfirm}
             disabled={loading || !value.trim()}
             className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50"
-            style={{ background: '#DC2626', color: '#fff' }}
+            style={{ background: 'var(--danger)', color: '#fff' }}
           >
             {loading ? 'Marking Lost…' : 'Mark as Lost'}
           </button>
@@ -615,9 +615,9 @@ export default function LeadDetailPage() {
   const stageChangeActivities = activities.filter(a => a.type === 'stage_change');
 
   const followUpStyle = {
-    overdue:  { bg: '#FEF2F2', color: '#DC2626', label: 'Overdue' },
-    today:    { bg: '#FFF7ED', color: '#EA580C', label: 'Today'   },
-    upcoming: { bg: '#FFFBEB', color: '#D97706', label: ''        },
+    overdue:  { bg: 'var(--danger-soft)', color: 'var(--danger)', label: 'Overdue' },
+    today:    { bg: 'var(--warning-soft)', color: 'var(--warning)', label: 'Today'   },
+    upcoming: { bg: 'var(--warning-soft)', color: 'var(--warning)', label: ''        },
   };
 
   const hasContactInfo = lead.alternatePhone || lead.contactEmail || lead.contactCity || lead.pincode || lead.projectLocation;
@@ -687,9 +687,9 @@ export default function LeadDetailPage() {
             <div
               className="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl text-sm font-medium"
               style={{
-                background: isWon ? '#F0FDF4' : '#F9FAFB',
-                border: `1px solid ${isWon ? '#86EFAC' : '#D1D5DB'}`,
-                color:  isWon ? '#14532D' : '#374151',
+                background: isWon ? 'var(--success-soft)' : 'var(--surface-muted)',
+                border: `1px solid ${isWon ? '#86EFAC' : 'var(--border-strong)'}`,
+                color:  isWon ? 'var(--success-text)' : 'var(--text-primary)',
               }}
             >
               {isWon
@@ -703,7 +703,7 @@ export default function LeadDetailPage() {
           <div className="flex items-start gap-4">
             <div
               className="h-14 w-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #7C5CFC 0%, #5B3FDD 100%)' }}
+              style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #5B3FDD 100%)' }}
             >
               {initials}
             </div>
@@ -717,7 +717,7 @@ export default function LeadDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowActionsMenu(v => !v)}
-                    className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+                    className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
                     style={{ border: '1px solid var(--border-subtle)' }}
                   >
                     <MoreVertical className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
@@ -730,7 +730,7 @@ export default function LeadDetailPage() {
                       <button
                         type="button"
                         onClick={() => { setShowActionsMenu(false); setShowEditDialog(true); }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors"
                         style={{ color: 'var(--text-heading)' }}
                       >
                         <Edit2 className="h-4 w-4" style={{ color: 'var(--violet-primary)' }} />
@@ -739,7 +739,7 @@ export default function LeadDetailPage() {
                       <button
                         type="button"
                         onClick={() => { setShowActionsMenu(false); setShowArchiveConfirm(true); }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors"
                         style={{ color: 'var(--text-heading)' }}
                       >
                         <Archive className="h-4 w-4 text-amber-500" />
@@ -786,7 +786,7 @@ export default function LeadDetailPage() {
                 onClick={() => changeStage('won')}
                 disabled={markingWon || markingLost}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg transition-opacity disabled:opacity-60"
-                style={{ background: '#16a34a', color: '#fff' }}
+                style={{ background: 'var(--success)', color: '#fff' }}
               >
                 <CheckCircle2 className="h-4 w-4" />
                 {markingWon ? 'Marking Won…' : 'Mark as Won'}
@@ -796,7 +796,7 @@ export default function LeadDetailPage() {
                 onClick={() => setShowMarkLostDialog(true)}
                 disabled={markingWon || markingLost}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-lg border transition-opacity disabled:opacity-60"
-                style={{ borderColor: '#DC2626', color: '#DC2626', background: 'transparent' }}
+                style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'transparent' }}
               >
                 <AlertCircle className="h-4 w-4" />
                 Mark as Lost
@@ -828,7 +828,7 @@ export default function LeadDetailPage() {
                 <Link
                   href={`/customers/${customerId}`}
                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-colors hover:opacity-80"
-                  style={{ background: 'rgba(16,185,129,0.12)', color: '#065f46', border: '1px solid rgba(16,185,129,0.3)' }}
+                  style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--success-text)', border: '1px solid rgba(16,185,129,0.3)' }}
                 >
                   <User className="h-3 w-3" /> Customer Profile
                 </Link>
@@ -1005,15 +1005,15 @@ export default function LeadDetailPage() {
                 disabled={transcribing}
                 className="absolute top-2 right-2 h-7 w-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
                 style={{
-                  background: recording ? '#FEF2F2' : transcribing ? 'var(--surface-muted)' : 'var(--purple-soft)',
-                  color: recording ? '#DC2626' : transcribing ? 'var(--text-secondary)' : 'var(--violet-primary)',
+                  background: recording ? 'var(--danger-soft)' : transcribing ? 'var(--surface-muted)' : 'var(--purple-soft)',
+                  color: recording ? 'var(--danger)' : transcribing ? 'var(--text-secondary)' : 'var(--violet-primary)',
                 }}
               >
                 {recording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
               </button>
             </div>
             {recording && (
-              <p className="text-xs flex items-center gap-1.5" style={{ color: '#DC2626' }}>
+              <p className="text-xs flex items-center gap-1.5" style={{ color: 'var(--danger)' }}>
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
                 Recording — tap the mic to stop
               </p>
@@ -1058,7 +1058,7 @@ export default function LeadDetailPage() {
                 <div key={sv.id} className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                   <div className="flex items-start gap-3">
                     <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'var(--purple-soft)' }}>
-                      <Home className="h-4 w-4" style={{ color: '#7C3AED' }} />
+                      <Home className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
                     </div>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{sv.title}</p>
@@ -1080,7 +1080,7 @@ export default function LeadDetailPage() {
               {stageChangeActivities.map(a => (
                 <div key={a.id} className="flex items-start gap-3 rounded-xl px-4 py-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                   <div className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: 'var(--purple-soft)' }}>
-                    <Zap className="h-3.5 w-3.5" style={{ color: '#7C3AED' }} />
+                    <Zap className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
                   </div>
                   <div>
                     <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{a.title}</p>
@@ -1126,8 +1126,8 @@ export default function LeadDetailPage() {
                       <span
                         className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
                         style={{
-                          background: q.status === 'approved' ? '#F0FDF4' : q.status === 'sent' ? '#EFF6FF' : '#F9FAFB',
-                          color: q.status === 'approved' ? '#14532D' : q.status === 'sent' ? '#1D4ED8' : '#6B7280',
+                          background: q.status === 'approved' ? 'var(--success-soft)' : q.status === 'sent' ? 'var(--accent-soft)' : 'var(--surface-muted)',
+                          color: q.status === 'approved' ? 'var(--success-text)' : q.status === 'sent' ? 'var(--accent-text)' : 'var(--text-secondary)',
                         }}
                       >
                         {q.status.toUpperCase()}
@@ -1201,7 +1201,7 @@ export default function LeadDetailPage() {
                       href={doc.downloadUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex-shrink-0 p-1.5 rounded-lg transition-colors hover:bg-gray-100"
+                      className="flex-shrink-0 p-1.5 rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
                       title="Download"
                     >
                       <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
@@ -1289,7 +1289,7 @@ export default function LeadDetailPage() {
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
                 className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-red-50 text-left text-red-600"
-                style={{ border: '1px solid #FECACA' }}
+                style={{ border: '1px solid var(--danger-soft)' }}
               >
                 <Trash2 className="h-4 w-4" />
                 Delete Lead
@@ -1361,7 +1361,7 @@ export default function LeadDetailPage() {
                 ))}
               </div>
               {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
-              {fuSuccess && <p className="text-xs font-medium" style={{ color: '#16a34a' }}>Follow-up updated!</p>}
+              {fuSuccess && <p className="text-xs font-medium" style={{ color: 'var(--success)' }}>Follow-up updated!</p>}
               <button
                 type="button"
                 onClick={scheduleFollowUp}
@@ -1380,7 +1380,7 @@ export default function LeadDetailPage() {
             {brief ? (
               <div className="space-y-4">
                 {(() => {
-                  const S = { hot: { bg: '#FEF2F2', color: '#DC2626' }, warm: { bg: '#FFF7ED', color: '#EA580C' }, cold: { bg: '#EFF6FF', color: '#1D4ED8' }, lost: { bg: '#F9FAFB', color: '#6B7280' } };
+                  const S = { hot: { bg: 'var(--danger-soft)', color: 'var(--danger)' }, warm: { bg: 'var(--warning-soft)', color: 'var(--warning)' }, cold: { bg: 'var(--accent-soft)', color: 'var(--accent-text)' }, lost: { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' } };
                   const s = S[brief.sentiment];
                   return <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{brief.sentiment.toUpperCase()}</span>;
                 })()}
@@ -1393,12 +1393,12 @@ export default function LeadDetailPage() {
                   </div>
                 </div>
                 {brief.riskFlags.length > 0 && (
-                  <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                    <ShieldAlert className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#DC2626' }} />
+                  <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-soft)' }}>
+                    <ShieldAlert className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
                     <div>
-                      <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: '#DC2626' }}>RISKS</p>
+                      <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--danger)' }}>RISKS</p>
                       <ul className="space-y-0.5">
-                        {brief.riskFlags.map(flag => <li key={flag} className="text-sm" style={{ color: '#991B1B' }}>· {flag}</li>)}
+                        {brief.riskFlags.map(flag => <li key={flag} className="text-sm" style={{ color: 'var(--danger-text)' }}>· {flag}</li>)}
                       </ul>
                     </div>
                   </div>
@@ -1426,7 +1426,7 @@ export default function LeadDetailPage() {
           {(lead.score ?? 0) > 0 && lead.scoreBreakdown && (
             <Section title="Lead Score" defaultOpen={false}>
               <div className="flex items-center gap-4 mb-4">
-                <div className="text-3xl font-bold" style={{ color: (lead.score ?? 0) >= 70 ? '#16A34A' : (lead.score ?? 0) >= 40 ? '#EA580C' : 'var(--text-secondary)' }}>
+                <div className="text-3xl font-bold" style={{ color: (lead.score ?? 0) >= 70 ? 'var(--success)' : (lead.score ?? 0) >= 40 ? 'var(--warning)' : 'var(--text-secondary)' }}>
                   {lead.score}
                 </div>
                 <div>

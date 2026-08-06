@@ -85,20 +85,20 @@ export default function RequirementsPage({ params }: { params: Promise<{ id: str
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <Link href={`/leads/${id}`} className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400">
+        <Link href={`/leads/${id}`} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] ">
           ← Back to Lead
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-bold text-[var(--text-heading)] dark:text-white">
           Requirements{lead ? ` — ${lead.contactName}` : ''}
         </h1>
       </div>
 
-      {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>}
+      {loading && <p className="text-sm text-[var(--text-secondary)] ">Loading…</p>}
       {!loading && error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {!loading && !error && (
         <>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-[var(--text-secondary)] ">
             {rooms.length === 0
               ? 'No rooms captured yet.'
               : `${rooms.length} room${rooms.length === 1 ? '' : 's'} captured`}

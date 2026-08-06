@@ -25,11 +25,11 @@ const STAGE_LABEL: Record<string, string> = {
 
 const STAGE_COLOR: Record<string, string> = {
   new:                  '#6366f1',
-  site_visit_scheduled: '#8b5cf6',
+  site_visit_scheduled: 'var(--accent-base)',
   consultation_done:    '#a855f7',
   proposal_sent:        '#d946ef',
-  negotiation:          '#f59e0b',
-  won:                  '#16a34a',
+  negotiation:          'var(--warning)',
+  won:                  'var(--success)',
   lost:                 '#94a3b8',
 };
 
@@ -289,17 +289,17 @@ export default async function LeadsAnalyticsPage() {
         <KpiCard
           label="Pipeline Value" value={fmtRupeesL(totalPipelinePaise)}
           sub={`${active} leads in pipeline`}
-          icon={<TrendingUp size={15} />} accent="#8b5cf6"
+          icon={<TrendingUp size={15} />} accent="var(--accent-base)"
         />
         <KpiCard
           label="Won This Month" value={String(wonThisMonth)}
           sub="conversions this month"
-          icon={<Trophy size={15} />} accent="#16a34a"
+          icon={<Trophy size={15} />} accent="var(--success)"
         />
         <KpiCard
           label="Avg Lead Score" value={avgScore > 0 ? `${avgScore}` : '—'}
           sub="out of 100 · quality index"
-          icon={<Star size={15} />} accent="#f59e0b"
+          icon={<Star size={15} />} accent="var(--warning)"
         />
       </div>
 
@@ -361,7 +361,8 @@ export default async function LeadsAnalyticsPage() {
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-heading)', margin: '0 0 18px' }}>
             Source ROI
           </h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="overflow-x-auto">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={{ ...thStyle, textAlign: 'left' }}>Source</th>
@@ -391,13 +392,13 @@ export default async function LeadsAnalyticsPage() {
                     <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: 'var(--text-heading)' }}>
                       {tot}
                     </td>
-                    <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                    <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>
                       {won}
                     </td>
                     <td style={{ ...tdBase, paddingLeft: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ flex: 1, height: 5, borderRadius: 99, background: 'var(--surface-muted)', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: '#16a34a', borderRadius: 99 }} />
+                          <div style={{ height: '100%', width: `${pct}%`, background: 'var(--success)', borderRadius: 99 }} />
                         </div>
                         <span style={{ fontSize: 12, color: 'var(--text-secondary)', width: 30, textAlign: 'right', flexShrink: 0 }}>
                           {pct}%
@@ -412,6 +413,7 @@ export default async function LeadsAnalyticsPage() {
               })}
             </tbody>
           </table>
+            </div>
         </div>
 
         {/* Designer Performance */}
@@ -419,7 +421,8 @@ export default async function LeadsAnalyticsPage() {
           <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-heading)', margin: '0 0 18px' }}>
             Designer Performance
           </h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="overflow-x-auto">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
                 <th style={{ ...thStyle, textAlign: 'left', width: 28 }}>#</th>
@@ -448,7 +451,7 @@ export default async function LeadsAnalyticsPage() {
                     <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: 'var(--text-heading)' }}>
                       {Number(r.total)}
                     </td>
-                    <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: '#16a34a' }}>
+                    <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: 'var(--success)' }}>
                       {Number(r.won_count)}
                     </td>
                     <td style={{ ...tdBase, textAlign: 'right', color: 'var(--text-secondary)', fontWeight: val > 0 ? 600 : 400 }}>
@@ -459,6 +462,7 @@ export default async function LeadsAnalyticsPage() {
               })}
             </tbody>
           </table>
+            </div>
         </div>
       </div>
 

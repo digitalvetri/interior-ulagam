@@ -44,7 +44,7 @@ const CATEGORY_BADGE_CLASSES: Record<MaterialCategory, string> = {
   lighting: 'bg-yellow-100 text-yellow-700 border-yellow-200',
   flooring: 'bg-amber-100 text-amber-800 border-amber-200',
   sanitary: 'bg-teal-100 text-teal-700 border-teal-200',
-  other: 'bg-gray-100 text-gray-700 border-gray-200',
+  other: 'bg-[var(--surface-muted)] text-[var(--text-primary)] border-[var(--border-subtle)]',
 };
 
 const CATEGORIES: MaterialCategory[] = [

@@ -14,25 +14,25 @@ const STAGE_LABEL: Record<CustomerStage, string> = {
 
 const STAGE_STYLE: Record<CustomerStage, { bg: string; color: string; dot: string }> = {
   lead:        { bg: 'rgba(100,116,139,0.10)', color: '#475569', dot: '#94a3b8' },
-  opportunity: { bg: 'rgba(245,158,11,0.12)',  color: '#b45309', dot: '#f59e0b' },
-  client:      { bg: 'rgba(16,185,129,0.12)',  color: '#065f46', dot: '#10b981' },
+  opportunity: { bg: 'rgba(245,158,11,0.12)',  color: 'var(--warning-text)', dot: 'var(--warning)' },
+  client:      { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success-text)', dot: 'var(--success)' },
   past_client: { bg: 'rgba(148,163,184,0.12)', color: '#64748b', dot: '#cbd5e1' },
 };
 
 const HEALTH_META: Record<string, { label: string; color: string; bg: string }> = {
   hot:      { label: '🔥 Hot',      color: '#f97316', bg: 'rgba(249,115,22,0.10)'  },
-  healthy:  { label: '✅ Healthy',  color: '#10b981', bg: 'rgba(16,185,129,0.10)'  },
-  at_risk:  { label: '⚠️ At risk', color: '#f59e0b', bg: 'rgba(245,158,11,0.10)'  },
+  healthy:  { label: '✅ Healthy',  color: 'var(--success)', bg: 'rgba(16,185,129,0.10)'  },
+  at_risk:  { label: '⚠️ At risk', color: 'var(--warning)', bg: 'rgba(245,158,11,0.10)'  },
   inactive: { label: '💤 Inactive', color: '#94a3b8', bg: 'rgba(148,163,184,0.10)' },
 };
 
 // Per-type dot colors that match the detail page's ACTIVITY_META
 const ACTIVITY_DOT_COLOR: Record<string, string> = {
-  note:             '#f59e0b',
-  call:             '#3b82f6',
+  note:             'var(--warning)',
+  call:             'var(--accent-base)',
   whatsapp:         '#25d366',
-  meeting:          '#7c5cfc',
-  site_visit:       '#d97706',
+  meeting:          'var(--accent-base)',
+  site_visit:       'var(--warning)',
   stage_change:     '#64748b',
   project_created:  '#6366f1',
   payment_received: '#14b8a6',
@@ -101,7 +101,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
         background: 'rgba(255,255,255,0.94)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
-        borderColor: 'var(--border-subtle, #e8eaf0)',
+        borderColor: 'var(--border-subtle, var(--border-subtle))',
         boxShadow: '-4px 0 24px rgba(0,0,0,0.07)',
       }}
     >
@@ -135,7 +135,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
         </div>
         <button
           onClick={onClose}
-          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
           aria-label="Close panel"
         >
           <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
@@ -169,7 +169,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
         <a
           href={`tel:${customer.phone}`}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors hover:opacity-80"
-          style={{ background: 'rgba(59,130,246,0.09)', color: '#2563eb' }}
+          style={{ background: 'rgba(59,130,246,0.09)', color: 'var(--accent-base)' }}
         >
           <Phone className="h-3.5 w-3.5" />
           Call
@@ -179,7 +179,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
           target="_blank"
           rel="noopener noreferrer"
           className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors hover:opacity-80"
-          style={{ background: 'rgba(16,185,129,0.09)', color: '#059669' }}
+          style={{ background: 'rgba(16,185,129,0.09)', color: 'var(--success)' }}
         >
           <MessageSquare className="h-3.5 w-3.5" />
           WhatsApp
@@ -188,7 +188,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
           <a
             href={`mailto:${customer.email}`}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-medium transition-colors hover:opacity-80"
-            style={{ background: 'rgba(124,92,252,0.09)', color: 'var(--violet-primary, #7c5cfc)' }}
+            style={{ background: 'rgba(124,92,252,0.09)', color: 'var(--violet-primary, var(--accent-base))' }}
           >
             <Mail className="h-3.5 w-3.5" />
             Email
@@ -211,10 +211,10 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
             {/* Vertical timeline line */}
             <div
               className="absolute left-1.5 top-2 bottom-2 w-px"
-              style={{ background: 'var(--border-subtle, #e8eaf0)' }}
+              style={{ background: 'var(--border-subtle, var(--border-subtle))' }}
             />
             {activities.map((a) => {
-              const dotColor = ACTIVITY_DOT_COLOR[a.type] ?? 'var(--violet-primary, #7c5cfc)';
+              const dotColor = ACTIVITY_DOT_COLOR[a.type] ?? 'var(--violet-primary, var(--accent-base))';
               return (
                 <div key={a.id} className="relative">
                   <span
@@ -247,7 +247,7 @@ export function CustomerQuickPane({ customer, onClose }: Props) {
         <Link
           href={`/customers/${customer.id}`}
           className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-semibold transition-opacity hover:opacity-85"
-          style={{ background: 'var(--violet-primary, #7c5cfc)', color: '#fff' }}
+          style={{ background: 'var(--violet-primary, var(--accent-base))', color: '#fff' }}
         >
           Open full profile
           <ArrowUpRight className="h-3.5 w-3.5" />

@@ -14,13 +14,13 @@ interface LeadBoardProps {
 }
 
 const COLUMN_STYLE: Record<LeadStage, { header: string; border: string; bg: string }> = {
-  new:                  { header: '#1E40AF', border: '#BFDBFE', bg: '#EFF6FF' },
-  site_visit_scheduled: { header: '#92400E', border: '#FCD34D', bg: '#FFFBEB' },
-  consultation_done:    { header: '#9A3412', border: '#FDBA74', bg: '#FFF7ED' },
+  new:                  { header: 'var(--accent-text)', border: '#BFDBFE', bg: 'var(--accent-soft)' },
+  site_visit_scheduled: { header: 'var(--warning-text)', border: '#FCD34D', bg: 'var(--warning-soft)' },
+  consultation_done:    { header: '#9A3412', border: '#FDBA74', bg: 'var(--warning-soft)' },
   proposal_sent:        { header: '#3730A3', border: '#A5B4FC', bg: '#EEF2FF' },
-  negotiation:          { header: '#6B21A8', border: '#D8B4FE', bg: '#F5F3FF' },
-  won:                  { header: '#14532D', border: '#86EFAC', bg: '#F0FDF4' },
-  lost:                 { header: '#374151', border: '#D1D5DB', bg: '#F9FAFB' },
+  negotiation:          { header: '#6B21A8', border: '#D8B4FE', bg: 'var(--accent-soft)' },
+  won:                  { header: 'var(--success-text)', border: '#86EFAC', bg: 'var(--success-soft)' },
+  lost:                 { header: 'var(--text-primary)', border: 'var(--border-strong)', bg: 'var(--surface-muted)' },
 };
 
 /* ── KPI chip ─────────────────────────────────────────────────────────────── */

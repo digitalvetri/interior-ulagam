@@ -19,7 +19,7 @@ interface Notification {
 }
 
 const SEV: Record<Severity, { Icon: typeof Info; iconClass: string; bg: string }> = {
-  info:     { Icon: Info,         iconClass: 'text-slate-500',   bg: 'bg-slate-100 dark:bg-slate-800'     },
+  info:     { Icon: Info,         iconClass: 'text-[var(--text-secondary)]',   bg: 'bg-[var(--surface-muted)] '     },
   success:  { Icon: CircleCheck,  iconClass: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/40' },
   warning:  { Icon: AlertTriangle,iconClass: 'text-amber-600',   bg: 'bg-amber-50 dark:bg-amber-950/40'   },
   critical: { Icon: AlertOctagon, iconClass: 'text-red-600',     bg: 'bg-red-50 dark:bg-red-950/40'       },
@@ -133,9 +133,9 @@ export function NotificationsPopover() {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-11 z-40 w-96 origin-top-right overflow-hidden rounded-xl border border-slate-200 bg-[var(--surface-card)] shadow-2xl dark:border-slate-700"
+          className="absolute right-0 top-11 z-40 w-96 origin-top-right overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-2xl "
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3 ">
             <div>
               <h3 className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Notifications</h3>
               <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
@@ -146,7 +146,7 @@ export function NotificationsPopover() {
               type="button"
               onClick={markAllRead}
               disabled={markingAll || unreadCount === 0}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40 dark:hover:bg-slate-800"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text-heading)] disabled:opacity-40 "
             >
               {markingAll ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCheck className="h-3 w-3" />}
               Mark all read
@@ -155,13 +155,13 @@ export function NotificationsPopover() {
 
           <div className="max-h-[420px] overflow-auto">
             {loading ? (
-              <div className="p-8 text-center text-xs text-slate-500">
+              <div className="p-8 text-center text-xs text-[var(--text-secondary)]">
                 <Loader2 className="mx-auto h-4 w-4 animate-spin" />
               </div>
             ) : rows.length === 0 ? (
               <div className="p-8 text-center">
-                <Bell className="mx-auto mb-2 h-6 w-6 text-slate-300" />
-                <p className="text-xs text-slate-500">No notifications yet.</p>
+                <Bell className="mx-auto mb-2 h-6 w-6 text-[var(--text-tertiary)]" />
+                <p className="text-xs text-[var(--text-secondary)]">No notifications yet.</p>
               </div>
             ) : (
               <ul>
@@ -173,7 +173,7 @@ export function NotificationsPopover() {
                     <li
                       key={n.id}
                       className={
-                        'group relative flex items-start gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 dark:border-slate-800/60 ' +
+                        'group relative flex items-start gap-3 border-b border-[var(--border-subtle)] px-4 py-3 last:border-b-0 /60 ' +
                         (unread ? 'bg-blue-50/40 dark:bg-blue-950/10' : '')
                       }
                     >
@@ -202,7 +202,7 @@ export function NotificationsPopover() {
                               {n.title}
                             </p>
                           )}
-                          <span className="flex-shrink-0 text-[10px] tabular-nums text-slate-400">
+                          <span className="flex-shrink-0 text-[10px] tabular-nums text-[var(--text-tertiary)]">
                             {relativeTime(new Date(n.createdAt))}
                           </span>
                         </div>
@@ -217,7 +217,7 @@ export function NotificationsPopover() {
                           type="button"
                           onClick={() => toggleRead(n)}
                           title={unread ? 'Mark as read' : 'Mark as unread'}
-                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                          className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)] "
                         >
                           <Check className="h-3 w-3" />
                         </button>
@@ -225,7 +225,7 @@ export function NotificationsPopover() {
                           type="button"
                           onClick={() => remove(n)}
                           title="Delete"
-                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+                          className="rounded p-1 text-[var(--text-tertiary)] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
                         >
                           <Trash2 className="h-3 w-3" />
                         </button>
@@ -237,7 +237,7 @@ export function NotificationsPopover() {
             )}
           </div>
 
-          <div className="border-t border-slate-200 px-4 py-2 text-center dark:border-slate-800">
+          <div className="border-t border-[var(--border-subtle)] px-4 py-2 text-center ">
             <Link
               href="/notifications"
               onClick={() => setOpen(false)}

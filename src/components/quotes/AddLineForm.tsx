@@ -91,11 +91,11 @@ export function AddLineForm({ quoteId, onSuccess, onCancel }: AddLineFormProps) 
     <form onSubmit={handleSubmit} className="p-5">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>Add Line Item</p>
+        <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Add Line Item</p>
         {onCancel && (
           <button type="button" onClick={onCancel}
-            className="rounded-lg p-1 transition-colors hover:bg-gray-100">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+            className="rounded-lg p-1 transition-colors hover:bg-[var(--surface-muted)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         )}
       </div>
@@ -152,24 +152,24 @@ export function AddLineForm({ quoteId, onSuccess, onCancel }: AddLineFormProps) 
         <div className="flex items-center gap-3">
           {showMargin && (
             <div className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-              style={{ background: liveMarginPaise >= 0 ? '#F0FDF4' : '#FEF2F2' }}>
-              <span className="text-xs" style={{ color: '#A79E8E' }}>Live margin:</span>
+              style={{ background: liveMarginPaise >= 0 ? 'var(--success-soft)' : 'var(--danger-soft)' }}>
+              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Live margin:</span>
               <span className="text-sm font-semibold"
-                style={{ color: liveMarginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+                style={{ color: liveMarginPaise >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                 {formatRupees(liveMarginPaise)}
               </span>
             </div>
           )}
           {error && (
-            <p className="text-xs" style={{ color: '#DC2626' }}>{error}</p>
+            <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
           )}
         </div>
 
         <div className="flex items-center gap-2">
           {onCancel && (
             <button type="button" onClick={onCancel}
-              className="rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
-              style={{ borderColor: '#F0EEE9', color: '#6B6459' }}>
+              className="rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
               Cancel
             </button>
           )}

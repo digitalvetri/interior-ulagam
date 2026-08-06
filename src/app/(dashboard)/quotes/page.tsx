@@ -27,8 +27,8 @@ import { Quote, Project } from '@/types/quotes';
 const STATUS_CONFIG: Record<Quote['status'], { label: string; icon: React.ElementType; bg: string; color: string }> = {
   draft:    { label: 'Draft',    icon: Clock,        bg: '#F1F5F9', color: '#64748B' },
   sent:     { label: 'Sent',     icon: Send,         bg: '#FEF9C3', color: '#854D0E' },
-  approved: { label: 'Approved', icon: CheckCircle2, bg: '#F0FDF4', color: '#15803D' },
-  revised:  { label: 'Revised',  icon: RefreshCw,    bg: '#FEF2F2', color: '#DC2626' },
+  approved: { label: 'Approved', icon: CheckCircle2, bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  revised:  { label: 'Revised',  icon: RefreshCw,    bg: 'var(--danger-soft)', color: 'var(--danger)' },
 };
 
 function QuoteNumberBadge({ version, id }: { version: number; id: string }) {
@@ -203,7 +203,7 @@ export default function QuotesPage() {
           <div
             className="flex h-14 w-14 items-center justify-center rounded-2xl"
             style={{ background: 'var(--violet-soft)' }}>
-            <FileText className="h-7 w-7" style={{ color: '#7C5CFC' }} />
+            <FileText className="h-7 w-7" style={{ color: 'var(--accent-base)' }} />
           </div>
           <div className="text-center">
             <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No quotes yet</p>
@@ -276,8 +276,8 @@ export default function QuotesPage() {
                           title="Open & edit quotation"
                           onClick={(e) => { e.stopPropagation(); router.push(`/quotes/${quote.id}`); }}
                           className="inline-flex items-center justify-center rounded-lg p-1.5 transition-all"
-                          style={{ color: '#7C3AED' }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F5F3FF'; }}
+                          style={{ color: 'var(--accent-base)' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent-soft)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = ''; }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -291,8 +291,8 @@ export default function QuotesPage() {
                             title="Download PDF"
                             onClick={(e) => e.stopPropagation()}
                             className="inline-flex items-center justify-center rounded-lg p-1.5 transition-all"
-                            style={{ color: '#1D4ED8' }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = '#EFF6FF'; }}
+                            style={{ color: 'var(--accent-text)' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--accent-soft)'; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = ''; }}>
                             <Download className="h-3.5 w-3.5" />
                           </a>
@@ -300,7 +300,7 @@ export default function QuotesPage() {
                           <span
                             title="No PDF yet — open the quote to generate one"
                             className="inline-flex items-center justify-center rounded-lg p-1.5"
-                            style={{ color: '#D1D5DB', cursor: 'not-allowed' }}>
+                            style={{ color: 'var(--border-strong)', cursor: 'not-allowed' }}>
                             <Download className="h-3.5 w-3.5" />
                           </span>
                         )}
@@ -311,8 +311,8 @@ export default function QuotesPage() {
                           title="Delete quotation"
                           onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteTarget(quote); }}
                           className="inline-flex items-center justify-center rounded-lg p-1.5 transition-all"
-                          style={{ color: '#DC2626' }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#FEF2F2'; }}
+                          style={{ color: 'var(--danger)' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--danger-soft)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = ''; }}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -386,7 +386,7 @@ export default function QuotesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5" style={{ color: '#DC2626' }} />
+              <Trash2 className="h-5 w-5" style={{ color: 'var(--danger)' }} />
               Delete Quotation?
             </DialogTitle>
           </DialogHeader>
@@ -401,13 +401,13 @@ export default function QuotesPage() {
             {/* Extra warning for sent / approved quotes */}
             {deleteIsRisky && (
               <div className="flex items-start gap-3 rounded-xl p-3.5"
-                style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
-                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#92400E' }} />
+                style={{ background: 'var(--warning-soft)', border: '1px solid var(--warning-soft)' }}>
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: 'var(--warning-text)' }} />
                 <div>
-                  <p className="text-xs font-semibold" style={{ color: '#92400E' }}>
+                  <p className="text-xs font-semibold" style={{ color: 'var(--warning-text)' }}>
                     This quote has been {deleteTarget?.status}
                   </p>
-                  <p className="text-xs mt-0.5" style={{ color: '#78350F' }}>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--warning-text)' }}>
                     Deleting a {deleteTarget?.status} quotation may affect your records and client expectations.
                     Consider marking it as &quot;Revised&quot; instead.
                   </p>
@@ -416,7 +416,7 @@ export default function QuotesPage() {
             )}
 
             {deleteError && (
-              <p className="rounded-lg px-3 py-2 text-xs" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+              <p className="rounded-lg px-3 py-2 text-xs" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
                 {deleteError}
               </p>
             )}
@@ -435,7 +435,7 @@ export default function QuotesPage() {
               onClick={handleDelete}
               disabled={deleting}
               className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-              style={{ background: '#DC2626' }}>
+              style={{ background: 'var(--danger)' }}>
               <Trash2 className="h-4 w-4" />
               {deleting ? 'Deleting…' : 'Delete Permanently'}
             </button>

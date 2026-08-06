@@ -15,10 +15,10 @@ import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: string; dot: string }> = {
-  draft:    { label: 'Draft',    bg: '#F5F5F5', color: '#374151', dot: '#9CA3AF' },
-  sent:     { label: 'Sent',     bg: '#FFFBEB', color: '#92400E', dot: '#F59E0B' },
-  approved: { label: 'Approved', bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
-  revised:  { label: 'Revised',  bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
+  draft:    { label: 'Draft',    bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+  sent:     { label: 'Sent',     bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
+  approved: { label: 'Approved', bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  revised:  { label: 'Revised',  bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
 };
 
 export default function QuotePage({ params }: { params: Promise<{ id: string }> }) {
@@ -221,10 +221,10 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
     return (
       <div className="p-6 flex flex-col items-center justify-center py-24 gap-5">
         <FileText className="h-12 w-12" style={{ color: '#D1CAC0' }} />
-        <p className="text-base font-medium" style={{ color: '#DC2626' }}>Quote not found.</p>
+        <p className="text-base font-medium" style={{ color: 'var(--danger)' }}>Quote not found.</p>
         <Link href="/quotes"
-          className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
-          style={{ borderColor: '#F0EEE9', color: '#6B6459' }}>
+          className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
           <ArrowLeft className="h-4 w-4" />Back to Quotes
         </Link>
       </div>
@@ -265,33 +265,33 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
         {hasLead ? (
           <Link href={`/leads/${quote.leadId}`}
             className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
-            style={{ color: '#6B6459' }}>
+            style={{ color: 'var(--text-secondary)' }}>
             <ArrowLeft className="h-4 w-4" />{quote.leadContactName ?? 'Lead'}
           </Link>
         ) : (
           <Link href="/quotes"
             className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
-            style={{ color: '#6B6459' }}>
+            style={{ color: 'var(--text-secondary)' }}>
             <ArrowLeft className="h-4 w-4" />All Quotes
           </Link>
         )}
 
         {/* ── Hero header card ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl border p-5" style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex flex-wrap items-start justify-between gap-4">
 
             {/* Identity */}
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: '#F5F3FF' }}>
-                <ClipboardList className="h-6 w-6" style={{ color: '#7C3AED' }} />
+                style={{ background: 'var(--accent-soft)' }}>
+                <ClipboardList className="h-6 w-6" style={{ color: 'var(--accent-base)' }} />
               </div>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-xl font-bold" style={{ color: '#1C1916' }}>{quoteLabel}</h1>
+                  <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>{quoteLabel}</h1>
                   {quote.version > 1 && (
                     <span className="text-xs font-semibold rounded-full px-2 py-0.5"
-                      style={{ background: '#EDE9FE', color: '#6D4FE0' }}>
+                      style={{ background: 'var(--accent-soft)', color: '#6D4FE0' }}>
                       v{quote.version}
                     </span>
                   )}
@@ -301,7 +301,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     {cfg.label}
                   </span>
                 </div>
-                <p className="text-xs mt-0.5" style={{ color: '#A79E8E' }}>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                   Created {fmtDate(quote.createdAt)}
                   {quote.sentAt     && ` · Sent ${fmtDate(quote.sentAt)}`}
                   {quote.approvedAt && ` · Approved ${fmtDate(quote.approvedAt)}`}
@@ -315,19 +315,19 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 <a href={`https://wa.me/${phone}?text=${waText}`}
                   target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ borderColor: '#BBF7D0', background: '#F0FDF4', color: '#14532D' }}>
+                  style={{ borderColor: 'var(--success-soft)', background: 'var(--success-soft)', color: 'var(--success-text)' }}>
                   <MessageCircle className="h-4 w-4" />WhatsApp
                 </a>
               )}
               <a href={`mailto:?subject=${mailSubj}&body=${mailBody}`}
                 className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ borderColor: '#F0EEE9', background: '#FAFAF8', color: '#6B6459' }}>
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                 <Mail className="h-4 w-4" />Email
               </a>
               {quote.pdfUrl && (
                 <a href={quote.pdfUrl} target="_blank" rel="noreferrer"
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ borderColor: '#F0EEE9', background: '#FAFAF8', color: '#6B6459' }}>
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                   <Download className="h-4 w-4" />Download PDF
                 </a>
               )}
@@ -342,7 +342,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
               {quote.status === 'sent' && (
                 <button type="button"
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ background: '#16A34A' }}
+                  style={{ background: 'var(--success)' }}
                   onClick={handleMarkApproved} disabled={actionPending}>
                   <CheckCircle2 className="h-4 w-4" />
                   {actionPending ? 'Approving…' : 'Mark Approved'}
@@ -353,7 +353,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
 
           {actionError && (
             <div className="mt-3 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"
-              style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+              style={{ background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }}>
               {actionError}
             </div>
           )}
@@ -362,17 +362,17 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
         {/* ── Client / project context ──────────────────────────────────────── */}
         {(hasLead || quote.projectName) && (
           <div className="rounded-2xl border p-4 flex flex-wrap items-center gap-x-6 gap-y-3"
-            style={{ background: '#FAFAF8', borderColor: '#F0EEE9' }}>
+            style={{ background: 'var(--surface-muted)', borderColor: 'var(--border-subtle)' }}>
 
             {quote.leadContactName && (
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#EDE9FE' }}>
-                  <User className="h-4 w-4" style={{ color: '#7C3AED' }} />
+                  style={{ background: 'var(--accent-soft)' }}>
+                  <User className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A79E8E' }}>Client</p>
-                  <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>{quote.leadContactName}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Client</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{quote.leadContactName}</p>
                 </div>
               </div>
             )}
@@ -380,12 +380,12 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             {quote.leadContactPhone && (
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#F0FDF4' }}>
-                  <Phone className="h-4 w-4" style={{ color: '#16A34A' }} />
+                  style={{ background: 'var(--success-soft)' }}>
+                  <Phone className="h-4 w-4" style={{ color: 'var(--success)' }} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A79E8E' }}>Phone</p>
-                  <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>{quote.leadContactPhone}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Phone</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{quote.leadContactPhone}</p>
                 </div>
               </div>
             )}
@@ -393,12 +393,12 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             {stageLabel && (
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#FFFBEB' }}>
-                  <Layers className="h-4 w-4" style={{ color: '#D97706' }} />
+                  style={{ background: 'var(--warning-soft)' }}>
+                  <Layers className="h-4 w-4" style={{ color: 'var(--warning)' }} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A79E8E' }}>Stage</p>
-                  <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>{stageLabel}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Stage</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{stageLabel}</p>
                 </div>
               </div>
             )}
@@ -406,12 +406,12 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             {quote.leadBudgetBand && (
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#EFF6FF' }}>
-                  <IndianRupee className="h-4 w-4" style={{ color: '#1E40AF' }} />
+                  style={{ background: 'var(--accent-soft)' }}>
+                  <IndianRupee className="h-4 w-4" style={{ color: 'var(--accent-text)' }} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A79E8E' }}>Budget</p>
-                  <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>{quote.leadBudgetBand}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Budget</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{quote.leadBudgetBand}</p>
                 </div>
               </div>
             )}
@@ -419,12 +419,12 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             {quote.projectName && !hasLead && (
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#F5F3FF' }}>
-                  <Tag className="h-4 w-4" style={{ color: '#7C3AED' }} />
+                  style={{ background: 'var(--accent-soft)' }}>
+                  <Tag className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
                 </div>
                 <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: '#A79E8E' }}>Project</p>
-                  <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>{quote.projectName}</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Project</p>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{quote.projectName}</p>
                 </div>
               </div>
             )}
@@ -435,16 +435,16 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_296px]">
 
           {/* Left: line items table */}
-          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: '#F0EEE9', background: '#FFFFFF' }}>
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
 
             {/* Table toolbar */}
             <div className="flex items-center justify-between gap-3 px-5 py-4"
-              style={{ borderBottom: '1px solid #F0EEE9' }}>
-              <h2 className="text-sm font-bold flex-shrink-0" style={{ color: '#1C1916' }}>
+              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <h2 className="text-sm font-bold flex-shrink-0" style={{ color: 'var(--text-heading)' }}>
                 Line Items
                 {lines.length > 0 && (
                   <span className="ml-2 text-xs font-semibold rounded-full px-2 py-0.5"
-                    style={{ background: '#F5F3FF', color: '#7C3AED' }}>
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
                     {lines.length}
                   </span>
                 )}
@@ -454,8 +454,8 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 {lines.length > 0 && (
                   <button type="button"
                     onClick={handleExportExcel}
-                    className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all hover:bg-gray-50"
-                    style={{ borderColor: '#F0EEE9', color: '#6B6459' }}>
+                    className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all hover:bg-[var(--surface-muted)]"
+                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
                     <FileDown className="h-3.5 w-3.5" />
                     Export Excel
                   </button>
@@ -466,14 +466,14 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     <button type="button"
                       onClick={() => setShowImportModal(true)}
                       className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all hover:bg-violet-50"
-                      style={{ borderColor: '#EDE9FE', color: '#7C3AED' }}>
+                      style={{ borderColor: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
                       <Upload className="h-3.5 w-3.5" />
                       Import BOQ
                     </button>
                     <button type="button"
                       onClick={() => setShowAddForm(true)}
                       className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-                      style={{ background: '#7C3AED', color: '#FFFFFF' }}>
+                      style={{ background: 'var(--accent-base)', color: 'var(--surface-card)' }}>
                       + Add Line
                     </button>
                   </>
@@ -485,13 +485,13 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr style={{ background: '#FAFAF8', borderBottom: '1px solid #F0EEE9' }}>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#A79E8E' }}>Item</th>
-                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#A79E8E' }}>Unit</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#A79E8E' }}>Qty</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#A79E8E' }}>Cost Rate ₹</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#A79E8E' }}>Client Rate ₹</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: '#A79E8E' }}>Margin ₹</th>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Item</th>
+                    <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Unit</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Qty</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Cost Rate ₹</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Client Rate ₹</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Margin ₹</th>
                     <th className="px-4 py-2.5 w-24" />
                   </tr>
                 </thead>
@@ -500,7 +500,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     <tr>
                       <td colSpan={7} className="px-4 py-14 text-center">
                         <FileText className="h-9 w-9 mx-auto mb-3" style={{ color: '#D1CAC0' }} />
-                        <p className="text-sm font-medium" style={{ color: '#A79E8E' }}>No line items yet</p>
+                        <p className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>No line items yet</p>
                         <p className="text-xs mt-1" style={{ color: '#C4BCAF' }}>
                           Click &quot;Add Line&quot; or &quot;Import BOQ&quot; above to add rooms and items.
                         </p>
@@ -514,8 +514,8 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                           key={`room-hdr-${key}`}
                           style={{
                             background:   '#F7F6F3',
-                            borderBottom: '1px solid #F0EEE9',
-                            borderTop:    '1px solid #F0EEE9',
+                            borderBottom: '1px solid var(--border-subtle)',
+                            borderTop:    '1px solid var(--border-subtle)',
                             cursor:       'pointer',
                           }}
                           onClick={() => toggleRoom(key)}>
@@ -523,19 +523,19 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 {isCollapsed
-                                  ? <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#A79E8E' }} />
-                                  : <ChevronDown  className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#A79E8E' }} />}
-                                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#6B6459' }}>
+                                  ? <ChevronRight className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                                  : <ChevronDown  className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />}
+                                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
                                   {displayName}
                                 </span>
-                                <span className="ml-1 text-[10px]" style={{ color: '#A79E8E' }}>
+                                <span className="ml-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                                   {roomLines.length} item{roomLines.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
                               {/* Show room total when collapsed so user can scan room costs at a glance */}
                               <span
                                 className="text-[11px] font-semibold transition-opacity"
-                                style={{ color: '#7C3AED', opacity: isCollapsed ? 1 : 0.4 }}>
+                                style={{ color: 'var(--accent-base)', opacity: isCollapsed ? 1 : 0.4 }}>
                                 {formatRupees(roomTotal)}
                               </span>
                             </div>
@@ -560,7 +560,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
 
             {/* Inline add form */}
             {showAddForm && (
-              <div style={{ borderTop: '1px solid #F0EEE9', background: '#FAFAF8' }}>
+              <div style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                 <AddLineForm
                   quoteId={id}
                   onSuccess={handleLineAdded}

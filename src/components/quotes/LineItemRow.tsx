@@ -103,25 +103,25 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   /* ── Delete confirmation row ─────────────────────────────────────────── */
   if (confirmDelete) {
     return (
-      <tr style={{ background: '#FEF2F2', borderBottom: '1px solid #FECACA' }}>
+      <tr style={{ background: 'var(--danger-soft)', borderBottom: '1px solid var(--danger-soft)' }}>
         <td colSpan={7} className="px-4 py-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium" style={{ color: '#DC2626' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
               Delete &quot;{line.item}&quot;? This cannot be undone.
             </span>
             {deleteError && (
-              <span className="text-xs" style={{ color: '#B91C1C' }}>{deleteError}</span>
+              <span className="text-xs" style={{ color: 'var(--danger-text)' }}>{deleteError}</span>
             )}
             <button type="button" onClick={handleDelete} disabled={deleting}
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
-              style={{ background: '#DC2626' }}>
+              style={{ background: 'var(--danger)' }}>
               {deleting ? 'Deleting…' : 'Yes, delete'}
             </button>
             <button type="button"
               onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
               disabled={deleting}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:bg-gray-100"
-              style={{ color: '#6B6459' }}>
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:bg-[var(--surface-muted)]"
+              style={{ color: 'var(--text-secondary)' }}>
               Cancel
             </button>
           </div>
@@ -133,11 +133,11 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   /* ── Full-width edit row ─────────────────────────────────────────────── */
   if (editing) {
     return (
-      <tr style={{ background: '#F9F8FF', borderBottom: '1px solid #EDE9FE' }}>
+      <tr style={{ background: '#F9F8FF', borderBottom: '1px solid var(--accent-soft)' }}>
         <td colSpan={7} className="px-4 py-3">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Room</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Room</p>
               <input
                 type="text"
                 value={roomInput}
@@ -148,7 +148,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               />
             </div>
             <div className="flex-1 min-w-[140px]">
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Item</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Item</p>
               <input
                 type="text"
                 value={itemInput}
@@ -158,7 +158,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Unit</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Unit</p>
               <input
                 type="text"
                 value={unitInput}
@@ -168,7 +168,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Qty</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Qty</p>
               <input
                 type="number"
                 min={1}
@@ -178,7 +178,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Cost ₹</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Cost ₹</p>
               <input
                 type="number"
                 min={0}
@@ -189,7 +189,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Client ₹</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Client ₹</p>
               <input
                 type="number"
                 min={0}
@@ -200,10 +200,10 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               />
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Margin</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Margin</p>
               <span
                 className="text-sm font-semibold"
-                style={{ color: liveMarginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+                style={{ color: liveMarginPaise >= 0 ? 'var(--success)' : 'var(--danger)' }}>
                 {formatRupees(liveMarginPaise)}
               </span>
             </div>
@@ -213,7 +213,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 onClick={handleSave}
                 disabled={saving}
                 className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
-                style={{ background: '#7C3AED' }}>
+                style={{ background: 'var(--accent-base)' }}>
                 <Check className="h-3.5 w-3.5" />
                 {saving ? 'Saving…' : 'Save'}
               </button>
@@ -221,14 +221,14 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 type="button"
                 onClick={handleCancel}
                 disabled={saving}
-                className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-gray-100"
-                style={{ color: '#6B6459' }}>
+                className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-[var(--surface-muted)]"
+                style={{ color: 'var(--text-secondary)' }}>
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
           {saveError && (
-            <p className="text-xs mt-2" style={{ color: '#DC2626' }}>{saveError}</p>
+            <p className="text-xs mt-2" style={{ color: 'var(--danger)' }}>{saveError}</p>
           )}
         </td>
       </tr>
@@ -239,37 +239,37 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   return (
     <tr
       className="text-sm transition-colors group"
-      style={{ borderBottom: '1px solid #F0EEE9' }}
+      style={{ borderBottom: '1px solid var(--border-subtle)' }}
     >
       {/* Item */}
       <td className="px-4 py-2.5">
         <div>
-          <span className="font-medium" style={{ color: '#1C1916' }}>{line.item}</span>
+          <span className="font-medium" style={{ color: 'var(--text-heading)' }}>{line.item}</span>
           {line.description && (
-            <p className="text-[11px] mt-0.5" style={{ color: '#A79E8E' }}>{line.description}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{line.description}</p>
           )}
         </div>
       </td>
 
       {/* Unit */}
-      <td className="px-4 py-2.5" style={{ color: '#6B6459' }}>{line.unit}</td>
+      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{line.unit}</td>
 
       {/* Qty */}
-      <td className="px-4 py-2.5 text-right" style={{ color: '#1C1916' }}>{line.qty}</td>
+      <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-heading)' }}>{line.qty}</td>
 
       {/* Cost Rate */}
-      <td className="px-4 py-2.5 text-right" style={{ color: '#1C1916' }}>
+      <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-heading)' }}>
         {formatRupees(line.costRatePaise)}
       </td>
 
       {/* Client Rate */}
-      <td className="px-4 py-2.5 text-right" style={{ color: '#1C1916' }}>
+      <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-heading)' }}>
         {formatRupees(line.clientRatePaise)}
       </td>
 
       {/* Margin */}
       <td className="px-4 py-2.5 text-right">
-        <span className="font-semibold" style={{ color: line.marginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+        <span className="font-semibold" style={{ color: line.marginPaise >= 0 ? 'var(--success)' : 'var(--danger)' }}>
           {formatRupees(line.marginPaise)}
         </span>
       </td>
@@ -283,7 +283,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               onClick={handleEditStart}
               title="Edit"
               className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-violet-50"
-              style={{ color: '#7C3AED' }}>
+              style={{ color: 'var(--accent-base)' }}>
               <Pencil className="h-3.5 w-3.5" />
             </button>
             <button
@@ -291,7 +291,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               onClick={() => onDuplicate(line)}
               title="Duplicate"
               className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-blue-50"
-              style={{ color: '#1D4ED8' }}>
+              style={{ color: 'var(--accent-text)' }}>
               <Copy className="h-3.5 w-3.5" />
             </button>
             <button
@@ -300,7 +300,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
               disabled={deleting}
               title="Delete"
               className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-red-50"
-              style={{ color: '#DC2626' }}>
+              style={{ color: 'var(--danger)' }}>
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>

@@ -36,24 +36,24 @@ const CLIENT_STATUS_LABEL: Record<string, string> = {
 };
 
 const CLIENT_STATUS_STYLE: Record<string, { bg: string; color: string; dot: string }> = {
-  interested:        { bg: '#F0FDF4', color: '#16A34A', dot: '#16A34A' },
-  not_interested:    { bg: '#FEF2F2', color: '#DC2626', dot: '#DC2626' },
-  callback:          { bg: '#FFFBEB', color: '#D97706', dot: '#D97706' },
-  meeting_scheduled: { bg: '#EFF6FF', color: '#1D4ED8', dot: '#1D4ED8' },
-  thinking:          { bg: '#FFF7ED', color: '#EA580C', dot: '#EA580C' },
-  no_response:       { bg: '#F9FAFB', color: '#6B7280', dot: '#9CA3AF' },
-  negotiating:       { bg: '#F5F3FF', color: '#7C3AED', dot: '#7C3AED' },
-  deal_closed:       { bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
+  interested:        { bg: 'var(--success-soft)', color: 'var(--success)', dot: 'var(--success)' },
+  not_interested:    { bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
+  callback:          { bg: 'var(--warning-soft)', color: 'var(--warning)', dot: 'var(--warning)' },
+  meeting_scheduled: { bg: 'var(--accent-soft)', color: 'var(--accent-text)', dot: 'var(--accent-text)' },
+  thinking:          { bg: 'var(--warning-soft)', color: 'var(--warning)', dot: 'var(--warning)' },
+  no_response:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', dot: 'var(--text-tertiary)' },
+  negotiating:       { bg: 'var(--accent-soft)', color: 'var(--accent-base)', dot: 'var(--accent-base)' },
+  deal_closed:       { bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
 };
 
 const STAGE_STYLE: Record<string, { bg: string; color: string }> = {
-  new:                  { bg: '#EFF6FF', color: '#1D4ED8' },
+  new:                  { bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
   site_visit_scheduled: { bg: '#FEF9C3', color: '#854D0E' },
-  consultation_done:    { bg: '#FFF7ED', color: '#C2410C' },
+  consultation_done:    { bg: 'var(--warning-soft)', color: '#C2410C' },
   proposal_sent:        { bg: '#EEF2FF', color: '#4338CA' },
-  negotiation:          { bg: '#F5F3FF', color: '#7C3AED' },
-  won:                  { bg: '#F0FDF4', color: '#15803D' },
-  lost:                 { bg: '#F9FAFB', color: '#4B5563' },
+  negotiation:          { bg: 'var(--accent-soft)', color: 'var(--accent-base)' },
+  won:                  { bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  lost:                 { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
 };
 
 /* ── Formatters ───────────────────────────────────────────────────────────── */
@@ -82,7 +82,7 @@ function initials(name: string) {
 
 /* ── Details tab ──────────────────────────────────────────────────────────── */
 function DetailsTab({ lead }: { lead: Lead }) {
-  const stageStyle = STAGE_STYLE[lead.stage] ?? { bg: '#F9FAFB', color: '#6B7280' };
+  const stageStyle = STAGE_STYLE[lead.stage] ?? { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
   const waHref = `https://wa.me/91${lead.contactPhone.replace(/\D/g, '')}`;
 
   return (
@@ -98,7 +98,7 @@ function DetailsTab({ lead }: { lead: Lead }) {
         {lead.followUpDate && (
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-            style={{ background: '#F5F3FF', color: '#7C3AED' }}
+            style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}
           >
             <Calendar className="h-3 w-3" />
             {new Date(lead.followUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -108,14 +108,14 @@ function DetailsTab({ lead }: { lead: Lead }) {
 
       {/* Contact */}
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold tracking-wider" style={{ color: '#A79E8E' }}>CONTACT</p>
+        <p className="text-[11px] font-semibold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>CONTACT</p>
         <div className="flex items-center gap-3 flex-wrap">
           <a
             href={`tel:${lead.contactPhone}`}
             className="flex items-center gap-1.5 text-sm"
-            style={{ color: '#24211E' }}
+            style={{ color: 'var(--text-primary)' }}
           >
-            <Phone className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+            <Phone className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
             {lead.contactPhone}
           </a>
           <a
@@ -123,13 +123,13 @@ function DetailsTab({ lead }: { lead: Lead }) {
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 text-sm"
-            style={{ color: '#16A34A' }}
+            style={{ color: 'var(--success)' }}
           >
             <MessageCircle className="h-3.5 w-3.5" />
             WhatsApp
           </a>
           {lead.contactEmail && (
-            <span className="text-sm" style={{ color: '#6B6459' }}>{lead.contactEmail}</span>
+            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lead.contactEmail}</span>
           )}
         </div>
       </div>
@@ -137,17 +137,17 @@ function DetailsTab({ lead }: { lead: Lead }) {
       {/* Property */}
       {(lead.propertyType || lead.budgetBand || lead.projectLocation) && (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold tracking-wider" style={{ color: '#A79E8E' }}>PROPERTY</p>
+          <p className="text-[11px] font-semibold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>PROPERTY</p>
           <div className="flex flex-wrap gap-3">
             {lead.propertyType && (
-              <span className="flex items-center gap-1.5 text-sm" style={{ color: '#24211E' }}>
-                <Home className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-primary)' }}>
+                <Home className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
                 {lead.propertyType}
               </span>
             )}
             {lead.projectLocation && (
-              <span className="flex items-center gap-1.5 text-sm" style={{ color: '#24211E' }}>
-                <MapPin className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-primary)' }}>
+                <MapPin className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
                 {lead.projectLocation}
               </span>
             )}
@@ -164,9 +164,9 @@ function DetailsTab({ lead }: { lead: Lead }) {
       {/* Assigned designer */}
       {lead.designerName && (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold tracking-wider" style={{ color: '#A79E8E' }}>ASSIGNED TO</p>
-          <span className="flex items-center gap-1.5 text-sm" style={{ color: '#24211E' }}>
-            <User className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+          <p className="text-[11px] font-semibold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>ASSIGNED TO</p>
+          <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-primary)' }}>
+            <User className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
             {lead.designerName}
           </span>
         </div>
@@ -175,14 +175,14 @@ function DetailsTab({ lead }: { lead: Lead }) {
       {/* Notes */}
       {lead.notes && (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold tracking-wider" style={{ color: '#A79E8E' }}>NOTES</p>
-          <p className="text-sm whitespace-pre-wrap" style={{ color: '#24211E' }}>{lead.notes}</p>
+          <p className="text-[11px] font-semibold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>NOTES</p>
+          <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-primary)' }}>{lead.notes}</p>
         </div>
       )}
 
       {(lead.projectValuePaise ?? 0) > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-semibold tracking-wider" style={{ color: '#A79E8E' }}>ESTIMATED VALUE</p>
+          <p className="text-[11px] font-semibold tracking-wider" style={{ color: 'var(--text-tertiary)' }}>ESTIMATED VALUE</p>
           <p className="text-base font-bold" style={{ color: '#8F6F2E' }}>
             ₹{((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
           </p>
@@ -203,7 +203,7 @@ interface FollowUpsTabProps {
 function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTabProps) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16 gap-2" style={{ color: '#A79E8E' }}>
+      <div className="flex items-center justify-center py-16 gap-2" style={{ color: 'var(--text-tertiary)' }}>
         <Loader2 className="h-4 w-4 animate-spin" />
         <span className="text-sm">Loading…</span>
       </div>
@@ -213,7 +213,7 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
   if (error) {
     return (
       <div className="p-5">
-        <div className="rounded-xl p-4 text-sm" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+        <div className="rounded-xl p-4 text-sm" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
           {error}
         </div>
       </div>
@@ -227,7 +227,7 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
         type="button"
         onClick={onAddFollowUp}
         className="w-full flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-        style={{ background: '#7C3AED' }}
+        style={{ background: 'var(--accent-base)' }}
       >
         <Plus className="h-4 w-4" />
         Add Follow-up
@@ -237,11 +237,11 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
         <div className="flex flex-col items-center justify-center py-10 gap-3">
           <div
             className="h-12 w-12 rounded-full flex items-center justify-center"
-            style={{ background: '#F5F3FF' }}
+            style={{ background: 'var(--accent-soft)' }}
           >
-            <BellRing className="h-5 w-5" style={{ color: '#7C3AED' }} />
+            <BellRing className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />
           </div>
-          <p className="text-sm" style={{ color: '#6B6459' }}>No follow-ups recorded yet</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No follow-ups recorded yet</p>
         </div>
       ) : (
         /* Timeline */
@@ -249,13 +249,13 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
           {/* Vertical connector */}
           <div
             className="absolute left-[9px] top-5 bottom-5 w-0.5"
-            style={{ background: '#F0EEE9' }}
+            style={{ background: 'var(--border-subtle)' }}
           />
 
           <div className="space-y-0">
             {followUps.map((fu) => {
-              const sStyle = CLIENT_STATUS_STYLE[fu.clientStatus] ?? { bg: '#F9FAFB', color: '#6B7280', dot: '#9CA3AF' };
-              const stStyl = STAGE_STYLE[fu.stage] ?? { bg: '#F9FAFB', color: '#6B7280' };
+              const sStyle = CLIENT_STATUS_STYLE[fu.clientStatus] ?? { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', dot: 'var(--text-tertiary)' };
+              const stStyl = STAGE_STYLE[fu.stage] ?? { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
 
               return (
                 <div key={fu.id} className="relative flex gap-4 pb-6">
@@ -271,7 +271,7 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
                   {/* Content card */}
                   <div
                     className="flex-1 min-w-0 rounded-xl p-3.5"
-                    style={{ background: '#FAFAF8', border: '1px solid #F0EEE9' }}
+                    style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}
                   >
                     {/* Badges row */}
                     <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -290,7 +290,7 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
                       {fu.followUpDate && (
                         <span
                           className="flex items-center gap-1 text-[11px] font-medium"
-                          style={{ color: '#1C1916' }}
+                          style={{ color: 'var(--text-heading)' }}
                         >
                           <Calendar className="h-3 w-3" />
                           {fmtDateTime(fu.followUpDate)}
@@ -300,7 +300,7 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
 
                     {/* Comments */}
                     {fu.comments && (
-                      <p className="text-sm mb-3 leading-relaxed" style={{ color: '#24211E' }}>
+                      <p className="text-sm mb-3 leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                         {fu.comments}
                       </p>
                     )}
@@ -310,29 +310,29 @@ function FollowUpsTab({ followUps, loading, error, onAddFollowUp }: FollowUpsTab
                       {fu.createdByName ? (
                         <div
                           className="h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
-                          style={{ background: '#7C3AED' }}
+                          style={{ background: 'var(--accent-base)' }}
                         >
                           {initials(fu.createdByName)}
                         </div>
                       ) : (
                         <div
                           className="h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: '#F0EEE9' }}
+                          style={{ background: 'var(--border-subtle)' }}
                         >
-                          <User className="h-3 w-3" style={{ color: '#A79E8E' }} />
+                          <User className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold leading-none" style={{ color: '#1C1916' }}>
+                        <p className="text-xs font-semibold leading-none" style={{ color: 'var(--text-heading)' }}>
                           {fu.createdByName ?? 'System'}
                         </p>
                         {fu.createdByRole && (
-                          <p className="text-[10px] mt-0.5 capitalize" style={{ color: '#7C3AED' }}>
+                          <p className="text-[10px] mt-0.5 capitalize" style={{ color: 'var(--accent-base)' }}>
                             {fu.createdByRole}
                           </p>
                         )}
                       </div>
-                      <span className="text-[10px] flex-shrink-0" style={{ color: '#A79E8E' }}>
+                      <span className="text-[10px] flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
                         {fmtUpdated(fu.createdAt)}
                       </span>
                     </div>
@@ -391,18 +391,18 @@ export function LeadViewModal({ lead, onClose }: LeadViewModalProps) {
       >
         <div
           className="rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"
-          style={{ background: '#FFFFFF' }}
+          style={{ background: 'var(--surface-card)' }}
         >
           {/* Header */}
           <div
             className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-            style={{ background: '#FAFAF8', borderBottom: '1px solid #F0EEE9' }}
+            style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}
           >
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-bold truncate" style={{ color: '#1C1916' }}>
+              <h2 className="text-sm font-bold truncate" style={{ color: 'var(--text-heading)' }}>
                 {lead.contactName}
               </h2>
-              <p className="text-xs mt-0.5 truncate" style={{ color: '#6B6459' }}>
+              <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
                 {lead.contactPhone}
               </p>
             </div>
@@ -410,8 +410,8 @@ export function LeadViewModal({ lead, onClose }: LeadViewModalProps) {
               <Link
                 href={`/leads/${lead.id}`}
                 onClick={onClose}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-[#F0EEE9]"
-                style={{ color: '#6B6459', borderColor: '#F0EEE9' }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-[var(--border-subtle)]"
+                style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
               >
                 <ExternalLink className="h-3 w-3" />
                 Full Details
@@ -419,8 +419,8 @@ export function LeadViewModal({ lead, onClose }: LeadViewModalProps) {
               <button
                 type="button"
                 onClick={onClose}
-                className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[#F0EEE9]"
-                style={{ color: '#6B6459' }}
+                className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--border-subtle)]"
+                style={{ color: 'var(--text-secondary)' }}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -430,7 +430,7 @@ export function LeadViewModal({ lead, onClose }: LeadViewModalProps) {
           {/* Tabs */}
           <div
             className="flex flex-shrink-0"
-            style={{ borderBottom: '1px solid #F0EEE9' }}
+            style={{ borderBottom: '1px solid var(--border-subtle)' }}
           >
             {(['followups', 'details'] as const).map(tab => (
               <button
@@ -439,8 +439,8 @@ export function LeadViewModal({ lead, onClose }: LeadViewModalProps) {
                 onClick={() => setActiveTab(tab)}
                 className="px-6 py-3 text-sm font-medium transition-colors border-b-2 -mb-px"
                 style={{
-                  color: activeTab === tab ? '#7C3AED' : '#6B6459',
-                  borderBottomColor: activeTab === tab ? '#7C3AED' : 'transparent',
+                  color: activeTab === tab ? 'var(--accent-base)' : 'var(--text-secondary)',
+                  borderBottomColor: activeTab === tab ? 'var(--accent-base)' : 'transparent',
                 }}
               >
                 {tab === 'followups' ? 'Follow-ups' : 'Details'}

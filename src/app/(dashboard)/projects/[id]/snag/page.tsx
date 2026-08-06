@@ -11,10 +11,10 @@ import type { SnagItem, SnagStatus } from '@/types/snag';
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
 const STATUS_CONFIG: Record<SnagStatus, { label: string; bg: string; color: string; dot: string }> = {
-  open:             { label: 'Open',             bg: '#FEF2F2', color: '#DC2626', dot: '#EF4444' },
-  in_progress:      { label: 'In Progress',      bg: '#FFFBEB', color: '#92400E', dot: '#F59E0B' },
-  resolved:         { label: 'Resolved',         bg: '#F0FDF4', color: '#14532D', dot: '#16A34A' },
-  client_confirmed: { label: 'Client Confirmed', bg: '#EFF6FF', color: '#1E40AF', dot: '#3B82F6' },
+  open:             { label: 'Open',             bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
+  in_progress:      { label: 'In Progress',      bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
+  resolved:         { label: 'Resolved',         bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  client_confirmed: { label: 'Client Confirmed', bg: 'var(--accent-soft)', color: 'var(--accent-text)', dot: 'var(--accent-base)' },
 };
 
 const STATUS_OPTIONS: SnagStatus[] = ['open', 'in_progress', 'resolved', 'client_confirmed'];
@@ -79,16 +79,16 @@ function AddSnagModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#FFFFFF' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F0EEE9' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: '#FEF2F2' }}>
-              <AlertTriangle className="h-4 w-4" style={{ color: '#DC2626' }} />
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--danger-soft)' }}>
+              <AlertTriangle className="h-4 w-4" style={{ color: 'var(--danger)' }} />
             </div>
-            <h2 className="text-base font-bold" style={{ color: '#1C1916' }}>Add Snag Item</h2>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Add Snag Item</h2>
           </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F0EEE9]">
-            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
@@ -100,14 +100,14 @@ function AddSnagModal({
           </div>
           <div>
             <label className="studio-label block mb-1.5">
-              Photo URL <span style={{ color: '#A79E8E' }}>(optional)</span>
+              Photo URL <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
             </label>
             <input type="url" value={form.photoUrl} onChange={e => set('photoUrl', e.target.value)}
               placeholder="https://…" className="studio-input w-full text-sm" />
           </div>
           <div>
             <label className="studio-label block mb-1.5">
-              Assignee ID <span style={{ color: '#A79E8E' }}>(optional UUID)</span>
+              Assignee ID <span style={{ color: 'var(--text-tertiary)' }}>(optional UUID)</span>
             </label>
             <input type="text" value={form.assigneeId} onChange={e => set('assigneeId', e.target.value)}
               placeholder="e.g. 550e8400-…" className="studio-input w-full text-sm" />
@@ -118,7 +118,7 @@ function AddSnagModal({
             </div>
           )}
         </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid #F0EEE9' }}>
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
           <button type="button" onClick={handleAdd} disabled={adding}
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
@@ -240,15 +240,15 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
       {/* Back */}
       <Link href={`/projects/${id}`}
         className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-70"
-        style={{ color: '#6B6459' }}>
+        style={{ color: 'var(--text-secondary)' }}>
         <ArrowLeft className="h-4 w-4" />Project Overview
       </Link>
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#1C1916' }}>Snag List</h1>
-          <p className="text-sm mt-0.5" style={{ color: '#6B6459' }}>Track and resolve punch-list items before handover</p>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Snag List</h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>Track and resolve punch-list items before handover</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={handleGenerateClientLink} disabled={linkLoading}
@@ -267,30 +267,30 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
       {clientUrl && (
         <div className="rounded-xl border flex items-center gap-3 px-4 py-3"
           style={{ borderColor: '#E0E7FF', background: '#EEF2FF' }}>
-          <span className="flex-1 truncate font-mono text-xs" style={{ color: '#1E40AF' }}>{clientUrl}</span>
+          <span className="flex-1 truncate font-mono text-xs" style={{ color: 'var(--accent-text)' }}>{clientUrl}</span>
           <button type="button" onClick={handleCopyLink}
             className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
-            style={{ background: copied ? '#F0FDF4' : '#FFFFFF', color: copied ? '#14532D' : '#7C3AED' }}>
+            style={{ background: copied ? 'var(--success-soft)' : 'var(--surface-card)', color: copied ? 'var(--success-text)' : 'var(--accent-base)' }}>
             {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
       )}
       {linkError && (
-        <p className="text-xs" style={{ color: '#DC2626' }}>{linkError}</p>
+        <p className="text-xs" style={{ color: 'var(--danger)' }}>{linkError}</p>
       )}
 
       {/* Summary stats */}
       {!loading && snagItems.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Open',     count: openCount,          color: '#DC2626', bg: '#FEF2F2' },
-            { label: 'Total',    count: snagItems.length,   color: '#1C1916', bg: '#F5F5F5' },
-            { label: 'Resolved', count: resolvedCount,      color: '#14532D', bg: '#F0FDF4' },
+            { label: 'Open',     count: openCount,          color: 'var(--danger)', bg: 'var(--danger-soft)' },
+            { label: 'Total',    count: snagItems.length,   color: 'var(--text-heading)', bg: 'var(--surface-muted)' },
+            { label: 'Resolved', count: resolvedCount,      color: 'var(--success-text)', bg: 'var(--success-soft)' },
           ].map(({ label, count, color, bg }) => (
-            <div key={label} className="rounded-xl border p-4 text-center" style={{ background: bg, borderColor: '#F0EEE9' }}>
+            <div key={label} className="rounded-xl border p-4 text-center" style={{ background: bg, borderColor: 'var(--border-subtle)' }}>
               <p className="text-2xl font-bold" style={{ color }}>{count}</p>
-              <p className="text-xs font-medium mt-0.5" style={{ color: '#6B6459' }}>{label}</p>
+              <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>{label}</p>
             </div>
           ))}
         </div>
@@ -304,24 +304,24 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
 
       ) : loadError ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <AlertTriangle className="h-8 w-8" style={{ color: '#DC2626' }} />
-          <p className="text-sm" style={{ color: '#DC2626' }}>{loadError}</p>
+          <AlertTriangle className="h-8 w-8" style={{ color: 'var(--danger)' }} />
+          <p className="text-sm" style={{ color: 'var(--danger)' }}>{loadError}</p>
         </div>
 
       ) : snagItems.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-5">
           <div className="relative">
-            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: '#F0FDF4' }}>
-              <ClipboardList className="h-10 w-10" style={{ color: '#16A34A' }} />
+            <div className="h-20 w-20 rounded-3xl flex items-center justify-center" style={{ background: 'var(--success-soft)' }}>
+              <ClipboardList className="h-10 w-10" style={{ color: 'var(--success)' }} />
             </div>
             <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full flex items-center justify-center"
-              style={{ background: '#FEF2F2', border: '2px solid #FFFFFF' }}>
-              <Plus className="h-4 w-4" style={{ color: '#DC2626' }} />
+              style={{ background: 'var(--danger-soft)', border: '2px solid var(--surface-card)' }}>
+              <Plus className="h-4 w-4" style={{ color: 'var(--danger)' }} />
             </div>
           </div>
           <div className="text-center">
-            <h3 className="text-lg font-bold mb-1" style={{ color: '#1C1916' }}>No snag items</h3>
-            <p className="text-sm max-w-sm" style={{ color: '#6B6459' }}>
+            <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-heading)' }}>No snag items</h3>
+            <p className="text-sm max-w-sm" style={{ color: 'var(--text-secondary)' }}>
               Add punch-list items during site inspection before finalising the project handover.
             </p>
           </div>
@@ -337,11 +337,11 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
             {snagItems.map(snag => (
               <div key={snag.id} className="rounded-2xl border p-4 flex flex-col gap-3 transition-all hover:shadow-sm"
                 style={{
-                  background: '#FFFFFF', borderColor: '#F0EEE9',
+                  background: 'var(--surface-card)', borderColor: 'var(--border-subtle)',
                   borderTopWidth: 3, borderTopColor: STATUS_CONFIG[snag.status].dot,
                 }}>
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-medium leading-snug flex-1" style={{ color: '#1C1916' }}>
+                  <p className="text-sm font-medium leading-snug flex-1" style={{ color: 'var(--text-heading)' }}>
                     {snag.description}
                   </p>
                   <StatusBadge status={snag.status} />
@@ -355,18 +355,18 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
                   </a>
                 )}
 
-                <div className="space-y-1 text-xs" style={{ color: '#A79E8E' }}>
+                <div className="space-y-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   {snag.assigneeId && (
-                    <p><span className="font-medium" style={{ color: '#6B6459' }}>Assignee:</span> {snag.assigneeId}</p>
+                    <p><span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Assignee:</span> {snag.assigneeId}</p>
                   )}
                   {snag.clientConfirmedAt && (
-                    <p><span className="font-medium" style={{ color: '#6B6459' }}>Client confirmed:</span>{' '}
+                    <p><span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Client confirmed:</span>{' '}
                       {new Date(snag.clientConfirmedAt).toLocaleDateString('en-IN')}</p>
                   )}
                   <p>Added {new Date(snag.createdAt).toLocaleDateString('en-IN')}</p>
                 </div>
 
-                <div className="mt-auto pt-2" style={{ borderTop: '1px solid #F0EEE9' }}>
+                <div className="mt-auto pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <select value={snag.status} disabled={updatingStatus[snag.id]}
                     onChange={e => void handleStatusChange(snag, e.target.value as SnagStatus)}
                     className="studio-input w-full text-xs py-1.5 disabled:opacity-50">
@@ -381,30 +381,30 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
 
           {/* Handover section */}
           {allClear && (
-            <div className="rounded-2xl border p-5" style={{ borderColor: '#86EFAC', background: '#F0FDF4' }}>
+            <div className="rounded-2xl border p-5" style={{ borderColor: '#86EFAC', background: 'var(--success-soft)' }}>
               <div className="flex items-start gap-4">
                 <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#DCFCE7' }}>
-                  <PartyPopper className="h-5 w-5" style={{ color: '#16A34A' }} />
+                  style={{ background: 'var(--success-soft)' }}>
+                  <PartyPopper className="h-5 w-5" style={{ color: 'var(--success)' }} />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold mb-1" style={{ color: '#14532D' }}>
+                  <p className="font-semibold mb-1" style={{ color: 'var(--success-text)' }}>
                     {snagItems.length === 0
                       ? 'No snag items — ready for handover!'
                       : 'All snag items resolved — ready to initiate handover!'}
                   </p>
-                  <p className="text-sm mb-3" style={{ color: '#15803D' }}>
+                  <p className="text-sm mb-3" style={{ color: 'var(--success-text)' }}>
                     Once you initiate handover, a formal sign-off notification will be sent to the client.
                   </p>
                   <button type="button" onClick={() => void handleInitiateHandover()} disabled={handoverLoading}
                     className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl transition-all"
-                    style={{ background: '#16A34A', color: '#FFFFFF', opacity: handoverLoading ? 0.7 : 1 }}>
+                    style={{ background: 'var(--success)', color: 'var(--surface-card)', opacity: handoverLoading ? 0.7 : 1 }}>
                     <CheckCircle2 className="h-4 w-4" />
                     {handoverLoading ? 'Initiating…' : 'Initiate Handover'}
                   </button>
                   {handoverResult && (
                     <p className="mt-2 text-xs font-medium"
-                      style={{ color: handoverResult.success ? '#15803D' : '#DC2626' }}>
+                      style={{ color: handoverResult.success ? 'var(--success-text)' : 'var(--danger)' }}>
                       {handoverResult.message}
                     </p>
                   )}

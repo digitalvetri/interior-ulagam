@@ -27,15 +27,15 @@ const STAGE_LABEL: Record<CustomerStage, string> = {
 
 const STAGE_STYLE: Record<CustomerStage, { bg: string; color: string; dot: string }> = {
   lead:        { bg: 'rgba(100,116,139,0.10)', color: '#475569', dot: '#94a3b8' },
-  opportunity: { bg: 'rgba(245,158,11,0.12)',  color: '#b45309', dot: '#f59e0b' },
-  client:      { bg: 'rgba(16,185,129,0.12)',  color: '#065f46', dot: '#10b981' },
+  opportunity: { bg: 'rgba(245,158,11,0.12)',  color: 'var(--warning-text)', dot: 'var(--warning)' },
+  client:      { bg: 'rgba(16,185,129,0.12)',  color: 'var(--success-text)', dot: 'var(--success)' },
   past_client: { bg: 'rgba(148,163,184,0.12)', color: '#64748b', dot: '#cbd5e1' },
 };
 
 const HEALTH_DOT: Record<CustomerHealthStatus, { color: string; label: string }> = {
   hot:      { color: '#f97316', label: '🔥 Hot'      },
-  healthy:  { color: '#10b981', label: '✅ Healthy'   },
-  at_risk:  { color: '#f59e0b', label: '⚠️ At risk'  },
+  healthy:  { color: 'var(--success)', label: '✅ Healthy'   },
+  at_risk:  { color: 'var(--warning)', label: '⚠️ At risk'  },
   inactive: { color: '#94a3b8', label: '💤 Inactive'  },
 };
 
@@ -260,13 +260,13 @@ export default function CustomersPage() {
     <div className="flex h-full min-h-0 flex-col" style={{ background: 'var(--surface-page, #f8f9fb)' }}>
 
       {/* ══ Page header ══════════════════════════════════════════════════════ */}
-      <div className="px-6 pt-6 pb-4" style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}>
+      <div className="px-6 pt-6 pb-4" style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading, #1a1d23)' }}>
               Customers
             </h1>
-            <p className="mt-0.5 text-sm" style={{ color: 'var(--text-secondary, #6b7280)' }}>
+            <p className="mt-0.5 text-sm" style={{ color: 'var(--text-secondary, var(--text-secondary))' }}>
               {loading ? 'Loading…' : `${rows.length.toLocaleString()} total contacts`}
             </p>
           </div>
@@ -284,19 +284,19 @@ export default function CustomersPage() {
         {/* Stats strip */}
         {!loading && rows.length > 0 && (
           <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatPill icon={<Users className="h-4 w-4" />} label="Total" value={stats.total} color="#7c5cfc" />
-            <StatPill icon={<UserCheck className="h-4 w-4" />} label="Active clients" value={stats.clients} color="#10b981" />
-            <StatPill icon={<Briefcase className="h-4 w-4" />} label="Leads" value={stats.leads} color="#f59e0b" />
+            <StatPill icon={<Users className="h-4 w-4" />} label="Total" value={stats.total} color="var(--accent-base)" />
+            <StatPill icon={<UserCheck className="h-4 w-4" />} label="Active clients" value={stats.clients} color="var(--success)" />
+            <StatPill icon={<Briefcase className="h-4 w-4" />} label="Leads" value={stats.leads} color="var(--warning)" />
             <StatPill icon={<Clock className="h-4 w-4" />} label="Past clients" value={stats.past} color="#94a3b8" />
           </div>
         )}
       </div>
 
       {/* ══ Toolbar ══════════════════════════════════════════════════════════ */}
-      <div className="px-6 py-3 flex flex-wrap items-center gap-3" style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}>
+      <div className="px-6 py-3 flex flex-wrap items-center gap-3" style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, var(--border-subtle))' }}>
         {/* Search */}
         <div className="relative flex-1 min-w-[240px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-secondary, #9ca3af)' }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-secondary, var(--text-tertiary))' }} />
           <input
             type="text"
             placeholder="Search name, phone, email, company…"
@@ -306,17 +306,17 @@ export default function CustomersPage() {
             style={{
               paddingLeft: '2.5rem',
               paddingRight: '0.75rem',
-              background: 'var(--surface-muted, #f3f4f6)',
+              background: 'var(--surface-muted, var(--surface-muted))',
               border: '1.5px solid transparent',
               color: 'var(--text-heading)',
             }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--violet-primary, #7c5cfc)')}
+            onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--violet-primary, var(--accent-base))')}
             onBlur={(e) => (e.currentTarget.style.borderColor = 'transparent')}
           />
           {search && (
             <button
               onClick={() => setSearch('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 hover:bg-gray-200"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-0.5 hover:bg-[var(--surface-hover)]"
             >
               <Plus className="h-3.5 w-3.5 rotate-45" style={{ color: 'var(--text-secondary)' }} />
             </button>
@@ -324,7 +324,7 @@ export default function CustomersPage() {
         </div>
 
         {/* Stage filter tabs */}
-        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'var(--surface-muted, #f3f4f6)' }}>
+        <div className="flex items-center gap-1 rounded-xl p-1" style={{ background: 'var(--surface-muted, var(--surface-muted))' }}>
           {STAGE_TABS.map((tab) => {
             const count = tab.value === 'all'
               ? rows.length
@@ -337,7 +337,7 @@ export default function CustomersPage() {
                 key={tab.value}
                 onClick={() => setStage(tab.value)}
                 className="relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-                style={{ color: active ? 'var(--violet-primary, #7c5cfc)' : 'var(--text-secondary, #6b7280)' }}
+                style={{ color: active ? 'var(--violet-primary, var(--accent-base))' : 'var(--text-secondary, var(--text-secondary))' }}
               >
                 {active && (
                   <motion.span
@@ -400,7 +400,7 @@ export default function CustomersPage() {
               onClick={deleteSelected}
               disabled={deleting}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-red-100 disabled:opacity-50"
-              style={{ color: '#dc2626', background: 'rgba(220,38,38,0.08)' }}
+              style={{ color: 'var(--danger)', background: 'rgba(220,38,38,0.08)' }}
             >
               {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               Delete
@@ -429,33 +429,34 @@ export default function CustomersPage() {
           ) : filtered.length === 0 ? (
             <EmptyState hasQuery={search.trim().length > 0 || stageFilter !== 'all'} onCreate={() => setDialog(true)} onClear={() => { setSearch(''); setStage('all'); }} />
           ) : (
-            <table className="w-full border-separate select-none" style={{ borderSpacing: 0 }}>
+            <div className="overflow-x-auto">
+              <table className="w-full border-separate select-none" style={{ borderSpacing: 0 }}>
               <thead>
                 <tr style={{ background: 'var(--surface-card, #fff)' }}>
-                  <th className="sticky top-0 z-10 w-10 px-4 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
+                  <th className="sticky top-0 z-10 w-10 px-4 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, var(--border-subtle))' }}>
                     <input
                       type="checkbox"
                       checked={allChecked}
                       ref={(el) => { if (el) el.indeterminate = someChecked; }}
                       onChange={toggleAll}
                       className="h-4 w-4 rounded cursor-pointer"
-                      style={{ accentColor: 'var(--violet-primary, #7c5cfc)' }}
+                      style={{ accentColor: 'var(--violet-primary, var(--accent-base))' }}
                       aria-label="Select all"
                     />
                   </th>
-                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
+                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, var(--border-subtle))' }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Customer</span>
                   </th>
-                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)', display: selectedId ? 'none' : undefined }}>
+                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, var(--border-subtle))', display: selectedId ? 'none' : undefined }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Contact</span>
                   </th>
-                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
+                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, var(--border-subtle))' }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Stage</span>
                   </th>
-                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)', display: selectedId ? 'none' : undefined }}>
+                  <th className="sticky top-0 z-10 px-3 py-3 text-left" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, var(--border-subtle))', display: selectedId ? 'none' : undefined }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Last seen</span>
                   </th>
-                  <th className="sticky top-0 z-10 w-32 px-3 py-3 text-right" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, #e8eaf0)' }}>
+                  <th className="sticky top-0 z-10 w-32 px-3 py-3 text-right" style={{ background: 'var(--surface-card, #fff)', borderBottom: '2px solid var(--border-subtle, var(--border-subtle))' }}>
                     <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Actions</span>
                   </th>
                 </tr>
@@ -488,6 +489,7 @@ export default function CustomersPage() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 
@@ -517,7 +519,7 @@ export default function CustomersPage() {
             exit={{ opacity: 0, y: 16 }}
             className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2.5 rounded-2xl px-4 py-3 text-sm font-semibold shadow-2xl"
             style={{
-              background: bulkToast.ok ? '#065f46' : '#991b1b',
+              background: bulkToast.ok ? 'var(--success-text)' : 'var(--danger-text)',
               color: '#fff',
               minWidth: 260,
             }}
@@ -537,12 +539,12 @@ export default function CustomersPage() {
           style={{ background: 'rgba(0,0,0,0.45)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setAssignOwnerOpen(false); }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--surface-card)] p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
                 Assign owner
               </h3>
-              <button onClick={() => setAssignOwnerOpen(false)} className="rounded-lg p-1 hover:bg-gray-100">
+              <button onClick={() => setAssignOwnerOpen(false)} className="rounded-lg p-1 hover:bg-[var(--surface-muted)]">
                 <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
             </div>
@@ -565,7 +567,7 @@ export default function CustomersPage() {
                     <button
                       key={m.id}
                       onClick={() => doAssignOwner(m)}
-                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-gray-50"
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-[var(--surface-muted)]"
                     >
                       <span
                         className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -593,12 +595,12 @@ export default function CustomersPage() {
           style={{ background: 'rgba(0,0,0,0.45)' }}
           onClick={(e) => { if (e.target === e.currentTarget) setChangeStageOpen(false); }}
         >
-          <div className="w-full max-w-xs rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-xs rounded-2xl bg-[var(--surface-card)] p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
                 Change stage
               </h3>
-              <button onClick={() => setChangeStageOpen(false)} className="rounded-lg p-1 hover:bg-gray-100">
+              <button onClick={() => setChangeStageOpen(false)} className="rounded-lg p-1 hover:bg-[var(--surface-muted)]">
                 <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
             </div>
@@ -632,7 +634,7 @@ export default function CustomersPage() {
           style={{ background: 'rgba(0,0,0,0.45)' }}
           onClick={(e) => { if (e.target === e.currentTarget && !deleting) { setConfirmDelete(null); setDeleteError(null); } }}
         >
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-sm rounded-2xl bg-[var(--surface-card)] p-6 shadow-2xl">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
               <Trash2 className="h-5 w-5 text-red-600" />
             </div>
@@ -650,7 +652,7 @@ export default function CustomersPage() {
                 type="button"
                 onClick={() => { setConfirmDelete(null); setDeleteError(null); }}
                 disabled={deleting}
-                className="rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-muted)] disabled:opacity-50"
                 style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}
               >
                 Cancel
@@ -707,11 +709,11 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
   const daysSince = r.lastContactedAt
     ? Math.floor((nowMs - new Date(r.lastContactedAt).getTime()) / 86400000)
     : null;
-  const dotColor = daysSince === null ? null : daysSince > 21 ? '#ef4444' : daysSince > 7 ? '#f59e0b' : null;
-  const lastSeenColor = daysSince === null ? 'var(--border-subtle)' : daysSince > 21 ? '#ef4444' : daysSince > 7 ? '#f59e0b' : 'var(--text-secondary)';
+  const dotColor = daysSince === null ? null : daysSince > 21 ? 'var(--danger)' : daysSince > 7 ? 'var(--warning)' : null;
+  const lastSeenColor = daysSince === null ? 'var(--border-subtle)' : daysSince > 21 ? 'var(--danger)' : daysSince > 7 ? 'var(--warning)' : 'var(--text-secondary)';
   const lastSeenLabel = daysSince === null ? 'Never' : daysSince === 0 ? 'Today' : daysSince === 1 ? 'Yesterday' : `${daysSince}d ago`;
 
-  const cellBorder = isLast ? 'none' : '1px solid var(--border-subtle, #e8eaf0)';
+  const cellBorder = isLast ? 'none' : '1px solid var(--border-subtle, var(--border-subtle))';
 
   const secondaryLine = [r.company, r.city].filter(Boolean).join(' · ');
 
@@ -737,7 +739,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
           ? 'rgba(124,92,252,0.03)'
           : 'var(--surface-card, #fff)',
         boxShadow: isSelected || checked
-          ? 'inset 3px 0 0 var(--violet-primary, #7c5cfc)'
+          ? 'inset 3px 0 0 var(--violet-primary, var(--accent-base))'
           : 'inset 3px 0 0 transparent',
         cursor: 'default',
         transition: 'background 0.12s, box-shadow 0.12s',
@@ -751,7 +753,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
           onChange={onToggle}
           onClick={(e) => e.stopPropagation()}
           className="h-4 w-4 rounded cursor-pointer"
-          style={{ accentColor: 'var(--violet-primary, #7c5cfc)' }}
+          style={{ accentColor: 'var(--violet-primary, var(--accent-base))' }}
           aria-label={`Select ${r.fullName}`}
         />
       </td>
@@ -840,7 +842,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
             >
               <span
                 className="inline-flex w-fit items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-amber-100"
-                style={{ background: 'rgba(245,158,11,0.10)', color: '#92400e' }}
+                style={{ background: 'rgba(245,158,11,0.10)', color: 'var(--warning-text)' }}
               >
                 ↗ {LEAD_STAGE_SHORT[r.activeLeadStage] ?? r.activeLeadStage}
               </span>
@@ -914,7 +916,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
                 <Link
                   href={`/customers/${r.id}`}
                   onClick={(e) => { e.stopPropagation(); onCloseMenu(); }}
-                  className="flex items-center gap-2.5 px-3 py-2 font-medium transition-colors hover:bg-gray-50"
+                  className="flex items-center gap-2.5 px-3 py-2 font-medium transition-colors hover:bg-[var(--surface-muted)]"
                   style={{ color: 'var(--text-heading)' }}
                 >
                   <Eye className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
@@ -924,7 +926,7 @@ function CustomerRow({ r, checked, isMenuOpen, stageSt, isLast, nowMs, menuRef, 
                 <button
                   onClick={(e) => { e.stopPropagation(); onDelete(); }}
                   className="flex w-full items-center gap-2.5 px-3 py-2 font-medium transition-colors hover:bg-red-50"
-                  style={{ color: '#dc2626' }}
+                  style={{ color: 'var(--danger)' }}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                   Delete customer
@@ -1078,40 +1080,40 @@ function EmptyState({ hasQuery, onCreate, onClear }: { hasQuery: boolean; onCrea
       {/* Interior design illustration */}
       <svg width="140" height="108" viewBox="0 0 140 108" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         {/* Floor line */}
-        <rect x="6" y="94" width="128" height="2" rx="1" fill="#e8eaf0" />
+        <rect x="6" y="94" width="128" height="2" rx="1" fill="var(--border-subtle)" />
         {/* Sofa back */}
-        <rect x="26" y="58" width="76" height="16" rx="7" fill="#7c5cfc" fillOpacity="0.18" />
+        <rect x="26" y="58" width="76" height="16" rx="7" fill="var(--accent-base)" fillOpacity="0.18" />
         {/* Sofa seat */}
-        <rect x="26" y="70" width="76" height="24" rx="7" fill="#7c5cfc" fillOpacity="0.12" />
+        <rect x="26" y="70" width="76" height="24" rx="7" fill="var(--accent-base)" fillOpacity="0.12" />
         {/* Left armrest */}
-        <rect x="19" y="60" width="11" height="30" rx="5.5" fill="#7c5cfc" fillOpacity="0.14" />
+        <rect x="19" y="60" width="11" height="30" rx="5.5" fill="var(--accent-base)" fillOpacity="0.14" />
         {/* Right armrest */}
-        <rect x="110" y="60" width="11" height="30" rx="5.5" fill="#7c5cfc" fillOpacity="0.14" />
+        <rect x="110" y="60" width="11" height="30" rx="5.5" fill="var(--accent-base)" fillOpacity="0.14" />
         {/* Sofa legs */}
-        <rect x="34" y="92" width="6" height="6" rx="2" fill="#7c5cfc" fillOpacity="0.22" />
-        <rect x="100" y="92" width="6" height="6" rx="2" fill="#7c5cfc" fillOpacity="0.22" />
+        <rect x="34" y="92" width="6" height="6" rx="2" fill="var(--accent-base)" fillOpacity="0.22" />
+        <rect x="100" y="92" width="6" height="6" rx="2" fill="var(--accent-base)" fillOpacity="0.22" />
         {/* Floor lamp stem */}
-        <rect x="121" y="34" width="3.5" height="60" rx="1.75" fill="#7c5cfc" fillOpacity="0.20" />
+        <rect x="121" y="34" width="3.5" height="60" rx="1.75" fill="var(--accent-base)" fillOpacity="0.20" />
         {/* Lamp shade */}
-        <path d="M110 34 L134 34 L130 16 L114 16 Z" fill="#7c5cfc" fillOpacity="0.14" />
+        <path d="M110 34 L134 34 L130 16 L114 16 Z" fill="var(--accent-base)" fillOpacity="0.14" />
         {/* Lamp glow */}
-        <ellipse cx="122" cy="34" rx="13" ry="5" fill="#f59e0b" fillOpacity="0.22" />
+        <ellipse cx="122" cy="34" rx="13" ry="5" fill="var(--warning)" fillOpacity="0.22" />
         {/* Plant pot */}
-        <rect x="8" y="78" width="11" height="16" rx="3" fill="#7c5cfc" fillOpacity="0.16" />
-        <ellipse cx="13.5" cy="74" rx="9" ry="8" fill="#10b981" fillOpacity="0.22" />
-        <ellipse cx="8" cy="78" rx="5" ry="5" fill="#10b981" fillOpacity="0.16" />
-        <ellipse cx="19" cy="78" rx="5" ry="5" fill="#10b981" fillOpacity="0.16" />
+        <rect x="8" y="78" width="11" height="16" rx="3" fill="var(--accent-base)" fillOpacity="0.16" />
+        <ellipse cx="13.5" cy="74" rx="9" ry="8" fill="var(--success)" fillOpacity="0.22" />
+        <ellipse cx="8" cy="78" rx="5" ry="5" fill="var(--success)" fillOpacity="0.16" />
+        <ellipse cx="19" cy="78" rx="5" ry="5" fill="var(--success)" fillOpacity="0.16" />
         {/* Customer avatar circles floating above sofa */}
-        <circle cx="42" cy="40" r="11" fill="#7c5cfc" fillOpacity="0.10" stroke="#7c5cfc" strokeOpacity="0.22" strokeWidth="1.5" />
-        <circle cx="70" cy="30" r="14" fill="#7c5cfc" fillOpacity="0.16" stroke="#7c5cfc" strokeOpacity="0.28" strokeWidth="1.5" />
-        <circle cx="98" cy="40" r="11" fill="#7c5cfc" fillOpacity="0.10" stroke="#7c5cfc" strokeOpacity="0.22" strokeWidth="1.5" />
+        <circle cx="42" cy="40" r="11" fill="var(--accent-base)" fillOpacity="0.10" stroke="var(--accent-base)" strokeOpacity="0.22" strokeWidth="1.5" />
+        <circle cx="70" cy="30" r="14" fill="var(--accent-base)" fillOpacity="0.16" stroke="var(--accent-base)" strokeOpacity="0.28" strokeWidth="1.5" />
+        <circle cx="98" cy="40" r="11" fill="var(--accent-base)" fillOpacity="0.10" stroke="var(--accent-base)" strokeOpacity="0.22" strokeWidth="1.5" />
         {/* Plus icons on avatar circles */}
-        <line x1="38" y1="40" x2="46" y2="40" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="42" y1="36" x2="42" y2="44" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="66" y1="30" x2="74" y2="30" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="70" y1="26" x2="70" y2="34" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="94" y1="40" x2="102" y2="40" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="98" y1="36" x2="98" y2="44" stroke="#7c5cfc" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="38" y1="40" x2="46" y2="40" stroke="var(--accent-base)" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="42" y1="36" x2="42" y2="44" stroke="var(--accent-base)" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="66" y1="30" x2="74" y2="30" stroke="var(--accent-base)" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="70" y1="26" x2="70" y2="34" stroke="var(--accent-base)" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="94" y1="40" x2="102" y2="40" stroke="var(--accent-base)" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="98" y1="36" x2="98" y2="44" stroke="var(--accent-base)" strokeOpacity="0.45" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
       <p className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>No customers yet</p>
       <p className="text-sm text-center max-w-xs" style={{ color: 'var(--text-secondary)' }}>
