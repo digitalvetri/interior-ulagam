@@ -1,7 +1,5 @@
 'use client';
 
-import Image from 'next/image';
-
 function initials(name: string): string {
   return name
     .split(/\s+/)
@@ -17,6 +15,10 @@ function hueFor(name: string): number {
   return Math.abs(h) % 360;
 }
 
+function isAbsoluteUrl(s: string): boolean {
+  try { return Boolean(new URL(s)); } catch { return false; }
+}
+
 export function EmployeeAvatar({
   name, photoUrl, size = 40,
 }: {
@@ -24,13 +26,12 @@ export function EmployeeAvatar({
   photoUrl: string | null;
   size?: number;
 }) {
-  if (photoUrl) {
+  if (photoUrl && isAbsoluteUrl(photoUrl)) {
     return (
-      <Image
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
         src={photoUrl}
         alt={name}
-        width={size}
-        height={size}
         className="flex-shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-slate-900"
         style={{ width: size, height: size }}
       />

@@ -160,7 +160,19 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (e) {
+    const err = e as { code?: string; message?: string; detail?: string };
     console.error('[POST /api/v1/employees]', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    // Translate known Postgres error codes to actionable messages
+    if (err.code === '23505') {
+      return NextResponse.json({ error: 'An employee with this email already exists' }, { status: 409 });
+    }
+    if (err.code === '42703') {
+      return NextResponse.json({ error: 'Database schema is out of date — run migrate-employees.sql in Supabase SQL Editor' }, { status: 500 });
+    }
+    if (err.code === '42P01') {
+      return NextResponse.json({ error: 'Database table missing — run migrate-employees.sql in Supabase SQL Editor' }, { status: 500 });
+    }
+    const detail = process.env.NODE_ENV === 'development' ? (err.message ?? 'Internal server error') : 'Internal server error';
+    return NextResponse.json({ error: detail }, { status: 500 });
   }
 }

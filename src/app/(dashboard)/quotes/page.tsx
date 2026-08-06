@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { FileText, Plus, Clock, CheckCircle2, Send, RefreshCw } from 'lucide-react';
+import {
+  FileText, Plus, Clock, CheckCircle2, Send, RefreshCw,
+  Pencil, Download, Trash2, AlertTriangle,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -43,13 +45,12 @@ function QuoteNumberBadge({ version, id }: { version: number; id: string }) {
 }
 
 function StatusBadge({ status }: { status: Quote['status'] }) {
-  const cfg = STATUS_CONFIG[status];
+  const cfg  = STATUS_CONFIG[status];
   const Icon = cfg.icon;
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
-      style={{ background: cfg.bg, color: cfg.color }}
-    >
+      style={{ background: cfg.bg, color: cfg.color }}>
       <Icon className="h-3 w-3" />
       {cfg.label}
     </span>
@@ -58,14 +59,19 @@ function StatusBadge({ status }: { status: Quote['status'] }) {
 
 export default function QuotesPage() {
   const router = useRouter();
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [quotes,            setQuotes]            = useState<Quote[]>([]);
+  const [loading,           setLoading]           = useState(true);
+  const [dialogOpen,        setDialogOpen]        = useState(false);
+  const [projects,          setProjects]          = useState<Project[]>([]);
+  const [projectsLoading,   setProjectsLoading]   = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
+  const [creating,          setCreating]          = useState(false);
+  const [createError,       setCreateError]       = useState<string | null>(null);
+
+  // Delete state
+  const [deleteTarget,  setDeleteTarget]  = useState<Quote | null>(null);
+  const [deleting,      setDeleting]      = useState(false);
+  const [deleteError,   setDeleteError]   = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/quotes')
@@ -119,9 +125,33 @@ export default function QuotesPage() {
     }
   }
 
-  const totalValue = quotes.reduce((sum, q) => sum + (q.totalPaise ?? 0), 0);
-  const approvedCount = quotes.filter(q => q.status === 'approved').length;
-  const draftCount = quotes.filter(q => q.status === 'draft').length;
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/v1/quotes/${deleteTarget.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `Delete failed (${res.status})`);
+      }
+      setQuotes((prev) => prev.filter((q) => q.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Delete failed — please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const totalValue    = quotes.reduce((sum, q) => sum + (q.totalPaise ?? 0), 0);
+  const approvedCount = quotes.filter((q) => q.status === 'approved').length;
+  const draftCount    = quotes.filter((q) => q.status === 'draft').length;
+
+  const deleteTargetLabel = deleteTarget
+    ? `Q-${deleteTarget.version.toString().padStart(3, '0')} — ${deleteTarget.projectName ?? deleteTarget.leadContactName ?? 'No project'}`
+    : '';
+  const deleteIsRisky = deleteTarget?.status === 'sent' || deleteTarget?.status === 'approved';
 
   return (
     <div className="space-y-6">
@@ -143,17 +173,14 @@ export default function QuotesPage() {
       {quotes.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(Object.keys(STATUS_CONFIG) as Array<Quote['status']>).map((status) => {
-            const cfg = STATUS_CONFIG[status];
-            const Icon = cfg.icon;
-            const count = quotes.filter(q => q.status === status).length;
-            const value = quotes.filter(q => q.status === status).reduce((s, q) => s + (q.totalPaise ?? 0), 0);
+            const cfg   = STATUS_CONFIG[status];
+            const Icon  = cfg.icon;
+            const count = quotes.filter((q) => q.status === status).length;
+            const value = quotes.filter((q) => q.status === status).reduce((s, q) => s + (q.totalPaise ?? 0), 0);
             return (
               <div key={status} className="premium-card p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span
-                    className="flex h-7 w-7 items-center justify-center rounded-lg"
-                    style={{ background: cfg.bg }}
-                  >
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: cfg.bg }}>
                     <Icon className="h-3.5 w-3.5" style={{ color: cfg.color }} />
                   </span>
                   <span className="text-xs font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
@@ -175,8 +202,7 @@ export default function QuotesPage() {
         <div className="premium-card flex h-56 flex-col items-center justify-center gap-3">
           <div
             className="flex h-14 w-14 items-center justify-center rounded-2xl"
-            style={{ background: 'var(--violet-soft)' }}
-          >
+            style={{ background: 'var(--violet-soft)' }}>
             <FileText className="h-7 w-7" style={{ color: '#7C5CFC' }} />
           </div>
           <div className="text-center">
@@ -190,67 +216,118 @@ export default function QuotesPage() {
           </button>
         </div>
       ) : (
-        <div className="premium-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr
-                className="text-left text-xs font-semibold uppercase tracking-wide"
-                style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
-              >
-                <th className="px-4 py-3">Quote #</th>
-                <th className="px-4 py-3">Project</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Total</th>
-                <th className="px-4 py-3">Date</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotes.map((quote) => (
+        <div className="premium-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
                 <tr
-                  key={quote.id}
-                  className="transition-colors hover:bg-[var(--surface-muted)]"
-                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                >
-                  <td className="px-4 py-3">
-                    <QuoteNumberBadge version={quote.version} id={quote.id} />
-                  </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
-                    {quote.projectName ?? quote.leadContactName ?? (
-                      quote.projectId
-                        ? <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{quote.projectId.slice(0, 8)}…</span>
-                        : <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Pre-sale estimate</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={quote.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                    {formatRupees(quote.totalPaise)}
-                  </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
-                    {new Date(quote.createdAt).toLocaleDateString('en-IN', {
-                      day: '2-digit', month: 'short', year: 'numeric',
-                    })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/quotes/${quote.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
-                      style={{ color: '#7C5CFC', background: 'var(--violet-soft)', border: '1px solid #DDD6FE' }}
-                    >
-                      Open
-                    </Link>
-                  </td>
+                  className="text-left text-xs font-semibold uppercase tracking-wide"
+                  style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+                  <th className="px-4 py-3">Quote #</th>
+                  <th className="px-4 py-3">Project</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3 text-right w-28">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {quotes.map((quote) => (
+                  <tr
+                    key={quote.id}
+                    className="group transition-colors"
+                    style={{ borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                    onClick={() => router.push(`/quotes/${quote.id}`)}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = 'var(--surface-muted)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLTableRowElement).style.background = ''; }}>
+
+                    <td className="px-4 py-3">
+                      <QuoteNumberBadge version={quote.version} id={quote.id} />
+                    </td>
+
+                    <td className="px-4 py-3" style={{ color: 'var(--text-primary)' }}>
+                      {quote.projectName ?? quote.leadContactName ?? (
+                        quote.projectId
+                          ? <span className="font-mono text-xs" style={{ color: 'var(--text-secondary)' }}>{quote.projectId.slice(0, 8)}…</span>
+                          : <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Pre-sale estimate</span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <StatusBadge status={quote.status} />
+                    </td>
+
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                      {formatRupees(quote.totalPaise)}
+                    </td>
+
+                    <td className="px-4 py-3" style={{ color: 'var(--text-secondary)' }}>
+                      {new Date(quote.createdAt).toLocaleDateString('en-IN', {
+                        day: '2-digit', month: 'short', year: 'numeric',
+                      })}
+                    </td>
+
+                    {/* Actions column */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-0.5">
+                        {/* Edit — navigate to detail */}
+                        <button
+                          type="button"
+                          title="Open & edit quotation"
+                          onClick={(e) => { e.stopPropagation(); router.push(`/quotes/${quote.id}`); }}
+                          className="inline-flex items-center justify-center rounded-lg p-1.5 transition-all"
+                          style={{ color: '#7C3AED' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#F5F3FF'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = ''; }}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+
+                        {/* Download PDF */}
+                        {quote.pdfUrl ? (
+                          <a
+                            href={quote.pdfUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="Download PDF"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center justify-center rounded-lg p-1.5 transition-all"
+                            style={{ color: '#1D4ED8' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = '#EFF6FF'; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = ''; }}>
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        ) : (
+                          <span
+                            title="No PDF yet — open the quote to generate one"
+                            className="inline-flex items-center justify-center rounded-lg p-1.5"
+                            style={{ color: '#D1D5DB', cursor: 'not-allowed' }}>
+                            <Download className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+
+                        {/* Delete */}
+                        <button
+                          type="button"
+                          title="Delete quotation"
+                          onClick={(e) => { e.stopPropagation(); setDeleteError(null); setDeleteTarget(quote); }}
+                          className="inline-flex items-center justify-center rounded-lg p-1.5 transition-all"
+                          style={{ color: '#DC2626' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#FEF2F2'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = ''; }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
           {/* Footer total */}
           <div
             className="flex items-center justify-between px-4 py-3"
-            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}
-          >
+            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
               {quotes.length} quote{quotes.length !== 1 ? 's' : ''}
             </span>
@@ -261,13 +338,12 @@ export default function QuotesPage() {
         </div>
       )}
 
-      {/* New Quote Dialog */}
+      {/* ── New Quote Dialog ───────────────────────────────────────────────── */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Quote</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="quote-project">Select Project</Label>
@@ -290,9 +366,59 @@ export default function QuotesPage() {
                 </Select>
               )}
             </div>
-
             {createError && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{createError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <button type="button" className="btn-secondary px-4 py-2" onClick={() => setDialogOpen(false)} disabled={creating}>
+              Cancel
+            </button>
+            <button type="button" className="btn-primary px-4 py-2" onClick={handleCreateQuote} disabled={creating || projectsLoading}>
+              {creating ? 'Creating…' : 'Create Quote'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirmation Dialog ─────────────────────────────────────── */}
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open && !deleting) setDeleteTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5" style={{ color: '#DC2626' }} />
+              Delete Quotation?
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              You are about to permanently delete{' '}
+              <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>{deleteTargetLabel}</span>.
+              This will also remove all line items. This action cannot be undone.
+            </p>
+
+            {/* Extra warning for sent / approved quotes */}
+            {deleteIsRisky && (
+              <div className="flex items-start gap-3 rounded-xl p-3.5"
+                style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: '#92400E' }} />
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: '#92400E' }}>
+                    This quote has been {deleteTarget?.status}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: '#78350F' }}>
+                    Deleting a {deleteTarget?.status} quotation may affect your records and client expectations.
+                    Consider marking it as &quot;Revised&quot; instead.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {deleteError && (
+              <p className="rounded-lg px-3 py-2 text-xs" style={{ background: '#FEF2F2', color: '#DC2626' }}>
+                {deleteError}
+              </p>
             )}
           </div>
 
@@ -300,18 +426,18 @@ export default function QuotesPage() {
             <button
               type="button"
               className="btn-secondary px-4 py-2"
-              onClick={() => setDialogOpen(false)}
-              disabled={creating}
-            >
+              onClick={() => { setDeleteTarget(null); setDeleteError(null); }}
+              disabled={deleting}>
               Cancel
             </button>
             <button
               type="button"
-              className="btn-primary px-4 py-2"
-              onClick={handleCreateQuote}
-              disabled={creating || projectsLoading}
-            >
-              {creating ? 'Creating…' : 'Create Quote'}
+              onClick={handleDelete}
+              disabled={deleting}
+              className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+              style={{ background: '#DC2626' }}>
+              <Trash2 className="h-4 w-4" />
+              {deleting ? 'Deleting…' : 'Delete Permanently'}
             </button>
           </DialogFooter>
         </DialogContent>
@@ -319,3 +445,4 @@ export default function QuotesPage() {
     </div>
   );
 }
+

@@ -1,15 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { X } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { QuoteLine } from '@/types/quotes';
 
 interface AddLineFormProps {
   quoteId: string;
   onSuccess: (line: QuoteLine) => void;
+  onCancel?: () => void;
 }
 
 interface FormState {
@@ -30,17 +29,16 @@ const INITIAL_STATE: FormState = {
   clientRateRupees: '',
 };
 
-export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
-  const [form, setForm] = useState<FormState>(INITIAL_STATE);
+export function AddLineForm({ quoteId, onSuccess, onCancel }: AddLineFormProps) {
+  const [form,       setForm]       = useState<FormState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error,      setError]      = useState<string | null>(null);
 
-  const parsedQty = Number(form.qty) || 0;
-  const parsedCostRupees = Number(form.costRateRupees) || 0;
+  const parsedQty          = Number(form.qty)            || 0;
+  const parsedCostRupees   = Number(form.costRateRupees)   || 0;
   const parsedClientRupees = Number(form.clientRateRupees) || 0;
-  const liveMarginRupees = (parsedClientRupees - parsedCostRupees) * parsedQty;
-  const liveMarginPaise = Math.round(liveMarginRupees * 100);
-  const showMargin = parsedQty > 0;
+  const liveMarginPaise    = Math.round((parsedClientRupees - parsedCostRupees) * parsedQty * 100);
+  const showMargin         = parsedQty > 0;
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -50,12 +48,12 @@ export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
     e.preventDefault();
     setError(null);
 
-    if (!form.room.trim()) { setError('Room name is required'); return; }
-    if (!form.item.trim()) { setError('Item name is required'); return; }
-    if (!form.unit.trim()) { setError('Unit is required'); return; }
-    if (parsedQty <= 0) { setError('Qty must be greater than 0'); return; }
+    if (!form.room.trim())  { setError('Room name is required'); return; }
+    if (!form.item.trim())  { setError('Item name is required'); return; }
+    if (!form.unit.trim())  { setError('Unit is required'); return; }
+    if (parsedQty <= 0)     { setError('Qty must be greater than 0'); return; }
 
-    const costRatePaise = Math.round(parsedCostRupees * 100);
+    const costRatePaise   = Math.round(parsedCostRupees   * 100);
     const clientRatePaise = Math.round(parsedClientRupees * 100);
 
     setSubmitting(true);
@@ -64,10 +62,10 @@ export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          room: form.room.trim(),
-          item: form.item.trim(),
-          unit: form.unit.trim(),
-          qty: Math.round(parsedQty),
+          room:            form.room.trim(),
+          item:            form.item.trim(),
+          unit:            form.unit.trim(),
+          qty:             Math.round(parsedQty),
           costRatePaise,
           clientRatePaise,
         }),
@@ -90,120 +88,97 @@ export function AddLineForm({ quoteId, onSuccess }: AddLineFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-dashed p-4"
-      style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
-      <p className="mb-3 text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-        Add Line Item
-      </p>
-
-      <div className="flex flex-wrap items-end gap-3">
-        {/* Room Name */}
-        <div className="flex min-w-[120px] flex-1 flex-col gap-1">
-          <Label htmlFor="add-room" className="text-xs">
-            Room Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="add-room"
-            placeholder="Living Room"
-            value={form.room}
-            onChange={(e) => setField('room', e.target.value)}
-          />
-        </div>
-
-        {/* Item Name */}
-        <div className="flex min-w-[140px] flex-1 flex-col gap-1">
-          <Label htmlFor="add-item" className="text-xs">
-            Item Name <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="add-item"
-            placeholder="Modular Wardrobe"
-            value={form.item}
-            onChange={(e) => setField('item', e.target.value)}
-          />
-        </div>
-
-        {/* Unit */}
-        <div className="flex w-24 flex-col gap-1">
-          <Label htmlFor="add-unit" className="text-xs">
-            Unit <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="add-unit"
-            placeholder="sqft"
-            value={form.unit}
-            onChange={(e) => setField('unit', e.target.value)}
-          />
-        </div>
-
-        {/* Qty */}
-        <div className="flex w-24 flex-col gap-1">
-          <Label htmlFor="add-qty" className="text-xs">
-            Qty <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="add-qty"
-            type="number"
-            min={1}
-            placeholder="1"
-            value={form.qty}
-            onChange={(e) => setField('qty', e.target.value)}
-          />
-        </div>
-
-        {/* Cost Rate */}
-        <div className="flex w-32 flex-col gap-1">
-          <Label htmlFor="add-cost" className="text-xs">
-            Cost Rate ₹
-          </Label>
-          <Input
-            id="add-cost"
-            type="number"
-            min={0}
-            step={0.01}
-            placeholder="0.00"
-            value={form.costRateRupees}
-            onChange={(e) => setField('costRateRupees', e.target.value)}
-          />
-        </div>
-
-        {/* Client Rate */}
-        <div className="flex w-32 flex-col gap-1">
-          <Label htmlFor="add-client" className="text-xs">
-            Client Rate ₹
-          </Label>
-          <Input
-            id="add-client"
-            type="number"
-            min={0}
-            step={0.01}
-            placeholder="0.00"
-            value={form.clientRateRupees}
-            onChange={(e) => setField('clientRateRupees', e.target.value)}
-          />
-        </div>
-
-        {/* Live Margin Preview */}
-        {showMargin && (
-          <div className="flex flex-col gap-1">
-            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Margin</span>
-            <span
-              className="text-sm font-semibold"
-              style={{ color: liveMarginPaise >= 0 ? 'var(--text-accent)' : '#DC2626' }}
-            >
-              {formatRupees(liveMarginPaise)}
-            </span>
-          </div>
+    <form onSubmit={handleSubmit} className="p-5">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm font-semibold" style={{ color: '#1C1916' }}>Add Line Item</p>
+        {onCancel && (
+          <button type="button" onClick={onCancel}
+            className="rounded-lg p-1 transition-colors hover:bg-gray-100">
+            <X className="h-4 w-4" style={{ color: '#6B6459' }} />
+          </button>
         )}
-
-        <Button type="submit" disabled={submitting} className="self-end">
-          {submitting ? 'Adding…' : '+ Add Line'}
-        </Button>
       </div>
 
-      {error && (
-        <p className="mt-2 text-xs text-red-600">{error}</p>
-      )}
+      {/* Fields */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+          <label className="studio-label" htmlFor="add-room">
+            Room <span className="text-red-500">*</span>
+          </label>
+          <input id="add-room" className="studio-input" placeholder="Living Room"
+            value={form.room} onChange={(e) => setField('room', e.target.value)} />
+        </div>
+
+        <div className="col-span-2 flex flex-col gap-1">
+          <label className="studio-label" htmlFor="add-item">
+            Item <span className="text-red-500">*</span>
+          </label>
+          <input id="add-item" className="studio-input" placeholder="Modular Wardrobe"
+            value={form.item} onChange={(e) => setField('item', e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="studio-label" htmlFor="add-unit">
+            Unit <span className="text-red-500">*</span>
+          </label>
+          <input id="add-unit" className="studio-input" placeholder="sqft"
+            value={form.unit} onChange={(e) => setField('unit', e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="studio-label" htmlFor="add-qty">
+            Qty <span className="text-red-500">*</span>
+          </label>
+          <input id="add-qty" type="number" min={1} className="studio-input" placeholder="1"
+            value={form.qty} onChange={(e) => setField('qty', e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="studio-label" htmlFor="add-cost">Cost Rate ₹</label>
+          <input id="add-cost" type="number" min={0} step={0.01} className="studio-input" placeholder="0.00"
+            value={form.costRateRupees} onChange={(e) => setField('costRateRupees', e.target.value)} />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="studio-label" htmlFor="add-client">Client Rate ₹</label>
+          <input id="add-client" type="number" min={0} step={0.01} className="studio-input" placeholder="0.00"
+            value={form.clientRateRupees} onChange={(e) => setField('clientRateRupees', e.target.value)} />
+        </div>
+      </div>
+
+      {/* Footer: margin preview + submit */}
+      <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          {showMargin && (
+            <div className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+              style={{ background: liveMarginPaise >= 0 ? '#F0FDF4' : '#FEF2F2' }}>
+              <span className="text-xs" style={{ color: '#A79E8E' }}>Live margin:</span>
+              <span className="text-sm font-semibold"
+                style={{ color: liveMarginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+                {formatRupees(liveMarginPaise)}
+              </span>
+            </div>
+          )}
+          {error && (
+            <p className="text-xs" style={{ color: '#DC2626' }}>{error}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onCancel && (
+            <button type="button" onClick={onCancel}
+              className="rounded-xl border px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+              style={{ borderColor: '#F0EEE9', color: '#6B6459' }}>
+              Cancel
+            </button>
+          )}
+          <button type="submit" disabled={submitting}
+            className="btn-primary rounded-xl px-4 py-2 text-sm font-semibold">
+            {submitting ? 'Adding…' : '+ Add Line'}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

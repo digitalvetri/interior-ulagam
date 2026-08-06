@@ -1,38 +1,45 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Check, X, Trash2, Pencil, Copy } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { QuoteLine } from '@/types/quotes';
 
 interface LineItemRowProps {
   line: QuoteLine;
+  isDraft: boolean;
   onDelete: (id: string) => void;
   onUpdate: (
     id: string,
-    data: { qty?: number; costRatePaise?: number; clientRatePaise?: number },
+    data: Partial<Pick<QuoteLine, 'room' | 'item' | 'unit' | 'qty' | 'costRatePaise' | 'clientRatePaise'>>,
   ) => void;
+  onDuplicate: (line: QuoteLine) => void;
 }
 
-export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: LineItemRowProps) {
+  const [editing,       setEditing]       = useState(false);
+  const [saving,        setSaving]        = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError,   setDeleteError]   = useState<string | null>(null);
+  const [saveError,     setSaveError]     = useState<string | null>(null);
 
-  const [qtyInput, setQtyInput] = useState(String(line.qty));
-  const [costInput, setCostInput] = useState(String(line.costRatePaise / 100));
+  const [roomInput,   setRoomInput]   = useState(line.room);
+  const [itemInput,   setItemInput]   = useState(line.item);
+  const [unitInput,   setUnitInput]   = useState(line.unit);
+  const [qtyInput,    setQtyInput]    = useState(String(line.qty));
+  const [costInput,   setCostInput]   = useState(String(line.costRatePaise / 100));
   const [clientInput, setClientInput] = useState(String(line.clientRatePaise / 100));
 
-  const parsedQty = Math.max(1, Math.round(Number(qtyInput) || 1));
-  const parsedCostPaise = Math.round((Number(costInput) || 0) * 100);
+  const parsedQty         = Math.max(1, Math.round(Number(qtyInput)    || 1));
+  const parsedCostPaise   = Math.round((Number(costInput)   || 0) * 100);
   const parsedClientPaise = Math.round((Number(clientInput) || 0) * 100);
-  const liveMarginPaise = (parsedClientPaise - parsedCostPaise) * parsedQty;
+  const liveMarginPaise   = (parsedClientPaise - parsedCostPaise) * parsedQty;
 
   function handleEditStart() {
+    setRoomInput(line.room);
+    setItemInput(line.item);
+    setUnitInput(line.unit);
     setQtyInput(String(line.qty));
     setCostInput(String(line.costRatePaise / 100));
     setClientInput(String(line.clientRatePaise / 100));
@@ -53,13 +60,23 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          qty: parsedQty,
-          costRatePaise: parsedCostPaise,
+          room:            roomInput.trim(),
+          item:            itemInput.trim(),
+          unit:            unitInput.trim(),
+          qty:             parsedQty,
+          costRatePaise:   parsedCostPaise,
           clientRatePaise: parsedClientPaise,
         }),
       });
       if (!res.ok) throw new Error('Save failed — please try again.');
-      onUpdate(line.id, { qty: parsedQty, costRatePaise: parsedCostPaise, clientRatePaise: parsedClientPaise });
+      onUpdate(line.id, {
+        room:            roomInput.trim(),
+        item:            itemInput.trim(),
+        unit:            unitInput.trim(),
+        qty:             parsedQty,
+        costRatePaise:   parsedCostPaise,
+        clientRatePaise: parsedClientPaise,
+      });
       setEditing(false);
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Save failed — please try again.');
@@ -83,100 +100,210 @@ export function LineItemRow({ line, onDelete, onUpdate }: LineItemRowProps) {
     }
   }
 
-  const displayMarginPaise = editing ? liveMarginPaise : line.marginPaise;
-  const marginPositive = displayMarginPaise >= 0;
-
-  // Confirmation row shown inline instead of the normal row
+  /* ── Delete confirmation row ─────────────────────────────────────────── */
   if (confirmDelete) {
     return (
-      <tr className="bg-red-50">
-        <td colSpan={8} className="px-3 py-3">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-red-700 font-medium">
-              Delete &quot;{line.item}&quot; ({line.room})? This cannot be undone.
+      <tr style={{ background: '#FEF2F2', borderBottom: '1px solid #FECACA' }}>
+        <td colSpan={7} className="px-4 py-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium" style={{ color: '#DC2626' }}>
+              Delete &quot;{line.item}&quot;? This cannot be undone.
             </span>
             {deleteError && (
-              <span className="text-xs text-red-600">{deleteError}</span>
+              <span className="text-xs" style={{ color: '#B91C1C' }}>{deleteError}</span>
             )}
-            <Button size="sm" variant="destructive" onClick={handleDelete} disabled={deleting}>
+            <button type="button" onClick={handleDelete} disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
+              style={{ background: '#DC2626' }}>
               {deleting ? 'Deleting…' : 'Yes, delete'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setConfirmDelete(false); setDeleteError(null); }} disabled={deleting}>
+            </button>
+            <button type="button"
+              onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all hover:bg-gray-100"
+              style={{ color: '#6B6459' }}>
               Cancel
-            </Button>
+            </button>
           </div>
         </td>
       </tr>
     );
   }
 
+  /* ── Full-width edit row ─────────────────────────────────────────────── */
+  if (editing) {
+    return (
+      <tr style={{ background: '#F9F8FF', borderBottom: '1px solid #EDE9FE' }}>
+        <td colSpan={7} className="px-4 py-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Room</p>
+              <input
+                type="text"
+                value={roomInput}
+                onChange={(e) => setRoomInput(e.target.value)}
+                className="studio-input w-32"
+                placeholder="Room"
+                autoFocus
+              />
+            </div>
+            <div className="flex-1 min-w-[140px]">
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Item</p>
+              <input
+                type="text"
+                value={itemInput}
+                onChange={(e) => setItemInput(e.target.value)}
+                className="studio-input w-full"
+                placeholder="Item description"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Unit</p>
+              <input
+                type="text"
+                value={unitInput}
+                onChange={(e) => setUnitInput(e.target.value)}
+                className="studio-input w-20"
+                placeholder="sqft"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Qty</p>
+              <input
+                type="number"
+                min={1}
+                value={qtyInput}
+                onChange={(e) => setQtyInput(e.target.value)}
+                className="studio-input w-20 text-right"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Cost ₹</p>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={costInput}
+                onChange={(e) => setCostInput(e.target.value)}
+                className="studio-input w-28 text-right"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Client ₹</p>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={clientInput}
+                onChange={(e) => setClientInput(e.target.value)}
+                className="studio-input w-28 text-right"
+              />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#A79E8E' }}>Margin</p>
+              <span
+                className="text-sm font-semibold"
+                style={{ color: liveMarginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+                {formatRupees(liveMarginPaise)}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 pb-0.5">
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
+                style={{ background: '#7C3AED' }}>
+                <Check className="h-3.5 w-3.5" />
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={saving}
+                className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-gray-100"
+                style={{ color: '#6B6459' }}>
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          {saveError && (
+            <p className="text-xs mt-2" style={{ color: '#DC2626' }}>{saveError}</p>
+          )}
+        </td>
+      </tr>
+    );
+  }
+
+  /* ── Normal display row ──────────────────────────────────────────────── */
   return (
     <tr
-      className="text-sm transition-colors hover:bg-[var(--surface-muted)]"
-      style={{ borderBottom: '1px solid var(--border-subtle)' }}
-      onClick={() => !editing && handleEditStart()}
-      role="button"
-      tabIndex={editing ? -1 : 0}
-      onKeyDown={(e) => {
-        if (!editing && (e.key === 'Enter' || e.key === ' ')) handleEditStart();
-      }}
+      className="text-sm transition-colors group"
+      style={{ borderBottom: '1px solid #F0EEE9' }}
     >
-      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>{line.room}</td>
-      <td className="px-3 py-2" style={{ color: 'var(--text-primary)' }}>
-        {line.item}
-        {saveError && (
-          <p className="text-xs text-red-600 mt-0.5">{saveError}</p>
-        )}
-      </td>
-      <td className="px-3 py-2" style={{ color: 'var(--text-secondary)' }}>{line.unit}</td>
-
-      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-        {editing ? (
-          <Input type="number" min={1} value={qtyInput}
-            onChange={(e) => setQtyInput(e.target.value)} className="w-20" />
-        ) : (
-          <span style={{ color: 'var(--text-primary)' }}>{line.qty}</span>
-        )}
+      {/* Item */}
+      <td className="px-4 py-2.5">
+        <div>
+          <span className="font-medium" style={{ color: '#1C1916' }}>{line.item}</span>
+          {line.description && (
+            <p className="text-[11px] mt-0.5" style={{ color: '#A79E8E' }}>{line.description}</p>
+          )}
+        </div>
       </td>
 
-      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-        {editing ? (
-          <Input type="number" min={0} step={0.01} value={costInput}
-            onChange={(e) => setCostInput(e.target.value)} className="w-28" />
-        ) : (
-          <span style={{ color: 'var(--text-primary)' }}>{formatRupees(line.costRatePaise)}</span>
-        )}
+      {/* Unit */}
+      <td className="px-4 py-2.5" style={{ color: '#6B6459' }}>{line.unit}</td>
+
+      {/* Qty */}
+      <td className="px-4 py-2.5 text-right" style={{ color: '#1C1916' }}>{line.qty}</td>
+
+      {/* Cost Rate */}
+      <td className="px-4 py-2.5 text-right" style={{ color: '#1C1916' }}>
+        {formatRupees(line.costRatePaise)}
       </td>
 
-      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-        {editing ? (
-          <Input type="number" min={0} step={0.01} value={clientInput}
-            onChange={(e) => setClientInput(e.target.value)} className="w-28" />
-        ) : (
-          <span style={{ color: 'var(--text-primary)' }}>{formatRupees(line.clientRatePaise)}</span>
-        )}
+      {/* Client Rate */}
+      <td className="px-4 py-2.5 text-right" style={{ color: '#1C1916' }}>
+        {formatRupees(line.clientRatePaise)}
       </td>
 
-      <td className="px-3 py-2">
-        <span className="font-medium" style={{ color: marginPositive ? 'var(--text-accent)' : '#DC2626' }}>
-          {formatRupees(displayMarginPaise)}
+      {/* Margin */}
+      <td className="px-4 py-2.5 text-right">
+        <span className="font-semibold" style={{ color: line.marginPaise >= 0 ? '#16A34A' : '#DC2626' }}>
+          {formatRupees(line.marginPaise)}
         </span>
       </td>
 
-      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-        {editing ? (
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={handleCancel} disabled={saving}>
-              Cancel
-            </Button>
+      {/* Actions */}
+      <td className="px-4 py-2.5 text-right">
+        {isDraft && (
+          <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={handleEditStart}
+              title="Edit"
+              className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-violet-50"
+              style={{ color: '#7C3AED' }}>
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDuplicate(line)}
+              title="Duplicate"
+              className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-blue-50"
+              style={{ color: '#1D4ED8' }}>
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmDelete(true)}
+              disabled={deleting}
+              title="Delete"
+              className="inline-flex items-center rounded-lg p-1.5 transition-all hover:bg-red-50"
+              style={{ color: '#DC2626' }}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
-        ) : (
-          <Button size="sm" variant="destructive" onClick={() => setConfirmDelete(true)} disabled={deleting}>
-            Delete
-          </Button>
         )}
       </td>
     </tr>

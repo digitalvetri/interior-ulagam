@@ -8,6 +8,7 @@ import {
   Trash2, Save, Loader2, MessageCircle, StickyNote, Users,
   ArrowRightCircle, FolderOpen, CreditCard, Bell, Plus, Send,
   ChevronRight, IndianRupee, Sparkles, ShieldAlert, TrendingUp, X,
+  Clock, Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -77,6 +78,28 @@ const LIFECYCLE_LABEL: Record<string, string> = {
   snagging:            'Snagging',
   handover:            'Handover',
   complete:            'Complete',
+};
+
+const LIFECYCLE_PROGRESS: Record<string, number> = {
+  design_pending:      10,
+  design_in_progress:  25,
+  design_approved:     40,
+  procurement:         55,
+  execution:           70,
+  snagging:            85,
+  handover:            95,
+  complete:            100,
+};
+
+const LIFECYCLE_STAGE_COLOR: Record<string, { bg: string; color: string }> = {
+  design_pending:     { bg: 'rgba(100,116,139,0.10)', color: '#475569' },
+  design_in_progress: { bg: 'rgba(99,102,241,0.12)',  color: '#4f46e5' },
+  design_approved:    { bg: 'rgba(16,185,129,0.12)',  color: '#065f46' },
+  procurement:        { bg: 'rgba(245,158,11,0.12)',  color: '#b45309' },
+  execution:          { bg: 'rgba(59,130,246,0.12)',  color: '#1d4ed8' },
+  snagging:           { bg: 'rgba(249,115,22,0.12)',  color: '#c2410c' },
+  handover:           { bg: 'rgba(168,85,247,0.12)',  color: '#7e22ce' },
+  complete:           { bg: 'rgba(16,185,129,0.12)',  color: '#065f46' },
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────── */
@@ -263,6 +286,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       .finally(() => setMsgLoading(false));
   }, [id, messagesLoaded]);
 
+  // Eagerly load summary + activities for the overview dashboard
+  useEffect(() => { loadSummary(); }, [loadSummary]);
+  useEffect(() => { loadActivities(); }, [loadActivities]);
+
   /* ── Send WhatsApp message ── */
   async function sendWaMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -307,8 +334,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   function handleTabChange(tab: Tab) {
     setActiveTab(tab);
-    if (tab === 'activity') loadActivities();
-    if (tab === 'projects' || tab === 'finance') loadSummary();
+    if (tab === 'activity' || tab === 'overview') loadActivities();
+    if (tab === 'projects' || tab === 'finance' || tab === 'overview') loadSummary();
     if (tab === 'whatsapp') loadMessages();
   }
 
@@ -452,92 +479,142 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header
-        className="flex flex-wrap items-center justify-between gap-4 px-6 py-4"
+        className="flex flex-col"
         style={{ background: 'var(--surface-card, #fff)', borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}
       >
-        <div className="flex items-center gap-4 min-w-0">
-          <Link
-            href="/customers"
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-            aria-label="Back"
-          >
-            <ArrowLeft className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-          </Link>
+        {/* Main info row */}
+        <div className="flex flex-wrap items-start justify-between gap-4 px-6 pt-4 pb-3">
+          <div className="flex items-center gap-4 min-w-0">
+            <Link
+              href="/customers"
+              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+            </Link>
 
-          <Avatar name={displayed.fullName} size={44} />
+            <Avatar name={displayed.fullName} size={52} />
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg font-bold truncate" style={{ color: 'var(--text-heading)' }}>
-                {displayed.fullName}
-              </h1>
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                style={{ background: stageSt.bg, color: stageSt.color }}
-              >
-                <span className="h-1.5 w-1.5 rounded-full" style={{ background: stageSt.dot }} />
-                {STAGE_LABEL[displayed.stage]}
-              </span>
-              {displayed.activeLeadId && displayed.activeLeadStage && (
-                <Link
-                  href={`/leads/${displayed.activeLeadId}`}
-                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors hover:opacity-80"
-                  style={{ background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.20)' }}
-                  title="View lead"
-                >
-                  <ChevronRight className="h-3 w-3" />
-                  {LEAD_STAGE_LABEL[displayed.activeLeadStage] ?? displayed.activeLeadStage}
-                </Link>
-              )}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-              {displayed.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{displayed.company}</span>}
-              {displayed.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{displayed.city}</span>}
-              {daysSinceContact !== null && (
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>
+                  {displayed.fullName}
+                </h1>
                 <span
-                  className="flex items-center gap-1 font-medium"
-                  style={{ color: daysSinceContact > 21 ? '#ef4444' : daysSinceContact > 7 ? '#f59e0b' : 'var(--text-secondary)' }}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                  style={{ background: stageSt.bg, color: stageSt.color }}
                 >
-                  <Calendar className="h-3 w-3" />
-                  Last contact {daysSinceContact === 0 ? 'today' : `${daysSinceContact}d ago`}
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: stageSt.dot }} />
+                  {STAGE_LABEL[displayed.stage]}
                 </span>
-              )}
+                {displayed.activeLeadId && displayed.activeLeadStage && (
+                  <Link
+                    href={`/leads/${displayed.activeLeadId}`}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors hover:opacity-80"
+                    style={{ background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.20)' }}
+                    title="View lead"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                    {LEAD_STAGE_LABEL[displayed.activeLeadStage] ?? displayed.activeLeadStage}
+                  </Link>
+                )}
+              </div>
+              {/* Contact meta row */}
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{displayed.phone}</span>
+                {displayed.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{displayed.email}</span>}
+                {displayed.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{displayed.company}</span>}
+                {displayed.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{displayed.city}</span>}
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Since {new Date(customer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Quick actions */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {displayed.phone && (
+              <a
+                href={`https://wa.me/${displayed.phone.replace(/\D/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:opacity-90"
+                style={{ background: '#25d366', color: '#fff' }}
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+            )}
+            {displayed.phone && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={`tel:${displayed.phone}`}><Phone className="h-4 w-4" /> Call</a>
+              </Button>
+            )}
+            {displayed.email && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={`mailto:${displayed.email}`}><Mail className="h-4 w-4" /> Email</a>
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={remove}
+              className="text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Quick actions */}
-        <div className="flex items-center gap-2">
-          {displayed.phone && (
-            <a
-              href={`https://wa.me/${displayed.phone.replace(/\D/g, '')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors hover:opacity-90"
-              style={{ background: '#25d366', color: '#fff' }}
-            >
-              <MessageCircle className="h-4 w-4" />
-              WhatsApp
-            </a>
-          )}
-          {displayed.phone && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={`tel:${displayed.phone}`}><Phone className="h-4 w-4" /> Call</a>
-            </Button>
-          )}
-          {displayed.email && (
-            <Button variant="outline" size="sm" asChild>
-              <a href={`mailto:${displayed.email}`}><Mail className="h-4 w-4" /> Email</a>
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={remove}
-            className="text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+        {/* Stats strip */}
+        <div
+          className="flex flex-wrap items-center gap-2 px-6 py-2.5"
+          style={{ borderTop: '1px solid var(--border-subtle, #e8eaf0)' }}
+        >
+          <button
+            onClick={() => handleTabChange('projects')}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80"
+            style={{ background: 'rgba(99,102,241,0.09)', color: '#4f46e5' }}
           >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+            <FolderOpen className="h-3.5 w-3.5" />
+            {summaryLoading && !summary ? '…' : `${summary?.projectCount ?? 0} project${(summary?.projectCount ?? 0) !== 1 ? 's' : ''}`}
+          </button>
+
+          {summary && summary.totalContractPaise > 0 && (
+            <button
+              onClick={() => handleTabChange('finance')}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:opacity-80"
+              style={{ background: 'rgba(16,185,129,0.09)', color: '#065f46' }}
+            >
+              <IndianRupee className="h-3.5 w-3.5" />
+              {formatRupees(summary.totalContractPaise)} contracted
+            </button>
+          )}
+
+          {daysSinceContact !== null && (
+            <span
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              style={{
+                background: daysSinceContact > 21 ? 'rgba(239,68,68,0.09)' : daysSinceContact > 7 ? 'rgba(245,158,11,0.09)' : 'rgba(100,116,139,0.09)',
+                color: daysSinceContact > 21 ? '#dc2626' : daysSinceContact > 7 ? '#b45309' : '#475569',
+              }}
+            >
+              <Clock className="h-3.5 w-3.5" />
+              {daysSinceContact === 0 ? 'Contacted today' : `Last contact ${daysSinceContact}d ago`}
+            </span>
+          )}
+
+          {health && (
+            <span
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              style={{ background: HEALTH_STATUS_META[health.status].bg, color: HEALTH_STATUS_META[health.status].color }}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {HEALTH_STATUS_META[health.status].label}
+            </span>
+          )}
         </div>
       </header>
 
@@ -578,8 +655,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         {/* ── Overview tab ─────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-3">
-            {/* Left: properties */}
-            <div className="lg:col-span-1 space-y-4">
+
+            {/* Col 1: Contact details form */}
+            <div className="space-y-4">
               <div
                 className="rounded-2xl p-5"
                 style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
@@ -639,7 +717,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     />
                   </InlineField>
                   <InlineField label="Added" icon={Calendar}>
-                    <p className="text-sm py-1" style={{ color: 'var(--text-heading)' }}>
+                    <p className="py-1 text-sm" style={{ color: 'var(--text-heading)' }}>
                       {new Date(customer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </p>
                   </InlineField>
@@ -648,33 +726,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
 
-            {/* Right: summary + notes */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Summary cards */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                <SummaryCard
-                  label="Projects"
-                  value={summary?.projectCount ?? '—'}
-                  icon={<FolderOpen className="h-4 w-4" />}
-                  color="#6366f1"
-                  onClick={() => handleTabChange('projects')}
-                />
-                <SummaryCard
-                  label="Contract value"
-                  value={summary ? formatRupees(summary.totalContractPaise) : '—'}
-                  icon={<IndianRupee className="h-4 w-4" />}
-                  color="#10b981"
-                  onClick={() => handleTabChange('finance')}
-                />
-                <SummaryCard
-                  label="Activities"
-                  value={activitiesLoaded ? activities.length : '—'}
-                  icon={<StickyNote className="h-4 w-4" />}
-                  color="#f59e0b"
-                  onClick={() => handleTabChange('activity')}
-                />
-              </div>
-
+            {/* Col 2: Notes + AI Health */}
+            <div className="space-y-4">
               {/* Notes */}
               <div
                 className="rounded-2xl p-5"
@@ -725,15 +778,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   </button>
                 </div>
 
-                {healthError && (
-                  <p className="mb-2 text-xs text-red-600">{healthError}</p>
-                )}
+                {healthError && <p className="mb-2 text-xs text-red-600">{healthError}</p>}
 
                 {health ? (
                   <div className="space-y-3">
-                    {/* Score + status row */}
                     <div className="flex items-center gap-3">
-                      {/* Score arc */}
                       <div className="relative flex h-14 w-14 flex-shrink-0 items-center justify-center">
                         <svg viewBox="0 0 36 36" className="absolute inset-0 h-full w-full -rotate-90">
                           <circle cx="18" cy="18" r="15" fill="none" stroke="var(--border-subtle, #e8eaf0)" strokeWidth="3" />
@@ -749,7 +798,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           {health.healthScore}
                         </span>
                       </div>
-                      {/* Status badge + summary */}
                       <div className="min-w-0 flex-1">
                         <span
                           className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold"
@@ -762,8 +810,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         </p>
                       </div>
                     </div>
-
-                    {/* Nudge */}
                     {health.nudge && (
                       <div
                         className="flex items-start gap-2 rounded-xl p-3"
@@ -773,8 +819,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         <p className="text-xs leading-relaxed" style={{ color: 'var(--text-heading)' }}>{health.nudge}</p>
                       </div>
                     )}
-
-                    {/* Risk flags */}
                     {health.riskFlags && health.riskFlags.length > 0 && (
                       <div className="space-y-1.5">
                         {health.riskFlags.map((flag, i) => (
@@ -793,13 +837,156 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 ) : null}
               </div>
             </div>
+
+            {/* Col 3: Quick stats + Recent projects + Recent activity */}
+            <div className="space-y-4">
+              {/* 3 stat cards */}
+              <div className="space-y-2.5">
+                <SummaryCard
+                  label="Projects"
+                  value={summaryLoading && !summary ? '…' : (summary?.projectCount ?? 0)}
+                  icon={<FolderOpen className="h-4 w-4" />}
+                  color="#6366f1"
+                  onClick={() => handleTabChange('projects')}
+                />
+                <SummaryCard
+                  label="Contract value"
+                  value={summaryLoading && !summary ? '…' : summary ? formatRupees(summary.totalContractPaise) : '₹0'}
+                  icon={<IndianRupee className="h-4 w-4" />}
+                  color="#10b981"
+                  onClick={() => handleTabChange('finance')}
+                />
+                <SummaryCard
+                  label="Activities"
+                  value={activitiesLoading && !activitiesLoaded ? '…' : activities.length}
+                  icon={<Activity className="h-4 w-4" />}
+                  color="#f59e0b"
+                  onClick={() => handleTabChange('activity')}
+                />
+              </div>
+
+              {/* Recent projects (top 2) */}
+              {summary && summary.projects.length > 0 && (
+                <div
+                  className="rounded-2xl overflow-hidden"
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                >
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}>
+                    <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                      Recent projects
+                    </h2>
+                    <button
+                      onClick={() => handleTabChange('projects')}
+                      className="text-xs font-semibold transition-colors hover:opacity-70"
+                      style={{ color: 'var(--violet-primary)' }}
+                    >
+                      View all →
+                    </button>
+                  </div>
+                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {summary.projects.slice(0, 2).map((p) => {
+                      const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
+                      return (
+                        <Link
+                          key={p.id}
+                          href={`/projects/${p.id}`}
+                          className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-gray-50"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                              {p.name || 'Untitled project'}
+                            </p>
+                            {p.siteAddress && (
+                              <p className="mt-0.5 flex items-center gap-1 truncate text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                                <MapPin className="h-2.5 w-2.5 shrink-0" />{p.siteAddress}
+                              </p>
+                            )}
+                          </div>
+                          <span
+                            className="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                            style={{ background: sc.bg, color: sc.color }}
+                          >
+                            {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recent activity (last 3) */}
+              {activities.length > 0 && (
+                <div
+                  className="rounded-2xl overflow-hidden"
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                >
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}>
+                    <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                      Recent activity
+                    </h2>
+                    <button
+                      onClick={() => handleTabChange('activity')}
+                      className="text-xs font-semibold transition-colors hover:opacity-70"
+                      style={{ color: 'var(--violet-primary)' }}
+                    >
+                      View all →
+                    </button>
+                  </div>
+                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {activities.slice(0, 3).map((a) => {
+                      const meta = ACTIVITY_META[a.type];
+                      return (
+                        <div key={a.id} className="flex items-start gap-3 px-4 py-3">
+                          <span
+                            className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                            style={{ background: `${meta.color}18`, color: meta.color }}
+                          >
+                            {meta.icon}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium" style={{ color: 'var(--text-heading)' }}>{a.title}</p>
+                            <p className="mt-0.5 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                              {meta.label} · {relativeTime(a.createdAt)}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!summaryLoading && !activitiesLoading && (!summary || summary.projects.length === 0) && activities.length === 0 && (
+                <div
+                  className="rounded-2xl p-8 text-center"
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                >
+                  <Users className="mx-auto mb-2 h-7 w-7" style={{ color: 'var(--text-secondary)' }} />
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No activity yet</p>
+                  <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Log a call or create a project to get started.
+                  </p>
+                  <button
+                    onClick={() => handleTabChange('activity')}
+                    className="mt-3 rounded-xl px-4 py-2 text-xs font-semibold transition-colors hover:opacity-90"
+                    style={{ background: 'var(--violet-primary)', color: '#fff' }}
+                  >
+                    Log activity
+                  </button>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
         {/* ── Activity tab ─────────────────────────────────────────────── */}
         {activeTab === 'activity' && (
-          <div className="mx-auto max-w-2xl space-y-5 p-6">
-            {/* Composer */}
+          <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-3">
+            {/* Left: Composer */}
+            <div className="lg:col-span-1">
             <div
               className="rounded-2xl p-5"
               style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
@@ -870,8 +1057,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               </form>
             </div>
+            </div>{/* end left composer col */}
 
-            {/* Timeline */}
+            {/* Right: Timeline */}
+            <div className="lg:col-span-2">
             {activitiesLoading ? (
               <div className="flex justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
@@ -957,17 +1146,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 ))}
               </div>
             )}
+            </div>{/* end right timeline col */}
           </div>
         )}
 
         {/* ── Projects tab ─────────────────────────────────────────────── */}
         {activeTab === 'projects' && (
-          <div className="mx-auto max-w-2xl p-6 space-y-4">
+          <div className="p-6 space-y-4">
             {summaryLoading ? (
               <div className="flex justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
               </div>
-            ) : !summary || summary.projects.length === 0 ? (
+            ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
               <div
                 className="rounded-2xl p-10 text-center"
                 style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
@@ -988,42 +1178,121 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                {/* Stats strip */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+                    style={{ background: 'rgba(99,102,241,0.09)', color: '#4f46e5' }}
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
                     {summary.projectCount} project{summary.projectCount !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-sm font-bold" style={{ color: 'var(--violet-primary)' }}>
-                    {formatRupees(summary.totalContractPaise)} total
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  {summary.projects.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/projects/${p.id}`}
-                      className="flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-gray-50"
-                      style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  </span>
+                  {summary.totalContractPaise > 0 && (
+                    <span
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+                      style={{ background: 'rgba(16,185,129,0.09)', color: '#065f46' }}
                     >
-                      <div>
-                        <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
-                          {p.name || 'Untitled project'}
-                        </p>
-                        <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                          {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage} ·{' '}
-                          {new Date(p.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {p.totalContractPaise != null && (
-                          <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                            {formatRupees(p.totalContractPaise)}
-                          </p>
-                        )}
-                        <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-                      </div>
-                    </Link>
-                  ))}
+                      <IndianRupee className="h-3.5 w-3.5" />
+                      {formatRupees(summary.totalContractPaise)} contracted
+                    </span>
+                  )}
+                  {summary.leads.length > 0 && (
+                    <span
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+                      style={{ background: 'rgba(245,158,11,0.09)', color: '#b45309' }}
+                    >
+                      <Bell className="h-3.5 w-3.5" />
+                      {summary.leads.length} active {summary.leads.length !== 1 ? 'enquiries' : 'enquiry'}
+                    </span>
+                  )}
                 </div>
+
+                {summary.projects.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {summary.projects.map((p) => {
+                        const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
+                        return (
+                          <Link
+                            key={p.id}
+                            href={`/projects/${p.id}`}
+                            className="block rounded-xl p-4 transition-colors hover:bg-gray-50"
+                            style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                                  {p.name || 'Untitled project'}
+                                </p>
+                                {p.siteAddress && (
+                                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                    <MapPin className="h-3 w-3 shrink-0" />
+                                    {p.siteAddress}
+                                  </p>
+                                )}
+                                <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                  {new Date(p.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                              </div>
+                              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                <span
+                                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                  style={{ background: sc.bg, color: sc.color }}
+                                >
+                                  {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
+                                </span>
+                                {p.totalContractPaise != null && (
+                                  <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                                    {formatRupees(p.totalContractPaise)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {summary.leads.length > 0 && (
+                  <div className={summary.projects.length > 0 ? 'mt-6' : ''}>
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                      Active enquiries
+                    </p>
+                    <div className="space-y-2">
+                      {summary.leads.map((l) => (
+                        <Link
+                          key={l.id}
+                          href={`/leads/${l.id}`}
+                          className="flex items-center justify-between rounded-xl p-4 transition-colors hover:bg-gray-50"
+                          style={{ background: 'var(--surface-muted, #f8f9fc)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                              {l.projectName || 'New enquiry'}
+                            </p>
+                            {l.projectLocation && (
+                              <p className="mt-0.5 flex items-center gap-1 truncate text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                <MapPin className="h-3 w-3 shrink-0" />
+                                {l.projectLocation}
+                              </p>
+                            )}
+                          </div>
+                          <div className="ml-3 flex shrink-0 items-center gap-2">
+                            <span
+                              className="rounded-full px-2 py-0.5 text-xs font-medium"
+                              style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}
+                            >
+                              {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
+                            </span>
+                            <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1031,93 +1300,275 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
         {/* ── Finance tab ──────────────────────────────────────────────── */}
         {activeTab === 'finance' && (
-          <div className="mx-auto max-w-2xl p-6 space-y-4">
-            {summaryLoading ? (
+          <div className="p-6 space-y-5">
+            {summaryLoading && !summary ? (
               <div className="flex justify-center py-10">
                 <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
               </div>
             ) : (
               <>
-                <div
-                  className="rounded-2xl p-5"
-                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
-                >
-                  <h2 className="mb-4 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                    Financial overview
-                  </h2>
-                  {summary && summary.totalContractPaise > 0 ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Total contracted</span>
-                        <span className="text-base font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                          {formatRupees(summary.totalContractPaise)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Projects</span>
-                        <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
-                          {summary.projectCount}
-                        </span>
-                      </div>
+                {/* Metric cards */}
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                  <div
+                    className="rounded-2xl p-5"
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  >
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-xl"
+                      style={{ background: 'rgba(16,185,129,0.12)', color: '#10b981' }}
+                    >
+                      <IndianRupee className="h-5 w-5" />
                     </div>
-                  ) : (
-                    <div className="py-6 text-center">
-                      <IndianRupee className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
-                      <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        No financial data linked yet. Projects with contract values will appear here.
-                      </p>
+                    <p className="mt-3 text-2xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                      {summary ? formatRupees(summary.totalContractPaise) : '₹0'}
+                    </p>
+                    <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      Total contracted
+                    </p>
+                  </div>
+
+                  <div
+                    className="rounded-2xl p-5"
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  >
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-xl"
+                      style={{ background: 'rgba(99,102,241,0.12)', color: '#6366f1' }}
+                    >
+                      <FolderOpen className="h-5 w-5" />
                     </div>
-                  )}
+                    <p className="mt-3 text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
+                      {summary?.projectCount ?? 0}
+                    </p>
+                    <p className="mt-1 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      {(summary?.projectCount ?? 0) === 1 ? 'Project' : 'Projects'}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Per-project breakdown */}
+                {summary && summary.projects.length > 0 && (
+                  <div
+                    className="overflow-hidden rounded-2xl"
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+                  >
+                    <div
+                      className="px-5 py-3.5"
+                      style={{ borderBottom: '1px solid var(--border-subtle, #e8eaf0)' }}
+                    >
+                      <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                        Project breakdown
+                      </h2>
+                    </div>
+                    <div>
+                      {summary.projects.map((p, idx) => {
+                        const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
+                        const progress = LIFECYCLE_PROGRESS[p.lifecycleStage] ?? 0;
+                        return (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-gray-50"
+                            style={idx > 0 ? { borderTop: '1px solid var(--border-subtle, #e8eaf0)' } : undefined}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <Link
+                                href={`/projects/${p.id}`}
+                                className="text-sm font-semibold transition-colors hover:underline"
+                                style={{ color: 'var(--text-heading)' }}
+                              >
+                                {p.name || 'Untitled project'}
+                              </Link>
+                              {p.siteAddress && (
+                                <p className="mt-0.5 flex items-center gap-1 truncate text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                  <MapPin className="h-3 w-3 shrink-0" />{p.siteAddress}
+                                </p>
+                              )}
+                              {/* Progress bar */}
+                              <div className="mt-2.5 flex items-center gap-2">
+                                <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: 'var(--border-subtle, #e8eaf0)' }}>
+                                  <div
+                                    className="h-full rounded-full transition-all"
+                                    style={{ width: `${progress}%`, background: sc.color }}
+                                  />
+                                </div>
+                                <span className="shrink-0 text-[10px] font-medium" style={{ color: sc.color }}>
+                                  {progress}%
+                                </span>
+                              </div>
+                            </div>
+                            <div className="ml-5 shrink-0 text-right">
+                              {p.totalContractPaise != null ? (
+                                <p className="text-sm font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                                  {formatRupees(p.totalContractPaise)}
+                                </p>
+                              ) : (
+                                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>—</p>
+                              )}
+                              <span
+                                className="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+                                style={{ background: sc.bg, color: sc.color }}
+                              >
+                                {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Info note */}
+                <div
+                  className="flex items-start gap-3 rounded-2xl p-4"
+                  style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.15)' }}
+                >
+                  <CreditCard className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: '#6366f1' }} />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold" style={{ color: '#4f46e5' }}>
+                      Payment history &amp; invoices
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                      Invoices, payment milestones, receipts and outstanding balances are tracked inside each project&apos;s Finance section.
+                    </p>
+                    {summary && summary.projects.length > 0 && (
+                      <Link
+                        href={`/projects/${summary.projects[0].id}`}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold transition-colors hover:opacity-80"
+                        style={{ color: '#4f46e5' }}
+                      >
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        Open project finance →
+                      </Link>
+                    )}
+                  </div>
+                </div>
+
+                {!summary && (
+                  <div
+                    className="rounded-2xl p-10 text-center"
+                    style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
+                  >
+                    <IndianRupee className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No financial data yet</p>
+                    <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      Projects with contract values will appear here once created.
+                    </p>
+                  </div>
+                )}
               </>
             )}
           </div>
         )}
         {/* ── WhatsApp tab ─────────────────────────────────────────────── */}
         {activeTab === 'whatsapp' && (
-          <div className="mx-auto max-w-2xl p-6 space-y-4">
-            {/* Header row */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
-                WhatsApp thread
-              </h2>
+          <div className="grid grid-cols-1 gap-5 p-6 lg:grid-cols-3">
+
+            {/* Left: Info card + compose */}
+            <div className="flex flex-col gap-4 lg:col-span-1">
+              {/* Info card */}
+              <div
+                className="rounded-2xl p-5"
+                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+              >
+                <div className="mb-4 flex items-center gap-3">
+                  <span
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{ background: 'rgba(37,211,102,0.12)', color: '#25d366' }}
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>WhatsApp thread</p>
+                    <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{customer.phone}</p>
+                  </div>
+                </div>
+                {messagesLoaded && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Messages</span>
+                      <span className="text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>{messages.length}</span>
+                    </div>
+                    {messages.length > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Last message</span>
+                        <span className="text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>{relativeTime(messages[0].createdAt)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {customer.phone && (
+                  <a
+                    href={`https://wa.me/${customer.phone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors hover:opacity-90"
+                    style={{ background: '#25d366', color: '#fff' }}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Open in WhatsApp
+                  </a>
+                )}
+              </div>
+
+              {/* Compose bar */}
               {customer.phone && (
-                <a
-                  href={`https://wa.me/${customer.phone.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors hover:opacity-90"
-                  style={{ background: '#25d366', color: '#fff' }}
+                <form
+                  onSubmit={sendWaMessage}
+                  className="flex flex-col gap-2 rounded-2xl p-4"
+                  style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
                 >
-                  <MessageCircle className="h-3.5 w-3.5" />
-                  Open in WhatsApp
-                </a>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Send message</p>
+                  <Textarea
+                    value={waDraft}
+                    onChange={(e) => setWaDraft(e.target.value)}
+                    onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendWaMessage(e as unknown as React.FormEvent); }
+                    }}
+                    placeholder="Type a message… (Enter to send)"
+                    rows={4}
+                    disabled={waSending}
+                    className="resize-none text-sm"
+                    style={{ color: 'var(--text-heading)' }}
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!waDraft.trim() || waSending}
+                      className="gap-1.5"
+                      style={{ background: '#25d366', color: '#fff' }}
+                    >
+                      {waSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      {waSending ? 'Sending…' : 'Send'}
+                    </Button>
+                  </div>
+                  {waError && <p className="text-xs" style={{ color: '#dc2626' }}>{waError}</p>}
+                </form>
               )}
             </div>
 
-            {/* Thread */}
-            <div
-              ref={waThreadRef}
-              className="max-h-[420px] overflow-y-auto space-y-2 rounded-2xl p-1"
-            >
-              {messagesLoading ? (
-                <div className="flex justify-center py-10">
-                  <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
-                </div>
-              ) : messages.length === 0 ? (
-                <div
-                  className="rounded-2xl p-10 text-center"
-                  style={{ background: 'var(--surface-card, #fff)', border: '1px dashed var(--border-subtle, #e8eaf0)' }}
-                >
-                  <MessageCircle className="mx-auto mb-3 h-8 w-8" style={{ color: 'var(--text-secondary)' }} />
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No messages yet</p>
-                  <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    WhatsApp messages sent or received via this number will appear here.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {messages.map((msg) => {
+            {/* Right: Thread */}
+            <div className="lg:col-span-2">
+              <div
+                ref={waThreadRef}
+                className="h-full min-h-[400px] overflow-y-auto rounded-2xl p-4 space-y-3"
+                style={{ background: 'rgba(240,242,245,0.6)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
+              >
+                {messagesLoading ? (
+                  <div className="flex justify-center py-10">
+                    <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--violet-primary)' }} />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl" style={{ background: 'var(--surface-card, #fff)' }}>
+                    <MessageCircle className="mb-3 h-10 w-10" style={{ color: 'var(--text-secondary)' }} />
+                    <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>No messages yet</p>
+                    <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      Messages will appear here once sent or received.
+                    </p>
+                  </div>
+                ) : (
+                  messages.map((msg) => {
                     const isInbound = msg.direction === 'inbound';
                     return (
                       <div
@@ -1125,68 +1576,32 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         className={`flex ${isInbound ? 'justify-start' : 'justify-end'}`}
                       >
                         <div
-                          className="max-w-[75%] rounded-2xl px-4 py-2.5"
+                          className="max-w-[70%] px-4 py-2.5 shadow-sm"
                           style={{
-                            background: isInbound ? 'var(--surface-card, #fff)' : 'rgba(124,92,252,0.10)',
-                            border: isInbound ? '1px solid var(--border-subtle, #e8eaf0)' : '1px solid rgba(124,92,252,0.20)',
+                            background: isInbound ? '#fff' : 'rgba(124,92,252,0.12)',
+                            border: isInbound ? '1px solid var(--border-subtle, #e8eaf0)' : '1px solid rgba(124,92,252,0.22)',
                             borderRadius: isInbound ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
                           }}
                         >
-                          {msg.templateName ? (
-                            <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text-secondary)' }}>
-                              Template: {msg.templateName}
+                          {msg.templateName && (
+                            <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>
+                              {msg.templateName}
                             </p>
-                          ) : null}
+                          )}
                           <p className="text-sm leading-relaxed" style={{ color: 'var(--text-heading)' }}>
                             {msg.bodyPreview ?? '(no preview)'}
                           </p>
-                          <p className="mt-1 text-[10px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                          <p className="mt-1.5 text-[10px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                             {relativeTime(msg.createdAt)}
                           </p>
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                  })
+                )}
+              </div>
             </div>
 
-            {/* Compose bar */}
-            {customer.phone && (
-              <form
-                onSubmit={sendWaMessage}
-                className="flex items-end gap-2 rounded-2xl p-3"
-                style={{ background: 'var(--surface-card, #fff)', border: '1px solid var(--border-subtle, #e8eaf0)' }}
-              >
-                <Textarea
-                  value={waDraft}
-                  onChange={(e) => setWaDraft(e.target.value)}
-                  onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void sendWaMessage(e as unknown as React.FormEvent); }
-                  }}
-                  placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
-                  rows={2}
-                  disabled={waSending}
-                  className="flex-1 resize-none border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
-                  style={{ color: 'var(--text-heading)', boxShadow: 'none' }}
-                />
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={!waDraft.trim() || waSending}
-                  className="h-9 w-9 shrink-0 rounded-xl p-0"
-                  style={{ background: '#25d366', color: '#fff' }}
-                >
-                  {waSending
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <Send className="h-4 w-4" />
-                  }
-                </Button>
-              </form>
-            )}
-            {waError && (
-              <p className="text-xs" style={{ color: '#dc2626' }}>{waError}</p>
-            )}
           </div>
         )}
 

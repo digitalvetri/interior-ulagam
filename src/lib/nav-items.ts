@@ -12,7 +12,6 @@ import {
   Wallet,
   UserCog,
   BarChart3,
-  FolderOpen,
   Settings,
 } from 'lucide-react';
 
@@ -84,14 +83,6 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['owner', 'designer', 'supervisor'],
     items: [
       { href: '/employees', label: 'Employees', icon: UserCog,    roles: ['owner'] },
-    ],
-  },
-  {
-    key: 'content',
-    label: 'Content',
-    roles: ['owner', 'designer'],
-    items: [
-      { href: '/documents',  label: 'Documents',  icon: FolderOpen, roles: ['owner', 'designer'] },
     ],
   },
   {

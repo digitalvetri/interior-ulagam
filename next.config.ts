@@ -67,6 +67,16 @@ const nextConfig: NextConfig = {
         hostname: 'theinteriorstudios.in',
         pathname: '/wp-content/uploads/**',
       },
+      // Object storage — MinIO in Docker, any S3 host in production. Derived
+      // from S3_PUBLIC_URL so next/image can load from wherever storage lives.
+      ...(storageOrigin
+        ? [{
+            protocol: new URL(storageOrigin).protocol.replace(':', '') as 'http' | 'https',
+            hostname: new URL(storageOrigin).hostname,
+            port: new URL(storageOrigin).port || undefined,
+            pathname: '/**',
+          }]
+        : []),
     ],
   },
   async headers() {

@@ -644,3 +644,21 @@ export const portfolios = pgTable('portfolios', {
 }, (t) => [
   index('portfolios_tenant_idx').on(t.tenantId),
 ]);
+
+export const leadFollowUps = pgTable('lead_follow_ups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  followUpDate: timestamp('follow_up_date', { withTimezone: true }),
+  stage: text('stage').notNull(),
+  clientStatus: text('client_status').notNull(),
+  comments: text('comments'),
+  addToCalendar: boolean('add_to_calendar').notNull().default(true),
+  createdBy: uuid('created_by').references(() => users.id),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  ...timestamps,
+}, (t) => [
+  index('lead_follow_ups_lead_idx').on(t.leadId),
+  index('lead_follow_ups_tenant_lead_idx').on(t.tenantId, t.leadId),
+]);

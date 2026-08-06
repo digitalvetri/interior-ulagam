@@ -7,10 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Phone, MessageCircle, Calendar, MapPin, Home, User, Clock,
   Users, Filter, ChevronDown, BarChart2, ChevronUp, AlertTriangle, TrendingUp,
-  MoreVertical, Trash2, Archive, Edit2,
+  MoreVertical, Trash2, Archive, Edit2, BellRing,
 } from 'lucide-react';
 import { Lead, LeadStage, LeadPriority, LeadSource, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
+import { FollowUpModal } from '@/components/leads/FollowUpModal';
+import { LeadViewModal } from '@/components/leads/LeadViewModal';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
@@ -89,10 +91,14 @@ const LeadListCard = memo(function LeadListCard({
   lead,
   onDelete,
   onArchive,
+  onFollowUp,
+  onViewFollowUps,
 }: {
   lead: Lead;
   onDelete: (id: string) => void;
   onArchive: (id: string) => void;
+  onFollowUp: (lead: Lead) => void;
+  onViewFollowUps: (lead: Lead) => void;
 }) {
   const router = useRouter();
   const [showScorePop, setShowScorePop] = useState(false);
@@ -248,6 +254,28 @@ const LeadListCard = memo(function LeadListCard({
                 >
                   <MessageCircle className="h-3.5 w-3.5 text-green-600" />
                 </a>
+                <button
+                  type="button"
+                  onClick={() => onFollowUp(lead)}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-violet-50"
+                  title={
+                    fuState === 'overdue'  ? 'Overdue follow-up — add update'
+                    : fuState === 'today' ? "Today's follow-up — add update"
+                    : fuState === 'upcoming' ? 'Upcoming follow-up — add update'
+                    : 'Add follow-up'
+                  }
+                  aria-label="Add follow-up"
+                >
+                  <BellRing
+                    className="h-3.5 w-3.5"
+                    style={{
+                      color: fuState === 'overdue'  ? '#DC2626'
+                           : fuState === 'today'    ? '#EA580C'
+                           : fuState === 'upcoming' ? '#7C3AED'
+                           : '#9CA3AF',
+                    }}
+                  />
+                </button>
                 {/* 3-dot context menu */}
                 <div className="relative" ref={menuRef}>
                   <button
@@ -270,6 +298,14 @@ const LeadListCard = memo(function LeadListCard({
                         style={{ color: 'var(--text-heading)' }}
                       >
                         <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Edit Lead
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowMenu(false); onViewFollowUps(lead); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-violet-50 transition-colors"
+                        style={{ color: 'var(--text-heading)' }}
+                      >
+                        <BellRing className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Follow-up History
                       </button>
                       <button
                         type="button"
@@ -487,6 +523,13 @@ export default function LeadsPage() {
   const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'archive'; id: string; name: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Follow-up modals
+  const [followUpLead, setFollowUpLead]         = useState<Lead | null>(null);
+  const [viewFollowUpsLead, setViewFollowUpsLead] = useState<Lead | null>(null);
+
+  const handleFollowUp = useCallback((lead: Lead) => setFollowUpLead(lead), []);
+  const handleViewFollowUps = useCallback((lead: Lead) => setViewFollowUpsLead(lead), []);
+
   const refetch = useCallback(() => {
     fetch('/api/v1/leads')
       .then(r => r.json())
@@ -598,6 +641,21 @@ export default function LeadsPage() {
 
   return (
     <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
+
+      {/* Follow-up modals */}
+      {followUpLead && (
+        <FollowUpModal
+          lead={followUpLead}
+          onClose={() => setFollowUpLead(null)}
+          onSaved={() => { setFollowUpLead(null); refetch(); }}
+        />
+      )}
+      {viewFollowUpsLead && (
+        <LeadViewModal
+          lead={viewFollowUpsLead}
+          onClose={() => setViewFollowUpsLead(null)}
+        />
+      )}
 
       {/* List-level delete/archive confirmation */}
       <ListConfirmDialog
@@ -840,7 +898,13 @@ export default function LeadsPage() {
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.14 }}
                 >
-                  <LeadListCard lead={lead} onDelete={handleDeleteFromList} onArchive={handleArchiveFromList} />
+                  <LeadListCard
+                    lead={lead}
+                    onDelete={handleDeleteFromList}
+                    onArchive={handleArchiveFromList}
+                    onFollowUp={handleFollowUp}
+                    onViewFollowUps={handleViewFollowUps}
+                  />
                 </motion.div>
               ))}
             </AnimatePresence>

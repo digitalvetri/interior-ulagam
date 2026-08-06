@@ -66,6 +66,17 @@ export interface CustomerSummary {
     name: string;
     lifecycleStage: string;
     totalContractPaise: number | null;
+    leadId: string | null;
+    siteAddress: string | null;
+    createdAt: string;
+  }>;
+  leads: Array<{
+    id: string;
+    stage: string;
+    projectName: string | null;
+    projectLocation: string | null;
+    budgetBand: string | null;
+    source: string;
     createdAt: string;
   }>;
 }

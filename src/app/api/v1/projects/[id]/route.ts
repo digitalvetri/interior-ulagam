@@ -54,6 +54,7 @@ export async function GET(
         // Lead + customer context for breadcrumb display
         leadContactName:    leads.contactName,
         customerFullName:   customers.fullName,
+        siteAddress:        leads.projectLocation,
       })
       .from(projects)
       .leftJoin(leads, eq(projects.leadId, leads.id))
