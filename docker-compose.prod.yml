@@ -1,0 +1,42 @@
+# Production overlay.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Two differences from the base file:
+#   1. Postgres, Redis and MinIO stop publishing ports to the host — they are
+#      reachable only on the internal network. Nothing but Caddy faces outward.
+#   2. Caddy terminates TLS and proxies to the app, obtaining and renewing
+#      certificates automatically.
+
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  app:
+    # Reached through Caddy, not directly.
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      # The hostname the certificate is issued for, e.g. studio.example.com.
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env for TLS}
+      # Used by Caddy for Let's Encrypt expiry notices.
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env for TLS}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy/data:/data
+      - ./data/caddy/config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped

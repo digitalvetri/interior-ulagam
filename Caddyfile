@@ -1,0 +1,24 @@
+# TLS terminates here; certificates are obtained and renewed automatically.
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Quote PDFs are served straight from MinIO under /quotes/*. Proxying them
+	# through this hostname keeps object storage off the public internet while
+	# preserving the stable, non-expiring URLs sent to clients.
+	handle /quotes/* {
+		reverse_proxy minio:9000
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+}

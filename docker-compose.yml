@@ -1,32 +1,60 @@
 name: interioos
 
+# Credentials come from .env (gitignored) — see .env.docker.example for the
+# template. The `:?` suffix makes compose refuse to start when one is missing
+# rather than silently falling back to a well-known default.
+#
 # Host ports are deliberately non-default: this machine already runs Postgres on
 # 5432/5433/5434/5455 and Redis on 6379/6380 for other projects. Container-to-
 # container traffic still uses the standard ports on the internal network.
+#
+# In production, run with the override file, which drops the published database
+# and storage ports and puts Caddy in front for TLS:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Owner connection — migrations only. Full DDL rights.
+x-owner-db-url: &owner-db-url
+  DATABASE_URL: postgres://${POSTGRES_USER:?set POSTGRES_USER in .env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?set POSTGRES_DB in .env}
+
+# Application connection — rows only, no DDL. Created by migration 0003 so a
+# SQL-injection flaw cannot drop a table or alter the schema.
+x-app-db-url: &app-db-url
+  DATABASE_URL: postgres://interioos_app:${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:?set POSTGRES_DB in .env}
+
+x-storage-env: &storage-env
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: documents
+  S3_QUOTES_BUCKET: quotes
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
+  S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9002}
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: interior_studio
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     ports:
-      - "5442:5432"
+      - "${POSTGRES_HOST_PORT:-5442}:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+      - ./data/backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d interior_studio"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    mem_limit: 1g
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "6389:6379"
+      - "${REDIS_HOST_PORT:-6389}:6379"
     volumes:
       - ./data/redis:/data
     healthcheck:
@@ -34,17 +62,18 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    mem_limit: 512m
     restart: unless-stopped
 
   minio:
     image: minio/minio:latest
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
     ports:
-      - "9002:9000"   # S3 API
-      - "9003:9001"   # web console
+      - "${MINIO_API_HOST_PORT:-9002}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9003}:9001"
     volumes:
       - ./data/minio:/data
     healthcheck:
@@ -52,6 +81,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    mem_limit: 1g
     restart: unless-stopped
 
   # One-shot: creates the buckets, then exits.
@@ -63,9 +93,12 @@ services:
     depends_on:
       minio:
         condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} &&
       mc mb --ignore-existing local/documents &&
       mc mb --ignore-existing local/quotes &&
       mc anonymous set download local/quotes &&
@@ -81,7 +114,8 @@ services:
       dockerfile: Dockerfile
       target: migrate
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
+      <<: *owner-db-url
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD in .env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -95,20 +129,13 @@ services:
       target: worker
     env_file:
       - path: .env.local
-        required: false
+        required: true
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
+      <<: [*app-db-url, *storage-env]
       REDIS_URL: redis://redis:6379
-      S3_ENDPOINT: http://minio:9000
-      S3_REGION: us-east-1
-      S3_BUCKET: documents
-      S3_QUOTES_BUCKET: quotes
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      S3_PUBLIC_URL: http://localhost:9002
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      WORKER_CONCURRENCY: "5"
-      CRON_TZ: Asia/Kolkata
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
+      WORKER_CONCURRENCY: "${WORKER_CONCURRENCY:-5}"
+      CRON_TZ: ${CRON_TZ:-Asia/Kolkata}
     depends_on:
       postgres:
         condition: service_healthy
@@ -116,6 +143,30 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    mem_limit: 1g
+    restart: unless-stopped
+
+  # Nightly Postgres dump + object-storage mirror into ./data/backups.
+  # Verify a restore periodically — an untested backup is a guess.
+  backup:
+    build:
+      context: ./scripts/backup
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-19}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ./data/backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    mem_limit: 512m
     restart: unless-stopped
 
   app:
@@ -123,29 +174,27 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # Must match S3_PUBLIC_URL below — it is compiled into the CSP header.
-        S3_PUBLIC_URL: http://localhost:9002
+        # Compiled into the CSP at build time — must match S3_PUBLIC_URL below.
+        S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9002}
     ports:
-      - "3000:3000"
+      - "${APP_HOST_PORT:-3000}:3000"
     env_file:
+      # required: true — a deploy that forgets this file would otherwise boot,
+      # serve pages, and pass its health check with authentication broken.
       - path: .env.local
-        required: false
+        required: true
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/interior_studio
+      <<: [*app-db-url, *storage-env]
       REDIS_URL: redis://redis:6379
-      S3_ENDPOINT: http://minio:9000
-      S3_REGION: us-east-1
-      S3_BUCKET: documents
-      S3_QUOTES_BUCKET: quotes
-      S3_ACCESS_KEY: minioadmin
-      S3_SECRET_KEY: minioadmin
-      # Browser-facing base for public objects. The app reaches MinIO at
-      # http://minio:9000 inside the network, but a client's browser cannot
-      # resolve that name — public URLs must use the published host port.
-      S3_PUBLIC_URL: http://localhost:9002
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
+      BETTER_AUTH_URL: ${APP_URL:-http://localhost:3000}
       # BETTER_AUTH_SECRET comes from .env.local — never hard-code it here.
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       postgres:
         condition: service_healthy
@@ -153,4 +202,5 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    mem_limit: 1g
     restart: unless-stopped

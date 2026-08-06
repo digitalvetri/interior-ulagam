@@ -18,6 +18,7 @@ import { clientChatbot } from '@/jobs/handlers/client-chatbot';
 import { costOverrunAlert } from '@/jobs/handlers/cost-overrun-alert';
 import { customerEnrich } from '@/jobs/handlers/customer-enrich';
 import { customerHealthWeekly } from '@/jobs/handlers/customer-health-weekly';
+import { sessionCleanup } from '@/jobs/handlers/session-cleanup';
 
 // Multi-day workflows — one handler per wait boundary (see ./workflows/schedule)
 import {
@@ -61,6 +62,7 @@ export const HANDLERS: Partial<Record<JobName, AnyDefinition>> = {
   [JOB.leadScoreNightly]: leadScoreCompute as AnyDefinition,
   [JOB.mondayBrief]: mondayBrief as AnyDefinition,
   [JOB.overdueEscalation]: overdueEscalation as AnyDefinition,
+  [JOB.sessionCleanup]: sessionCleanup as AnyDefinition,
   // Lead follow-up nudges
   [JOB.leadFollowup]: leadFollowupStart as AnyDefinition,
   [JOB.leadFollowupDay3]: leadFollowupDay3 as AnyDefinition,

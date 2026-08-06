@@ -51,5 +51,5 @@ pnpm-debug.log*
 # against. Ignoring it would make a fresh clone regenerate migrations that
 # already exist in the database.
 
-# Docker local volumes
+# Docker local volumes and backups (backups hold full database dumps)
 data/

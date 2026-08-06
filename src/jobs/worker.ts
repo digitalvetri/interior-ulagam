@@ -3,6 +3,11 @@ import { Worker, Queue } from 'bullmq';
 import IORedis from 'ioredis';
 import { JOBS_QUEUE, JOB, CRON_JOBS, JobName } from '@/jobs/queue';
 import { runJob } from '@/jobs/registry';
+import { assertEnv } from '@/lib/env';
+
+// Same fail-fast rule as the web container — a worker with no DATABASE_URL would
+// otherwise start, claim jobs, and fail every one of them.
+assertEnv();
 
 /**
  * Background job worker — the process that drains the BullMQ queue.

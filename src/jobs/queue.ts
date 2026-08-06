@@ -44,6 +44,7 @@ export const JOB = {
   leadScoreNightly: 'cron/lead-score-nightly',
   mondayBrief: 'cron/monday-brief',
   overdueEscalation: 'cron/overdue-escalation',
+  sessionCleanup: 'cron/session-cleanup',
 } as const;
 
 export type JobName = (typeof JOB)[keyof typeof JOB];
@@ -55,6 +56,7 @@ export const CRON_JOBS: { name: JobName; pattern: string }[] = [
   { name: JOB.leadScoreNightly, pattern: '30 20 * * *' },
   { name: JOB.mondayBrief, pattern: '0 8 * * 1' },
   { name: JOB.overdueEscalation, pattern: '0 9 * * *' },
+  { name: JOB.sessionCleanup, pattern: '0 3 * * *' },
 ];
 
 let queue: Queue | null = null;
@@ -120,12 +122,12 @@ export async function enqueueBestEffort(
 }
 
 /**
- * Placeholder for the four multi-day workflows that do not yet have a handler.
+ * Records an event that has no handler.
  *
- * They cannot simply be enqueued: each performs a real side effect (a WhatsApp
- * message) before its first long wait, so a handler-less job would retry to
- * exhaustion and a half-built one would message the client repeatedly. Logging
- * keeps the trigger point visible until the workflow runtime lands.
+ * Three events never had a consumer under Inngest either — 'client_query/
+ * needs_designer', 'milestone/payment-link.sent', 'wa_flow/response.received',
+ * plus 'po/no_acknowledgement'. Enqueuing them would only accumulate jobs that
+ * retry to exhaustion, so the trigger point is logged instead and stays visible.
  */
 export function logPendingWorkflow(name: string, data: Record<string, unknown>): void {
   console.info(`[jobs] "${name}" not dispatched — workflow runtime pending:`, data);

@@ -386,6 +386,78 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 }
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
+
+/* ── Table header cell ────────────────────────────────────────────────────────
+   Declared at module scope. Defining a component inside another component's
+   body creates a brand-new component type on every render, so React unmounts
+   and remounts the entire header each time state changes. */
+function Th({
+  col, label, align = 'left', sortKey, sortDir, onSort,
+}: {
+  col: SortKey;
+  label: string;
+  align?: 'left' | 'right';
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+  onSort: (col: SortKey) => void;
+}) {
+  return (
+    <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none ${align === 'right' ? 'text-right' : 'text-left'}`}
+      style={{ color: '#6B6459', background: '#FAFAF8', whiteSpace: 'nowrap' }}
+      onClick={() => onSort(col)}>
+      <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
+        {label}
+        <SortIcon col={col} sortKey={sortKey} sortDir={sortDir} />
+      </span>
+    </th>
+  );
+}
+
+/* ── Row action menu ─────────────────────────────────────────────────────── */
+function RowMenu({
+  m, open, onToggle, onEdit, onAdjust, onDelete,
+}: {
+  m: Material;
+  open: boolean;
+  onToggle: (id: string | null) => void;
+  onEdit: (m: Material) => void;
+  onAdjust: (m: Material) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <button type="button"
+        onClick={e => { e.stopPropagation(); onToggle(open ? null : m.id); }}
+        className="p-1.5 rounded-lg transition-colors hover:bg-[#F0EEE9]">
+        <MoreVertical className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border shadow-lg overflow-hidden"
+          style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
+          <button type="button" onClick={() => onEdit(m)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#FAFAF8] transition-colors">
+            <Edit2 className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
+            <span style={{ color: '#1C1916' }}>Edit</span>
+          </button>
+          <button type="button" onClick={() => onAdjust(m)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#FAFAF8] transition-colors">
+            {m.inStock
+              ? <ToggleRight className="h-3.5 w-3.5" style={{ color: '#16A34A' }} />
+              : <ToggleLeft  className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />}
+            <span style={{ color: '#1C1916' }}>Adjust Stock</span>
+          </button>
+          <div style={{ borderTop: '1px solid #F0EEE9' }} />
+          <button type="button" onClick={() => onDelete(m.id)}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-red-50 transition-colors">
+            <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            <span className="text-red-600">Delete</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MaterialsPage() {
   const [materials, setMaterials]           = useState<Material[]>([]);
   const [loading, setLoading]               = useState(true);
@@ -402,26 +474,30 @@ export default function MaterialsPage() {
   const [editTarget, setEditTarget]         = useState<Material | undefined>();
   const [adjustTarget, setAdjustTarget]     = useState<Material | undefined>();
   const isOwner                             = true;
+  // Stamped when the data arrives rather than read during render: Date.now() is
+  // impure, and inside the stats memo it would only be re-read when `materials`
+  // changed, quietly ageing the "last 30 days" cutoff.
+  const [loadedAt, setLoadedAt]             = useState<number>(() => 0);
 
   useEffect(() => {
     fetch('/api/v1/materials')
       .then(r => r.json())
       .then(({ data }: { data: Material[] | null }) => {
-        setMaterials(data ?? []); setLoading(false);
+        setMaterials(data ?? []); setLoadedAt(Date.now()); setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
   /* ── Derived stats ──────────────────────────────────────────────────────── */
   const stats = useMemo(() => {
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const thirtyDaysAgo = loadedAt - 30 * 24 * 60 * 60 * 1000;
     const inStockCount   = materials.filter(m => m.inStock).length;
     const outStockCount  = materials.filter(m => !m.inStock).length;
     const uniqueVendors  = new Set(materials.map(m => m.vendorName).filter(Boolean)).size;
     const recentCount    = materials.filter(m => new Date(m.createdAt).getTime() > thirtyDaysAgo).length;
     const uniqueCats     = new Set(materials.map(m => m.category)).size;
     return { total: materials.length, inStockCount, outStockCount, uniqueVendors, recentCount, uniqueCats };
-  }, [materials]);
+  }, [materials, loadedAt]);
 
   const vendorOptions = useMemo(() => (
     Array.from(new Set(materials.map(m => m.vendorName).filter((v): v is string => !!v))).sort()
@@ -532,56 +608,7 @@ export default function MaterialsPage() {
   const categories = Object.keys(CATEGORY_CONFIG) as MaterialCategory[];
 
   /* ── Sortable TH ────────────────────────────────────────────────────────── */
-  function Th({ col, label, align = 'left' }: { col: SortKey; label: string; align?: 'left' | 'right' }) {
-    return (
-      <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none ${align === 'right' ? 'text-right' : 'text-left'}`}
-        style={{ color: '#6B6459', background: '#FAFAF8', whiteSpace: 'nowrap' }}
-        onClick={() => toggleSort(col)}>
-        <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
-          {label}
-          <SortIcon col={col} sortKey={sortKey} sortDir={sortDir} />
-        </span>
-      </th>
-    );
-  }
-
   /* ── Row action menu ────────────────────────────────────────────────────── */
-  function RowMenu({ m }: { m: Material }) {
-    const open = menuOpenId === m.id;
-    return (
-      <div className="relative">
-        <button type="button"
-          onClick={e => { e.stopPropagation(); setMenuOpenId(open ? null : m.id); }}
-          className="p-1.5 rounded-lg transition-colors hover:bg-[#F0EEE9]">
-          <MoreVertical className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
-        </button>
-        {open && (
-          <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border shadow-lg overflow-hidden"
-            style={{ background: '#FFFFFF', borderColor: '#F0EEE9' }}>
-            <button type="button" onClick={() => openEdit(m)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#FAFAF8] transition-colors">
-              <Edit2 className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />
-              <span style={{ color: '#1C1916' }}>Edit</span>
-            </button>
-            <button type="button" onClick={() => openAdjust(m)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[#FAFAF8] transition-colors">
-              {m.inStock
-                ? <ToggleRight className="h-3.5 w-3.5" style={{ color: '#16A34A' }} />
-                : <ToggleLeft  className="h-3.5 w-3.5" style={{ color: '#6B6459' }} />}
-              <span style={{ color: '#1C1916' }}>Adjust Stock</span>
-            </button>
-            <div style={{ borderTop: '1px solid #F0EEE9' }} />
-            <button type="button" onClick={() => handleDelete(m.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-red-50 transition-colors">
-              <Trash2 className="h-3.5 w-3.5 text-red-500" />
-              <span className="text-red-600">Delete</span>
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   /* ── Render ─────────────────────────────────────────────────────────────── */
   return (
     <div className="p-6 space-y-5">
@@ -801,15 +828,15 @@ export default function MaterialsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid #F0EEE9' }}>
-                  <Th col="name"           label="Name" />
-                  <Th col="category"       label="Category" />
+                  <Th col="name" label="Name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th col="category" label="Category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
                     style={{ color: '#6B6459', background: '#FAFAF8' }}>Unit</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
                     style={{ color: '#6B6459', background: '#FAFAF8' }}>Vendor</th>
-                  <Th col="costPricePaise" label="Cost" align="right" />
-                  <Th col="sellPricePaise" label="Sell Price" align="right" />
-                  <Th col="margin"         label="Margin" align="right" />
+                  <Th col="costPricePaise" label="Cost" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th col="sellPricePaise" label="Sell Price" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <Th col="margin" label="Margin" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-center"
                     style={{ color: '#6B6459', background: '#FAFAF8' }}>Status</th>
                   {isOwner && (
@@ -897,7 +924,8 @@ export default function MaterialsPage() {
                       {/* Actions */}
                       {isOwner && (
                         <td className="px-3 py-3 text-right">
-                          <RowMenu m={m} />
+                          <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
+                            onEdit={openEdit} onAdjust={openAdjust} onDelete={handleDelete} />
                         </td>
                       )}
                     </tr>
@@ -937,7 +965,8 @@ export default function MaterialsPage() {
                       <p className="text-[10px] mt-0.5" style={{ color: '#A79E8E' }}>per {m.unit}</p>
                     </div>
                   </div>
-                  {isOwner && <RowMenu m={m} />}
+                  {isOwner && <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
+                            onEdit={openEdit} onAdjust={openAdjust} onDelete={handleDelete} />}
                 </div>
 
                 {/* Category */}

@@ -146,7 +146,7 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
           Mark Lead as Lost
         </h3>
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-          Provide a reason to help improve the team's close rate.
+          Provide a reason to help improve the team&apos;s close rate.
         </p>
         <textarea
           rows={3}
@@ -1152,7 +1152,7 @@ export default function LeadDetailPage() {
           ) : (
             <div className="text-center py-4">
               <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-secondary)' }} />
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Click "Create Quotation" to draft a pre-sale estimate for this lead.</p>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Click &quot;Create Quotation&quot; to draft a pre-sale estimate for this lead.</p>
             </div>
           )}
         </Section>

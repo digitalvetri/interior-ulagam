@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users, accounts } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { auth } from '@/lib/auth/config';
+import { generateTemporaryPassword } from '@/lib/auth/temp-password';
 
 const RoleEnum = z.enum(['owner', 'designer', 'supervisor', 'accountant']);
 const EmpTypeEnum = z.enum(['full_time', 'part_time', 'contract', 'intern', 'consultant']);
@@ -78,8 +80,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Creating staff — and, with an email, issuing them a login — is an owner-only
+  // action. Any signed-in user could do this previously.
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (ctx.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can add employees.' }, { status: 403 });
+  }
 
   let body: unknown;
   try { body = await request.json(); } catch {
@@ -93,27 +100,65 @@ export async function POST(request: NextRequest) {
     );
   }
   const p = parsed.data;
+  const email = p.email && p.email !== '' ? p.email : null;
+
+  // Fields that are ours rather than Better Auth's, applied either way.
+  const profile = {
+    role: p.role,
+    phone: p.phone ?? null,
+    jobTitle: p.jobTitle ?? null,
+    department: p.department ?? null,
+    location: p.location ?? null,
+    employmentType: p.employmentType ?? null,
+    hireDate: p.hireDate ?? null,
+    dob: p.dob ?? null,
+    photoUrl: p.photoUrl && p.photoUrl !== '' ? p.photoUrl : null,
+    managerId: p.managerId ?? null,
+  };
 
   try {
+    // No email — a directory record only. Plenty of site staff never sign in.
+    if (!email) {
+      const [row] = await db
+        .insert(users)
+        .values({ tenantId: ctx.tenantId, fullName: p.fullName, email: null, ...profile })
+        .returning();
+      return NextResponse.json({ data: { ...row, hasLogin: false } }, { status: 201 });
+    }
+
+    const [clash] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    if (clash) {
+      return NextResponse.json(
+        { error: 'An account with that email already exists.' },
+        { status: 409 },
+      );
+    }
+
+    // Better Auth owns the users row when there is a login, so it creates the
+    // record and we patch our columns on top. Doing our own insert first would
+    // collide with it on the unique email.
+    const temporaryPassword = generateTemporaryPassword();
+    await auth.api.signUpEmail({
+      body: { name: p.fullName, email, password: temporaryPassword },
+    });
+
     const [row] = await db
-      .insert(users)
-      .values({
-        tenantId: ctx.tenantId,
-        fullName: p.fullName,
-        role: p.role,
-        email: p.email && p.email !== '' ? p.email : null,
-        phone: p.phone ?? null,
-        jobTitle: p.jobTitle ?? null,
-        department: p.department ?? null,
-        location: p.location ?? null,
-        employmentType: p.employmentType ?? null,
-        hireDate: p.hireDate ?? null,
-        dob: p.dob ?? null,
-        photoUrl: p.photoUrl && p.photoUrl !== '' ? p.photoUrl : null,
-        managerId: p.managerId ?? null,
-      })
+      .update(users)
+      .set(profile)
+      .where(and(eq(users.email, email), eq(users.tenantId, ctx.tenantId)))
       .returning();
-    return NextResponse.json({ data: row }, { status: 201 });
+
+    // The password is returned exactly once, for the owner to hand over. It is
+    // never stored in readable form and cannot be retrieved again — there is no
+    // mail transport configured to send it instead.
+    return NextResponse.json(
+      { data: { ...row, hasLogin: true }, temporaryPassword },
+      { status: 201 },
+    );
   } catch (e) {
     console.error('[POST /api/v1/employees]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

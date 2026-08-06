@@ -20,22 +20,33 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json drizzle.config.ts ./
 COPY drizzle ./drizzle
 COPY src/lib/db ./src/lib/db
+COPY scripts/set-app-role-password.mjs ./scripts/
 # Invoke the binary directly rather than via `pnpm exec`: pnpm runs a
 # dependency-status check first, which tries to reinstall and then aborts
 # because the container has no TTY.
-CMD ["node_modules/.bin/drizzle-kit", "migrate"]
+# Migrate, then set the application role's password from the environment
+# (migration 0003 creates the role with a placeholder SQL cannot replace).
+CMD ["sh", "-c", "node_modules/.bin/drizzle-kit migrate && node scripts/set-app-role-password.mjs"]
 
 # ---------- worker ----------
 # Drains the BullMQ queue. Long AI calls and PDF renders run here rather than
 # competing with request handling in the web container. Like the migrate stage
 # it needs node_modules, so it cannot be built on the slim standalone runner.
 FROM node:22-alpine AS worker
-RUN corepack enable
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json tsconfig.json ./
-COPY src ./src
+
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser  --system --uid 1001 nodejs
+
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --chown=nodejs:nodejs package.json tsconfig.json ./
+COPY --chown=nodejs:nodejs src ./src
+
+# Runs unprivileged, like the web container — it processes the same
+# user-supplied data and reaches the same database and object storage.
+USER nodejs
+
 # tsx runs the TypeScript entrypoint directly and honours the "@/*" path alias.
 CMD ["node_modules/.bin/tsx", "src/jobs/worker.ts"]
 
