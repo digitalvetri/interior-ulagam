@@ -1,13 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   Phone, MessageCircle, Eye, ArrowRight,
-  Home, IndianRupee, Calendar, ExternalLink, User,
+  Home, IndianRupee, Calendar, ExternalLink, User, BellRing,
 } from 'lucide-react';
 import {
   Lead, LeadStage, ScoreBreakdown, STAGE_ORDER, STAGE_LABELS, PRIORITY_CONFIG,
 } from '@/types/leads';
+import { FollowUpModal } from './FollowUpModal';
 
 interface LeadCardProps {
   lead: Lead;
@@ -106,6 +108,7 @@ function getFollowUpUrgency(followUpDate?: string | null): FollowUpUrgency {
 }
 
 export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const initials = getInitials(lead.contactName);
   const daysSince = getDaysSince(lead.lastActivityAt);
   const rottingStatus = getRottingStatus(lead.lastActivityAt);
@@ -276,6 +279,27 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
           <span>View</span>
         </Link>
 
+        <button
+          type="button"
+          className="flex items-center justify-center px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[#F0EEE9] flex-shrink-0"
+          style={{
+            color: followUpUrgency === 'overdue' ? '#DC2626'
+                 : followUpUrgency === 'today'   ? '#EA580C'
+                 : followUpUrgency === 'upcoming' ? '#7C3AED'
+                 : '#A79E8E',
+          }}
+          onClick={e => { e.stopPropagation(); setShowFollowUpModal(true); }}
+          title={
+            followUpUrgency === 'overdue'  ? 'Overdue follow-up — add update'
+            : followUpUrgency === 'today'  ? "Today's follow-up — add update"
+            : followUpUrgency === 'upcoming' ? 'Upcoming follow-up — add update'
+            : 'Add follow-up'
+          }
+          aria-label="Add follow-up"
+        >
+          <BellRing className="h-3.5 w-3.5" />
+        </button>
+
         {nextStage && (
           <button
             type="button"
@@ -289,6 +313,13 @@ export function LeadCard({ lead, onStageChange, onSelect }: LeadCardProps) {
           </button>
         )}
       </div>
+
+      {showFollowUpModal && (
+        <FollowUpModal
+          lead={lead}
+          onClose={() => setShowFollowUpModal(false)}
+        />
+      )}
     </div>
   );
 }

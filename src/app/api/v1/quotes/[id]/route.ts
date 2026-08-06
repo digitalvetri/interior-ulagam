@@ -5,6 +5,33 @@ import { quotes, quoteLines, projects, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    const [existing] = await db
+      .select({ id: quotes.id, status: quotes.status })
+      .from(quotes)
+      .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
+
+    if (!existing) return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+
+    await db.delete(quoteLines).where(eq(quoteLines.quoteId, id));
+    await db.delete(quotes).where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
+
+    return NextResponse.json({ message: 'Quote deleted' });
+  } catch (err) {
+    console.error('[quotes/:id DELETE]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 const UpdateQuoteSchema = z
   .object({
     status: z.enum(['draft', 'sent', 'approved', 'revised']).optional(),

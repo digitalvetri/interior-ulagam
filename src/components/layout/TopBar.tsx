@@ -21,7 +21,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/invoices':            'Invoices',
   '/accounts':            'Accounts & Payments',
   '/employees':           'Employees',
-  '/documents':           'Documents',
   '/calendar':            'Calendar',
   '/analytics/designers': 'Analytics',
   '/analytics':           'Analytics',
@@ -98,6 +97,7 @@ export function TopBar() {
           className="topbar-search hidden md:flex items-center gap-2"
           style={{ maxWidth: '180px', cursor: 'pointer', border: '1.5px solid var(--border-subtle)', borderRadius: 10, padding: '6px 12px', background: 'var(--surface-muted)' }}
           aria-label="Open command palette"
+          suppressHydrationWarning
         >
           <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#9CA3AF' }} />
           <span style={{ fontSize: 12, color: '#9CA3AF', flex: 1 }}>Search…</span>

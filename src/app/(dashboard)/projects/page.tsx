@@ -158,6 +158,28 @@ function LeadSelector({
   );
 }
 
+/* ── Customer color palette — deterministic per name ─────────────────────── */
+const CUSTOMER_PALETTES = [
+  { bg: '#EDE9FE', color: '#6D28D9', ring: '#C4B5FD' }, // violet
+  { bg: '#DCFCE7', color: '#15803D', ring: '#86EFAC' }, // green
+  { bg: '#FEF3C7', color: '#92400E', ring: '#FCD34D' }, // amber
+  { bg: '#DBEAFE', color: '#1E40AF', ring: '#93C5FD' }, // blue
+  { bg: '#FCE7F3', color: '#9D174D', ring: '#F9A8D4' }, // pink
+  { bg: '#FEF2F2', color: '#991B1B', ring: '#FCA5A5' }, // red
+  { bg: '#F0F9FF', color: '#0369A1', ring: '#7DD3FC' }, // sky
+  { bg: '#FFF7ED', color: '#9A3412', ring: '#FDBA74' }, // orange
+  { bg: '#F0FDF4', color: '#065F46', ring: '#6EE7B7' }, // emerald
+  { bg: '#FDF2F8', color: '#BE185D', ring: '#F0ABFC' }, // fuchsia
+];
+
+function customerPalette(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) {
+    h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return CUSTOMER_PALETTES[h % CUSTOMER_PALETTES.length];
+}
+
 /* ── Project Card ─────────────────────────────────────────────────────────── */
 interface ProjectWithContext extends Project {
   customerId?: string | null;
@@ -166,35 +188,52 @@ interface ProjectWithContext extends Project {
 }
 
 function ProjectCard({ project }: { project: ProjectWithContext }) {
-  const s = STAGE_STYLE[project.lifecycleStage];
+  const s           = STAGE_STYLE[project.lifecycleStage];
   const clientLabel = project.customerFullName ?? project.leadContactName ?? null;
+  const palette     = clientLabel ? customerPalette(clientLabel) : null;
+  const initials    = clientLabel
+    ? clientLabel.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+    : null;
+
   return (
     <Link href={`/projects/${project.id}`}>
-      <div className="premium-card p-5 h-full cursor-pointer group">
-        <div className="flex items-start justify-between gap-2 mb-2">
+      <div
+        className="premium-card p-5 h-full cursor-pointer transition-shadow hover:shadow-md"
+        style={palette ? { borderTop: `3px solid ${palette.ring}` } : undefined}>
+
+        {/* Customer chip — top row */}
+        {clientLabel && palette && initials && (
+          <div className="flex items-center gap-2 mb-3">
+            <span
+              className="inline-flex items-center justify-center h-6 w-6 rounded-full text-[10px] font-bold flex-shrink-0"
+              style={{ background: palette.bg, color: palette.color }}>
+              {initials}
+            </span>
+            <span className="text-xs font-semibold truncate" style={{ color: palette.color }}>
+              {clientLabel}
+            </span>
+          </div>
+        )}
+
+        {/* Project name + stage badge */}
+        <div className="flex items-start justify-between gap-2 mb-3">
           <h3 className="text-sm font-bold leading-snug" style={{ color: '#221F1B' }}>
             {project.name}
           </h3>
           <span
             className="text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0"
-            style={{ background: s.bg, color: s.color }}
-          >
+            style={{ background: s.bg, color: s.color }}>
             {s.label}
           </span>
         </div>
 
-        {clientLabel && (
-          <p className="text-xs mb-2" style={{ color: '#6B6459' }}>
-            {clientLabel}
-          </p>
-        )}
-
+        {/* Contract + date */}
         {project.totalContractPaise !== undefined && (
           <p className="text-base font-bold mb-1" style={{ color: '#8F6F2E' }}>
             {formatRupees(project.totalContractPaise)}
           </p>
         )}
-        <p className="text-xs" style={{ color: '#6B6459' }}>
+        <p className="text-xs" style={{ color: '#A79E8E' }}>
           Created {new Date(project.createdAt).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short', year: 'numeric',
           })}

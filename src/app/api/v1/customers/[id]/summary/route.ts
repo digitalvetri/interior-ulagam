@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq, or } from 'drizzle-orm';
+import { and, eq, or, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers, projects } from '@/lib/db/schema';
+import { customers, projects, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 export async function GET(
@@ -19,27 +19,47 @@ export async function GET(
 
   try {
     const [customer] = await db
-      .select({ id: customers.id, leadId: customers.leadId })
+      .select({ id: customers.id })
       .from(customers)
       .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
       .limit(1);
 
     if (!customer) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    // Match projects by customerId, and also by leadId if the customer is linked to a lead
-    const projectCondition = customer.leadId
-      ? or(eq(projects.customerId, id), eq(projects.leadId, customer.leadId))!
+    // All leads linked to this customer
+    const customerLeads = await db
+      .select({
+        id:              leads.id,
+        stage:           leads.stage,
+        projectName:     leads.projectName,
+        projectLocation: leads.projectLocation,
+        budgetBand:      leads.budgetBand,
+        source:          leads.source,
+        createdAt:       leads.createdAt,
+      })
+      .from(leads)
+      .where(and(eq(leads.customerId, id), eq(leads.tenantId, ctx.tenantId)));
+
+    const allLeadIds = customerLeads.map(l => l.id);
+
+    // Projects via customerId OR any of the customer's leadIds (handles projects
+    // created before customerId was reliably set, and future edge cases)
+    const projectCondition = allLeadIds.length > 0
+      ? or(eq(projects.customerId, id), inArray(projects.leadId, allLeadIds))!
       : eq(projects.customerId, id);
 
     const linkedProjects = await db
       .select({
-        id: projects.id,
-        name: projects.name,
-        lifecycleStage: projects.lifecycleStage,
+        id:                 projects.id,
+        name:               projects.name,
+        lifecycleStage:     projects.lifecycleStage,
         totalContractPaise: projects.totalContractPaise,
-        createdAt: projects.createdAt,
+        leadId:             projects.leadId,
+        createdAt:          projects.createdAt,
+        siteAddress:        leads.projectLocation,
       })
       .from(projects)
+      .leftJoin(leads, eq(projects.leadId, leads.id))
       .where(and(eq(projects.tenantId, ctx.tenantId), projectCondition))
       .limit(20);
 
@@ -48,11 +68,17 @@ export async function GET(
       0,
     );
 
+    // Active enquiries: leads not yet won or lost
+    const activeLeads = customerLeads.filter(
+      l => l.stage !== 'won' && l.stage !== 'lost',
+    );
+
     return NextResponse.json({
       data: {
         projectCount: linkedProjects.length,
         totalContractPaise,
         projects: linkedProjects,
+        leads: activeLeads,
       },
     });
   } catch (e) {

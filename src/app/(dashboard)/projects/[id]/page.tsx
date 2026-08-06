@@ -6,7 +6,8 @@ import Link from 'next/link';
 import {
   CheckCircle2, XCircle, Pencil, AlertTriangle, RefreshCw,
   FolderOpen, CreditCard, ClipboardList, Package, Receipt, Bug,
-  FileText, Activity, Plus, ChevronRight, Calendar,
+  FileText, Activity, Plus, ChevronRight, Calendar, MapPin,
+  ArrowRight, Warehouse, Users,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ interface ProjectWithContext extends Project {
   customerId?: string | null;
   leadContactName?: string | null;
   customerFullName?: string | null;
+  siteAddress?: string | null;
 }
 
 interface SiteLog {
@@ -55,7 +57,60 @@ interface SiteLog {
   createdAt: string;
 }
 
-// ─── Donut Ring Chart ─────────────────────────────────────────────────────────
+// ─── Customer colour palette (deterministic hash) ─────────────────────────────
+
+const CUSTOMER_PALETTES = [
+  { bg: '#EDE9FE', color: '#6D28D9', ring: '#7C3AED' },
+  { bg: '#DCFCE7', color: '#15803D', ring: '#16A34A' },
+  { bg: '#FEF3C7', color: '#B45309', ring: '#D97706' },
+  { bg: '#DBEAFE', color: '#1D4ED8', ring: '#2563EB' },
+  { bg: '#FCE7F3', color: '#9D174D', ring: '#DB2777' },
+  { bg: '#CCFBF1', color: '#0F766E', ring: '#0D9488' },
+  { bg: '#FEE2E2', color: '#B91C1C', ring: '#DC2626' },
+  { bg: '#F3E8FF', color: '#7E22CE', ring: '#9333EA' },
+  { bg: '#E0F2FE', color: '#0369A1', ring: '#0284C7' },
+  { bg: '#FFF7ED', color: '#C2410C', ring: '#EA580C' },
+];
+
+function customerPalette(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return CUSTOMER_PALETTES[h % CUSTOMER_PALETTES.length];
+}
+
+function customerInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('');
+}
+
+// ─── Stage-based progress bar ─────────────────────────────────────────────────
+
+function StageProgressBar({ currentIdx, total }: { currentIdx: number; total: number }) {
+  const pct = total > 1 ? Math.round((currentIdx / (total - 1)) * 100) : 100;
+  return (
+    <div className="w-full">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs text-gray-500">Overall Progress</span>
+        <span className="text-xs font-semibold text-gray-700">{pct}%</span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, background: 'var(--violet-primary, #7c3aed)' }}
+        />
+      </div>
+      <p className="mt-1 text-[10px] text-gray-400">
+        Stage {currentIdx + 1} of {total}
+      </p>
+    </div>
+  );
+}
+
+// ─── Donut Ring Chart (for cost tracker only) ─────────────────────────────────
 
 function DonutChart({ pct, size = 100, strokeWidth = 10 }: { pct: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2;
@@ -116,10 +171,10 @@ function ConfirmAdvanceDialog({
   currentStage, nextStage,
   milestones, projectName, advancing,
 }: ConfirmAdvanceProps) {
-  const needsGate      = nextStage === 'procurement';
+  const needsGate        = nextStage === 'procurement';
   const isDesignApproved = currentStage === 'design_approved';
   const hasPaidMilestone = milestones.some(m => m.paymentStatus === 'paid');
-  const canAdvance     = !needsGate || (isDesignApproved && hasPaidMilestone);
+  const canAdvance       = !needsGate || (isDesignApproved && hasPaidMilestone);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -365,7 +420,6 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
           return (
             <li key={stage} className="flex items-start">
               <div className="flex flex-col items-center gap-2">
-                {/* Step dot */}
                 <div
                   className={[
                     'flex h-7 w-7 items-center justify-center rounded-full border-2 transition-all',
@@ -379,7 +433,6 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
                   {isPast && <CheckCircle2 className="h-4 w-4 text-white" />}
                   {isCurrent && <div className="h-2.5 w-2.5 rounded-full bg-white" />}
                 </div>
-                {/* Stage label */}
                 <span
                   className={[
                     'max-w-[68px] text-center text-[9px] font-medium leading-tight',
@@ -402,6 +455,52 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
         })}
       </ol>
     </div>
+  );
+}
+
+// ─── Quick Action Button ──────────────────────────────────────────────────────
+
+interface QuickAction {
+  label: string;
+  Icon: ComponentType<{ className?: string }>;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  loadingLabel?: string;
+  accent?: boolean;
+}
+
+function QuickActionBtn({ action }: { action: QuickAction }) {
+  const content = (
+    <div
+      className={[
+        'inline-flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3 text-center transition-all cursor-pointer',
+        action.accent
+          ? 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
+          : 'border-gray-100 bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-50',
+        (action.disabled) ? 'opacity-50 cursor-not-allowed' : '',
+      ].join(' ')}
+    >
+      <action.Icon className="h-4 w-4 flex-shrink-0" />
+      <span className="text-xs font-medium whitespace-nowrap">
+        {action.loading ? (action.loadingLabel ?? 'Loading…') : action.label}
+      </span>
+    </div>
+  );
+
+  if (action.href && !action.disabled) {
+    return <Link href={action.href}>{content}</Link>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={action.onClick}
+      disabled={action.disabled}
+    >
+      {content}
+    </button>
   );
 }
 
@@ -494,7 +593,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -503,7 +602,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  // ── Error state ────────────────────────────────────────────────────────────
+  // ── Error state ──────────────────────────────────────────────────────────
   if (fetchError || !project) {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-4">
@@ -533,16 +632,38 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     );
   }
 
-  const currentIdx = LIFECYCLE_STAGE_ORDER.indexOf(project.lifecycleStage);
-  const nextStage  = LIFECYCLE_STAGE_ORDER[currentIdx + 1] ?? null;
-  const tiles      = buildTiles(id, summary);
-  const burnPct    = costData?.burnPct ?? 0;
-  const paidCount  = milestones.filter(m => m.paymentStatus === 'paid').length;
+  const currentIdx    = LIFECYCLE_STAGE_ORDER.indexOf(project.lifecycleStage);
+  const nextStage     = LIFECYCLE_STAGE_ORDER[currentIdx + 1] ?? null;
+  const tiles         = buildTiles(id, summary);
+  const burnPct       = costData?.burnPct ?? 0;
+  const paidCount     = milestones.filter(m => m.paymentStatus === 'paid').length;
+  const customerName  = project.customerFullName ?? project.leadContactName ?? 'Unknown Customer';
+  const palette       = customerPalette(customerName);
+  const initials      = customerInitials(customerName);
+
+  const quickActions: QuickAction[] = [
+    {
+      label: creatingQuote ? 'Creating…' : '+ Quotation',
+      Icon: FileText,
+      onClick: handleCreateQuote,
+      disabled: creatingQuote,
+      loading: creatingQuote,
+      loadingLabel: 'Creating…',
+      accent: true,
+    },
+    { label: 'BOQ', Icon: Package, href: `/projects/${id}/boq` },
+    { label: 'Payments', Icon: CreditCard, href: `/projects/${id}/payments` },
+    { label: 'Deliverables', Icon: FolderOpen, href: `/projects/${id}/deliverables` },
+    { label: 'Site Logs', Icon: ClipboardList, href: `/projects/${id}/site` },
+    { label: 'Snag List', Icon: Bug, href: `/projects/${id}/snag` },
+    { label: 'Materials', Icon: Warehouse, href: '/materials' },
+    { label: 'Vendors', Icon: Users, href: '/vendors' },
+  ];
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
 
-      {/* ── Breadcrumb ──────────────────────────────────────────────────────── */}
+      {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <Link href="/projects" className="font-medium text-gray-500 hover:text-gray-700">
           ← All Projects
@@ -573,171 +694,155 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         )}
       </div>
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="space-y-3">
-        {/* Title + stage badge */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            title="Edit project details"
-            className="inline-flex items-center justify-center rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <span
-            className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-            style={{ backgroundColor: 'rgba(200,155,60,0.15)', color: '#C89B3C' }}
-          >
-            {LIFECYCLE_STAGE_LABELS[project.lifecycleStage]}
-          </span>
-          {project.expectedEndAt && (
-            <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-              <Calendar className="h-3.5 w-3.5" />
-              Due {new Date(project.expectedEndAt).toLocaleDateString('en-IN')}
-            </span>
-          )}
-        </div>
-
-        {/* Action toolbar */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            Edit Project
-          </Button>
-
-          <Button
-            variant="outline" size="sm"
-            onClick={handleCreateQuote}
-            disabled={creatingQuote}
-          >
-            <Plus className="mr-1.5 h-3.5 w-3.5" />
-            {creatingQuote ? 'Creating…' : 'Create Quotation'}
-          </Button>
-
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/${id}/deliverables`}>
-              <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
-              Documents
-            </Link>
-          </Button>
-
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/projects/${id}/payments`}>
-              <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-              Payments
-            </Link>
-          </Button>
-
-          {nextStage ? (
+      {/* ── Hero Card ─────────────────────────────────────────────────────── */}
+      <div
+        className="premium-card overflow-hidden"
+        style={{ borderTop: `4px solid ${palette.ring}` }}
+      >
+        <div className="p-5 sm:p-6">
+          {/* Customer chip + edit */}
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                style={{ background: palette.bg, color: palette.color }}
+              >
+                {initials}
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-0.5">Customer</p>
+                <p className="text-sm font-semibold text-gray-900">{customerName}</p>
+              </div>
+            </div>
             <button
               type="button"
-              onClick={() => setConfirmOpen(true)}
-              disabled={advancingStage}
-              className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: 'var(--violet-primary, #7c3aed)' }}
+              onClick={() => setEditOpen(true)}
+              title="Edit project details"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 flex-shrink-0"
             >
-              {advancingStage ? 'Advancing…' : 'Advance Stage'}
+              <Pencil className="h-3.5 w-3.5" />
+              Edit
             </button>
-          ) : (
+          </div>
+
+          {/* Project name */}
+          <h1 className="mb-2 text-2xl font-bold text-gray-900 leading-tight">
+            {project.name}
+          </h1>
+
+          {/* Meta row */}
+          <div className="mb-5 flex flex-wrap items-center gap-2.5 text-xs text-gray-500">
             <span
-              className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-semibold"
-              style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: '#15803d' }}
+              className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
+              style={{ backgroundColor: `${palette.bg}`, color: palette.color, border: `1px solid ${palette.ring}40` }}
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Project Complete
+              {LIFECYCLE_STAGE_LABELS[project.lifecycleStage]}
             </span>
-          )}
+            {project.expectedEndAt && (
+              <span className="inline-flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Due {new Date(project.expectedEndAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            )}
+            {project.siteAddress && (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                {project.siteAddress}
+              </span>
+            )}
+          </div>
 
-          {stageError && (
-            <p className="text-xs text-red-600">{stageError}</p>
-          )}
-        </div>
-      </div>
-
-      {/* ── Summary cards ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {/* Contract Value */}
-        <div className="premium-card p-4">
-          <p className="mb-1 text-xs text-gray-500">Contract Value</p>
-          <p className="text-lg font-bold text-gray-900">
-            {project.totalContractPaise ? formatRupees(project.totalContractPaise) : '—'}
-          </p>
-        </div>
-
-        {/* Cost Budget */}
-        <div className="premium-card p-4">
-          <p className="mb-1 text-xs text-gray-500">Cost Budget</p>
-          <p className="text-lg font-bold text-gray-900">
-            {costData && costData.quotedCostPaise > 0 ? formatRupees(costData.quotedCostPaise) : '—'}
-          </p>
-          {(!costData || costData.quotedCostPaise === 0) && (
-            <p className="mt-0.5 text-xs text-amber-600">No approved quote</p>
-          )}
-        </div>
-
-        {/* Amount Spent */}
-        <div className="premium-card p-4">
-          <p className="mb-1 text-xs text-gray-500">Amount Spent</p>
-          <p className="text-lg font-bold text-gray-900">
-            {costData && costData.actualExpensesPaise > 0
-              ? formatRupees(costData.actualExpensesPaise)
-              : summary && summary.expenseTotalPaise > 0
-              ? formatRupees(summary.expenseTotalPaise)
-              : '₹0'}
-          </p>
-        </div>
-
-        {/* Remaining */}
-        <div className="premium-card p-4">
-          <p className="mb-1 text-xs text-gray-500">Remaining</p>
-          <p className={[
-            'text-lg font-bold',
-            costData && costData.remainingPaise < 0 ? 'text-red-600' : 'text-gray-900',
-          ].join(' ')}>
-            {costData && costData.quotedCostPaise > 0
-              ? formatRupees(Math.abs(costData.remainingPaise))
-              : '—'}
-          </p>
-          {costData && costData.remainingPaise < 0 && (
-            <p className="mt-0.5 text-xs text-red-600">Over budget</p>
-          )}
-        </div>
-
-        {/* Progress (spans 2 cols on mobile so it's not tiny) */}
-        <div className="premium-card p-4 col-span-2 flex items-center gap-3 sm:col-span-1">
-          <DonutChart pct={burnPct} size={60} strokeWidth={7} />
-          <div className="min-w-0">
-            <p className="text-xs text-gray-500">Progress</p>
-            <p className="mt-0.5 text-sm font-semibold text-gray-900">
-              {costData?.status === 'on_track'
-                ? 'On Track'
-                : costData?.status === 'watch'
-                ? 'Watch'
-                : costData?.status === 'overrun'
-                ? 'Over Budget'
-                : 'No data'}
-            </p>
+          {/* Finance strip */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Contract Value</p>
+              <p className="text-base font-bold text-gray-900">
+                {project.totalContractPaise ? formatRupees(project.totalContractPaise) : '—'}
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Amount Spent</p>
+              <p className="text-base font-bold text-gray-900">
+                {costData && costData.actualExpensesPaise > 0
+                  ? formatRupees(costData.actualExpensesPaise)
+                  : summary && summary.expenseTotalPaise > 0
+                  ? formatRupees(summary.expenseTotalPaise)
+                  : '₹0'}
+              </p>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Remaining</p>
+              <p className={['text-base font-bold', costData && costData.remainingPaise < 0 ? 'text-red-600' : 'text-gray-900'].join(' ')}>
+                {costData && costData.quotedCostPaise > 0
+                  ? formatRupees(Math.abs(costData.remainingPaise))
+                  : '—'}
+              </p>
+              {costData && costData.remainingPaise < 0 && (
+                <p className="text-[10px] text-red-600 mt-0.5">Over budget</p>
+              )}
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3">
+              <StageProgressBar
+                currentIdx={currentIdx}
+                total={LIFECYCLE_STAGE_ORDER.length}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Project Progress Stepper ────────────────────────────────────────── */}
+      {/* ── Project Journey ────────────────────────────────────────────────── */}
       <div className="premium-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-900">Project Timeline</p>
-          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-            Stage {currentIdx + 1} of {LIFECYCLE_STAGE_ORDER.length}
-          </span>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Project Journey</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Currently at <span className="font-medium text-gray-600">{LIFECYCLE_STAGE_LABELS[project.lifecycleStage]}</span>
+              {' '}· Stage {currentIdx + 1} of {LIFECYCLE_STAGE_ORDER.length}
+            </p>
+          </div>
+          <div className="flex flex-shrink-0 flex-col items-end gap-1">
+            {nextStage ? (
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                disabled={advancingStage}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'var(--violet-primary, #7c3aed)' }}
+              >
+                <ArrowRight className="h-3.5 w-3.5" />
+                {advancingStage ? 'Advancing…' : `Advance to ${LIFECYCLE_STAGE_LABELS[nextStage]}`}
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                style={{ backgroundColor: 'rgba(22,163,74,0.12)', color: '#15803d' }}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Project Complete
+              </span>
+            )}
+            {stageError && (
+              <p className="text-[10px] text-red-600">{stageError}</p>
+            )}
+          </div>
         </div>
         <LifecycleStepper currentStage={project.lifecycleStage} />
       </div>
 
-      {/* ── Milestones + Cost Tracker ───────────────────────────────────────── */}
+      {/* ── Quick Actions ──────────────────────────────────────────────────── */}
+      <div className="premium-card p-5">
+        <p className="mb-3 text-sm font-semibold text-gray-900">Quick Actions</p>
+        <div className="flex flex-wrap gap-2">
+          {quickActions.map(action => (
+            <QuickActionBtn key={action.label} action={action} />
+          ))}
+        </div>
+      </div>
+
+      {/* ── Milestones + Cost Tracker ──────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
 
-        {/* Milestones (left — 3/5 width on lg) */}
         <div className="premium-card p-5 lg:col-span-3">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">
@@ -795,7 +900,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* Cost Tracker (right — 2/5 width on lg) */}
         <div className="premium-card p-5 lg:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Cost-to-Complete</h2>
@@ -850,7 +954,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* ── Project Sections ────────────────────────────────────────────────── */}
+      {/* ── Project Sections ───────────────────────────────────────────────── */}
       <section>
         <h2 className="mb-3 text-sm font-semibold text-gray-900">Project Sections</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -884,10 +988,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </section>
 
-      {/* ── Recent Activities + Recent Documents ────────────────────────────── */}
+      {/* ── Recent Activities + Recent Documents ───────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-        {/* Recent Activities */}
         <div className="premium-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Recent Activities</h2>
@@ -935,7 +1038,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* Recent Documents */}
         <div className="premium-card p-5">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Recent Documents</h2>
@@ -960,7 +1062,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
+      {/* ── Dialogs ───────────────────────────────────────────────────────── */}
       {nextStage && (
         <ConfirmAdvanceDialog
           open={confirmOpen}
