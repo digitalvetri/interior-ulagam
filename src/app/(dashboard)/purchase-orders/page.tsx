@@ -192,8 +192,9 @@ function NewPOModal({
 
             <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               {/* Column headers */}
-              <div className="grid text-[10px] font-semibold uppercase tracking-wide px-3 py-2"
-                style={{ background: 'var(--surface-muted)', color: 'var(--text-tertiary)', gridTemplateColumns: '1fr 64px 80px 90px 80px 32px' }}>
+              {/* Column template must match the line rows below exactly. */}
+              <div className="grid text-[10px] font-semibold uppercase tracking-wide px-2 sm:px-3 py-2 gap-1.5 sm:gap-2 grid-cols-[1fr_44px_58px_64px_58px_26px] sm:grid-cols-[1fr_64px_80px_90px_80px_32px]"
+                style={{ background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
                 <span>Description</span>
                 <span className="text-right">Qty</span>
                 <span className="pl-2">Unit</span>
@@ -208,8 +209,10 @@ function NewPOModal({
                   const total = lineTotal(row);
                   return (
                     <div key={row._key}
-                      className="grid items-center gap-2 px-3 py-2.5"
-                      style={{ gridTemplateColumns: '1fr 64px 80px 90px 80px 32px' }}>
+                      /* Was an inline template of 346px of fixed columns, which left
+                         almost nothing for the description field on a phone. The
+                         columns tighten below sm instead. */
+                      className="grid items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2.5 grid-cols-[1fr_44px_58px_64px_58px_26px] sm:grid-cols-[1fr_64px_80px_90px_80px_32px]">
                       <div>
                         <input type="text" value={row.description}
                           onChange={e => setLine(row._key, 'description', e.target.value)}

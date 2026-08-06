@@ -99,7 +99,7 @@ export default function CalendarPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Toolbar */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-3 ">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 sm:px-6 py-3 ">
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
             Today
@@ -148,7 +148,7 @@ export default function CalendarPage() {
           : <WeekView  anchor={anchor} eventsByDay={eventsByDay} />}
       </div>
 
-      <footer className="flex flex-wrap items-center gap-4 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-6 py-2 text-xs text-[var(--text-secondary)] ">
+      <footer className="flex flex-wrap items-center gap-4 border-t border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 sm:px-6 py-2 text-xs text-[var(--text-secondary)] ">
         <Legend color="blue"   label="Site visit"      />
         <Legend color="green"  label="Call / WhatsApp" />
         <Legend color="violet" label="Meeting"         />
@@ -172,11 +172,12 @@ function MonthView({
   const inMonth = (d: Date) => d.getMonth() === anchor.getMonth();
 
   return (
-    <div className="flex h-full min-h-[600px] flex-col">
+    <div className="flex h-full min-h-[420px] sm:min-h-[600px] flex-col">
       <div className="grid grid-cols-7 border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)] ">
         {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
-          <div key={d} className="border-r border-[var(--border-subtle)] px-2 py-2 last:border-r-0 ">
-            {d}
+          <div key={d} className="border-r border-[var(--border-subtle)] px-1 sm:px-2 py-2 text-center sm:text-left last:border-r-0 ">
+            <span className="sm:hidden">{d[0]}</span>
+            <span className="hidden sm:inline">{d}</span>
           </div>
         ))}
       </div>
@@ -194,10 +195,10 @@ function MonthView({
             <div
               key={i}
               className={
-                'group relative min-h-[110px] overflow-hidden p-1.5 text-xs transition-colors hover:bg-[var(--surface-muted)] ' +
+                'group relative min-h-[64px] sm:min-h-[110px] overflow-hidden p-1 sm:p-1.5 text-[11px] sm:text-xs transition-colors hover:bg-[var(--surface-muted)] ' +
                 (isLastCol ? '' : 'border-r border-[var(--border-subtle)] ') +
                 (isLastRow ? '' : 'border-b border-[var(--border-subtle)] ') +
-                (dim ? 'bg-slate-50/40 /40' : 'bg-[var(--surface-card)] ')
+                (dim ? 'bg-[var(--surface-muted)]' : 'bg-[var(--surface-card)] ')
               }
             >
               <div className="mb-1 flex items-center justify-between">
@@ -267,7 +268,7 @@ function WeekView({
   }, []);
 
   return (
-    <div className="flex h-full min-h-[600px] flex-col">
+    <div className="flex h-full min-h-[420px] sm:min-h-[600px] flex-col">
       <div className="sticky top-0 z-10 grid grid-cols-[64px_repeat(7,minmax(0,1fr))] border-b border-[var(--border-subtle)] bg-[var(--surface-card)] ">
         <div />
         {days.map((d) => {

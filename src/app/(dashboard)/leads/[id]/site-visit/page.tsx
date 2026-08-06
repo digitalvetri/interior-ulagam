@@ -61,7 +61,7 @@ export default function SiteVisitPage({ params }: { params: Promise<{ id: string
   const isCompleted = visit && !!visit.completedAt;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Link href={`/leads/${id}`}
           className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] ">
@@ -74,7 +74,7 @@ export default function SiteVisitPage({ params }: { params: Promise<{ id: string
       {!loading && error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {!loading && !error && !visit && (
-        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 shadow-sm ">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 sm:p-6 shadow-sm ">
           <h2 className="mb-4 text-lg font-semibold text-[var(--text-heading)] dark:text-white">
             Schedule a Site Visit
           </h2>
@@ -83,8 +83,8 @@ export default function SiteVisitPage({ params }: { params: Promise<{ id: string
       )}
 
       {!loading && !error && isScheduled && (
-        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 shadow-sm ">
-          <div className="flex items-center justify-between">
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 sm:p-6 shadow-sm ">
+          <div className="flex flex-wrap items-center justify-between">
             <h2 className="text-lg font-semibold text-[var(--text-heading)] dark:text-white">Scheduled Visit</h2>
             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
               Scheduled
@@ -123,8 +123,8 @@ export default function SiteVisitPage({ params }: { params: Promise<{ id: string
       )}
 
       {!loading && !error && isCompleted && (
-        <div className="rounded-lg border border-green-200 bg-green-50 p-6 dark:border-green-800 dark:bg-green-950">
-          <div className="flex items-center justify-between">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4 sm:p-6 dark:border-green-800 dark:bg-green-950">
+          <div className="flex flex-wrap items-center justify-between">
             <h2 className="text-lg font-semibold text-green-900 dark:text-green-100">Visit Completed</h2>
             <span className="rounded-full bg-green-200 px-2.5 py-0.5 text-xs font-medium text-green-800">
               Completed

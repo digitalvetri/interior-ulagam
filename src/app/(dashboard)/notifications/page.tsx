@@ -22,7 +22,7 @@ interface Notification {
 }
 
 const SEV: Record<Severity, { Icon: typeof Info; ring: string; bg: string; iconClass: string }> = {
-  info:     { Icon: Info,         ring: 'ring-slate-200 dark:ring-slate-700',    bg: 'bg-[var(--surface-muted)] /60',    iconClass: 'text-[var(--text-secondary)]'    },
+  info:     { Icon: Info,         ring: 'ring-slate-200 dark:ring-slate-700',    bg: 'bg-[var(--surface-muted)]',    iconClass: 'text-[var(--text-secondary)]'    },
   success:  { Icon: CircleCheck,  ring: 'ring-emerald-200 dark:ring-emerald-800',bg: 'bg-emerald-50 dark:bg-emerald-950/40',iconClass: 'text-emerald-600'  },
   warning:  { Icon: AlertTriangle,ring: 'ring-amber-200 dark:ring-amber-800',   bg: 'bg-amber-50 dark:bg-amber-950/40',    iconClass: 'text-amber-600'    },
   critical: { Icon: AlertOctagon, ring: 'ring-red-200 dark:ring-red-800',       bg: 'bg-red-50 dark:bg-red-950/40',        iconClass: 'text-red-600'      },
@@ -79,7 +79,7 @@ export default function NotificationsPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4 sm:px-6 py-4 ">
         <div className="flex items-center gap-3">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--surface-card)] text-white ">
             <Bell className="h-5 w-5" />
@@ -109,7 +109,7 @@ export default function NotificationsPage() {
       </header>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] px-6 py-3 ">
+      <div className="flex items-center gap-1 border-b border-[var(--border-subtle)] px-4 sm:px-6 py-3 ">
         {(['all', 'unread'] as const).map((f) => (
           <button
             key={f}
@@ -132,11 +132,11 @@ export default function NotificationsPage() {
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         {loading ? (
           <div className="p-12 text-center text-sm text-[var(--text-secondary)]">Loading notifications…</div>
         ) : filtered.length === 0 ? (
-          <div className="mx-auto max-w-md p-16 text-center">
+          <div className="mx-auto max-w-md p-8 sm:p-16 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-tertiary)] ">
               <Bell className="h-7 w-7" />
             </div>

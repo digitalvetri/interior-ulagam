@@ -83,7 +83,7 @@ export default function RequirementsPage({ params }: { params: Promise<{ id: str
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center gap-4">
         <Link href={`/leads/${id}`} className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] ">
           ← Back to Lead

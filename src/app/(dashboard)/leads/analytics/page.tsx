@@ -280,7 +280,7 @@ export default async function LeadsAnalyticsPage() {
       </div>
 
       {/* ── KPI row ─────────────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 20 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
         <KpiCard
           label="Total Leads" value={String(total)}
           sub={`${active} active · ${total - active} decided`}
@@ -326,8 +326,14 @@ export default async function LeadsAnalyticsPage() {
             const ofTotal = total > 0 ? Math.round((d.count / total) * 100) : 0;
             const color = STAGE_COLOR[stage];
             return (
-              <div key={stage} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 48px 90px 80px', alignItems: 'center', gap: 16 }}>
-                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>
+              // Same five columns at every width — a funnel row reads wrong if the
+              // numbers detach from their bar. The fixed columns just get narrower
+              // on a phone so the row still fits without scrolling.
+              <div
+                key={stage}
+                className="grid items-center gap-2 sm:gap-4 grid-cols-[68px_1fr_28px_54px_46px] sm:grid-cols-[120px_1fr_48px_90px_80px] text-[11px] sm:text-[13px]"
+              >
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
                   {STAGE_LABEL[stage]}
                 </span>
                 <div style={{ height: 14, borderRadius: 99, background: 'var(--surface-muted)', overflow: 'hidden', position: 'relative' }}>
@@ -354,7 +360,7 @@ export default async function LeadsAnalyticsPage() {
       </div>
 
       {/* ── Source ROI + Designer Performance ───────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
 
         {/* Source ROI */}
         <div style={card}>
