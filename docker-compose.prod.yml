@@ -20,6 +20,23 @@ services:
   app:
     # Reached through Caddy, not directly.
     ports: !reset []
+    build:
+      args:
+        # Must be the public HTTPS origin, e.g. https://studio.example.com.
+        # MinIO publishes no host port here, so the default of
+        # http://localhost:9002 would put an unreachable address into every
+        # quote PDF link — and those URLs are persisted and sent to clients.
+        # Caddy serves /quotes/* from this origin; see the Caddyfile.
+        #
+        # It is compiled into the Content-Security-Policy, so changing it needs
+        # a rebuild, not just a restart.
+        S3_PUBLIC_URL: ${S3_PUBLIC_URL:?set S3_PUBLIC_URL to https://<your-domain> for production}
+    environment:
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:?set S3_PUBLIC_URL to https://<your-domain> for production}
+
+  worker:
+    environment:
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:?set S3_PUBLIC_URL to https://<your-domain> for production}
 
   caddy:
     image: caddy:2-alpine
