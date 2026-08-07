@@ -93,12 +93,14 @@ const LeadListCard = memo(function LeadListCard({
   onArchive,
   onFollowUp,
   onViewFollowUps,
+  destinationHref,
 }: {
   lead: Lead;
   onDelete: (id: string) => void;
   onArchive: (id: string) => void;
   onFollowUp: (lead: Lead) => void;
   onViewFollowUps: (lead: Lead) => void;
+  destinationHref?: string;
 }) {
   const router = useRouter();
   const [showScorePop, setShowScorePop] = useState(false);
@@ -134,7 +136,7 @@ const LeadListCard = memo(function LeadListCard({
           ? '0 0 0 1px var(--danger), 0 1px 4px rgba(0,0,0,0.06)'
           : '0 1px 4px rgba(0,0,0,0.06)',
       }}
-      onClick={() => router.push(`/leads/${lead.id}`)}
+      onClick={() => router.push(destinationHref ?? `/leads/${lead.id}`)}
     >
         <div className="flex items-start gap-4">
           {/* Avatar + Score */}
@@ -254,28 +256,6 @@ const LeadListCard = memo(function LeadListCard({
                 >
                   <MessageCircle className="h-3.5 w-3.5 text-green-600" />
                 </a>
-                <button
-                  type="button"
-                  onClick={() => onFollowUp(lead)}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-violet-50"
-                  title={
-                    fuState === 'overdue'  ? 'Overdue follow-up — add update'
-                    : fuState === 'today' ? "Today's follow-up — add update"
-                    : fuState === 'upcoming' ? 'Upcoming follow-up — add update'
-                    : 'Add follow-up'
-                  }
-                  aria-label="Add follow-up"
-                >
-                  <BellRing
-                    className="h-3.5 w-3.5"
-                    style={{
-                      color: fuState === 'overdue'  ? 'var(--danger)'
-                           : fuState === 'today'    ? 'var(--warning)'
-                           : fuState === 'upcoming' ? 'var(--accent-base)'
-                           : 'var(--text-tertiary)',
-                    }}
-                  />
-                </button>
                 {/* 3-dot context menu */}
                 <div className="relative" ref={menuRef}>
                   <button
@@ -330,49 +310,27 @@ const LeadListCard = memo(function LeadListCard({
               </div>
             </div>
 
-            {/* Row 2: phone, project type, location, budget */}
+            {/* Row 2: customer contact info only */}
             <div className="flex items-center gap-4 mt-2 flex-wrap">
               <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                 <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                 {lead.contactPhone}
               </span>
-              {lead.propertyType && (
-                <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
-                  <Home className="h-3.5 w-3.5 flex-shrink-0" />
-                  {lead.propertyType}
+              {lead.contactEmail && (
+                <span className="text-sm text-[var(--text-secondary)]">
+                  {lead.contactEmail}
                 </span>
               )}
-              {lead.projectLocation && (
-                <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
+              {lead.contactCity && (
+                <span className="flex items-center gap-1 text-sm text-[var(--text-secondary)]">
                   <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                  {lead.projectLocation}
-                </span>
-              )}
-              {(lead.projectValuePaise ?? 0) > 0 && (
-                <span className="text-sm font-medium" style={{ color: 'var(--text-gold)' }}>
-                  ₹{((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  {lead.contactCity}
                 </span>
               )}
             </div>
 
-            {/* Row 3: assigned, follow-up, last updated */}
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
-              {lead.designerName && (
-                <span className="flex items-center gap-1.5 text-xs text-[var(--text-tertiary)]">
-                  <User className="h-3.5 w-3.5 flex-shrink-0" />
-                  {lead.designerName}
-                </span>
-              )}
-              {fuState && lead.followUpDate && (
-                <span
-                  className="flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-0.5"
-                  style={FU_STYLE[fuState]}
-                >
-                  <Calendar className="h-3 w-3 flex-shrink-0" />
-                  {fuState === 'overdue' ? 'Overdue · ' : fuState === 'today' ? 'Today · ' : ''}
-                  {fmtDate(lead.followUpDate)}
-                </span>
-              )}
+            {/* Row 3: last activity only */}
+            <div className="flex items-center gap-4 mt-2">
               <span
                 className="flex items-center gap-1 text-xs"
                 style={{ color: rotting === 'rotting' ? 'var(--danger)' : rotting === 'stale' ? 'var(--warning)' : 'var(--text-secondary)' }}
@@ -639,6 +597,18 @@ export default function LeadsPage() {
     return result;
   }, [leads, activeChip, filterPriority, filterSource, deferredSearch, sortBy]);
 
+  /* Group filtered leads by customer — one card per customer on the list */
+  const grouped = useMemo(() => {
+    const map = new Map<string, { groupKey: string; customerId: string | null; primaryLead: Lead }>();
+    for (const lead of filtered) {
+      const key = lead.customerId ?? `__phone__${lead.contactPhone}`;
+      if (!map.has(key)) {
+        map.set(key, { groupKey: key, customerId: lead.customerId ?? null, primaryLead: lead });
+      }
+    }
+    return Array.from(map.values());
+  }, [filtered]);
+
   return (
     <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
 
@@ -680,7 +650,7 @@ export default function LeadsPage() {
           <div>
             <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Leads</h1>
             <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              {leads.length} total · {filtered.length} shown
+              {grouped.length} customers · {filtered.length} enquiries shown
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -890,23 +860,29 @@ export default function LeadsPage() {
         ) : (
           <div className="space-y-3">
             <AnimatePresence initial={false}>
-              {filtered.map((lead) => (
-                <motion.div
-                  key={lead.id}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.14 }}
-                >
-                  <LeadListCard
-                    lead={lead}
-                    onDelete={handleDeleteFromList}
-                    onArchive={handleArchiveFromList}
-                    onFollowUp={handleFollowUp}
-                    onViewFollowUps={handleViewFollowUps}
-                  />
-                </motion.div>
-              ))}
+              {grouped.map(({ groupKey, customerId, primaryLead }) => {
+                const destination = customerId
+                  ? `/leads/customer/${customerId}`
+                  : `/leads/customer/p/${encodeURIComponent(primaryLead.contactPhone)}`;
+                return (
+                  <motion.div
+                    key={groupKey}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.14 }}
+                  >
+                    <LeadListCard
+                      lead={primaryLead}
+                      onDelete={handleDeleteFromList}
+                      onArchive={handleArchiveFromList}
+                      onFollowUp={handleFollowUp}
+                      onViewFollowUps={handleViewFollowUps}
+                      destinationHref={destination}
+                    />
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         )}

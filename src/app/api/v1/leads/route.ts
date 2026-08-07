@@ -53,6 +53,8 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const stageParam = searchParams.get('stage');
   const ownerIdParam = searchParams.get('ownerId');
+  const customerIdParam = searchParams.get('customerId');
+  const phoneParam = searchParams.get('phone');
 
   // Validate optional stage query param
   const stageParsed = stageParam ? LeadStageEnum.safeParse(stageParam) : null;
@@ -66,6 +68,8 @@ export async function GET(request: NextRequest) {
     if (!includeArchived)     conditions.push(isNull(leads.archivedAt));
     if (stageParsed?.success) conditions.push(eq(leads.stage, stageParsed.data));
     if (ownerIdParam)         conditions.push(eq(leads.ownerId, ownerIdParam));
+    if (customerIdParam)      conditions.push(eq(leads.customerId, customerIdParam));
+    if (phoneParam)           conditions.push(eq(leads.contactPhone, phoneParam));
 
     const result = await db
       .select({
@@ -78,7 +82,9 @@ export async function GET(request: NextRequest) {
         contactName:       leads.contactName,
         contactPhone:      leads.contactPhone,
         contactEmail:      leads.contactEmail,
+        contactCity:       leads.contactCity,
         propertyType:      leads.propertyType,
+        projectName:       leads.projectName,
         projectLocation:   leads.projectLocation,
         budgetBand:        leads.budgetBand,
         projectValuePaise: leads.projectValuePaise,
@@ -91,6 +97,7 @@ export async function GET(request: NextRequest) {
         firstTouchAt:      leads.firstTouchAt,
         lastActivityAt:    leads.lastActivityAt,
         createdAt:         leads.createdAt,
+        customerId:        leads.customerId,
       })
       .from(leads)
       .where(and(...conditions))
@@ -161,6 +168,7 @@ export async function POST(request: NextRequest) {
         contactName:       leads.contactName,
         contactPhone:      leads.contactPhone,
         contactEmail:      leads.contactEmail,
+        contactCity:       leads.contactCity,
         propertyType:      leads.propertyType,
         projectLocation:   leads.projectLocation,
         budgetBand:        leads.budgetBand,
