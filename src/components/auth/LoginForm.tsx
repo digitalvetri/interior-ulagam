@@ -55,6 +55,7 @@ export function LoginForm() {
             onChange={e => setEmail(e.target.value)}
             className="studio-input studio-input--icon w-full text-sm"
             placeholder="you@studio.com"
+            suppressHydrationWarning
           />
         </div>
       </div>

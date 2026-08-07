@@ -42,6 +42,7 @@ export function ThemeToggle() {
       style={{ color: 'var(--text-heading)' }}
       aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      suppressHydrationWarning
     >
       {/* Suppress hydration mismatch — server can't know the client's stored
           preference, so render a placeholder icon and swap after mount. */}

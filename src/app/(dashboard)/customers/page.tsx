@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, MoreHorizontal, Mail, Phone,
   Trash2, Loader2, Users, UserCheck, Briefcase, Clock,
-  Eye, UserCog, ArrowRightLeft, CheckCircle2, X,
+  Eye, UserCog, ArrowRightLeft, CheckCircle2, X, Download,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { NewCustomerDialog } from '@/components/customers/NewCustomerDialog';
 import { GlowOrb } from '@/components/customers/GlowOrb';
 import { CustomerQuickPane } from '@/components/customers/CustomerQuickPane';
@@ -163,6 +164,29 @@ export default function CustomersPage() {
     } finally {
       setBulkWorking(false);
     }
+  }
+
+  /* ── Bulk export ── */
+  function doExport() {
+    const selectedRows = rows.filter((r) => selected.has(r.id));
+    const ownerMap = new Map(teamMembers.map((m) => [m.id, m.fullName]));
+
+    const sheetData = selectedRows.map((r) => ({
+      'Customer Name':    r.fullName,
+      'Contact Number':   r.phone,
+      'Email':            r.email ?? '',
+      'Company':          r.company ?? '',
+      'Location':         [r.city, r.address].filter(Boolean).join(', '),
+      'Customer Stage':   STAGE_LABEL[r.stage],
+      'Assigned Owner':   r.ownerId ? (ownerMap.get(r.ownerId) ?? r.ownerId) : '',
+      'Created Date':     r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN') : '',
+      'Last Contacted':   r.lastContactedAt ? new Date(r.lastContactedAt).toLocaleDateString('en-IN') : '',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Customers');
+    XLSX.writeFile(wb, `customers_export_${selectedRows.length}.xlsx`);
   }
 
   /* ── Delete helpers ── */
@@ -395,6 +419,15 @@ export default function CustomersPage() {
             >
               {bulkWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRightLeft className="h-3.5 w-3.5" />}
               Change stage
+            </button>
+            <button
+              onClick={doExport}
+              disabled={bulkWorking}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-violet-100 disabled:opacity-50"
+              style={{ color: 'var(--violet-primary)', background: 'rgba(124,92,252,0.08)' }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
             </button>
             <button
               onClick={deleteSelected}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, asc, desc, eq, ilike, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { designTasks } from '@/lib/db/schema';
+import { designTasks, projects, customers } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const StatusEnum = z.enum(['todo', 'in_progress', 'review', 'done']);
@@ -23,25 +23,55 @@ export async function GET(request: NextRequest) {
 
   const q = request.nextUrl.searchParams.get('q')?.trim() ?? '';
   const status = request.nextUrl.searchParams.get('status');
-  const parsed = status ? StatusEnum.safeParse(status) : null;
-  if (parsed && !parsed.success) {
+  const priority = request.nextUrl.searchParams.get('priority');
+
+  const parsedStatus = status ? StatusEnum.safeParse(status) : null;
+  if (parsedStatus && !parsedStatus.success) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+  }
+  const parsedPriority = priority ? PriorityEnum.safeParse(priority) : null;
+  if (parsedPriority && !parsedPriority.success) {
+    return NextResponse.json({ error: 'Invalid priority' }, { status: 400 });
   }
 
   try {
     const conditions = [eq(designTasks.tenantId, ctx.tenantId)];
-    if (parsed?.success) conditions.push(eq(designTasks.status, parsed.data));
+    if (parsedStatus?.success) conditions.push(eq(designTasks.status, parsedStatus.data));
+    if (parsedPriority?.success) conditions.push(eq(designTasks.priority, parsedPriority.data));
     if (q) {
       const like = `%${q}%`;
-      const search = or(ilike(designTasks.title, like), ilike(designTasks.description, like));
+      const search = or(
+        ilike(designTasks.title, like),
+        ilike(designTasks.description, like),
+        ilike(projects.name, like),
+        ilike(customers.fullName, like),
+      );
       if (search) conditions.push(search);
     }
+
     const rows = await db
-      .select()
+      .select({
+        id:          designTasks.id,
+        tenantId:    designTasks.tenantId,
+        projectId:   designTasks.projectId,
+        title:       designTasks.title,
+        description: designTasks.description,
+        status:      designTasks.status,
+        priority:    designTasks.priority,
+        dueDate:     designTasks.dueDate,
+        completedAt: designTasks.completedAt,
+        createdAt:   designTasks.createdAt,
+        projectName: projects.name,
+        customerName: customers.fullName,
+        designerIds: projects.designerIds,
+      })
       .from(designTasks)
+      .leftJoin(projects, eq(designTasks.projectId, projects.id))
+      .leftJoin(customers, eq(projects.customerId, customers.id))
       .where(and(...conditions))
       .orderBy(asc(designTasks.dueDate), desc(designTasks.createdAt))
       .limit(500);
+
     return NextResponse.json({ data: rows });
   } catch (e) {
     console.error('[GET /api/v1/design-tasks]', e);

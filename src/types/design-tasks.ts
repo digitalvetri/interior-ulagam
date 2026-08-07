@@ -12,4 +12,8 @@ export interface DesignTask {
   dueDate: string | null;
   completedAt: string | null;
   createdAt: string;
+  // Joined from projects + customers
+  projectName: string | null;
+  customerName: string | null;
+  designerIds: string[] | null;
 }

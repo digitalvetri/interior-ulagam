@@ -120,6 +120,7 @@ export function NotificationsPopover() {
         aria-expanded={open}
         className="relative rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
         style={{ color: 'var(--text-heading)' }}
+        suppressHydrationWarning
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (

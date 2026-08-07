@@ -55,6 +55,7 @@ export interface Lead {
   lastActivityAt: string;
   archivedAt?: string | null;
   createdAt: string;
+  customerId?: string | null;
 }
 
 export interface LeadActivity {
