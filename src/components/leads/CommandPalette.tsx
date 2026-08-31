@@ -3,9 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
-import { Search, Users, LayoutDashboard, ArrowRight } from 'lucide-react';
+import { Search, Users, LayoutDashboard, FolderKanban, ArrowRight } from 'lucide-react';
 import { Lead, STAGE_LABELS } from '@/types/leads';
-import { NAV_GROUPS } from '@/lib/nav-items';
+import { NAV_GROUPS, FOOTER_NAV } from '@/lib/nav-items';
+
+interface Project {
+  id: string;
+  name: string;
+  lifecycleStage: string;
+  customerFullName: string | null;
+  leadContactName: string | null;
+}
 
 function scoreColor(score: number): string {
   if (score >= 70) return 'var(--success)';
@@ -13,10 +21,14 @@ function scoreColor(score: number): string {
   return 'var(--text-secondary)';
 }
 
+const ALL_NAV_ITEMS = [...NAV_GROUPS.flatMap(g => g.items), ...FOOTER_NAV];
+
 export function CommandPalette() {
-  const [open, setOpen]               = useState(false);
-  const [leads, setLeads]             = useState<Lead[]>([]);
-  const [leadsLoaded, setLeadsLoaded] = useState(false);
+  const [open, setOpen]                   = useState(false);
+  const [leads, setLeads]                 = useState<Lead[]>([]);
+  const [leadsLoaded, setLeadsLoaded]     = useState(false);
+  const [projects, setProjects]           = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const router = useRouter();
 
   // Global ⌘K / Ctrl+K listener
@@ -31,9 +43,10 @@ export function CommandPalette() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Lazy-fetch leads when first opened
+  // Lazy-fetch leads + projects when first opened
   useEffect(() => {
-    if (open && !leadsLoaded) {
+    if (!open) return;
+    if (!leadsLoaded) {
       fetch('/api/v1/leads')
         .then(r => r.json())
         .then(({ data }: { data: Lead[] | null }) => {
@@ -42,7 +55,16 @@ export function CommandPalette() {
         })
         .catch(() => setLeadsLoaded(true));
     }
-  }, [open, leadsLoaded]);
+    if (!projectsLoaded) {
+      fetch('/api/v1/projects')
+        .then(r => r.json())
+        .then(({ data }: { data: Project[] | null }) => {
+          setProjects(data ?? []);
+          setProjectsLoaded(true);
+        })
+        .catch(() => setProjectsLoaded(true));
+    }
+  }, [open, leadsLoaded, projectsLoaded]);
 
   if (!open) return null;
 
@@ -105,7 +127,7 @@ export function CommandPalette() {
               <LayoutDashboard className="h-3 w-3" />
               NAVIGATE
             </div>
-            {NAV_GROUPS.flatMap(g => g.items).map(item => {
+            {ALL_NAV_ITEMS.map(item => {
               const Icon = item.icon;
               return (
                 <Command.Item
@@ -131,6 +153,53 @@ export function CommandPalette() {
               );
             })}
           </Command.Group>
+
+          {/* Projects */}
+          {projects.length > 0 && (
+            <Command.Group>
+              <div
+                className="flex items-center gap-1.5 px-2 py-1.5 mt-2 mb-1"
+                style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.08em' }}
+              >
+                <FolderKanban className="h-3 w-3" />
+                PROJECTS
+              </div>
+              {projects.slice(0, 10).map(p => (
+                <Command.Item
+                  key={p.id}
+                  value={`project ${p.name} ${p.customerFullName ?? ''} ${p.leadContactName ?? ''}`}
+                  onSelect={() => { router.push(`/projects/${p.id}`); setOpen(false); }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 10px',
+                    borderRadius: 10,
+                    cursor: 'pointer',
+                  }}
+                  className="command-item"
+                >
+                  <div
+                    className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'var(--accent-soft)' }}
+                  >
+                    <FolderKanban className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-heading)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {p.name}
+                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                      {p.customerFullName ?? p.leadContactName ?? '—'}
+                      {' · '}
+                      <span style={{ color: 'var(--accent-base)' }}>{p.lifecycleStage}</span>
+                    </p>
+                  </div>
+                  <ArrowRight className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--border-strong)' }} />
+                </Command.Item>
+              ))}
+            </Command.Group>
+          )}
 
           {/* Leads */}
           {leads.length > 0 && (

@@ -21,11 +21,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get('projectId');
   const leadId    = searchParams.get('leadId');
+  const status    = searchParams.get('status');
 
   try {
     const conditions = [eq(quotes.tenantId, ctx.tenantId)];
     if (projectId) conditions.push(eq(quotes.projectId, projectId));
     if (leadId)    conditions.push(eq(quotes.leadId, leadId));
+    if (status)    conditions.push(eq(quotes.status, status));
 
     const rows = await db
       .select({

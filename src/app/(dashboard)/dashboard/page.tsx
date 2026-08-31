@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   Users, FolderKanban, IndianRupee, TrendingUp,
   Plus, Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
+  Calendar, MapPin, FileText,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -23,10 +24,28 @@ interface ReceivableItem {
 interface ReceivablesData {
   items: ReceivableItem[]; totalOutstandingPaise: number; totalOverduePaise: number;
 }
+interface SiteVisit {
+  id: string; leadId: string | null;
+  scheduledAt: string; completedAt: string | null;
+  locationJson: { address?: string } | null;
+}
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 function fmt(paise: number) {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+function fmtCompact(paise: number): string {
+  const r = paise / 100;
+  if (r >= 10_000_000) return `₹${(r / 10_000_000).toFixed(1)}Cr`;
+  if (r >= 100_000)    return `₹${(r / 100_000).toFixed(1)}L`;
+  if (r >= 1_000)      return `₹${(r / 1_000).toFixed(0)}K`;
+  return `₹${Math.round(r)}`;
+}
+function isToday(iso: string): boolean {
+  const d = new Date(iso), now = new Date();
+  return d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
 }
 function greeting(): string {
   const h = new Date().getHours();
@@ -55,14 +74,6 @@ const STAGE_META: Record<string, { label: string; bg: string; text: string }> = 
   handover:           { label: 'Handover',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
   complete:           { label: 'Complete',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
 };
-
-/* ── KPI Card ───────────────────────────────────────────────────────────── */
-const KPI_ACCENTS = {
-  purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
-  blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)'   },
-  orange: { bg: 'var(--accent-orange-bg)', fg: 'var(--accent-orange)' },
-  green:  { bg: 'var(--accent-green-bg)',  fg: 'var(--accent-green)'  },
-} as const;
 const FUNNEL_STAGES: { key: keyof LeadStats; label: string }[] = [
   { key: 'new',                  label: 'New Enquiry'  },
   { key: 'site_visit_scheduled', label: 'Site Visit'   },
@@ -72,12 +83,41 @@ const FUNNEL_STAGES: { key: keyof LeadStats; label: string }[] = [
   { key: 'won',                  label: 'Won'          },
 ];
 
+/* ── Accent map ─────────────────────────────────────────────────────────── */
+const KPI_ACCENTS = {
+  purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
+  blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)'   },
+  orange: { bg: 'var(--accent-orange-bg)', fg: 'var(--accent-orange)' },
+  green:  { bg: 'var(--accent-green-bg)',  fg: 'var(--accent-green)'  },
+} as const;
+
+/* ── Sparkline ──────────────────────────────────────────────────────────── */
+function Sparkline({ data }: { data: number[] }) {
+  if (data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const W = 52, H = 18;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * W;
+    const y = H - ((v - min) / range) * (H - 3) - 1.5;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const isUp = data[data.length - 1] >= data[0];
+  return (
+    <svg width={W} height={H} style={{ flexShrink: 0, overflow: 'visible' }}>
+      <polyline fill="none" stroke={isUp ? 'var(--success)' : 'var(--danger)'}
+        strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" points={pts} />
+    </svg>
+  );
+}
+
 /* ── KPI Card ───────────────────────────────────────────────────────────── */
 function KpiCard({
-  label, value, sub, icon: Icon, accent = 'purple', loading,
+  label, value, sub, icon: Icon, accent = 'purple', loading, sparkline,
 }: {
   label: string; value: string; sub?: string; icon: React.ElementType;
-  accent?: keyof typeof KPI_ACCENTS; loading: boolean;
+  accent?: keyof typeof KPI_ACCENTS; loading: boolean; sparkline?: number[];
 }) {
   const a = KPI_ACCENTS[accent];
   return (
@@ -95,7 +135,12 @@ function KpiCard({
       </div>
       {loading
         ? <div className="skeleton h-7 w-20 mb-1" />
-        : <p className="text-2xl font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{value}</p>
+        : (
+          <div className="flex items-end gap-2 mb-1">
+            <p className="text-2xl font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{value}</p>
+            {sparkline && sparkline.length >= 2 && <Sparkline data={sparkline} />}
+          </div>
+        )
       }
       <p className="mt-1.5 text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{label}</p>
       {loading
@@ -130,25 +175,33 @@ function QuickAction({
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
-  const [firstName, setFirstName]     = useState('');
-  const [leadStats, setLeadStats]     = useState<LeadStats | null>(null);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [receivables, setReceivables] = useState<ReceivablesData>({
+  const [firstName, setFirstName]           = useState('');
+  const [leadStats, setLeadStats]           = useState<LeadStats | null>(null);
+  const [leadBudgets, setLeadBudgets]       = useState<Record<string, number>>({});
+  const [allProjects, setAllProjects]       = useState<Project[]>([]);
+  const [receivables, setReceivables]       = useState<ReceivablesData>({
     items: [], totalOutstandingPaise: 0, totalOverduePaise: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [todayVisits, setTodayVisits]       = useState<SiteVisit[]>([]);
+  const [pendingQuotesCount, setPendingQuotesCount] = useState(0);
+  const [trendData, setTrendData]           = useState<number[]>([]);
+  const [loading, setLoading]               = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [me, ls, ps, rs] = await Promise.all([
+        const [me, ls, ps, rs, sv, qs, ao] = await Promise.all([
           fetch('/api/v1/me').then(r => r.json()),
           fetch('/api/v1/leads/stats').then(r => r.json()),
           fetch('/api/v1/projects').then(r => r.json()),
           fetch('/api/v1/accounts/receivables').then(r => r.json()),
+          fetch('/api/v1/site-visits').then(r => r.json()),
+          fetch('/api/v1/quotes?status=sent').then(r => r.json()),
+          fetch('/api/v1/analytics/overview').then(r => r.json()),
         ]);
         if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
-        if (ls?.data) setLeadStats(ls.data);
+        if (ls?.data?.counts) setLeadStats(ls.data.counts);
+        if (ls?.data?.budgets) setLeadBudgets(ls.data.budgets);
         if (Array.isArray(ps?.data)) setAllProjects(ps.data);
         if (rs?.data) {
           setReceivables({
@@ -156,6 +209,16 @@ export default function DashboardPage() {
             totalOutstandingPaise: rs.data.totalOutstandingPaise ?? 0,
             totalOverduePaise: rs.data.totalOverduePaise ?? 0,
           });
+        }
+        const allVisits: SiteVisit[] = Array.isArray(sv?.data) ? sv.data : [];
+        setTodayVisits(
+          allVisits
+            .filter(v => isToday(v.scheduledAt))
+            .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
+        );
+        setPendingQuotesCount(Array.isArray(qs?.data) ? qs.data.length : 0);
+        if (Array.isArray(ao?.data?.trend30d)) {
+          setTrendData(ao.data.trend30d.map((d: { amountPaise: number }) => d.amountPaise));
         }
       } catch { /* silent */ } finally { setLoading(false); }
     }
@@ -168,6 +231,22 @@ export default function DashboardPage() {
   const activeProjects = allProjects.filter(p => p.lifecycleStage !== 'complete');
   const conversionPct  = leadStats && totalLeads > 0 ? Math.round((leadStats.won / totalLeads) * 100) : 0;
   const maxFunnelVal   = leadStats ? Math.max(1, ...FUNNEL_STAGES.map(s => leadStats[s.key])) : 1;
+  const overdueCount   = receivables.items.filter(r => r.paymentStatus === 'overdue').length;
+  const overdueProjects = new Set(
+    receivables.items.filter(r => r.paymentStatus === 'overdue').map(r => r.projectName),
+  );
+  const nowMs = new Date().getTime();
+
+  /* ── Dynamic Quick Actions ────────────────────────────────────────── */
+  const quickActions: { href: string; label: string; icon: React.ElementType; accent: keyof typeof KPI_ACCENTS }[] = [];
+  if (overdueCount > 0) {
+    quickActions.push({ href: '/accounts', label: `${overdueCount} payment${overdueCount > 1 ? 's' : ''} overdue`, icon: AlertCircle, accent: 'orange' });
+  }
+  if (pendingQuotesCount > 0) {
+    quickActions.push({ href: '/quotes', label: `${pendingQuotesCount} quote${pendingQuotesCount > 1 ? 's' : ''} awaiting approval`, icon: FileText, accent: 'purple' });
+  }
+  quickActions.push({ href: '/leads?new=1', label: 'Add New Lead', icon: Users, accent: 'purple' });
+  quickActions.push({ href: '/projects', label: 'New Project', icon: FolderKanban, accent: 'blue' });
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -203,10 +282,75 @@ export default function DashboardPage() {
 
       {/* ── KPI Cards ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Active Leads"        value={String(activeLeads)}        sub={`${totalLeads} total · ${leadStats?.won ?? 0} won`}       icon={Users}        accent="purple" loading={loading} />
-        <KpiCard label="Active Projects"     value={String(activeProjects.length)} sub={`${allProjects.length} total`}                          icon={FolderKanban} accent="blue"   loading={loading} />
-        <KpiCard label="Pending Receivables" value={`₹${((receivables.totalOutstandingPaise) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub={`${receivables.items.length} invoice${receivables.items.length !== 1 ? 's' : ''}`} icon={IndianRupee} accent="orange" loading={loading} />
-        <KpiCard label="Conversion Rate"     value={`${conversionPct}%`}         sub={`${leadStats?.won ?? 0} won of ${totalLeads} leads`}       icon={TrendingUp}   accent="green"  loading={loading} />
+        <KpiCard label="Active Leads"        value={String(activeLeads)}           sub={`${totalLeads} total · ${leadStats?.won ?? 0} won`}                                                                          icon={Users}        accent="purple" loading={loading} />
+        <KpiCard label="Active Projects"     value={String(activeProjects.length)} sub={`${allProjects.length} total`}                                                                                               icon={FolderKanban} accent="blue"   loading={loading} />
+        <KpiCard label="Pending Receivables" value={`₹${((receivables.totalOutstandingPaise) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub={`${receivables.items.length} invoice${receivables.items.length !== 1 ? 's' : ''}`} icon={IndianRupee} accent="orange" loading={loading} sparkline={trendData} />
+        <KpiCard label="Conversion Rate"     value={`${conversionPct}%`}           sub={`${leadStats?.won ?? 0} won of ${totalLeads} leads`}                                                                         icon={TrendingUp}   accent="green"  loading={loading} />
+      </div>
+
+      {/* ── Today's Schedule ──────────────────────────────────────── */}
+      <div className="premium-card p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+            <h3 className="section-title">Today&apos;s Schedule</h3>
+          </div>
+          <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+            All leads →
+          </Link>
+        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map(i => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+          </div>
+        ) : todayVisits.length === 0 ? (
+          <div className="flex items-center gap-3 rounded-xl px-4 py-4" style={{ backgroundColor: 'var(--surface-muted)' }}>
+            <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+            <div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Scheduled visits will appear here.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {todayVisits.map(v => {
+              const time = new Date(v.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+              const address = v.locationJson?.address;
+              const isDone = !!v.completedAt;
+              return (
+                <Link
+                  key={v.id}
+                  href={v.leadId ? `/leads/${v.leadId}` : '/leads'}
+                  className="group flex gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--accent-base)]"
+                  style={{
+                    borderColor: 'var(--border-subtle)',
+                    backgroundColor: 'var(--surface-app)',
+                    opacity: isDone ? 0.6 : 1,
+                  }}
+                >
+                  <div
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+                    style={{ backgroundColor: isDone ? 'var(--success-soft)' : 'var(--accent-soft)' }}
+                  >
+                    {isDone
+                      ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
+                      : <Clock className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                    }
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>{time}</p>
+                    {address && (
+                      <div className="flex items-start gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }} />
+                        <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{address}</p>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Lead Funnel + Active Projects ─────────────────────────── */}
@@ -222,7 +366,7 @@ export default function DashboardPage() {
           </div>
           {loading ? (
             <div className="space-y-2.5">
-              {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-8 w-full rounded" />)}
+              {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-9 w-full rounded" />)}
             </div>
           ) : !leadStats || totalLeads === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
@@ -237,12 +381,13 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="flex gap-3">
+              {/* Funnel bars */}
               <div className="flex-1 min-w-0 space-y-1.5">
                 {FUNNEL_STAGES.map((s, i) => {
                   const count = leadStats[s.key];
                   const pct = Math.max(18, count === 0 ? 18 : Math.round((count / maxFunnelVal) * 100));
                   return (
-                    <div key={s.key} className="h-8">
+                    <div key={s.key} className="h-9">
                       <div style={{
                         height: '100%', width: `${pct}%`,
                         backgroundColor: 'var(--accent-base)',
@@ -254,11 +399,19 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-              <div className="flex-shrink-0 space-y-1.5 w-32">
+              {/* Labels + count + budget */}
+              <div className="flex-shrink-0 space-y-1.5 w-36">
                 {FUNNEL_STAGES.map(s => (
-                  <div key={s.key} className="h-8 flex items-center justify-between gap-1">
-                    <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
-                    <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--text-heading)' }}>{leadStats[s.key]}</span>
+                  <div key={s.key} className="h-9 flex items-center gap-2">
+                    <span className="flex-1 min-w-0 text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                    <div className="flex-shrink-0 text-right">
+                      <p className="text-xs font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{leadStats[s.key]}</p>
+                      {(leadBudgets[s.key] ?? 0) > 0 && (
+                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                          {fmtCompact(leadBudgets[s.key])}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -307,6 +460,14 @@ export default function DashboardPage() {
                 const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
                 const s = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
                 const client = p.customerFullName || p.leadContactName;
+                const hasOverdue = overdueProjects.has(p.name);
+                const daysLeft = p.expectedEndAt
+                  ? Math.ceil((new Date(p.expectedEndAt).getTime() - nowMs) / 86_400_000)
+                  : null;
+                const showDaysBadge = daysLeft !== null && daysLeft <= 30;
+                const daysBadgeStyle = daysLeft !== null && daysLeft < 7
+                  ? { bg: 'var(--danger-soft)', text: 'var(--danger-text)' }
+                  : { bg: 'var(--warning-soft)', text: 'var(--warning-text)' };
                 return (
                   <Link
                     key={p.id}
@@ -314,13 +475,26 @@ export default function DashboardPage() {
                     className="block rounded-xl border p-3.5 transition-colors hover:border-[var(--accent-base)]"
                     style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
                       <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
-                      <span className="inline-block flex-shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap" style={{ backgroundColor: s.bg, color: s.text }}>
-                        {s.label}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {showDaysBadge && (
+                          <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap" style={{ backgroundColor: daysBadgeStyle.bg, color: daysBadgeStyle.text }}>
+                            {daysLeft < 0 ? `${Math.abs(daysLeft)}d over` : `${daysLeft}d left`}
+                          </span>
+                        )}
+                        <span className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap" style={{ backgroundColor: s.bg, color: s.text }}>
+                          {s.label}
+                        </span>
+                      </div>
                     </div>
-                    {client && <p className="text-[11px] mb-2 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>}
+                    {client && <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>}
+                    {hasOverdue && (
+                      <div className="mb-2 flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ backgroundColor: 'var(--danger-soft)' }}>
+                        <AlertCircle className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--danger-text)' }} />
+                        <span className="text-[10px] font-semibold" style={{ color: 'var(--danger-text)' }}>Payment overdue</span>
+                      </div>
+                    )}
                     <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)', transition: 'width 0.5s ease' }} />
                     </div>
@@ -383,10 +557,9 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <h3 className="section-title mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 gap-2.5">
-            <QuickAction href="/leads?new=1"         label="Add New Lead"     icon={Users}        accent="purple" />
-            <QuickAction href="/quotes"              label="Create Quotation" icon={Plus}         accent="orange" />
-            <QuickAction href="/projects"            label="New Project"      icon={FolderKanban} accent="blue"   />
-            <QuickAction href="/analytics/designers" label="View Reports"     icon={TrendingUp}   accent="green"  />
+            {quickActions.slice(0, 4).map(a => (
+              <QuickAction key={a.href + a.label} href={a.href} label={a.label} icon={a.icon} accent={a.accent} />
+            ))}
           </div>
         </div>
       </div>

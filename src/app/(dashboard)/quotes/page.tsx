@@ -61,10 +61,12 @@ export default function QuotesPage() {
   const router = useRouter();
   const [quotes,            setQuotes]            = useState<Quote[]>([]);
   const [loading,           setLoading]           = useState(true);
+  const [filterStatus,      setFilterStatus]      = useState<Quote['status'] | 'all'>('all');
   const [dialogOpen,        setDialogOpen]        = useState(false);
   const [projects,          setProjects]          = useState<Project[]>([]);
   const [projectsLoading,   setProjectsLoading]   = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [copyFromQuoteId,   setCopyFromQuoteId]   = useState<string>('');
   const [creating,          setCreating]          = useState(false);
   const [createError,       setCreateError]       = useState<string | null>(null);
 
@@ -85,6 +87,7 @@ export default function QuotesPage() {
 
   function openNewQuoteDialog() {
     setSelectedProjectId('');
+    setCopyFromQuoteId('');
     setCreateError(null);
     setDialogOpen(true);
     setProjectsLoading(true);
@@ -115,9 +118,39 @@ export default function QuotesPage() {
         setCreateError(body.error ?? 'Failed to create quote');
         return;
       }
-      const { data } = (await res.json()) as { data: Quote };
+      const { data: newQuote } = (await res.json()) as { data: Quote };
+
+      // Copy line items from source quote if selected
+      if (copyFromQuoteId) {
+        try {
+          const srcRes = await fetch(`/api/v1/quotes/${copyFromQuoteId}`);
+          if (srcRes.ok) {
+            const { data: srcQuote } = (await srcRes.json()) as { data: Quote };
+            const srcLines = srcQuote?.lines ?? [];
+            if (srcLines.length > 0) {
+              await fetch(`/api/v1/quotes/${newQuote.id}/lines/bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  lines: srcLines.map(l => ({
+                    room:            l.room,
+                    item:            l.item,
+                    unit:            l.unit,
+                    qty:             l.qty,
+                    costRatePaise:   l.costRatePaise,
+                    clientRatePaise: l.clientRatePaise,
+                  })),
+                }),
+              });
+            }
+          }
+        } catch {
+          // Non-fatal — quote is created; lines can be added manually
+        }
+      }
+
       setDialogOpen(false);
-      router.push(`/quotes/${data.id}`);
+      router.push(`/quotes/${newQuote.id}`);
     } catch {
       setCreateError('Network error — please try again');
     } finally {
@@ -144,6 +177,7 @@ export default function QuotesPage() {
     }
   }
 
+  const filteredQuotes = filterStatus === 'all' ? quotes : quotes.filter(q => q.status === filterStatus);
   const totalValue    = quotes.reduce((sum, q) => sum + (q.totalPaise ?? 0), 0);
   const approvedCount = quotes.filter((q) => q.status === 'approved').length;
   const draftCount    = quotes.filter((q) => q.status === 'draft').length;
@@ -169,16 +203,23 @@ export default function QuotesPage() {
         </button>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary cards — clickable to filter */}
       {quotes.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {(Object.keys(STATUS_CONFIG) as Array<Quote['status']>).map((status) => {
-            const cfg   = STATUS_CONFIG[status];
-            const Icon  = cfg.icon;
-            const count = quotes.filter((q) => q.status === status).length;
-            const value = quotes.filter((q) => q.status === status).reduce((s, q) => s + (q.totalPaise ?? 0), 0);
+            const cfg    = STATUS_CONFIG[status];
+            const Icon   = cfg.icon;
+            const count  = quotes.filter((q) => q.status === status).length;
+            const value  = quotes.filter((q) => q.status === status).reduce((s, q) => s + (q.totalPaise ?? 0), 0);
+            const active = filterStatus === status;
             return (
-              <div key={status} className="premium-card p-4">
+              <button
+                key={status}
+                type="button"
+                onClick={() => setFilterStatus(active ? 'all' : status)}
+                className="premium-card p-4 text-left transition-all"
+                style={active ? { outline: `2px solid ${cfg.color}`, outlineOffset: 2 } : undefined}
+              >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: cfg.bg }}>
                     <Icon className="h-3.5 w-3.5" style={{ color: cfg.color }} />
@@ -187,7 +228,7 @@ export default function QuotesPage() {
                 </div>
                 <p className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>{count}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{formatRupees(value)}</p>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -232,7 +273,7 @@ export default function QuotesPage() {
                 </tr>
               </thead>
               <tbody>
-                {quotes.map((quote) => (
+                {filteredQuotes.map((quote) => (
                   <tr
                     key={quote.id}
                     className="group transition-colors"
@@ -329,7 +370,10 @@ export default function QuotesPage() {
             className="flex items-center justify-between px-4 py-3"
             style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              {quotes.length} quote{quotes.length !== 1 ? 's' : ''}
+              {filterStatus !== 'all'
+                ? <>{filteredQuotes.length} of {quotes.length} quotes <button type="button" onClick={() => setFilterStatus('all')} className="ml-1 underline" style={{ color: 'var(--accent-base)' }}>Clear filter</button></>
+                : <>{quotes.length} quote{quotes.length !== 1 ? 's' : ''}</>
+              }
             </span>
             <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
               Pipeline total: {formatRupees(totalValue)}
@@ -366,6 +410,29 @@ export default function QuotesPage() {
                 </Select>
               )}
             </div>
+
+            {quotes.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="quote-copy-from">
+                  Copy line items from
+                  <span className="ml-1 text-[11px] font-normal" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+                </Label>
+                <Select value={copyFromQuoteId || '__blank__'} onValueChange={v => setCopyFromQuoteId(v === '__blank__' ? '' : v)}>
+                  <SelectTrigger id="quote-copy-from">
+                    <SelectValue placeholder="Start blank…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__blank__">Start blank</SelectItem>
+                    {quotes.map((q) => (
+                      <SelectItem key={q.id} value={q.id}>
+                        Q-{q.version.toString().padStart(3, '0')} · {q.projectName ?? q.leadContactName ?? q.id.slice(0, 8)} · {q.status.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {createError && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{createError}</p>
             )}

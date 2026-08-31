@@ -1,13 +1,5 @@
-import { Receipt } from 'lucide-react';
-import { ComingSoonPage } from '@/components/ui/ComingSoonPage';
+import { redirect } from 'next/navigation';
 
 export default function InvoicesPage() {
-  return (
-    <ComingSoonPage
-      icon={Receipt}
-      title="Invoices"
-      description="Invoices and receivables are managed in the Accounts module."
-      cta={{ href: '/accounts', label: 'Go to Accounts' }}
-    />
-  );
+  redirect('/accounts');
 }

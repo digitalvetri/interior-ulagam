@@ -8,7 +8,6 @@ import {
   Truck,
   Package,
   Wrench,
-  Receipt,
   Wallet,
   UserCog,
   BarChart3,
@@ -32,20 +31,20 @@ export interface NavGroup {
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    key: 'overview',
-    label: 'Overview',
+    key: 'home',
+    label: 'Home',
     roles: ['owner', 'designer', 'accountant', 'supervisor'],
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'designer', 'accountant', 'supervisor'] },
     ],
   },
   {
-    key: 'crm',
-    label: 'CRM',
+    key: 'contacts',
+    label: 'Contacts',
     roles: ['owner', 'designer'],
     items: [
-      { href: '/leads',     label: 'Leads',       icon: Users,      roles: ['owner', 'designer'] },
-      { href: '/customers', label: 'Customers',   icon: UserCheck,  roles: ['owner', 'designer'] },
+      { href: '/leads',     label: 'Leads',     icon: Users,     roles: ['owner', 'designer'] },
+      { href: '/customers', label: 'Customers', icon: UserCheck, roles: ['owner', 'designer'] },
     ],
   },
   {
@@ -59,13 +58,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    key: 'procurement',
-    label: 'Procurement',
+    key: 'operations',
+    label: 'Operations',
     roles: ['owner', 'designer', 'accountant'],
     items: [
-      { href: '/materials',       label: 'Materials',       icon: Package,       roles: ['owner', 'designer', 'accountant'] },
-      { href: '/vendors',         label: 'Vendors',         icon: Truck,         roles: ['owner', 'designer', 'accountant'] },
-      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart,  roles: ['owner', 'designer', 'accountant'] },
+      { href: '/materials',       label: 'Materials',       icon: Package,      roles: ['owner', 'designer', 'accountant'] },
+      { href: '/vendors',         label: 'Vendors',         icon: Truck,        roles: ['owner', 'designer', 'accountant'] },
+      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: ['owner', 'designer', 'accountant'] },
     ],
   },
   {
@@ -73,35 +72,17 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Finance',
     roles: ['owner', 'accountant'],
     items: [
-      { href: '/invoices',  label: 'Invoices',  icon: Receipt,    roles: ['owner', 'accountant'] },
-      { href: '/accounts',  label: 'Accounts & Payments',  icon: Wallet,     roles: ['owner', 'accountant'] },
-    ],
-  },
-  {
-    key: 'team',
-    label: 'Team',
-    roles: ['owner', 'designer', 'supervisor'],
-    items: [
-      { href: '/employees', label: 'Employees', icon: UserCog,    roles: ['owner'] },
-    ],
-  },
-  {
-    key: 'insights',
-    label: 'Insights',
-    roles: ['owner'],
-    items: [
-      { href: '/analytics',           label: 'Analytics', icon: BarChart3, roles: ['owner'] },
-    ],
-  },
-  {
-    key: 'system',
-    label: 'System',
-    roles: ['owner', 'designer', 'accountant', 'supervisor'],
-    items: [
-      { href: '/settings',       label: 'Settings',      icon: Settings,    roles: ['owner'] },
+      { href: '/accounts', label: 'Finance', icon: Wallet, roles: ['owner', 'accountant'] },
     ],
   },
 ];
 
-// Flat list kept for any code that still uses NAV_ITEMS
-export const NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
+// Secondary footer nav — shown at the bottom of the sidebar, above the user chip
+export const FOOTER_NAV: NavItem[] = [
+  { href: '/analytics', label: 'Analytics', icon: BarChart3, roles: ['owner'] },
+  { href: '/employees', label: 'Employees', icon: UserCog,   roles: ['owner'] },
+  { href: '/settings',  label: 'Settings',  icon: Settings,  roles: ['owner'] },
+];
+
+// Flat list — includes footer items so CommandPalette can search them
+export const NAV_ITEMS = [...NAV_GROUPS.flatMap(g => g.items), ...FOOTER_NAV];

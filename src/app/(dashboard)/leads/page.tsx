@@ -330,19 +330,20 @@ function KpiBar({ leads }: { leads: Lead[] }) {
   }).length;
 
   const stats = [
-    { label: 'New leads',            value: newCount,     icon: Users,         accent: 'var(--accent-base)', bg: 'var(--accent-soft)' },
-    { label: 'Follow-up due today',  value: fuToday,      icon: BellRing,      accent: 'var(--warning)',     bg: 'var(--warning-soft)' },
-    { label: 'Going cold',           value: goingCold,    icon: AlertTriangle, accent: 'var(--danger)',      bg: 'var(--danger-soft)' },
-    { label: 'Converted this month', value: wonThisMonth, icon: TrendingUp,    accent: 'var(--success)',     bg: 'var(--success-soft)' },
+    { label: 'New leads',            value: newCount,     icon: Users,         accent: 'var(--accent-base)', bg: 'var(--accent-soft)',  title: undefined },
+    { label: 'Follow-up due today',  value: fuToday,      icon: BellRing,      accent: 'var(--warning)',     bg: 'var(--warning-soft)', title: undefined },
+    { label: 'Going cold',           value: goingCold,    icon: AlertTriangle, accent: 'var(--danger)',      bg: 'var(--danger-soft)',  title: 'Leads with no activity in 7–14 days' },
+    { label: 'Converted this month', value: wonThisMonth, icon: TrendingUp,    accent: 'var(--success)',     bg: 'var(--success-soft)', title: undefined },
   ];
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {stats.map(({ label, value, icon: Icon, accent, bg }) => (
+      {stats.map(({ label, value, icon: Icon, accent, bg, title }) => (
         <div
           key={label}
+          title={title}
           className="rounded-xl p-4 flex items-start justify-between gap-2"
-          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', cursor: title ? 'help' : 'default' }}
         >
           <div className="min-w-0">
             <p className="text-[12px] leading-tight" style={{ color: 'var(--text-secondary)' }}>{label}</p>
@@ -779,6 +780,22 @@ export default function LeadsPage() {
               </button>
             );
           })}
+        </div>
+
+        {/* ── Rotting border legend ───────────────────────────────────────── */}
+        <div className="flex items-center gap-4" style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--border-subtle)' }} />
+            Fresh (&lt;7d)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--warning)' }} />
+            Stale (7–14d)
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--danger)' }} />
+            Rotting (&gt;14d)
+          </span>
         </div>
 
         {/* ── Lead list ──────────────────────────────────────────────────── */}

@@ -1,16 +1,11 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { NAV_GROUPS } from '@/lib/nav-items';
+import { NAV_GROUPS, FOOTER_NAV } from '@/lib/nav-items';
 import { Menu, X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Studio Owner',
-  designer: 'Designer',
-  accountant: 'Accountant',
-  supervisor: 'Site Supervisor',
-};
+import { ROLE_LABELS } from '@/lib/roles';
 
 // ─── Single nav group ─────────────────────────────────────────────────────────
 
@@ -152,6 +147,38 @@ function SidebarBody({
         ))}
       </nav>
 
+      {/* ── Footer nav (Analytics / Employees / Settings) ────────────── */}
+      <div className="flex-shrink-0 border-t border-[var(--border-subtle)] px-2 py-2">
+        {FOOTER_NAV.filter(item => !role || item.roles.includes(role)).map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + '/');
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onNavigate}
+              title={iconOnly ? label : undefined}
+              className={`nav-item ${active ? 'active' : ''}`}
+              style={{
+                padding: iconOnly ? '10px 0' : '8px 12px',
+                justifyContent: iconOnly ? 'center' : 'flex-start',
+                gap: iconOnly ? 0 : 10,
+              }}
+            >
+              {active && !iconOnly && (
+                <span
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                  style={{ backgroundColor: 'var(--accent-base)' }}
+                />
+              )}
+              <Icon className="nav-icon flex-shrink-0" style={{ width: 16, height: 16, opacity: 0.7 }} />
+              {!iconOnly && (
+                <span className="flex-1 text-[13px] font-medium leading-none">{label}</span>
+              )}
+            </Link>
+          );
+        })}
+      </div>
+
       {/* ── User footer ──────────────────────────────────────────────── */}
       <div className="flex-shrink-0 border-t border-[var(--border-subtle)] p-3">
         <div
@@ -179,6 +206,7 @@ function SidebarBody({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router   = useRouter();
   const [role, setRole]             = useState('');
   const [fullName, setFullName]     = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -190,11 +218,13 @@ export function Sidebar() {
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => {
         if (!body?.data) return;
-        setRole(body.data.role ?? '');
+        const r = body.data.role ?? '';
+        setRole(r);
         setFullName(body.data.fullName ?? '');
+        if (r === 'supervisor') router.replace('/field/site-log');
       })
       .catch(() => { /* identity unavailable — sidebar renders without role */ });
-  }, []);
+  }, [router]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {

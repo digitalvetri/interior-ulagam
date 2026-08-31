@@ -19,6 +19,9 @@
 //
 //   nps_ping_en             — English NPS ping
 //   nps_ping_ta             — Tamil NPS ping
+//
+//   payment_reminder_en     — English milestone payment reminder (params: client name, milestone label, amount)
+//   payment_reminder_ta     — Tamil milestone payment reminder
 
 export interface TemplateSendOpts {
   templateBase: string;

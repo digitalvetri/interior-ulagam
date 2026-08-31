@@ -44,23 +44,25 @@ export async function GET(_request: NextRequest) {
   try {
     const rows = await db
       .select({
-        stage: leads.stage,
-        count: sql<number>`count(*)::int`,
+        stage:    leads.stage,
+        count:    sql<number>`count(*)::int`,
+        sumPaise: sql<number>`coalesce(sum(${leads.projectValuePaise}), 0)`,
       })
       .from(leads)
       .where(eq(leads.tenantId, ctx.tenantId))
       .groupBy(leads.stage);
 
-    // Overlay DB results onto the zero-baseline
-    const stats: LeadStatsResponse = { ...ZERO_STATS };
+    const counts: LeadStatsResponse = { ...ZERO_STATS };
+    const budgets: Record<string, number> = { ...ZERO_STATS };
     for (const row of rows) {
       const stage = row.stage as LeadStage;
-      if (stage in stats) {
-        stats[stage] = row.count;
+      if (stage in counts) {
+        counts[stage] = row.count;
+        budgets[stage] = Number(row.sumPaise);
       }
     }
 
-    return NextResponse.json({ data: stats });
+    return NextResponse.json({ data: { counts, budgets } });
   } catch (e) {
     console.error('[GET /api/v1/leads/stats]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

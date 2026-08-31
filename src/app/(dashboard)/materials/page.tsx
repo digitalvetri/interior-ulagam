@@ -3,70 +3,65 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Search, Plus, Edit2, Trash2, Package, X, ChevronUp, ChevronDown,
-  Grid3X3, List, MoreVertical, Download, Users, Clock,
-  CheckCircle, XCircle, ChevronLeft, ChevronRight,
-  ToggleLeft, ToggleRight,
+  Grid3X3, List, MoreVertical, Download, Clock,
+  ChevronLeft, ChevronRight, Tag,
 } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 type MaterialCategory =
-  | 'wood_plywood'
-  | 'laminates_veneers'
-  | 'tiles_flooring'
-  | 'hardware_fittings'
-  | 'paints_finishes'
-  | 'fabrics_upholstery'
+  | 'laminate'
+  | 'hardware'
+  | 'furniture'
+  | 'fabric'
   | 'lighting'
+  | 'flooring'
+  | 'sanitary'
   | 'other';
 
-type SortKey = 'name' | 'category' | 'sellPricePaise' | 'costPricePaise' | 'margin';
+type SortKey = 'name' | 'category' | 'currentRatePaise';
 type ViewMode = 'table' | 'grid';
-type StatusFilter = 'all' | 'in_stock' | 'out_of_stock';
 
 interface Material {
   id: string;
   name: string;
   category: MaterialCategory;
-  description?: string;
   unit: string;
-  costPricePaise: number;
-  sellPricePaise: number;
-  vendorName?: string;
-  imageUrl?: string;
-  inStock: boolean;
+  currentRatePaise: number;
+  lastPurchasePricePaise: number | null;
+  brand: string | null;
+  hsnSac: string | null;
+  notes: string | null;
   createdAt: string;
 }
 
 interface MaterialForm {
   name: string;
   category: MaterialCategory;
-  description: string;
   unit: string;
-  costPriceRupees: string;
-  sellPriceRupees: string;
-  vendorName: string;
-  imageUrl: string;
-  inStock: boolean;
+  currentRateRupees: string;
+  brand: string;
+  hsnSac: string;
+  notes: string;
 }
 
 const INITIAL_FORM: MaterialForm = {
-  name: '', category: 'wood_plywood', description: '', unit: 'sqft',
-  costPriceRupees: '', sellPriceRupees: '', vendorName: '', imageUrl: '', inStock: true,
+  name: '', category: 'laminate', unit: 'sqft',
+  currentRateRupees: '', brand: '', hsnSac: '', notes: '',
 };
 
 /* ── Category config ──────────────────────────────────────────────────────── */
 const CATEGORY_CONFIG: Record<MaterialCategory, { label: string; emoji: string; bg: string; color: string }> = {
-  wood_plywood:       { label: 'Wood / Plywood',       emoji: '🪵', bg: '#FDF3E8', color: 'var(--warning-text)' },
-  laminates_veneers:  { label: 'Laminates & Veneers',  emoji: '📋', bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  tiles_flooring:     { label: 'Tiles & Flooring',     emoji: '🏛️', bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
-  hardware_fittings:  { label: 'Hardware & Fittings',  emoji: '🔩', bg: 'var(--surface-muted)', color: 'var(--text-primary)' },
-  paints_finishes:    { label: 'Paints & Finishes',    emoji: '🎨', bg: '#FDF2F8', color: '#BE185D' },
-  fabrics_upholstery: { label: 'Fabrics & Upholstery', emoji: '🧵', bg: 'var(--accent-soft)', color: '#6B21A8' },
-  lighting:           { label: 'Lighting',             emoji: '💡', bg: '#FEFCE8', color: '#713F12' },
-  other:              { label: 'Other',                emoji: '📦', bg: '#FAF9F6', color: 'var(--text-primary)' },
+  laminate:  { label: 'Laminates',        emoji: '📋', bg: 'var(--success-soft)',  color: 'var(--success-text)' },
+  hardware:  { label: 'Hardware',         emoji: '🔩', bg: 'var(--surface-muted)', color: 'var(--text-primary)' },
+  furniture: { label: 'Furniture',        emoji: '🪑', bg: '#FDF3E8',              color: '#92400E' },
+  fabric:    { label: 'Fabrics',          emoji: '🧵', bg: 'var(--accent-soft)',   color: '#6B21A8' },
+  lighting:  { label: 'Lighting',         emoji: '💡', bg: '#FEFCE8',              color: '#713F12' },
+  flooring:  { label: 'Flooring & Tiles', emoji: '🏛️', bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
+  sanitary:  { label: 'Sanitary',         emoji: '🚿', bg: '#EFF6FF',              color: '#1D4ED8' },
+  other:     { label: 'Other',            emoji: '📦', bg: '#FAF9F6',              color: 'var(--text-primary)' },
 };
 
-const UNIT_OPTIONS = ['sqft', 'piece', 'running ft', 'box', 'litre', 'kg', 'set', 'pair'];
+const UNIT_OPTIONS = ['sqft', 'piece', 'running ft', 'box', 'litre', 'kg', 'set', 'pair', 'nos'];
 const PAGE_SIZE = 20;
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -74,23 +69,18 @@ function fmt(paise: number) {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
-function marginPct(sell: number, cost: number): number {
-  if (sell === 0 || cost === 0) return 0;
-  return Math.round(((sell - cost) / sell) * 100);
-}
-
 function exportCSV(list: Material[]) {
   const rows = [
-    ['Name', 'Category', 'Unit', 'Vendor', 'Cost Price (₹)', 'Sell Price (₹)', 'Margin %', 'Status'],
+    ['Name', 'Category', 'Brand', 'Unit', 'Current Rate (₹)', 'Last Purchase (₹)', 'HSN/SAC', 'Notes'],
     ...list.map(m => [
       m.name,
-      CATEGORY_CONFIG[m.category].label,
+      CATEGORY_CONFIG[m.category]?.label ?? m.category,
+      m.brand ?? '',
       m.unit,
-      m.vendorName ?? '',
-      (m.costPricePaise / 100).toFixed(2),
-      (m.sellPricePaise / 100).toFixed(2),
-      String(marginPct(m.sellPricePaise, m.costPricePaise)),
-      m.inStock ? 'In Stock' : 'Out of Stock',
+      (m.currentRatePaise / 100).toFixed(2),
+      m.lastPurchasePricePaise != null ? (m.lastPurchasePricePaise / 100).toFixed(2) : '',
+      m.hsnSac ?? '',
+      m.notes ?? '',
     ]),
   ];
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -124,91 +114,6 @@ function StatCard({
   );
 }
 
-/* ── Adjust Stock Modal ───────────────────────────────────────────────────── */
-function AdjustStockModal({
-  material, onClose, onSave,
-}: {
-  material: Material;
-  onClose: () => void;
-  onSave: (id: string, inStock: boolean) => Promise<void>;
-}) {
-  const [inStock, setInStock] = useState(material.inStock);
-  const [saving, setSaving]   = useState(false);
-  const [err, setErr]         = useState<string | null>(null);
-  const cat                   = CATEGORY_CONFIG[material.category];
-
-  async function handleSave() {
-    if (inStock === material.inStock) { onClose(); return; }
-    setSaving(true); setErr(null);
-    try {
-      await onSave(material.id, inStock);
-      onClose();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to update stock status');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.4)' }}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
-        <div className="flex items-center justify-between px-6 py-4"
-          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Adjust Stock Status</h2>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[var(--border-subtle)]">
-            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-          </button>
-        </div>
-        <div className="px-6 py-5 space-y-4">
-          <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: cat.bg }}>
-            <span className="text-2xl">{cat.emoji}</span>
-            <div>
-              <p className="font-semibold text-sm" style={{ color: 'var(--text-heading)' }}>{material.name}</p>
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{cat.label}</p>
-            </div>
-          </div>
-          <div>
-            <p className="text-xs font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>Stock Status</p>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setInStock(true)}
-                className="flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all"
-                style={{
-                  borderColor: inStock ? 'var(--success)' : 'var(--border-strong)',
-                  background: inStock ? 'var(--success-soft)' : 'var(--surface-card)',
-                  color: inStock ? 'var(--success-text)' : 'var(--text-secondary)',
-                }}>
-                <CheckCircle className="h-4 w-4" />
-                In Stock
-              </button>
-              <button type="button" onClick={() => setInStock(false)}
-                className="flex-1 flex items-center gap-2 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all"
-                style={{
-                  borderColor: !inStock ? 'var(--danger)' : 'var(--border-strong)',
-                  background: !inStock ? 'var(--danger-soft)' : 'var(--surface-card)',
-                  color: !inStock ? 'var(--danger)' : 'var(--text-secondary)',
-                }}>
-                <XCircle className="h-4 w-4" />
-                Out of Stock
-              </button>
-            </div>
-          </div>
-          {err && (
-            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{err}</div>
-          )}
-        </div>
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
-          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm">
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Material Modal ───────────────────────────────────────────────────────── */
 function MaterialModal({
   open, onClose, onSave, initial,
@@ -226,15 +131,13 @@ function MaterialModal({
   useEffect(() => {
     if (initial) {
       setForm({
-        name: initial.name,
-        category: initial.category,
-        description: initial.description ?? '',
-        unit: initial.unit,
-        costPriceRupees: String(initial.costPricePaise / 100),
-        sellPriceRupees: String(initial.sellPricePaise / 100),
-        vendorName: initial.vendorName ?? '',
-        imageUrl: initial.imageUrl ?? '',
-        inStock: initial.inStock,
+        name:               initial.name,
+        category:           initial.category,
+        unit:               initial.unit,
+        currentRateRupees:  String(initial.currentRatePaise / 100),
+        brand:              initial.brand ?? '',
+        hsnSac:             initial.hsnSac ?? '',
+        notes:              initial.notes ?? '',
       });
     } else {
       setForm(INITIAL_FORM);
@@ -249,9 +152,8 @@ function MaterialModal({
 
   async function handleSave() {
     const errs: Partial<Record<keyof MaterialForm, string>> = {};
-    if (!form.name.trim())     errs.name            = 'Name is required';
-    if (!form.costPriceRupees) errs.costPriceRupees = 'Cost price is required';
-    if (!form.sellPriceRupees) errs.sellPriceRupees = 'Sell price is required';
+    if (!form.name.trim())         errs.name             = 'Name is required';
+    if (!form.currentRateRupees)   errs.currentRateRupees = 'Rate is required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true); setApiErr(null);
     try {
@@ -265,10 +167,6 @@ function MaterialModal({
   }
 
   if (!open) return null;
-
-  const sellPaise = Number(form.sellPriceRupees) * 100;
-  const costPaise = Number(form.costPriceRupees) * 100;
-  const margin    = marginPct(sellPaise, costPaise);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -284,13 +182,18 @@ function MaterialModal({
             <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
+
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
+
+          {/* Name */}
           <div>
             <label className="studio-label block mb-1.5">Name *</label>
             <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
               placeholder="e.g. Marine Plywood 19mm" className="studio-input w-full text-sm" />
             {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
           </div>
+
+          {/* Category + Unit */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="studio-label block mb-1.5">Category</label>
@@ -309,58 +212,43 @@ function MaterialModal({
               </select>
             </div>
           </div>
+
+          {/* Brand */}
           <div>
-            <label className="studio-label block mb-1.5">Description</label>
-            <textarea value={form.description} onChange={e => set('description', e.target.value)}
-              rows={2} placeholder="Optional details, specs, brand…"
+            <label className="studio-label block mb-1.5">Brand</label>
+            <input type="text" value={form.brand} onChange={e => set('brand', e.target.value)}
+              placeholder="e.g. Merino, Greenlam, Hafele" className="studio-input w-full text-sm" />
+          </div>
+
+          {/* Current Rate */}
+          <div>
+            <label className="studio-label block mb-1.5">Current Rate ₹ *</label>
+            <input type="number" min={0} step={0.01} value={form.currentRateRupees}
+              onChange={e => set('currentRateRupees', e.target.value)} placeholder="0"
+              className="studio-input w-full text-sm" />
+            {errors.currentRateRupees && <p className="text-xs text-red-600 mt-1">{errors.currentRateRupees}</p>}
+            <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+              This is your purchase cost per {form.unit}. The previous rate is saved automatically as history.
+            </p>
+          </div>
+
+          {/* HSN/SAC */}
+          <div>
+            <label className="studio-label block mb-1.5">HSN / SAC Code</label>
+            <input type="text" value={form.hsnSac} onChange={e => set('hsnSac', e.target.value)}
+              placeholder="e.g. 4412" className="studio-input w-full text-sm" />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="studio-label block mb-1.5">Notes</label>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+              rows={2} placeholder="Specs, thickness, finish, supplier notes…"
               className="studio-input w-full text-sm resize-none" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="studio-label block mb-1.5">Cost Price ₹ *</label>
-              <input type="number" min={0} step={0.01} value={form.costPriceRupees}
-                onChange={e => set('costPriceRupees', e.target.value)} placeholder="0"
-                className="studio-input w-full text-sm" />
-              {errors.costPriceRupees && <p className="text-xs text-red-600 mt-1">{errors.costPriceRupees}</p>}
-            </div>
-            <div>
-              <label className="studio-label block mb-1.5">Sell Price ₹ *</label>
-              <input type="number" min={0} step={0.01} value={form.sellPriceRupees}
-                onChange={e => set('sellPriceRupees', e.target.value)} placeholder="0"
-                className="studio-input w-full text-sm" />
-              {errors.sellPriceRupees && <p className="text-xs text-red-600 mt-1">{errors.sellPriceRupees}</p>}
-            </div>
-          </div>
-          {margin > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
-              style={{ background: 'var(--success-soft)', border: '1px solid #86EFAC' }}>
-              <span className="text-xs font-semibold" style={{ color: 'var(--success-text)' }}>
-                Margin: {margin}% on sell price
-              </span>
-            </div>
-          )}
-          <div>
-            <label className="studio-label block mb-1.5">Vendor Name</label>
-            <input type="text" value={form.vendorName} onChange={e => set('vendorName', e.target.value)}
-              placeholder="e.g. Kitply Industries" className="studio-input w-full text-sm" />
-          </div>
-          <div>
-            <label className="studio-label block mb-1.5">Image URL</label>
-            <input type="url" value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)}
-              placeholder="https://…" className="studio-input w-full text-sm" />
-          </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-              style={{ background: form.inStock ? 'var(--text-primary)' : 'var(--border-strong)' }}
-              onClick={() => set('inStock', !form.inStock)}>
-              <div className="absolute top-1 w-4 h-4 bg-[var(--surface-card)] rounded-full transition-all"
-                style={{ left: form.inStock ? 22 : 4 }} />
-            </div>
-            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              {form.inStock ? 'In Stock' : 'Out of Stock'}
-            </span>
-          </label>
+
         </div>
+
         {apiError && (
           <div className="mx-6 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex-shrink-0">
             {apiError}
@@ -385,21 +273,12 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
     : <ChevronDown className="h-3 w-3 text-violet-600" />;
 }
 
-/* ── Page ─────────────────────────────────────────────────────────────────── */
-
-/* ── Table header cell ────────────────────────────────────────────────────────
-   Declared at module scope. Defining a component inside another component's
-   body creates a brand-new component type on every render, so React unmounts
-   and remounts the entire header each time state changes. */
+/* ── Table header cell ────────────────────────────────────────────────────── */
 function Th({
   col, label, align = 'left', sortKey, sortDir, onSort,
 }: {
-  col: SortKey;
-  label: string;
-  align?: 'left' | 'right';
-  sortKey: SortKey;
-  sortDir: 'asc' | 'desc';
-  onSort: (col: SortKey) => void;
+  col: SortKey; label: string; align?: 'left' | 'right';
+  sortKey: SortKey; sortDir: 'asc' | 'desc'; onSort: (col: SortKey) => void;
 }) {
   return (
     <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none ${align === 'right' ? 'text-right' : 'text-left'}`}
@@ -415,13 +294,11 @@ function Th({
 
 /* ── Row action menu ─────────────────────────────────────────────────────── */
 function RowMenu({
-  m, open, onToggle, onEdit, onAdjust, onDelete,
+  m, open, onToggle, onEdit, onDelete,
 }: {
-  m: Material;
-  open: boolean;
+  m: Material; open: boolean;
   onToggle: (id: string | null) => void;
   onEdit: (m: Material) => void;
-  onAdjust: (m: Material) => void;
   onDelete: (id: string) => void;
 }) {
   return (
@@ -432,19 +309,12 @@ function RowMenu({
         <MoreVertical className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
       </button>
       {open && (
-        <div className="absolute right-0 top-8 z-20 w-44 rounded-xl border shadow-lg overflow-hidden"
+        <div className="absolute right-0 top-8 z-20 w-40 rounded-xl border shadow-lg overflow-hidden"
           style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <button type="button" onClick={() => onEdit(m)}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors">
             <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
             <span style={{ color: 'var(--text-heading)' }}>Edit</span>
-          </button>
-          <button type="button" onClick={() => onAdjust(m)}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors">
-            {m.inStock
-              ? <ToggleRight className="h-3.5 w-3.5" style={{ color: 'var(--success)' }} />
-              : <ToggleLeft  className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />}
-            <span style={{ color: 'var(--text-heading)' }}>Adjust Stock</span>
           </button>
           <div style={{ borderTop: '1px solid var(--border-subtle)' }} />
           <button type="button" onClick={() => onDelete(m.id)}
@@ -458,13 +328,12 @@ function RowMenu({
   );
 }
 
+/* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function MaterialsPage() {
-  const [materials, setMaterials]           = useState<Material[]>([]);
+  const [materialsList, setMaterialsList]   = useState<Material[]>([]);
   const [loading, setLoading]               = useState(true);
   const [search, setSearch]                 = useState('');
   const [activeCategory, setActiveCategory] = useState<MaterialCategory | 'all'>('all');
-  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('all');
-  const [vendorFilter, setVendorFilter]     = useState<string>('all');
   const [sortKey, setSortKey]               = useState<SortKey>('name');
   const [sortDir, setSortDir]               = useState<'asc' | 'desc'>('asc');
   const [viewMode, setViewMode]             = useState<ViewMode>('table');
@@ -472,61 +341,49 @@ export default function MaterialsPage() {
   const [menuOpenId, setMenuOpenId]         = useState<string | null>(null);
   const [modalOpen, setModalOpen]           = useState(false);
   const [editTarget, setEditTarget]         = useState<Material | undefined>();
-  const [adjustTarget, setAdjustTarget]     = useState<Material | undefined>();
   const isOwner                             = true;
-  // Stamped when the data arrives rather than read during render: Date.now() is
-  // impure, and inside the stats memo it would only be re-read when `materials`
-  // changed, quietly ageing the "last 30 days" cutoff.
   const [loadedAt, setLoadedAt]             = useState<number>(() => 0);
 
   useEffect(() => {
     fetch('/api/v1/materials')
       .then(r => r.json())
       .then(({ data }: { data: Material[] | null }) => {
-        setMaterials(data ?? []); setLoadedAt(Date.now()); setLoading(false);
+        setMaterialsList(data ?? []); setLoadedAt(Date.now()); setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
   /* ── Derived stats ──────────────────────────────────────────────────────── */
   const stats = useMemo(() => {
-    const thirtyDaysAgo = loadedAt - 30 * 24 * 60 * 60 * 1000;
-    const inStockCount   = materials.filter(m => m.inStock).length;
-    const outStockCount  = materials.filter(m => !m.inStock).length;
-    const uniqueVendors  = new Set(materials.map(m => m.vendorName).filter(Boolean)).size;
-    const recentCount    = materials.filter(m => new Date(m.createdAt).getTime() > thirtyDaysAgo).length;
-    const uniqueCats     = new Set(materials.map(m => m.category)).size;
-    return { total: materials.length, inStockCount, outStockCount, uniqueVendors, recentCount, uniqueCats };
-  }, [materials, loadedAt]);
-
-  const vendorOptions = useMemo(() => (
-    Array.from(new Set(materials.map(m => m.vendorName).filter((v): v is string => !!v))).sort()
-  ), [materials]);
+    const thirtyDaysAgo  = loadedAt - 30 * 24 * 60 * 60 * 1000;
+    const withBrand      = materialsList.filter(m => m.brand).length;
+    const recentCount    = materialsList.filter(m => new Date(m.createdAt).getTime() > thirtyDaysAgo).length;
+    const uniqueCats     = new Set(materialsList.map(m => m.category)).size;
+    const avgRate        = materialsList.length
+      ? Math.round(materialsList.reduce((s, m) => s + m.currentRatePaise, 0) / materialsList.length)
+      : 0;
+    return { total: materialsList.length, withBrand, recentCount, uniqueCats, avgRate };
+  }, [materialsList, loadedAt]);
 
   /* ── Filter + sort ──────────────────────────────────────────────────────── */
   const filtered = useMemo(() => {
-    let result = materials;
+    let result = materialsList;
     if (activeCategory !== 'all') result = result.filter(m => m.category === activeCategory);
-    if (statusFilter === 'in_stock')    result = result.filter(m => m.inStock);
-    if (statusFilter === 'out_of_stock') result = result.filter(m => !m.inStock);
-    if (vendorFilter !== 'all') result = result.filter(m => m.vendorName === vendorFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(m =>
         m.name.toLowerCase().includes(q) ||
-        (m.description ?? '').toLowerCase().includes(q) ||
-        (m.vendorName ?? '').toLowerCase().includes(q),
+        (m.brand ?? '').toLowerCase().includes(q) ||
+        (m.notes ?? '').toLowerCase().includes(q) ||
+        (m.hsnSac ?? '').toLowerCase().includes(q),
       );
     }
     return [...result].sort((a, b) => {
       let av: number | string;
       let bv: number | string;
-      if (sortKey === 'margin') {
-        av = marginPct(a.sellPricePaise, a.costPricePaise);
-        bv = marginPct(b.sellPricePaise, b.costPricePaise);
-      } else if (sortKey === 'category') {
-        av = CATEGORY_CONFIG[a.category].label;
-        bv = CATEGORY_CONFIG[b.category].label;
+      if (sortKey === 'category') {
+        av = CATEGORY_CONFIG[a.category]?.label ?? a.category;
+        bv = CATEGORY_CONFIG[b.category]?.label ?? b.category;
       } else {
         av = a[sortKey] as number | string;
         bv = b[sortKey] as number | string;
@@ -535,7 +392,7 @@ export default function MaterialsPage() {
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [materials, activeCategory, statusFilter, vendorFilter, search, sortKey, sortDir]);
+  }, [materialsList, activeCategory, search, sortKey, sortDir]);
 
   /* ── Pagination ─────────────────────────────────────────────────────────── */
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -549,38 +406,44 @@ export default function MaterialsPage() {
     setPage(1);
   }
 
-  function clearFilters() {
-    setSearch(''); setActiveCategory('all');
-    setStatusFilter('all'); setVendorFilter('all');
-    setPage(1);
-  }
-
-  const hasFilters = search || activeCategory !== 'all' || statusFilter !== 'all' || vendorFilter !== 'all';
+  function clearFilters() { setSearch(''); setActiveCategory('all'); setPage(1); }
+  const hasFilters = !!(search || activeCategory !== 'all');
 
   const handleSave = useCallback(async (form: MaterialForm) => {
-    const body = {
-      name: form.name.trim(), category: form.category,
-      description: form.description.trim() || undefined, unit: form.unit,
-      costPricePaise: Math.round(Number(form.costPriceRupees) * 100),
-      sellPricePaise: Math.round(Number(form.sellPriceRupees) * 100),
-      vendorName: form.vendorName.trim() || undefined,
-      imageUrl:   form.imageUrl.trim()   || undefined,
-      inStock: form.inStock,
-    };
+    const currentRatePaise = Math.round(Number(form.currentRateRupees) * 100);
+
     if (editTarget) {
+      // PATCH only accepts the strict subset: currentRatePaise, name, brand, unit, hsnSac, notes
+      const body: Record<string, unknown> = { name: form.name.trim() };
+      if (form.unit)  body.unit  = form.unit;
+      if (currentRatePaise !== editTarget.currentRatePaise) body.currentRatePaise = currentRatePaise;
+      if (form.brand.trim())  body.brand  = form.brand.trim();
+      if (form.hsnSac.trim()) body.hsnSac = form.hsnSac.trim();
+      if (form.notes.trim())  body.notes  = form.notes.trim();
+
       const res = await fetch(`/api/v1/materials/${editTarget.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => ({})) as { data?: Material; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `Failed to update (${res.status})`);
-      setMaterials(prev => prev.map(m => m.id === editTarget.id ? json.data! : m));
+      const json = await res.json().catch(() => ({})) as { data?: Material; error?: unknown };
+      if (!res.ok) throw new Error(JSON.stringify(json.error) ?? `Failed (${res.status})`);
+      setMaterialsList(prev => prev.map(m => m.id === editTarget.id ? json.data! : m));
     } else {
+      const body: Record<string, unknown> = {
+        name: form.name.trim(),
+        category: form.category,
+        unit: form.unit,
+        currentRatePaise,
+      };
+      if (form.brand.trim())  body.brand  = form.brand.trim();
+      if (form.hsnSac.trim()) body.hsnSac = form.hsnSac.trim();
+      if (form.notes.trim())  body.notes  = form.notes.trim();
+
       const res = await fetch('/api/v1/materials', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => ({})) as { data?: Material; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `Failed to add material (${res.status})`);
-      setMaterials(prev => [json.data!, ...prev]);
+      const json = await res.json().catch(() => ({})) as { data?: Material; error?: unknown };
+      if (!res.ok) throw new Error(JSON.stringify(json.error) ?? `Failed (${res.status})`);
+      setMaterialsList(prev => [json.data!, ...prev]);
     }
     setEditTarget(undefined);
   }, [editTarget]);
@@ -588,27 +451,15 @@ export default function MaterialsPage() {
   async function handleDelete(id: string) {
     if (!window.confirm('Delete this material? This cannot be undone.')) return;
     const res = await fetch(`/api/v1/materials/${id}`, { method: 'DELETE' });
-    if (res.ok) setMaterials(prev => prev.filter(m => m.id !== id));
+    if (res.ok) setMaterialsList(prev => prev.filter(m => m.id !== id));
     setMenuOpenId(null);
-  }
-
-  async function handleAdjustStock(id: string, inStock: boolean) {
-    const res = await fetch(`/api/v1/materials/${id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ inStock }),
-    });
-    if (!res.ok) throw new Error('Failed to update stock status');
-    setMaterials(prev => prev.map(m => m.id === id ? { ...m, inStock } : m));
   }
 
   function openEdit(m: Material) { setEditTarget(m); setModalOpen(true); setMenuOpenId(null); }
   function openAdd()              { setEditTarget(undefined); setModalOpen(true); }
-  function openAdjust(m: Material){ setAdjustTarget(m); setMenuOpenId(null); }
 
   const categories = Object.keys(CATEGORY_CONFIG) as MaterialCategory[];
 
-  /* ── Sortable TH ────────────────────────────────────────────────────────── */
-  /* ── Row action menu ────────────────────────────────────────────────────── */
   /* ── Render ─────────────────────────────────────────────────────────────── */
   return (
     <div className="p-6 space-y-5">
@@ -638,13 +489,14 @@ export default function MaterialsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <StatCard label="Total Materials" value={stats.total}
           icon={Package} iconBg="var(--accent-soft)" iconColor="var(--accent-base)" />
-        <StatCard label="In Stock" value={stats.inStockCount}
-          sub={stats.total ? `${Math.round(stats.inStockCount / stats.total * 100)}% available` : undefined}
-          icon={CheckCircle} iconBg="var(--success-soft)" iconColor="var(--success)" />
-        <StatCard label="Out of Stock" value={stats.outStockCount}
-          icon={XCircle} iconBg="var(--danger-soft)" iconColor="var(--danger)" />
-        <StatCard label="Vendors" value={stats.uniqueVendors}
-          icon={Users} iconBg="var(--accent-soft)" iconColor="var(--accent-base)" />
+        <StatCard label="Categories" value={stats.uniqueCats}
+          icon={Grid3X3} iconBg="var(--success-soft)" iconColor="var(--success)" />
+        <StatCard label="Avg. Rate" value={stats.avgRate > 0 ? fmt(stats.avgRate) : '—'}
+          sub="across all materials"
+          icon={Tag} iconBg="var(--surface-muted)" iconColor="var(--text-secondary)" />
+        <StatCard label="With Brand" value={stats.withBrand}
+          sub={stats.total ? `${Math.round(stats.withBrand / stats.total * 100)}% catalogued` : undefined}
+          icon={Tag} iconBg="#FDF3E8" iconColor="#92400E" />
         <StatCard label="Recently Added" value={stats.recentCount} sub="last 30 days"
           icon={Clock} iconBg="#FEFCE8" iconColor="var(--warning)" />
       </div>
@@ -654,7 +506,7 @@ export default function MaterialsPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="studio-search-icon" />
           <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search by name, vendor, or description…"
+            placeholder="Search by name, brand, notes, or HSN…"
             className="studio-input w-full text-sm h-10" />
           {search && (
             <button type="button" onClick={() => setSearch('')}
@@ -663,54 +515,18 @@ export default function MaterialsPage() {
             </button>
           )}
         </div>
-        <button type="button"
-          onClick={() => exportCSV(filtered)}
+        <button type="button" onClick={() => exportCSV(filtered)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
           style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--surface-card)' }}>
           <Download className="h-4 w-4" />
           Export
         </button>
-      </div>
-
-      {/* ── Filter row ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value as StatusFilter); setPage(1); }}
-          className="text-sm rounded-xl border px-3 py-2 h-9 pr-8 appearance-none cursor-pointer"
-          style={{ borderColor: statusFilter !== 'all' ? 'var(--accent-base)' : 'var(--border-strong)', background: statusFilter !== 'all' ? 'var(--accent-soft)' : 'var(--surface-card)', color: 'var(--text-primary)' }}>
-          <option value="all">All Status</option>
-          <option value="in_stock">In Stock</option>
-          <option value="out_of_stock">Out of Stock</option>
-        </select>
-
-        {vendorOptions.length > 0 && (
-          <select value={vendorFilter} onChange={e => { setVendorFilter(e.target.value); setPage(1); }}
-            className="text-sm rounded-xl border px-3 py-2 h-9 pr-8 appearance-none cursor-pointer max-w-[180px] truncate"
-            style={{ borderColor: vendorFilter !== 'all' ? 'var(--accent-base)' : 'var(--border-strong)', background: vendorFilter !== 'all' ? 'var(--accent-soft)' : 'var(--surface-card)', color: 'var(--text-primary)' }}>
-            <option value="all">All Vendors</option>
-            {vendorOptions.map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
-        )}
-
-        <select value={`${sortKey}:${sortDir}`}
-          onChange={e => {
-            const [k, d] = e.target.value.split(':');
-            setSortKey(k as SortKey); setSortDir(d as 'asc' | 'desc'); setPage(1);
-          }}
-          className="text-sm rounded-xl border px-3 py-2 h-9 pr-8 appearance-none cursor-pointer"
-          style={{ borderColor: 'var(--border-strong)', background: 'var(--surface-card)', color: 'var(--text-primary)' }}>
-          <option value="name:asc">Name A–Z</option>
-          <option value="name:desc">Name Z–A</option>
-          <option value="sellPricePaise:desc">Price High–Low</option>
-          <option value="sellPricePaise:asc">Price Low–High</option>
-          <option value="margin:desc">Margin High–Low</option>
-          <option value="costPricePaise:asc">Cost Low–High</option>
-        </select>
 
         {hasFilters && (
           <button type="button" onClick={clearFilters}
             className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border transition-colors hover:bg-red-50"
             style={{ borderColor: 'var(--danger-soft)', color: 'var(--danger)', background: 'var(--danger-soft)' }}>
-            <X className="h-3.5 w-3.5" />Clear filters
+            <X className="h-3.5 w-3.5" />Clear
           </button>
         )}
 
@@ -738,10 +554,10 @@ export default function MaterialsPage() {
             color: activeCategory === 'all' ? 'var(--surface-card)' : 'var(--text-primary)',
             border: '1px solid var(--border-strong)',
           }}>
-          All ({materials.length})
+          All ({materialsList.length})
         </button>
         {categories.map(cat => {
-          const count = materials.filter(m => m.category === cat).length;
+          const count = materialsList.filter(m => m.category === cat).length;
           if (count === 0) return null;
           const cfg = CATEGORY_CONFIG[cat];
           return (
@@ -831,14 +647,14 @@ export default function MaterialsPage() {
                   <Th col="name" label="Name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <Th col="category" label="Category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Unit</th>
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Brand</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Vendor</th>
-                  <Th col="costPricePaise" label="Cost" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <Th col="sellPricePaise" label="Sell Price" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <Th col="margin" label="Margin" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-center"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Status</th>
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Unit</th>
+                  <Th col="currentRatePaise" label="Current Rate" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-right"
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Last Purchase</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
+                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>HSN/SAC</th>
                   {isOwner && (
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-right"
                       style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', width: 48 }} />
@@ -847,8 +663,7 @@ export default function MaterialsPage() {
               </thead>
               <tbody>
                 {paginated.map((m, idx) => {
-                  const cat    = CATEGORY_CONFIG[m.category];
-                  const margin = marginPct(m.sellPricePaise, m.costPricePaise);
+                  const cat = CATEGORY_CONFIG[m.category];
                   return (
                     <tr key={m.id} className="transition-colors hover:bg-[#FDFCFB]"
                       style={{ borderBottom: idx < paginated.length - 1 ? '1px solid #F5F3F0' : undefined }}>
@@ -856,76 +671,59 @@ export default function MaterialsPage() {
                       {/* Name */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          {m.imageUrl ? (
-                            <img src={m.imageUrl} alt={m.name}
-                              className="h-9 w-9 rounded-lg object-cover flex-shrink-0"
-                              style={{ border: '1px solid var(--border-subtle)' }} />
-                          ) : (
-                            <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 text-base"
-                              style={{ background: cat.bg }}>{cat.emoji}</div>
-                          )}
-                          <p className="font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{m.name}</p>
+                          <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 text-base"
+                            style={{ background: cat?.bg ?? '#FAF9F6' }}>{cat?.emoji ?? '📦'}</div>
+                          <div>
+                            <p className="font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{m.name}</p>
+                            {m.notes && (
+                              <p className="text-[10px] truncate max-w-[180px]" style={{ color: 'var(--text-tertiary)' }}>{m.notes}</p>
+                            )}
+                          </div>
                         </div>
                       </td>
 
                       {/* Category */}
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap"
-                          style={{ background: cat.bg, color: cat.color }}>
-                          {cat.emoji} {cat.label}
+                          style={{ background: cat?.bg ?? '#FAF9F6', color: cat?.color ?? 'var(--text-primary)' }}>
+                          {cat?.emoji ?? '📦'} {cat?.label ?? m.category}
                         </span>
+                      </td>
+
+                      {/* Brand */}
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {m.brand ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                       </td>
 
                       {/* Unit */}
-                      <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {m.unit}
                       </td>
 
-                      {/* Vendor */}
-                      <td className="px-4 py-3 text-xs max-w-[140px]" style={{ color: 'var(--text-secondary)' }}>
-                        <span className="truncate block">{m.vendorName ?? '—'}</span>
-                      </td>
-
-                      {/* Cost */}
-                      <td className="px-4 py-3 text-right tabular-nums text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                        {fmt(m.costPricePaise)}
-                      </td>
-
-                      {/* Sell Price */}
+                      {/* Current Rate */}
                       <td className="px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap"
                         style={{ color: '#8F6F2E' }}>
-                        {fmt(m.sellPricePaise)}
+                        {fmt(m.currentRatePaise)}
                         <span className="text-[10px] font-normal ml-0.5" style={{ color: 'var(--text-tertiary)' }}>/{m.unit}</span>
                       </td>
 
-                      {/* Margin */}
-                      <td className="px-4 py-3 text-right">
-                        {margin > 0 ? (
-                          <span className="inline-block rounded-full px-2 py-0.5 text-xs font-bold"
-                            style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>{margin}%</span>
-                        ) : (
-                          <span className="text-xs" style={{ color: '#D1CBB8' }}>—</span>
-                        )}
+                      {/* Last Purchase */}
+                      <td className="px-4 py-3 text-right tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {m.lastPurchasePricePaise != null
+                          ? <>{fmt(m.lastPurchasePricePaise)}</>
+                          : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                       </td>
 
-                      {/* Status */}
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap"
-                          style={{
-                            background: m.inStock ? 'var(--success-soft)' : 'var(--danger-soft)',
-                            color:      m.inStock ? 'var(--success-text)' : 'var(--danger)',
-                          }}>
-                          <span className="h-1.5 w-1.5 rounded-full inline-block"
-                            style={{ background: m.inStock ? 'var(--success)' : 'var(--danger)' }} />
-                          {m.inStock ? 'In Stock' : 'Out of Stock'}
-                        </span>
+                      {/* HSN/SAC */}
+                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+                        {m.hsnSac ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                       </td>
 
                       {/* Actions */}
                       {isOwner && (
                         <td className="px-3 py-3 text-right">
                           <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
-                            onEdit={openEdit} onAdjust={openAdjust} onDelete={handleDelete} />
+                            onEdit={openEdit} onDelete={handleDelete} />
                         </td>
                       )}
                     </tr>
@@ -950,61 +748,50 @@ export default function MaterialsPage() {
         /* ── Grid view ──────────────────────────────────────────────────── */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {paginated.map(m => {
-            const cat    = CATEGORY_CONFIG[m.category];
-            const margin = marginPct(m.sellPricePaise, m.costPricePaise);
+            const cat = CATEGORY_CONFIG[m.category];
             return (
               <div key={m.id} className="rounded-xl border p-4 hover:shadow-md transition-all"
                 style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+
                 {/* Card header */}
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                      style={{ background: cat.bg }}>{cat.emoji}</div>
+                      style={{ background: cat?.bg ?? '#FAF9F6' }}>{cat?.emoji ?? '📦'}</div>
                     <div className="min-w-0">
                       <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-heading)' }}>{m.name}</p>
                       <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>per {m.unit}</p>
                     </div>
                   </div>
                   {isOwner && <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
-                            onEdit={openEdit} onAdjust={openAdjust} onDelete={handleDelete} />}
+                    onEdit={openEdit} onDelete={handleDelete} />}
                 </div>
 
                 {/* Category */}
                 <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium mb-2"
-                  style={{ background: cat.bg, color: cat.color }}>
-                  {cat.emoji} {cat.label}
+                  style={{ background: cat?.bg ?? '#FAF9F6', color: cat?.color ?? 'var(--text-primary)' }}>
+                  {cat?.emoji} {cat?.label ?? m.category}
                 </span>
 
-                {/* Vendor */}
-                {m.vendorName && (
-                  <p className="text-xs mb-3 truncate" style={{ color: 'var(--text-secondary)' }}>
-                    <span style={{ color: 'var(--text-tertiary)' }}>Vendor: </span>{m.vendorName}
+                {/* Brand */}
+                {m.brand && (
+                  <p className="text-xs mb-2 truncate" style={{ color: 'var(--text-secondary)' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>Brand: </span>{m.brand}
                   </p>
                 )}
 
-                {/* Price row */}
-                <div className="flex items-center justify-between mb-3">
+                {/* Rate */}
+                <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <div>
-                    <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Sell Price</p>
-                    <p className="font-bold text-sm" style={{ color: '#8F6F2E' }}>{fmt(m.sellPricePaise)}</p>
+                    <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Current Rate</p>
+                    <p className="font-bold text-sm" style={{ color: '#8F6F2E' }}>{fmt(m.currentRatePaise)}</p>
                   </div>
-                  {margin > 0 && (
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
-                      style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>{margin}%</span>
+                  {m.lastPurchasePricePaise != null && m.lastPurchasePricePaise !== m.currentRatePaise && (
+                    <div className="text-right">
+                      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Prev. Rate</p>
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{fmt(m.lastPurchasePricePaise)}</p>
+                    </div>
                   )}
-                </div>
-
-                {/* Status */}
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold"
-                    style={{
-                      background: m.inStock ? 'var(--success-soft)' : 'var(--danger-soft)',
-                      color:      m.inStock ? 'var(--success-text)' : 'var(--danger)',
-                    }}>
-                    <span className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: m.inStock ? 'var(--success)' : 'var(--danger)' }} />
-                    {m.inStock ? 'In Stock' : 'Out of Stock'}
-                  </span>
                 </div>
               </div>
             );
@@ -1012,21 +799,13 @@ export default function MaterialsPage() {
         </div>
       )}
 
-      {/* ── Modals ─────────────────────────────────────────────────────── */}
+      {/* ── Modal ──────────────────────────────────────────────────────── */}
       <MaterialModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTarget(undefined); }}
         onSave={handleSave}
         initial={editTarget}
       />
-
-      {adjustTarget && (
-        <AdjustStockModal
-          material={adjustTarget}
-          onClose={() => setAdjustTarget(undefined)}
-          onSave={handleAdjustStock}
-        />
-      )}
     </div>
   );
 }

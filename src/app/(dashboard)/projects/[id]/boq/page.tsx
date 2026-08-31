@@ -2,9 +2,28 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, LayoutList, AlertTriangle, TrendingDown, TrendingUp, ShoppingBag, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, LayoutList, AlertTriangle, TrendingDown, TrendingUp, ShoppingBag, ClipboardCheck, ChevronRight } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
-import type { BOQSummary } from '@/types/purchase-orders';
+import type { BOQSummary, POStatus } from '@/types/purchase-orders';
+
+/* ── PO types ──────────────────────────────────────────────────────────────── */
+
+interface POListItem {
+  id: string;
+  poNumber: string;
+  status: POStatus;
+  advancePaidPaise: number;
+  expectedDeliveryAt: string | null;
+}
+
+const PO_STATUS_CONFIG: Record<POStatus, { label: string; cls: string }> = {
+  draft:        { label: 'Draft',        cls: 'bg-[var(--surface-muted)] text-[var(--text-secondary)]' },
+  sent:         { label: 'Sent',         cls: 'bg-purple-50 text-purple-700 ring-1 ring-inset ring-purple-200' },
+  acknowledged: { label: 'Acknowledged', cls: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200' },
+  partial:      { label: 'Partial',      cls: 'bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200' },
+  complete:     { label: 'Complete',     cls: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200' },
+  cancelled:    { label: 'Cancelled',    cls: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200' },
+};
 
 /* ── Sub-components ────────────────────────────────────────────────────────── */
 
@@ -67,6 +86,7 @@ export default function ProjectBOQPage({ params }: { params: Promise<{ id: strin
   const [loading,  setLoading]  = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error,    setError]    = useState(false);
+  const [pos,      setPos]      = useState<POListItem[]>([]);
 
   useEffect(() => {
     fetch(`/api/v1/projects/${id}/boq`)
@@ -78,6 +98,13 @@ export default function ProjectBOQPage({ params }: { params: Promise<{ id: strin
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
+  }, [id]);
+
+  useEffect(() => {
+    fetch(`/api/v1/purchase-orders?projectId=${id}`)
+      .then(r => r.json())
+      .then(({ data }: { data: POListItem[] }) => setPos(data ?? []))
+      .catch(() => {});
   }, [id]);
 
   if (loading) {
@@ -209,6 +236,72 @@ export default function ProjectBOQPage({ params }: { params: Promise<{ id: strin
           iconBg="var(--success-soft)" iconColor="var(--success)"
         />
       </div>
+
+      {/* Purchase Orders for this project */}
+      {pos.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+              Purchase Orders
+            </h2>
+            <Link href="/purchase-orders"
+              className="text-xs font-medium hover:underline flex items-center gap-0.5"
+              style={{ color: 'var(--accent-base)' }}>
+              View all <ChevronRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="rounded-2xl border overflow-hidden"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                    <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>PO #</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Status</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Advance</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Expected Delivery</th>
+                    <th className="w-12 px-4 py-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pos.map((po, idx) => {
+                    const sc = PO_STATUS_CONFIG[po.status];
+                    return (
+                      <tr key={po.id}
+                        className="transition-colors hover:bg-[var(--surface-muted)]"
+                        style={{ borderBottom: idx < pos.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                        <td className="px-4 py-3 font-mono text-xs font-medium" style={{ color: 'var(--text-heading)' }}>
+                          {po.poNumber}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${sc.cls}`}>
+                            {sc.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                          {po.advancePaidPaise > 0 ? formatRupees(po.advancePaidPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                          {po.expectedDeliveryAt
+                            ? new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Link href={`/purchase-orders/${po.id}`}
+                            className="inline-flex items-center gap-0.5 text-xs font-medium hover:underline"
+                            style={{ color: 'var(--accent-base)' }}>
+                            View <ChevronRight className="h-3 w-3" />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Variance detail */}
       {negMargin && (

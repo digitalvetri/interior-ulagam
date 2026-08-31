@@ -7,7 +7,7 @@ import {
   CheckCircle2, XCircle, Pencil, AlertTriangle, RefreshCw,
   FolderOpen, CreditCard, ClipboardList, Package, Receipt, Bug,
   FileText, Activity, Plus, ChevronRight, Calendar, MapPin,
-  ArrowRight, Warehouse, Users,
+  ArrowRight,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -373,8 +373,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
     },
     {
       href: `/projects/${id}/boq`,
-      label: 'BOQ',
-      description: 'Bill of quantities',
+      label: 'Procurement',
+      description: 'BOQ vs. delivered reconciliation',
       badge: null,
       Icon: Package,
       iconBg: 'bg-purple-50',
@@ -458,52 +458,6 @@ function LifecycleStepper({ currentStage }: { currentStage: ProjectStage }) {
   );
 }
 
-// ─── Quick Action Button ──────────────────────────────────────────────────────
-
-interface QuickAction {
-  label: string;
-  Icon: ComponentType<{ className?: string }>;
-  href?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  loading?: boolean;
-  loadingLabel?: string;
-  accent?: boolean;
-}
-
-function QuickActionBtn({ action }: { action: QuickAction }) {
-  const content = (
-    <div
-      className={[
-        'inline-flex flex-col items-center gap-1.5 rounded-xl border px-4 py-3 text-center transition-all cursor-pointer',
-        action.accent
-          ? 'border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100'
-          : 'border-[var(--border-subtle)] bg-[var(--surface-card)] text-[var(--text-primary)] hover:border-[var(--border-subtle)] hover:bg-[var(--surface-muted)]',
-        (action.disabled) ? 'opacity-50 cursor-not-allowed' : '',
-      ].join(' ')}
-    >
-      <action.Icon className="h-4 w-4 flex-shrink-0" />
-      <span className="text-xs font-medium whitespace-nowrap">
-        {action.loading ? (action.loadingLabel ?? 'Loading…') : action.label}
-      </span>
-    </div>
-  );
-
-  if (action.href && !action.disabled) {
-    return <Link href={action.href}>{content}</Link>;
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={action.onClick}
-      disabled={action.disabled}
-    >
-      {content}
-    </button>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -522,6 +476,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const [confirmOpen,    setConfirmOpen]    = useState(false);
   const [editOpen,       setEditOpen]       = useState(false);
   const [creatingQuote,  setCreatingQuote]  = useState(false);
+  const [reminderStatus, setReminderStatus] = useState<Record<string, 'idle' | 'sending' | 'sent' | 'error'>>({});
 
   useEffect(() => {
     setFetchError(false);
@@ -593,6 +548,19 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
     }
   }
 
+  async function handleSendReminder(milestoneId: string) {
+    setReminderStatus(prev => ({ ...prev, [milestoneId]: 'sending' }));
+    try {
+      const res = await fetch(`/api/v1/projects/${id}/milestones/${milestoneId}/remind`, { method: 'POST' });
+      setReminderStatus(prev => ({ ...prev, [milestoneId]: res.ok ? 'sent' : 'error' }));
+      if (res.ok) {
+        setTimeout(() => setReminderStatus(prev => ({ ...prev, [milestoneId]: 'idle' })), 3000);
+      }
+    } catch {
+      setReminderStatus(prev => ({ ...prev, [milestoneId]: 'error' }));
+    }
+  }
+
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -641,24 +609,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const palette       = customerPalette(customerName);
   const initials      = customerInitials(customerName);
 
-  const quickActions: QuickAction[] = [
-    {
-      label: creatingQuote ? 'Creating…' : '+ Quotation',
-      Icon: FileText,
-      onClick: handleCreateQuote,
-      disabled: creatingQuote,
-      loading: creatingQuote,
-      loadingLabel: 'Creating…',
-      accent: true,
-    },
-    { label: 'BOQ', Icon: Package, href: `/projects/${id}/boq` },
-    { label: 'Payments', Icon: CreditCard, href: `/projects/${id}/payments` },
-    { label: 'Deliverables', Icon: FolderOpen, href: `/projects/${id}/deliverables` },
-    { label: 'Site Logs', Icon: ClipboardList, href: `/projects/${id}/site` },
-    { label: 'Snag List', Icon: Bug, href: `/projects/${id}/snag` },
-    { label: 'Materials', Icon: Warehouse, href: '/materials' },
-    { label: 'Vendors', Icon: Users, href: '/vendors' },
-  ];
 
   return (
     <div className="space-y-4 pb-10">
@@ -714,15 +664,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-sm font-semibold text-[var(--text-heading)]">{customerName}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setEditOpen(true)}
-              title="Edit project details"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] flex-shrink-0"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={handleCreateQuote}
+                disabled={creatingQuote}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: 'var(--violet-primary, var(--accent-base))' }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {creatingQuote ? 'Creating…' : 'New Quote'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                title="Edit project details"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            </div>
           </div>
 
           {/* Project name */}
@@ -788,6 +750,26 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               />
             </div>
           </div>
+
+          {/* Burn bar */}
+          {project.totalContractPaise && project.totalContractPaise > 0 && (() => {
+            const spent = (costData?.actualExpensesPaise ?? 0) || (summary?.expenseTotalPaise ?? 0);
+            const pct   = Math.min(Math.round((spent / project.totalContractPaise) * 100), 100);
+            const color = pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warning)' : 'var(--success)';
+            return (
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                  <span>Budget burn</span>
+                  <span className="tnum font-medium" style={{ color: pct >= 90 ? 'var(--danger)' : pct >= 70 ? 'var(--warning)' : 'inherit' }}>
+                    {pct}%
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-hover)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -823,21 +805,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </span>
             )}
             {stageError && (
-              <p className="text-[10px] text-red-600">{stageError}</p>
+              <div className="mt-1 max-w-[260px] rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                {stageError}
+              </div>
             )}
           </div>
         </div>
         <LifecycleStepper currentStage={project.lifecycleStage} />
-      </div>
-
-      {/* ── Quick Actions ──────────────────────────────────────────────────── */}
-      <div className="premium-card p-5">
-        <p className="mb-3 text-sm font-semibold text-[var(--text-heading)]">Quick Actions</p>
-        <div className="flex flex-wrap gap-2">
-          {quickActions.map(action => (
-            <QuickActionBtn key={action.label} action={action} />
-          ))}
-        </div>
       </div>
 
       {/* ── Milestones + Cost Tracker ──────────────────────────────────────── */}
@@ -882,7 +856,9 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {milestones.map(m => (
-                <div key={m.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 space-y-2">
+                <div key={m.id} className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-muted)] p-4 space-y-2"
+                  style={m.paymentStatus === 'overdue' ? { borderColor: 'var(--danger)', borderWidth: 1 } : undefined}
+                >
                   <p className="text-sm font-medium text-[var(--text-heading)]">{m.label}</p>
                   <p className="text-xl font-bold text-[var(--text-heading)]">{formatRupees(m.amountPaise)}</p>
                   <div className="flex items-center justify-between">
@@ -894,6 +870,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                       {PAYMENT_STATUS_LABELS[m.paymentStatus]}
                     </span>
                   </div>
+                  {m.paymentStatus === 'overdue' && (() => {
+                    const rs = reminderStatus[m.id] ?? 'idle';
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void handleSendReminder(m.id)}
+                          disabled={rs === 'sending' || rs === 'sent'}
+                          className="w-full rounded-lg border py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50"
+                          style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'var(--danger-soft)' }}
+                        >
+                          {rs === 'sending' ? 'Sending…' : rs === 'sent' ? 'Sent ✓' : 'Send Reminder via WhatsApp'}
+                        </button>
+                        {rs === 'error' && (
+                          <p className="text-center text-[10px] font-medium text-red-600">
+                            Failed to send — check WhatsApp template registration
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

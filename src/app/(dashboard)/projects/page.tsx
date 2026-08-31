@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
-import { Search, Plus, FolderKanban, ChevronDown } from 'lucide-react';
+import { Search, Plus, FolderKanban, ChevronDown, Calendar, AlertTriangle } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -11,6 +11,11 @@ import { Lead } from '@/types/leads';
 import { formatRupees } from '@/lib/utils';
 
 type LifecycleStage = Project['lifecycleStage'];
+
+interface ProjectListItem extends Project {
+  customerFullName?: string | null;
+  leadContactName?: string | null;
+}
 
 const STAGE_STYLE: Record<LifecycleStage, { bg: string; fg: string; border: string; label: string }> = {
   design_pending:     { bg: '#EFF6FF', fg: '#1E40AF', border: 'rgba(30,64,175,0.20)',   label: 'Design pending'   },
@@ -28,15 +33,21 @@ const STAGE_ORDER: LifecycleStage[] = [
   'procurement', 'execution', 'snagging', 'handover', 'complete',
 ];
 
+// Precomputed at module load (day-granularity — acceptable for overdue display)
+const MODULE_TODAY_MS = new Date().setHours(0, 0, 0, 0);
+
 interface NewProjectForm {
+  noLead: boolean;
   leadId: string;
   leadLabel: string;
+  clientName: string;
+  clientPhone: string;
   name: string;
   totalContractRupees: string;
 }
 
 const INITIAL_FORM: NewProjectForm = {
-  leadId: '', leadLabel: '', name: '', totalContractRupees: '',
+  noLead: false, leadId: '', leadLabel: '', clientName: '', clientPhone: '', name: '', totalContractRupees: '',
 };
 
 // ─── Lead Search Combobox ─────────────────────────────────────────────────────
@@ -184,14 +195,37 @@ function LeadSelector({
   );
 }
 
+// ─── Mini Stage Progress ──────────────────────────────────────────────────────
+
+function MiniStageBar({ lifecycleStage }: { lifecycleStage: LifecycleStage }) {
+  const currentIdx = STAGE_ORDER.indexOf(lifecycleStage);
+  return (
+    <div className="flex items-center gap-0.5 mt-3">
+      {STAGE_ORDER.map((_, i) => (
+        <div
+          key={i}
+          className="h-1 flex-1 rounded-full"
+          style={{ background: i <= currentIdx ? 'var(--accent-base)' : 'var(--border-subtle)' }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ─── Project Card ─────────────────────────────────────────────────────────────
 
-function ProjectCard({ project }: { project: Project }) {
-  const s = STAGE_STYLE[project.lifecycleStage];
+function ProjectCard({ project }: { project: ProjectListItem }) {
+  const s           = STAGE_STYLE[project.lifecycleStage];
+  const clientName  = project.customerFullName ?? project.leadContactName ?? null;
+  const endMs       = project.expectedEndAt ? new Date(project.expectedEndAt).getTime() : null;
+  const diffDays    = endMs !== null ? Math.round((endMs - MODULE_TODAY_MS) / 86_400_000) : null;
+  const isOverdue   = diffDays !== null && diffDays < 0;
+  const isDueSoon   = diffDays !== null && diffDays >= 0 && diffDays <= 14;
+
   return (
     <Link href={`/projects/${project.id}`} className="block group">
       <div className="premium-card p-4 h-full transition-colors">
-        <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
           <h3
             className="text-[14px] font-medium leading-snug line-clamp-2"
             style={{ color: 'var(--text-heading)' }}
@@ -206,19 +240,43 @@ function ProjectCard({ project }: { project: Project }) {
           </span>
         </div>
 
+        {clientName && (
+          <p className="text-[12px] mb-2 truncate" style={{ color: 'var(--text-secondary)' }}>
+            {clientName}
+          </p>
+        )}
+
         {project.totalContractPaise !== undefined && project.totalContractPaise > 0 && (
           <p
-            className="text-[22px] font-semibold tnum"
+            className="text-[20px] font-semibold tnum"
             style={{ color: 'var(--text-heading)', letterSpacing: '-0.02em', lineHeight: 1 }}
           >
             {formatRupees(project.totalContractPaise)}
           </p>
         )}
-        <p className="mt-2 text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>
-          Created {new Date(project.createdAt).toLocaleDateString('en-IN', {
-            day: 'numeric', month: 'short', year: 'numeric',
-          })}
-        </p>
+
+        {diffDays !== null && (
+          <p className="mt-2 inline-flex items-center gap-1 text-[11px] tnum rounded-md px-1.5 py-0.5"
+            style={
+              isOverdue
+                ? { color: 'var(--danger)', background: 'var(--danger-soft)' }
+                : isDueSoon
+                ? { color: 'var(--warning-text)', background: 'var(--warning-soft)' }
+                : { color: 'var(--text-secondary)', background: 'transparent' }
+            }
+          >
+            <Calendar className="h-3 w-3 flex-shrink-0" />
+            {isOverdue
+              ? `${Math.abs(diffDays)}d overdue`
+              : diffDays === 0
+              ? 'Due today'
+              : isDueSoon
+              ? `${diffDays}d left`
+              : new Date(project.expectedEndAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+          </p>
+        )}
+
+        <MiniStageBar lifecycleStage={project.lifecycleStage} />
       </div>
     </Link>
   );
@@ -227,7 +285,7 @@ function ProjectCard({ project }: { project: Project }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectsPage() {
-  const [projects, setProjects]     = useState<Project[]>([]);
+  const [projects, setProjects]     = useState<ProjectListItem[]>([]);
   const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -247,7 +305,7 @@ export default function ProjectsPage() {
     setFetchError(null);
     try {
       const res = await fetch('/api/v1/projects');
-      const json = await res.json() as { data: Project[] };
+      const json = await res.json() as { data: ProjectListItem[] };
       setProjects(json.data ?? []);
     } catch {
       setFetchError('Network error — please try again');
@@ -267,7 +325,8 @@ export default function ProjectsPage() {
     return projects.filter(p => {
       if (filterStage !== 'all' && p.lifecycleStage !== filterStage) return false;
       if (!q) return true;
-      return p.name.toLowerCase().includes(q);
+      const clientName = (p.customerFullName ?? p.leadContactName ?? '').toLowerCase();
+      return p.name.toLowerCase().includes(q) || clientName.includes(q);
     });
   }, [projects, search, filterStage]);
 
@@ -294,8 +353,13 @@ export default function ProjectsPage() {
 
   async function handleCreate() {
     const newErrors: Partial<Record<keyof NewProjectForm, string>> = {};
-    if (!form.leadId)      newErrors.leadId = 'Please select a lead.';
-    if (!form.name.trim()) newErrors.name   = 'Project name is required.';
+    if (!form.name.trim()) newErrors.name = 'Project name is required.';
+    if (form.noLead) {
+      if (!form.clientName.trim()) newErrors.clientName = 'Client name is required.';
+      if (!form.clientPhone.trim()) newErrors.clientPhone = 'Client phone is required.';
+    } else {
+      if (!form.leadId) newErrors.leadId = 'Please select a lead.';
+    }
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
 
     const totalContractPaise = form.totalContractRupees
@@ -305,14 +369,19 @@ export default function ProjectsPage() {
     setCreating(true);
     setApiError(null);
     try {
+      const payload: Record<string, unknown> = { name: form.name.trim() };
+      if (form.noLead) {
+        payload.clientName  = form.clientName.trim();
+        payload.clientPhone = form.clientPhone.trim();
+      } else {
+        payload.leadId = form.leadId;
+      }
+      if (totalContractPaise !== undefined) payload.totalContractPaise = totalContractPaise;
+
       const res = await fetch('/api/v1/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadId: form.leadId,
-          name: form.name.trim(),
-          ...(totalContractPaise !== undefined && { totalContractPaise }),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const body = await res.json() as { error?: string };
@@ -320,7 +389,7 @@ export default function ProjectsPage() {
         return;
       }
 
-      const { data } = await res.json() as { data: Project };
+      const { data } = await res.json() as { data: ProjectListItem };
       setProjects(prev => [data, ...prev]);
       setDialogOpen(false);
     } catch {
@@ -495,12 +564,55 @@ export default function ProjectsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <FormField label="Lead" required error={errors.leadId}>
-              <LeadSelector
-                value={{ id: form.leadId, label: form.leadLabel }}
-                onChange={handleLeadSelect}
-              />
-            </FormField>
+            {/* Lead vs standalone toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...INITIAL_FORM, noLead: !prev.noLead, name: prev.name, totalContractRupees: prev.totalContractRupees }))}
+                className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-[12px] font-medium border transition-colors"
+                style={
+                  form.noLead
+                    ? { background: 'var(--accent-soft)', color: 'var(--accent-text)', borderColor: 'var(--accent-base)' }
+                    : { background: 'var(--surface-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }
+                }
+              >
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                No linked lead
+              </button>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                {form.noLead ? 'Enter client details manually' : 'Link to an existing lead'}
+              </span>
+            </div>
+
+            {form.noLead ? (
+              <>
+                <FormField label="Client name" required error={errors.clientName}>
+                  <input
+                    type="text"
+                    placeholder="e.g. Priya Sharma"
+                    value={form.clientName}
+                    onChange={e => setField('clientName', e.target.value)}
+                    className="studio-input w-full h-9"
+                  />
+                </FormField>
+                <FormField label="Client phone" required error={errors.clientPhone}>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 9876543210"
+                    value={form.clientPhone}
+                    onChange={e => setField('clientPhone', e.target.value)}
+                    className="studio-input w-full h-9 tnum"
+                  />
+                </FormField>
+              </>
+            ) : (
+              <FormField label="Lead" required error={errors.leadId}>
+                <LeadSelector
+                  value={{ id: form.leadId, label: form.leadLabel }}
+                  onChange={handleLeadSelect}
+                />
+              </FormField>
+            )}
 
             <FormField label="Project name" required error={errors.name}>
               <input

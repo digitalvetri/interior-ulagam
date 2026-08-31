@@ -21,11 +21,16 @@ function serverError(step: string, err: unknown, status = 500) {
 }
 
 const CreateProjectSchema = z.object({
-  leadId: z.string().uuid(),
-  name: z.string().min(1),
-  designerIds: z.array(z.string().uuid()).default([]),
+  leadId:             z.string().uuid().optional(),
+  clientName:         z.string().min(1).optional(),
+  clientPhone:        z.string().min(7).optional(),
+  name:               z.string().min(1),
+  designerIds:        z.array(z.string().uuid()).default([]),
   totalContractPaise: z.number().int().nonnegative().optional(),
-});
+}).refine(
+  d => d.leadId || (d.clientName && d.clientPhone),
+  { message: 'Either leadId or both clientName and clientPhone are required' }
+);
 
 export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
@@ -81,69 +86,90 @@ export async function POST(request: NextRequest) {
 
   const input = parsed.data;
 
-  // ── Step 1: verify lead belongs to this tenant + fetch customer link ─────────
-  let lead: {
-    id: string;
-    customerId: string | null;
-    contactName: string;
-    contactPhone: string;
-    contactEmail: string | null;
-    source: string;
-    stage: string;
-    ownerId: string | null;
-    projectLocation: string | null;
-    contactCity: string | null;
-    pincode: string | null;
-  } | undefined;
-  try {
-    [lead] = await db
-      .select({
-        id:              leads.id,
-        customerId:      leads.customerId,
-        contactName:     leads.contactName,
-        contactPhone:    leads.contactPhone,
-        contactEmail:    leads.contactEmail,
-        source:          leads.source,
-        stage:           leads.stage,
-        ownerId:         leads.ownerId,
-        projectLocation: leads.projectLocation,
-        contactCity:     leads.contactCity,
-        pincode:         leads.pincode,
-      })
-      .from(leads)
-      .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)));
-  } catch (err) {
-    return serverError('POST lead-lookup', err);
-  }
+  let leadId:    string | null = null;
+  let customerId: string | null = null;
 
-  if (!lead) {
-    return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
-  }
-
-  // ── Step 1b: ensure a customer record exists for this lead ───────────────────
-  let customerId: string | null = lead.customerId;
-  if (!customerId) {
+  if (input.leadId) {
+    // ── Lead-linked path ─────────────────────────────────────────────────────
+    let lead: {
+      id: string;
+      customerId: string | null;
+      contactName: string;
+      contactPhone: string;
+      contactEmail: string | null;
+      source: string;
+      stage: string;
+      ownerId: string | null;
+      projectLocation: string | null;
+      contactCity: string | null;
+      pincode: string | null;
+    } | undefined;
     try {
-      const { customerId: cid } = await upsertCustomerFromLead(lead, ctx.tenantId);
-      customerId = cid;
-      await db
-        .update(leads)
-        .set({ customerId: cid })
+      [lead] = await db
+        .select({
+          id:              leads.id,
+          customerId:      leads.customerId,
+          contactName:     leads.contactName,
+          contactPhone:    leads.contactPhone,
+          contactEmail:    leads.contactEmail,
+          source:          leads.source,
+          stage:           leads.stage,
+          ownerId:         leads.ownerId,
+          projectLocation: leads.projectLocation,
+          contactCity:     leads.contactCity,
+          pincode:         leads.pincode,
+        })
+        .from(leads)
         .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)));
     } catch (err) {
-      console.error('[projects POST customer-upsert]', err);
-      // Non-fatal — project can still be created without customerId
+      return serverError('POST lead-lookup', err);
+    }
+
+    if (!lead) {
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    }
+
+    leadId = input.leadId;
+    customerId = lead.customerId;
+
+    if (!customerId) {
+      try {
+        const { customerId: cid } = await upsertCustomerFromLead(lead, ctx.tenantId);
+        customerId = cid;
+        await db
+          .update(leads)
+          .set({ customerId: cid })
+          .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)));
+      } catch (err) {
+        console.error('[projects POST customer-upsert]', err);
+      }
+    }
+  } else {
+    // ── Standalone path: create customer from clientName + clientPhone ────────
+    try {
+      const [customer] = await db
+        .insert(customers)
+        .values({
+          tenantId: ctx.tenantId,
+          fullName: input.clientName!,
+          phone:    input.clientPhone!,
+        })
+        .returning({ id: customers.id });
+      customerId = customer?.id ?? null;
+    } catch (err) {
+      console.error('[projects POST customer-create]', err);
+      // Non-fatal
     }
   }
 
-  // ── Step 2: insert project ──────────────────────────────────────────────────
+  // ── Insert project ───────────────────────────────────────────────────────────
   let project: typeof projects.$inferSelect | undefined;
   try {
     [project] = await db
       .insert(projects)
       .values({
         tenantId:           ctx.tenantId,
-        leadId:             input.leadId,
+        leadId:             leadId ?? undefined,
         customerId:         customerId ?? undefined,
         name:               input.name,
         designerIds:        input.designerIds,
@@ -172,15 +198,16 @@ export async function POST(request: NextRequest) {
     return serverError('POST insert', new Error('Insert returned no rows'));
   }
 
-  // ── Step 3: mark lead as won (best-effort — project already saved) ──────────
-  try {
-    await db
-      .update(leads)
-      .set({ stage: 'won', lastActivityAt: new Date() })
-      .where(and(eq(leads.id, input.leadId), eq(leads.tenantId, ctx.tenantId)));
-  } catch (err) {
-    // Non-fatal — project is created; log and continue
-    console.error('[projects POST lead-update]', err);
+  // ── Mark lead as won (lead-linked path only) ─────────────────────────────────
+  if (leadId) {
+    try {
+      await db
+        .update(leads)
+        .set({ stage: 'won', lastActivityAt: new Date() })
+        .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)));
+    } catch (err) {
+      console.error('[projects POST lead-update]', err);
+    }
   }
 
   return NextResponse.json({ data: project, message: 'Project created' }, { status: 201 });

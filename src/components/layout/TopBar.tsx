@@ -7,12 +7,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 import { CommandPalette } from '@/components/leads/CommandPalette';
 
-const ROLE_LABELS: Record<string, string> = {
-  owner:      'Studio Owner',
-  designer:   'Designer',
-  accountant: 'Accountant',
-  supervisor: 'Site Supervisor',
-};
+import { ROLE_LABELS } from '@/lib/roles';
 
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   owner:      { bg: '#111110', text: '#FFFFFF' },
