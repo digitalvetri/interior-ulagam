@@ -103,7 +103,7 @@ function ProjectCard({
 
   return (
     <div
-      className="rounded-xl overflow-hidden w-full transition-all duration-150"
+      className="rounded-xl w-full transition-all duration-150"
       style={{
         background: deleting ? 'var(--surface-muted)' : 'var(--surface-card)',
         border: '1.5px solid var(--border-subtle)',
