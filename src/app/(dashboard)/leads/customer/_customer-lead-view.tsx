@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Phone, MessageCircle, Bell, BellRing,
-  MapPin, IndianRupee, ChevronRight,
+  MapPin,
   MoreVertical, Edit2, Trash2, ExternalLink,
 } from 'lucide-react';
 import { Lead, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
@@ -70,7 +70,7 @@ function ProjectCard({
   const overdue = isOverdue(lead.followUpDate);
   const today   = isToday(lead.followUpDate);
   const value   = (lead.projectValuePaise ?? 0) > 0
-    ? ((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+    ? `₹${((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
     : null;
   const title   = lead.projectName ?? lead.propertyType ?? STAGE_LABELS[lead.stage];
   const subtype = lead.projectName && lead.propertyType ? lead.propertyType : null;
@@ -103,100 +103,100 @@ function ProjectCard({
 
   return (
     <div
-      className="rounded-2xl px-4 py-4 w-full transition-all duration-150"
+      className="rounded-xl overflow-hidden w-full transition-all duration-150"
       style={{
         background: deleting ? 'var(--surface-muted)' : 'var(--surface-card)',
         border: '1.5px solid var(--border-subtle)',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
         opacity: deleting ? 0.5 : 1,
+        borderLeft: `3px solid ${ss.color}`,
       }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--violet-primary)';
-        (e.currentTarget as HTMLElement).style.boxShadow  = '0 4px 12px rgba(124,92,252,0.12)';
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)';
-        (e.currentTarget as HTMLElement).style.boxShadow  = '0 1px 4px rgba(0,0,0,0.06)';
-      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px rgba(0,0,0,0.09)'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.05)'; }}
     >
-      {/* Top section: content (clickable) + action icons */}
-      <div className="flex items-start gap-2">
+      <div className="px-4 py-3.5 flex items-start gap-2">
 
-        {/* Clickable content area */}
-        <Link
-          href={`/leads/${lead.id}`}
-          className="flex-1 min-w-0"
-          style={{ textDecoration: 'none' }}
-        >
-          {/* Row 1: project label + name */}
-          <p className="text-[11px] font-medium leading-none mb-1" style={{ color: 'var(--text-tertiary)' }}>
-            Project {index + 1}
-          </p>
+        {/* Clickable content */}
+        <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0" style={{ textDecoration: 'none' }}>
+          {/* Row 1: enquiry number + name + stage badge */}
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--text-primary)' }}>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              Enquiry {index + 1}
+            </span>
+            <p className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--text-heading)' }}>
               {title}
             </p>
             <span
-              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold flex-shrink-0"
+              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex-shrink-0"
               style={{ background: ss.bg, color: ss.color }}
             >
               {STAGE_LABELS[lead.stage]}
             </span>
+            {pc && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold flex-shrink-0"
+                style={{ background: pc.bg, color: pc.color }}
+              >
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: pc.dot }} />
+                {pc.label}
+              </span>
+            )}
           </div>
 
-          {/* Row 2: property type + location + value */}
+          {/* Row 2: property type + location + budget + age */}
           <div className="flex items-center gap-3 mt-1.5 flex-wrap">
             {subtype && (
-              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{subtype}</span>
+              <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{subtype}</span>
             )}
             {lead.projectLocation && (
-              <span className="flex items-center gap-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                <MapPin className="h-3.5 w-3.5 flex-shrink-0" />{lead.projectLocation}
+              <span className="flex items-center gap-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                <MapPin className="h-3 w-3 flex-shrink-0" />{lead.projectLocation}
               </span>
             )}
             {value && (
-              <span className="flex items-center gap-0.5 text-sm font-medium" style={{ color: '#8F6F2E' }}>
-                <IndianRupee className="h-3.5 w-3.5 flex-shrink-0" />{value}
+              <span
+                className="text-[13px] font-semibold px-2 py-0.5 rounded-md"
+                style={{ background: '#FEF3C7', color: '#92400E' }}
+              >
+                {value}
               </span>
             )}
             {!value && lead.budgetBand && (
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{lead.budgetBand}</span>
+              <span className="text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>{lead.budgetBand}</span>
+            )}
+            <span className="text-[12px]" style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+              {age === 0 ? 'Today' : `${age}d ago`}
+            </span>
+            {overdue && (
+              <span className="flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--danger)' }}>
+                <Bell className="h-3 w-3" /> Overdue
+              </span>
             )}
           </div>
         </Link>
 
-        {/* Action icons: bell + 3-dot */}
-        <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
-          {/* Bell — follow-up indicator */}
+        {/* Action icons */}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
           <button
             type="button"
             onClick={() => setFollowUpOpen(true)}
             className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-violet-50"
             title={bellTitle}
-            aria-label={bellTitle}
           >
             <BellRing className="h-3.5 w-3.5" style={{ color: bellColor }} />
           </button>
-
-          {/* 3-dot context menu */}
           <div className="relative" ref={menuRef}>
             <button
               type="button"
               onClick={() => setMenuOpen(o => !o)}
               className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
-              aria-label="More actions"
             >
               <MoreVertical className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
             </button>
-
             {menuOpen && (
               <div
                 className="absolute right-0 top-8 z-50 w-44 rounded-xl py-1 shadow-lg"
-                style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--border-subtle)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                }}
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
               >
                 <Link
                   href={`/leads/${lead.id}`}
@@ -204,8 +204,7 @@ function ProjectCard({
                   style={{ color: 'var(--text-heading)', textDecoration: 'none', display: 'flex' }}
                   onClick={() => setMenuOpen(false)}
                 >
-                  <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                  View Details
+                  <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} /> View Details
                 </Link>
                 <button
                   type="button"
@@ -213,8 +212,7 @@ function ProjectCard({
                   style={{ color: 'var(--text-heading)' }}
                   onClick={() => { setMenuOpen(false); setFollowUpOpen(true); }}
                 >
-                  <BellRing className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                  Add Follow-up
+                  <BellRing className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} /> Add Follow-up
                 </button>
                 <button
                   type="button"
@@ -222,8 +220,7 @@ function ProjectCard({
                   style={{ color: 'var(--text-heading)' }}
                   onClick={() => { setMenuOpen(false); router.push(`/leads/${lead.id}?edit=1`); }}
                 >
-                  <Edit2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                  Edit Project
+                  <Edit2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} /> Edit Project
                 </button>
                 <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '4px 0' }} />
                 <button
@@ -232,8 +229,7 @@ function ProjectCard({
                   style={{ color: 'var(--danger)' }}
                   onClick={handleDelete}
                 >
-                  <Trash2 className="h-3.5 w-3.5 flex-shrink-0" />
-                  Delete Project
+                  <Trash2 className="h-3.5 w-3.5 flex-shrink-0" /> Delete Project
                 </button>
               </div>
             )}
@@ -241,41 +237,6 @@ function ProjectCard({
         </div>
       </div>
 
-      {/* Footer: priority + overdue | age + arrow */}
-      <div
-        className="flex items-center justify-between mt-2 pt-2"
-        style={{ borderTop: '1px solid var(--border-subtle)' }}
-      >
-        <div className="flex items-center gap-2">
-          {pc && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold"
-              style={{ background: pc.bg, color: pc.color }}
-            >
-              <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: pc.dot }} />
-              {pc.label}
-            </span>
-          )}
-          {overdue && (
-            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--danger)' }}>
-              <Bell className="h-3.5 w-3.5" />
-              Overdue
-            </span>
-          )}
-        </div>
-        <Link
-          href={`/leads/${lead.id}`}
-          className="flex items-center gap-1.5"
-          style={{ textDecoration: 'none' }}
-        >
-          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-            {age === 0 ? 'Today' : `${age}d ago`}
-          </span>
-          <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
-        </Link>
-      </div>
-
-      {/* Follow-up modal — opens in place, no navigation */}
       {followUpOpen && (
         <FollowUpModal
           lead={lead}
@@ -297,6 +258,7 @@ export interface CustomerLeadViewProps {
 export function CustomerLeadView({ leads, loading, refetch }: CustomerLeadViewProps) {
   const router   = useRouter();
   const customer = leads[0];
+  const [addKey, setAddKey] = useState(0);
   const initials = customer
     ? customer.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
     : '';
@@ -327,66 +289,61 @@ export function CustomerLeadView({ leads, loading, refetch }: CustomerLeadViewPr
           <>
             {/* ── Customer header ── */}
             <div
-              className="rounded-2xl p-5 flex items-center gap-4 flex-wrap"
-              style={{ background: 'var(--surface-card)', border: '1.5px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+              className="rounded-xl p-4 flex items-center gap-4"
+              style={{ background: 'var(--surface-card)', border: '1.5px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
             >
+              {/* Avatar */}
               <div
-                className="h-12 w-12 rounded-full flex items-center justify-center text-base font-bold text-white flex-shrink-0 select-none"
+                className="h-11 w-11 rounded-full flex items-center justify-center text-[15px] font-bold text-white flex-shrink-0 select-none"
                 style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}
               >
                 {initials}
               </div>
 
+              {/* Name + contact */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-[17px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>
                     {customer.contactName}
                   </h1>
                   <span
-                    className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                    style={{ background: 'var(--purple-soft)', color: 'var(--violet-primary)' }}
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}
                   >
-                    {leads.length} {leads.length === 1 ? 'project' : 'projects'}
+                    {leads.length} {leads.length === 1 ? 'enquiry' : 'enquiries'}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                  <a
-                    href={`tel:${customer.contactPhone}`}
-                    className="flex items-center gap-1 text-sm"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    <Phone className="h-3.5 w-3.5 flex-shrink-0" /> {customer.contactPhone}
+                  <a href={`tel:${customer.contactPhone}`} className="flex items-center gap-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                    <Phone className="h-3 w-3 flex-shrink-0" /> {customer.contactPhone}
                   </a>
                   {customer.contactEmail && (
-                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      {customer.contactEmail}
-                    </span>
+                    <span className="text-[13px] truncate max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>{customer.contactEmail}</span>
                   )}
                   {customer.contactCity && (
-                    <span className="flex items-center gap-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                      {customer.contactCity}
+                    <span className="flex items-center gap-1 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                      <MapPin className="h-3 w-3 flex-shrink-0" />{customer.contactCity}
                     </span>
                   )}
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap">
+              {/* Actions */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <a
                   href={`tel:${customer.contactPhone}`}
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-medium"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-medium"
                   style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #DBEAFE' }}
                 >
-                  <Phone className="h-4 w-4" /> Call
+                  <Phone className="h-3.5 w-3.5" /> Call
                 </a>
                 <a
                   href={`https://wa.me/91${customer.contactPhone.replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 h-9 px-4 rounded-xl text-sm font-medium"
+                  target="_blank" rel="noreferrer"
+                  className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-medium"
                   style={{ background: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0' }}
                 >
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
                 </a>
                 <NewLeadDialog onSuccess={refetch} />
               </div>
@@ -404,6 +361,21 @@ export function CustomerLeadView({ leads, loading, refetch }: CustomerLeadViewPr
                 {leads.map((lead, i) => (
                   <ProjectCard key={lead.id} lead={lead} index={i} onRefetch={refetch} />
                 ))}
+
+                {/* Add another enquiry prompt */}
+                <button
+                  type="button"
+                  className="w-full rounded-xl py-3 text-[13px] font-medium transition-all"
+                  style={{ border: '1.5px dashed var(--border-subtle)', color: 'var(--text-tertiary)', background: 'transparent' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--accent-base)'; (e.currentTarget as HTMLElement).style.color = 'var(--accent-base)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'; (e.currentTarget as HTMLElement).style.color = 'var(--text-tertiary)'; }}
+                  onClick={() => setAddKey(k => k + 1)}
+                >
+                  + Add another enquiry
+                </button>
+                {addKey > 0 && (
+                  <NewLeadDialog key={addKey} onSuccess={() => { refetch(); }} defaultOpen />
+                )}
               </div>
             </div>
           </>

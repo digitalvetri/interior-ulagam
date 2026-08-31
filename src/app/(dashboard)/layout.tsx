@@ -1,6 +1,5 @@
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
-import { PageHeading } from '@/components/layout/PageHeading';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,7 +9,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex flex-1 flex-col overflow-hidden pt-14 md:pt-0">
         <TopBar />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <PageHeading />
           {children}
         </main>
       </div>
