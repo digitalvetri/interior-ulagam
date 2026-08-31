@@ -341,15 +341,15 @@ function KpiBar({ leads }: { leads: Lead[] }) {
       {stats.map(({ label, value, icon: Icon, accent, bg }) => (
         <div
           key={label}
-          className="rounded-xl p-3.5 flex items-center gap-3"
+          className="rounded-xl p-4 flex items-start justify-between gap-2"
           style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
         >
-          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
-            <Icon className="h-4 w-4" style={{ color: accent }} />
-          </div>
           <div className="min-w-0">
-            <p className="text-2xl font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{value}</p>
-            <p className="text-[11px] mt-0.5 leading-tight" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+            <p className="text-[12px] leading-tight" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+            <p className="text-[28px] font-bold leading-tight mt-1" style={{ color: accent }}>{value}</p>
+          </div>
+          <div className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={{ background: bg }}>
+            <Icon className="h-4 w-4" style={{ color: accent }} />
           </div>
         </div>
       ))}

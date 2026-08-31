@@ -39,11 +39,11 @@ function NavGroupSection({
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
-          className="group flex w-full items-center justify-between px-3 py-1 text-left"
+          className="group flex w-full items-center justify-between px-3 py-1.5 text-left"
           suppressHydrationWarning
         >
           <span
-            className="text-[10.5px] font-semibold uppercase tracking-[0.08em]"
+            className="text-[11px] font-semibold uppercase tracking-[0.08em]"
             style={{ color: groupHasActive ? 'var(--accent-base)' : 'var(--text-tertiary)' }}
           >
             {group.label}
@@ -74,7 +74,7 @@ function NavGroupSection({
                 title={iconOnly ? label : undefined}
                 className={`nav-item ${active ? 'active' : ''}`}
                 style={{
-                  padding: iconOnly ? '10px 0' : '7px 12px',
+                  padding: iconOnly ? '10px 0' : '9px 12px',
                   justifyContent: iconOnly ? 'center' : 'flex-start',
                   gap: iconOnly ? 0 : 11,
                 }}
@@ -87,10 +87,10 @@ function NavGroupSection({
                   />
                 )}
 
-                <Icon className="nav-icon flex-shrink-0" style={{ width: 17, height: 17 }} />
+                <Icon className="nav-icon flex-shrink-0" style={{ width: 18, height: 18 }} />
 
                 {!iconOnly && (
-                  <span className="flex-1 text-[14px] font-medium leading-none">{label}</span>
+                  <span className="flex-1 text-[15px] font-medium leading-none">{label}</span>
                 )}
               </Link>
             );
