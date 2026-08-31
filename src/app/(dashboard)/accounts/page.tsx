@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle, ArrowUpRight, Download, FileSpreadsheet, IndianRupee, Search, TrendingUp,
-  Wallet, Loader2, Zap, HandCoins,
+  Wallet, Loader2, Zap, HandCoins, FileText, Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +57,17 @@ const STATUS_BADGE: Record<ReceivableRow['paymentStatus'], string> = {
   overdue:   'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/40 dark:text-red-300',
 };
 
+// ─── Tally date range presets ─────────────────────────────────────────────────
+function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
+function startOfMonth(d: Date): Date { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
+function startOfPrevMonth(d: Date): Date { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)); }
+function endOfPrevMonth(d: Date): Date { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 0)); }
+function startOfFY(d: Date): Date {
+  // Indian financial year — April 1 to March 31
+  const y = d.getUTCMonth() >= 3 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
+  return new Date(Date.UTC(y, 3, 1));
+}
+
 export default function AccountsPage() {
   const [data, setData]           = useState<OverviewPayload | null>(null);
   const [loading, setLoading]     = useState(true);
@@ -64,6 +75,12 @@ export default function AccountsPage() {
   const [search, setSearch]       = useState('');
   const [statusFilter, setStat]   = useState<ReceivableRow['paymentStatus'] | 'all'>('all');
   const [exportError, setExErr]   = useState<string | null>(null);
+  const [busyExport, setBusyExport] = useState<string | null>(null);
+
+  // Tally date range — default to current month
+  const today = useMemo(() => new Date(), []);
+  const [tallyFrom, setTallyFrom] = useState(isoDate(startOfMonth(today)));
+  const [tallyTo, setTallyTo]     = useState(isoDate(today));
 
   useEffect(() => {
     fetch('/api/v1/accounts/overview')
@@ -111,6 +128,40 @@ export default function AccountsPage() {
     }
   }
 
+  async function downloadTally(kind: 'tally-sales-csv' | 'tally-sales-xml' | 'tally-receipts-csv' | 'tally-receipts-xml') {
+    if (!tallyFrom || !tallyTo) {
+      setExErr('Pick a date range first.');
+      return;
+    }
+    if (tallyFrom > tallyTo) {
+      setExErr('“From” date must be before “To” date.');
+      return;
+    }
+    setBusyExport(kind);
+    const ext = kind.endsWith('xml') ? 'xml' : 'csv';
+    const type = kind.includes('sales') ? 'sales' : 'receipts';
+    const filename = `tally_${type}_${tallyFrom}_to_${tallyTo}.${ext}`;
+    try {
+      await downloadExport(`/api/v1/exports/${kind}?from=${tallyFrom}&to=${tallyTo}`, filename);
+    } finally {
+      setBusyExport(null);
+    }
+  }
+
+  function applyRangePreset(preset: 'this-month' | 'last-month' | 'fy') {
+    const now = new Date();
+    if (preset === 'this-month') {
+      setTallyFrom(isoDate(startOfMonth(now)));
+      setTallyTo(isoDate(now));
+    } else if (preset === 'last-month') {
+      setTallyFrom(isoDate(startOfPrevMonth(now)));
+      setTallyTo(isoDate(endOfPrevMonth(now)));
+    } else {
+      setTallyFrom(isoDate(startOfFY(now)));
+      setTallyTo(isoDate(now));
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -135,24 +186,6 @@ export default function AccountsPage() {
           <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
             Receivables · captured payments · Tally exports — all in one place
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => downloadExport('/api/v1/accounts/tally-export', 'tally-export.csv')}
-            className="gap-1.5"
-          >
-            <Download className="h-4 w-4" /> Tally CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => downloadExport('/api/v1/accounts/tally-xml-push', 'tally-vouchers.xml')}
-            className="gap-1.5"
-          >
-            <FileSpreadsheet className="h-4 w-4" /> Tally XML
-          </Button>
         </div>
       </header>
 
@@ -192,6 +225,121 @@ export default function AccountsPage() {
           sub={`${k.collectedAllTimeCount} total transactions`}
           accent="blue"
         />
+      </section>
+
+      {/* ── Tally export panel ────────────────────────────────────────── */}
+      <section className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-md"
+              style={{ background: 'var(--mint-mist)' }}
+            >
+              <FileSpreadsheet className="h-4 w-4" style={{ color: 'var(--forest)' }} strokeWidth={2} />
+            </div>
+            <div>
+              <h2 className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>
+                Tally export
+              </h2>
+              <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                Import sales &amp; receipt vouchers into Tally Prime. Party &amp; sales ledgers are created on first import.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          {/* From / To */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>From</label>
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+              <input
+                type="date"
+                value={tallyFrom}
+                onChange={(e) => setTallyFrom(e.target.value)}
+                className="studio-input h-9 w-44 pl-8 tnum"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>To</label>
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+              <input
+                type="date"
+                value={tallyTo}
+                onChange={(e) => setTallyTo(e.target.value)}
+                className="studio-input h-9 w-44 pl-8 tnum"
+              />
+            </div>
+          </div>
+
+          {/* Presets */}
+          <div className="flex gap-1.5 pb-0.5">
+            <PresetButton onClick={() => applyRangePreset('this-month')}>This month</PresetButton>
+            <PresetButton onClick={() => applyRangePreset('last-month')}>Last month</PresetButton>
+            <PresetButton onClick={() => applyRangePreset('fy')}>FY-to-date</PresetButton>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {/* Sales voucher exports */}
+          <div className="premium-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
+                  Sales vouchers
+                </h3>
+                <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  Invoices raised in range. Customer Dr · Sales Cr · GST split.
+                </p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <ExportButton
+                  busy={busyExport === 'tally-sales-csv'}
+                  onClick={() => downloadTally('tally-sales-csv')}
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  label="CSV"
+                />
+                <ExportButton
+                  busy={busyExport === 'tally-sales-xml'}
+                  onClick={() => downloadTally('tally-sales-xml')}
+                  icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+                  label="XML"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Receipt voucher exports */}
+          <div className="premium-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
+                  Receipt vouchers
+                </h3>
+                <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  Payments captured in range. Bank Dr · Customer Cr.
+                </p>
+              </div>
+              <div className="flex gap-1.5 flex-shrink-0">
+                <ExportButton
+                  busy={busyExport === 'tally-receipts-csv'}
+                  onClick={() => downloadTally('tally-receipts-csv')}
+                  icon={<FileText className="h-3.5 w-3.5" />}
+                  label="CSV"
+                />
+                <ExportButton
+                  busy={busyExport === 'tally-receipts-xml'}
+                  onClick={() => downloadTally('tally-receipts-xml')}
+                  icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
+                  label="XML"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Tabs + search + filters */}
@@ -469,5 +617,40 @@ function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
       </table>
             </div>
     </div>
+  );
+}
+
+// ─── Tally panel helpers ─────────────────────────────────────────────────────
+
+function PresetButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center rounded-md px-2.5 py-1.5 text-[12px] font-medium border transition-colors"
+      style={{
+        background: 'var(--surface-card)',
+        color: 'var(--text-secondary)',
+        borderColor: 'var(--border-subtle)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ExportButton({ busy, onClick, icon, label }: {
+  busy: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={busy}
+      className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] disabled:opacity-60"
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icon}
+      {label}
+    </button>
   );
 }

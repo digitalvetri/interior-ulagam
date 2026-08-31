@@ -111,3 +111,44 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext();
+  if (!ctx) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const [existing] = await db
+      .select()
+      .from(purchaseOrders)
+      .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.tenantId, ctx.tenantId)));
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
+    }
+
+    // Only drafts can be hard-deleted. Anything that's already been sent, acknowledged,
+    // delivered, or completed must be cancelled via status change so we keep the audit trail.
+    if (existing.status !== 'draft') {
+      return NextResponse.json(
+        { error: 'Only draft orders can be deleted. Cancel this order instead to preserve history.' },
+        { status: 409 },
+      );
+    }
+
+    await db
+      .delete(purchaseOrders)
+      .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.tenantId, ctx.tenantId)));
+
+    return NextResponse.json({ message: 'Purchase order deleted' });
+  } catch (err) {
+    console.error('[purchase-orders/:id DELETE]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

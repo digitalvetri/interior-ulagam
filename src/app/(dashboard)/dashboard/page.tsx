@@ -55,6 +55,8 @@ const STAGE_META: Record<string, { label: string; bg: string; text: string }> = 
   handover:           { label: 'Handover',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
   complete:           { label: 'Complete',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
 };
+
+/* ── KPI Card ───────────────────────────────────────────────────────────── */
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
   blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)'   },
@@ -194,8 +196,8 @@ export default function DashboardPage() {
           href="/leads?new=1"
           className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2 text-sm rounded-lg"
         >
-          <Plus className="h-4 w-4" />
-          New Lead
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+          New lead
         </Link>
       </div>
 
