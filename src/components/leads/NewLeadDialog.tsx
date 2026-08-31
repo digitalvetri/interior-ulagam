@@ -16,6 +16,12 @@ import { Lead, LeadSource } from '@/types/leads';
 interface NewLeadDialogProps {
   onSuccess: (lead: Lead) => void;
   defaultOpen?: boolean;
+  triggerLabel?: string;
+  preselectedCustomer?: {
+    fullName: string;
+    phone: string;
+    city?: string | null;
+  };
 }
 
 interface Employee {
@@ -113,18 +119,26 @@ function Field({
   );
 }
 
-export function NewLeadDialog({ onSuccess, defaultOpen = false }: NewLeadDialogProps) {
+export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, preselectedCustomer }: NewLeadDialogProps) {
+  const preselectedResult: CustomerResult | null = preselectedCustomer
+    ? { id: '', fullName: preselectedCustomer.fullName, phone: preselectedCustomer.phone, email: null, city: preselectedCustomer.city ?? null, company: null }
+    : null;
+
   const [open, setOpen]               = useState(defaultOpen);
   const [submitting, setSubmitting]   = useState(false);
   const [error, setError]             = useState<string | null>(null);
-  const [form, setForm]               = useState<FormState>(INITIAL);
+  const [form, setForm]               = useState<FormState>(
+    preselectedCustomer
+      ? { ...INITIAL, contactName: preselectedCustomer.fullName, contactPhone: preselectedCustomer.phone, contactCity: preselectedCustomer.city ?? '' }
+      : INITIAL
+  );
   const [employees, setEmployees]     = useState<Employee[]>([]);
 
   // Customer type gate
-  const [customerType, setCustomerType]         = useState<CustomerType | null>(null);
+  const [customerType, setCustomerType]         = useState<CustomerType | null>(preselectedCustomer ? 'existing' : null);
   const [customerSearch, setCustomerSearch]     = useState('');
   const [customerResults, setCustomerResults]   = useState<CustomerResult[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerResult | null>(preselectedResult);
   const [searchLoading, setSearchLoading]       = useState(false);
   const [showDropdown, setShowDropdown]         = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -207,12 +221,18 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false }: NewLeadDialogP
   }
 
   function reset() {
-    setForm(INITIAL);
+    if (preselectedCustomer) {
+      setForm({ ...INITIAL, contactName: preselectedCustomer.fullName, contactPhone: preselectedCustomer.phone, contactCity: preselectedCustomer.city ?? '' });
+      setCustomerType('existing');
+      setSelectedCustomer(preselectedResult);
+    } else {
+      setForm(INITIAL);
+      setCustomerType(null);
+      setSelectedCustomer(null);
+    }
     setError(null);
-    setCustomerType(null);
     setCustomerSearch('');
     setCustomerResults([]);
-    setSelectedCustomer(null);
     setShowDropdown(false);
   }
 
@@ -269,117 +289,140 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false }: NewLeadDialogP
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button suppressHydrationWarning>+ New Lead</Button>
+        <Button suppressHydrationWarning>{triggerLabel ?? '+ New Lead'}</Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
-            Add New Lead
+            {preselectedCustomer ? 'Add New Enquiry' : 'Add New Lead'}
           </DialogTitle>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Capture all enquiry details upfront to avoid repeat data entry later.
+            {preselectedCustomer
+              ? `Adding a new enquiry for ${preselectedCustomer.fullName}.`
+              : 'Capture all enquiry details upfront to avoid repeat data entry later.'}
           </p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-1">
 
-          {/* ── 0. Customer Type ── */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-            <SectionLabel>Customer Type</SectionLabel>
-            <div className="grid grid-cols-2 gap-3">
-              {(['new', 'existing'] as const).map(type => {
-                const isSelected = customerType === type;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => handleCustomerTypeChange(type)}
-                    className="rounded-lg px-4 py-3 text-left transition-all"
-                    style={{
-                      border: isSelected ? '2px solid var(--brand, #6366f1)' : '1px solid var(--border-subtle)',
-                      background: isSelected ? 'var(--brand-light, #eef2ff)' : 'var(--surface-base, white)',
-                    }}
-                  >
-                    <p className="text-sm font-semibold" style={{ color: isSelected ? 'var(--brand, #6366f1)' : 'var(--text-heading)' }}>
-                      {type === 'new' ? 'New Customer' : 'Existing Customer'}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                      {type === 'new'
-                        ? 'First-time enquiry from a new contact'
-                        : 'Returning client or known contact'}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Existing customer search */}
-            {customerType === 'existing' && !selectedCustomer && (
-              <div className="mt-4 relative" ref={searchRef}>
-                <Label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--text-heading)' }}>
-                  Search Customer
-                </Label>
-                <Input
-                  autoFocus
-                  className={inputCls}
-                  placeholder="Type name, phone, or email…"
-                  value={customerSearch}
-                  onChange={e => { setCustomerSearch(e.target.value); setShowDropdown(true); }}
-                />
-                {searchLoading && (
-                  <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Searching…</p>
-                )}
-                {showDropdown && customerResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 rounded-lg shadow-lg mt-1 overflow-hidden"
-                    style={{ background: 'var(--surface-base, white)', border: '1px solid var(--border-subtle)', maxHeight: '13rem', overflowY: 'auto' }}>
-                    {customerResults.map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="w-full px-3 py-2.5 text-left hover:bg-[var(--surface-muted)] transition-colors border-b last:border-b-0"
-                        style={{ borderColor: 'var(--border-subtle)' }}
-                        onClick={() => selectCustomer(c)}
-                      >
-                        <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{c.fullName}</p>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                          {c.phone}{c.city ? ` · ${c.city}` : ''}{c.company ? ` · ${c.company}` : ''}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {showDropdown && !searchLoading && customerSearch.trim().length >= 2 && customerResults.length === 0 && (
-                  <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
-                    No customers found. Try a different search or choose &quot;New Customer&quot;.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Selected customer chip */}
-            {customerType === 'existing' && selectedCustomer && (
-              <div className="mt-4 flex items-center gap-3 rounded-lg px-3 py-2.5"
+          {/* ── 0. Customer — read-only when preselected, type selector otherwise ── */}
+          {preselectedCustomer ? (
+            <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+              <SectionLabel>Customer</SectionLabel>
+              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5"
                 style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
-                    {selectedCustomer.fullName}
+                    {preselectedCustomer.fullName}
                   </p>
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                    {selectedCustomer.phone}{selectedCustomer.city ? ` · ${selectedCustomer.city}` : ''}
+                    {preselectedCustomer.phone}{preselectedCustomer.city ? ` · ${preselectedCustomer.city}` : ''}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={clearSelectedCustomer}
-                  className="text-xs font-medium shrink-0 hover:underline"
-                  style={{ color: 'var(--brand, #6366f1)' }}
-                >
-                  Change
-                </button>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                  style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                  Existing Customer
+                </span>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+              <SectionLabel>Customer Type</SectionLabel>
+              <div className="grid grid-cols-2 gap-3">
+                {(['new', 'existing'] as const).map(type => {
+                  const isSelected = customerType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => handleCustomerTypeChange(type)}
+                      className="rounded-lg px-4 py-3 text-left transition-all"
+                      style={{
+                        border: isSelected ? '2px solid var(--brand, #6366f1)' : '1px solid var(--border-subtle)',
+                        background: isSelected ? 'var(--brand-light, #eef2ff)' : 'var(--surface-base, white)',
+                      }}
+                    >
+                      <p className="text-sm font-semibold" style={{ color: isSelected ? 'var(--brand, #6366f1)' : 'var(--text-heading)' }}>
+                        {type === 'new' ? 'New Customer' : 'Existing Customer'}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        {type === 'new'
+                          ? 'First-time enquiry from a new contact'
+                          : 'Returning client or known contact'}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Existing customer search */}
+              {customerType === 'existing' && !selectedCustomer && (
+                <div className="mt-4 relative" ref={searchRef}>
+                  <Label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--text-heading)' }}>
+                    Search Customer
+                  </Label>
+                  <Input
+                    autoFocus
+                    className={inputCls}
+                    placeholder="Type name, phone, or email…"
+                    value={customerSearch}
+                    onChange={e => { setCustomerSearch(e.target.value); setShowDropdown(true); }}
+                  />
+                  {searchLoading && (
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Searching…</p>
+                  )}
+                  {showDropdown && customerResults.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 rounded-lg shadow-lg mt-1 overflow-hidden"
+                      style={{ background: 'var(--surface-base, white)', border: '1px solid var(--border-subtle)', maxHeight: '13rem', overflowY: 'auto' }}>
+                      {customerResults.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="w-full px-3 py-2.5 text-left hover:bg-[var(--surface-muted)] transition-colors border-b last:border-b-0"
+                          style={{ borderColor: 'var(--border-subtle)' }}
+                          onClick={() => selectCustomer(c)}
+                        >
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{c.fullName}</p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                            {c.phone}{c.city ? ` · ${c.city}` : ''}{c.company ? ` · ${c.company}` : ''}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {showDropdown && !searchLoading && customerSearch.trim().length >= 2 && customerResults.length === 0 && (
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+                      No customers found. Try a different search or choose &quot;New Customer&quot;.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Selected customer chip */}
+              {customerType === 'existing' && selectedCustomer && (
+                <div className="mt-4 flex items-center gap-3 rounded-lg px-3 py-2.5"
+                  style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                      {selectedCustomer.fullName}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                      {selectedCustomer.phone}{selectedCustomer.city ? ` · ${selectedCustomer.city}` : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={clearSelectedCustomer}
+                    className="text-xs font-medium shrink-0 hover:underline"
+                    style={{ color: 'var(--brand, #6366f1)' }}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Remaining form sections (shown only after type + customer selection) ── */}
           {showForm && (
@@ -543,7 +586,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false }: NewLeadDialogP
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Creating…' : 'Create Lead'}
+                  {submitting ? 'Creating…' : preselectedCustomer ? 'Add Enquiry' : 'Create Lead'}
                 </Button>
               </div>
             </>

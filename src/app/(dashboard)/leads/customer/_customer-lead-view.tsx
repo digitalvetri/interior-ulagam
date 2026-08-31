@@ -345,7 +345,15 @@ export function CustomerLeadView({ leads, loading, refetch }: CustomerLeadViewPr
                 >
                   <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
                 </a>
-                <NewLeadDialog onSuccess={refetch} />
+                <NewLeadDialog
+                  onSuccess={refetch}
+                  triggerLabel="+ Add Enquiry"
+                  preselectedCustomer={{
+                    fullName: customer.contactName,
+                    phone: customer.contactPhone,
+                    city: customer.contactCity ?? null,
+                  }}
+                />
               </div>
             </div>
 
@@ -374,7 +382,16 @@ export function CustomerLeadView({ leads, loading, refetch }: CustomerLeadViewPr
                   + Add another enquiry
                 </button>
                 {addKey > 0 && (
-                  <NewLeadDialog key={addKey} onSuccess={() => { refetch(); }} defaultOpen />
+                  <NewLeadDialog
+                    key={addKey}
+                    onSuccess={() => { refetch(); }}
+                    defaultOpen
+                    preselectedCustomer={{
+                      fullName: customer.contactName,
+                      phone: customer.contactPhone,
+                      city: customer.contactCity ?? null,
+                    }}
+                  />
                 )}
               </div>
             </div>
