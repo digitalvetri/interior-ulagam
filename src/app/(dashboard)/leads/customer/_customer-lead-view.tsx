@@ -210,14 +210,6 @@ function ProjectCard({
                   type="button"
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-violet-50 transition-colors"
                   style={{ color: 'var(--text-heading)' }}
-                  onClick={() => { setMenuOpen(false); setFollowUpOpen(true); }}
-                >
-                  <BellRing className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} /> Add Follow-up
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-violet-50 transition-colors"
-                  style={{ color: 'var(--text-heading)' }}
                   onClick={() => { setMenuOpen(false); router.push(`/leads/${lead.id}?edit=1`); }}
                 >
                   <Edit2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} /> Edit Project
