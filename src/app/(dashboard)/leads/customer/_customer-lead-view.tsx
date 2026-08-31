@@ -384,7 +384,8 @@ export function CustomerLeadView({ leads, loading, refetch }: CustomerLeadViewPr
                 {addKey > 0 && (
                   <NewLeadDialog
                     key={addKey}
-                    onSuccess={() => { refetch(); }}
+                    onSuccess={() => { refetch(); setAddKey(0); }}
+                    onClose={() => setAddKey(0)}
                     defaultOpen
                     preselectedCustomer={{
                       fullName: customer.contactName,

@@ -17,6 +17,7 @@ interface NewLeadDialogProps {
   onSuccess: (lead: Lead) => void;
   defaultOpen?: boolean;
   triggerLabel?: string;
+  onClose?: () => void;
   preselectedCustomer?: {
     fullName: string;
     phone: string;
@@ -119,7 +120,7 @@ function Field({
   );
 }
 
-export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, preselectedCustomer }: NewLeadDialogProps) {
+export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, onClose, preselectedCustomer }: NewLeadDialogProps) {
   const preselectedResult: CustomerResult | null = preselectedCustomer
     ? { id: '', fullName: preselectedCustomer.fullName, phone: preselectedCustomer.phone, email: null, city: preselectedCustomer.city ?? null, company: null }
     : null;
@@ -287,7 +288,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, pr
   const showForm = customerType === 'new' || (customerType === 'existing' && selectedCustomer !== null);
 
   return (
-    <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
+    <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { reset(); onClose?.(); } }}>
       <DialogTrigger asChild>
         <Button suppressHydrationWarning>{triggerLabel ?? '+ New Lead'}</Button>
       </DialogTrigger>
