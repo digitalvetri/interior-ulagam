@@ -86,6 +86,15 @@ const ROTTING_BORDER: Record<RottingStatus, string> = {
   rotting: 'var(--danger)',
 };
 
+const SOURCE_META: Record<string, { label: string; dot: string; color: string }> = {
+  instagram: { label: 'Instagram', dot: '#E1306C',              color: '#E1306C'              },
+  whatsapp:  { label: 'WhatsApp',  dot: '#25D366',              color: '#16A34A'              },
+  referral:  { label: 'Referral',  dot: 'var(--accent-base)',   color: 'var(--accent-text)'   },
+  website:   { label: 'Website',   dot: 'var(--text-tertiary)', color: 'var(--text-tertiary)' },
+  walk_in:   { label: 'Walk-in',   dot: '#F97316',              color: '#EA580C'              },
+  other:     { label: 'Other',     dot: 'var(--text-tertiary)', color: 'var(--text-tertiary)' },
+};
+
 /* ── Lead list card ──────────────────────────────────────────────────────────── */
 const LeadListCard = memo(function LeadListCard({
   lead,
@@ -128,21 +137,21 @@ const LeadListCard = memo(function LeadListCard({
 
   return (
     <div
-      className="rounded-[16px] p-5 cursor-pointer transition-shadow duration-200 hover:shadow-md"
+      className="rounded-xl p-3.5 cursor-pointer transition-all duration-150 hover:shadow-md hover:translate-y-[-1px]"
       style={{
         background: 'var(--surface-card)',
         border: `1.5px solid ${borderColor}`,
         boxShadow: rotting === 'rotting'
-          ? '0 0 0 1px var(--danger), 0 1px 4px rgba(0,0,0,0.06)'
-          : '0 1px 4px rgba(0,0,0,0.06)',
+          ? '0 0 0 1px var(--danger), 0 1px 3px rgba(0,0,0,0.05)'
+          : '0 1px 3px rgba(0,0,0,0.05)',
       }}
       onClick={() => router.push(destinationHref ?? `/leads/${lead.id}`)}
     >
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3">
           {/* Avatar + Score */}
-          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
             <div
-              className="h-11 w-11 rounded-full flex items-center justify-center text-[13px] font-bold text-white select-none"
+              className="h-9 w-9 rounded-full flex items-center justify-center text-[12px] font-bold text-white select-none"
               style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}
             >
               {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
@@ -203,20 +212,20 @@ const LeadListCard = memo(function LeadListCard({
           {/* Main content */}
           <div className="flex-1 min-w-0">
             {/* Row 1: name + badges + action icons */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2 flex-wrap min-w-0">
-                <h3 className="text-[15px] font-semibold text-[var(--text-heading)] truncate">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                <h3 className="text-[14px] font-semibold text-[var(--text-heading)] truncate">
                   {lead.contactName}
                 </h3>
                 <span
-                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex-shrink-0"
+                  className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0"
                   style={{ background: stageStyle.bg, color: stageStyle.color }}
                 >
                   {STAGE_LABELS[lead.stage]}
                 </span>
                 {priorityCfg && (
                   <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold flex-shrink-0"
+                    className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold flex-shrink-0"
                     style={{ background: priorityCfg.bg, color: priorityCfg.color }}
                   >
                     <span className="h-1.5 w-1.5 rounded-full" style={{ background: priorityCfg.dot }} />
@@ -242,19 +251,21 @@ const LeadListCard = memo(function LeadListCard({
               >
                 <a
                   href={`tel:${lead.contactPhone}`}
-                  className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-blue-50"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg transition-all hover:scale-105"
+                  style={{ background: 'rgba(59,130,246,0.12)' }}
                   title="Call"
                 >
-                  <Phone className="h-3.5 w-3.5 text-blue-500" />
+                  <Phone className="h-4 w-4" style={{ color: '#3B82F6' }} />
                 </a>
                 <a
                   href={waHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-green-50"
+                  className="h-8 w-8 flex items-center justify-center rounded-lg transition-all hover:scale-105"
+                  style={{ background: 'rgba(37,211,102,0.12)' }}
                   title="WhatsApp"
                 >
-                  <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                  <MessageCircle className="h-4 w-4" style={{ color: '#16A34A' }} />
                 </a>
                 {/* 3-dot context menu */}
                 <div className="relative" ref={menuRef}>
@@ -310,34 +321,49 @@ const LeadListCard = memo(function LeadListCard({
               </div>
             </div>
 
-            {/* Row 2: customer contact info only */}
-            <div className="flex items-center gap-4 mt-2 flex-wrap">
-              <span className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
-                <Phone className="h-3.5 w-3.5 flex-shrink-0" />
+            {/* Row 2: contact info */}
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              <span className="flex items-center gap-1 text-[12px] text-[var(--text-secondary)]">
+                <Phone className="h-3 w-3 flex-shrink-0" />
                 {lead.contactPhone}
               </span>
               {lead.contactEmail && (
-                <span className="text-sm text-[var(--text-secondary)]">
+                <span className="text-[12px] text-[var(--text-secondary)] truncate max-w-[180px]">
                   {lead.contactEmail}
                 </span>
               )}
               {lead.contactCity && (
-                <span className="flex items-center gap-1 text-sm text-[var(--text-secondary)]">
-                  <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                <span className="flex items-center gap-1 text-[12px] text-[var(--text-secondary)]">
+                  <MapPin className="h-3 w-3 flex-shrink-0" />
                   {lead.contactCity}
+                </span>
+              )}
+              {lead.source && SOURCE_META[lead.source] && (
+                <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color: SOURCE_META[lead.source].color }}>
+                  <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: SOURCE_META[lead.source].dot }} />
+                  {SOURCE_META[lead.source].label}
                 </span>
               )}
             </div>
 
-            {/* Row 3: last activity only */}
-            <div className="flex items-center gap-4 mt-2">
+            {/* Row 3: last activity + follow-up flag */}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span
-                className="flex items-center gap-1 text-xs"
-                style={{ color: rotting === 'rotting' ? 'var(--danger)' : rotting === 'stale' ? 'var(--warning)' : 'var(--text-secondary)' }}
+                className="flex items-center gap-1 text-[11px]"
+                style={{ color: rotting === 'rotting' ? 'var(--danger)' : rotting === 'stale' ? 'var(--warning)' : 'var(--text-tertiary)' }}
               >
                 <Clock className="h-3 w-3 flex-shrink-0" />
                 {age === 0 ? 'Today' : `${age}d ago`}
               </span>
+              {fuState && (
+                <span
+                  className="flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5"
+                  style={{ background: FU_STYLE[fuState].bg, color: FU_STYLE[fuState].color }}
+                >
+                  <BellRing className="h-2.5 w-2.5 flex-shrink-0" />
+                  {fuState === 'overdue' ? 'F/U Overdue' : fuState === 'today' ? 'F/U Today' : 'F/U Scheduled'}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -643,20 +669,20 @@ export default function LeadsPage() {
         onCancel={() => setPendingAction(null)}
       />
 
-      <div className="px-6 pt-6 pb-8 space-y-5">
+      <div className="pt-4 pb-6 space-y-3">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Leads</h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              {grouped.length} customers · {filtered.length} enquiries shown
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>Leads</h1>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              {grouped.length} customer{grouped.length !== 1 ? 's' : ''} · {filtered.length} lead{filtered.length !== 1 ? 's' : ''} shown
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/leads/analytics"
-              className="flex items-center gap-2 h-[40px] px-4 rounded-[12px] text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 h-[34px] px-3 rounded-[10px] text-[13px] font-medium transition-colors"
               style={{
                 background: 'var(--surface-card)',
                 color: 'var(--text-primary)',
@@ -664,12 +690,12 @@ export default function LeadsPage() {
                 textDecoration: 'none',
               }}
             >
-              <TrendingUp className="h-4 w-4" />
+              <TrendingUp className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Analytics</span>
             </Link>
             <button
               type="button"
-              className="flex items-center gap-2 h-[40px] px-4 rounded-[12px] text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 h-[34px] px-3 rounded-[10px] text-[13px] font-medium transition-colors"
               style={{
                 background: showPipeline ? 'var(--purple-soft)' : 'var(--surface-card)',
                 color: showPipeline ? 'var(--violet-primary)' : 'var(--text-primary)',
@@ -677,11 +703,11 @@ export default function LeadsPage() {
               }}
               onClick={() => setShowPipeline(v => !v)}
             >
-              <BarChart2 className="h-4 w-4" />
+              <BarChart2 className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Pipeline</span>
               {showPipeline
-                ? <ChevronUp className="h-3.5 w-3.5" />
-                : <ChevronDown className="h-3.5 w-3.5" />}
+                ? <ChevronUp className="h-3 w-3" />
+                : <ChevronDown className="h-3 w-3" />}
             </button>
             <NewLeadDialog onSuccess={handleLeadCreated} defaultOpen={searchParams.get('new') === '1'} />
           </div>
@@ -693,27 +719,28 @@ export default function LeadsPage() {
         )}
 
         {/* ── Search + sort + filter ──────────────────────────────────────── */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="studio-search-icon" />
+        <div className="flex items-center gap-2">
+          {/* Search — grows but capped so sort/filter stay balanced */}
+          <div className="relative flex-1 min-w-[160px] max-w-[400px]">
+            <Search className="studio-search-icon" style={{ width: 14, height: 14 }} />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search name, phone, location…"
-              className="studio-input w-full text-sm h-[48px]"
-              style={{ paddingLeft: '2.75rem' }}
+              placeholder="Search name, phone, city…"
+              className="studio-input w-full text-[13px] h-[38px]"
+              style={{ paddingLeft: '2.25rem' }}
             />
           </div>
 
           {/* Sort */}
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as SortKey)}
-              className="studio-input h-[48px] text-sm pl-4 pr-8 cursor-pointer appearance-none"
+              className="studio-input h-[38px] text-[13px] pl-3 pr-7 cursor-pointer appearance-none"
               style={{ color: 'var(--text-primary)' }}
+              suppressHydrationWarning
             >
               <option value="latest">Latest First</option>
               <option value="score">By Score</option>
@@ -721,13 +748,13 @@ export default function LeadsPage() {
               <option value="budget">By Budget</option>
               <option value="name">By Name</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
           </div>
 
           {/* Filter toggle */}
           <button
             type="button"
-            className="flex items-center gap-2 h-[48px] px-4 rounded-[12px] text-sm font-medium transition-colors"
+            className="flex items-center gap-1.5 h-[38px] px-3 rounded-[10px] text-[13px] font-medium transition-colors flex-shrink-0"
             style={{
               background: showFilters ? 'var(--purple-soft)' : 'var(--surface-card)',
               color: showFilters ? 'var(--violet-primary)' : 'var(--text-primary)',
@@ -735,37 +762,42 @@ export default function LeadsPage() {
             }}
             onClick={() => setShowFilters(v => !v)}
           >
-            <Filter className="h-4 w-4" />
+            <Filter className="h-3.5 w-3.5" />
             Filter
+            {(filterPriority !== 'all' || filterSource !== 'all') && (
+              <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-base)' }} />
+            )}
           </button>
         </div>
 
         {/* ── Expanded filter row ─────────────────────────────────────────── */}
         {showFilters && (
           <div
-            className="flex gap-3 flex-wrap p-4 rounded-[12px]"
-            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
+            className="flex gap-2 flex-wrap items-center p-3 rounded-[10px]"
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
           >
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <select
                 value={filterPriority}
                 onChange={e => setFilterPriority(e.target.value as LeadPriority | 'all')}
-                className="studio-input text-sm h-[40px] pl-3 pr-7 cursor-pointer appearance-none"
+                className="studio-input text-[13px] h-[34px] pl-3 pr-7 cursor-pointer appearance-none"
                 style={{ color: 'var(--text-primary)' }}
+                suppressHydrationWarning
               >
                 <option value="all">All Priority</option>
                 <option value="hot">🔴 Hot</option>
                 <option value="warm">🟠 Warm</option>
                 <option value="cold">🔵 Cold</option>
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--text-secondary)' }} />
             </div>
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <select
                 value={filterSource}
                 onChange={e => setFilterSource(e.target.value as LeadSource | 'all')}
-                className="studio-input text-sm h-[40px] pl-3 pr-7 cursor-pointer appearance-none"
+                className="studio-input text-[13px] h-[34px] pl-3 pr-7 cursor-pointer appearance-none"
                 style={{ color: 'var(--text-primary)' }}
+                suppressHydrationWarning
               >
                 <option value="all">All Sources</option>
                 <option value="whatsapp">WhatsApp</option>
@@ -775,23 +807,23 @@ export default function LeadsPage() {
                 <option value="walk_in">Walk-in</option>
                 <option value="other">Other</option>
               </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--text-secondary)' }} />
             </div>
             {(filterPriority !== 'all' || filterSource !== 'all') && (
               <button
                 type="button"
-                className="text-xs px-3"
+                className="text-[12px] px-2.5 h-[34px] rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
                 style={{ color: 'var(--text-secondary)' }}
                 onClick={() => { setFilterPriority('all'); setFilterSource('all'); }}
               >
-                Clear filters
+                Clear
               </button>
             )}
           </div>
         )}
 
         {/* ── Status filter chips ─────────────────────────────────────────── */}
-        <div className="flex gap-2 overflow-x-auto pb-1 flex-nowrap">
+        <div className="flex gap-1.5 overflow-x-auto pb-0.5 flex-nowrap" style={{ scrollbarWidth: 'none' }}>
           {STATUS_CHIPS.map(chip => {
             const count = chipCounts[chip.key] ?? 0;
             const isActive = activeChip === chip.key;
@@ -800,11 +832,11 @@ export default function LeadsPage() {
                 key={chip.key}
                 type="button"
                 onClick={() => setActiveChip(chip.key)}
-                className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all"
+                className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium transition-all"
                 style={isActive ? {
                   background: 'var(--violet-primary)',
                   color: 'var(--surface-card)',
-                  boxShadow: '0 2px 8px rgba(124,92,252,0.35)',
+                  boxShadow: '0 2px 6px rgba(124,92,252,0.3)',
                 } : {
                   background: 'var(--surface-card)',
                   color: 'var(--text-primary)',
@@ -812,17 +844,16 @@ export default function LeadsPage() {
                 }}
               >
                 {chip.label}
-                {count > 0 && (
-                  <span
-                    className="text-[11px] rounded-full px-1.5 py-0.5 font-semibold"
-                    style={{
-                      background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--surface-muted)',
-                      color:      isActive ? 'var(--surface-card)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {count}
-                  </span>
-                )}
+                <span
+                  className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold leading-none"
+                  style={{
+                    background: isActive ? 'rgba(255,255,255,0.25)' : 'var(--surface-muted)',
+                    color:      isActive ? 'var(--surface-card)' : 'var(--text-secondary)',
+                    opacity:    count === 0 && !isActive ? 0.4 : 1,
+                  }}
+                >
+                  {count}
+                </span>
               </button>
             );
           })}
@@ -830,12 +861,12 @@ export default function LeadsPage() {
 
         {/* ── Lead list ──────────────────────────────────────────────────── */}
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="rounded-[16px] animate-pulse"
-                style={{ height: 100, background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}
+                className="rounded-xl animate-pulse"
+                style={{ height: 78, background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}
               />
             ))}
           </div>
@@ -858,7 +889,7 @@ export default function LeadsPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <AnimatePresence initial={false}>
               {grouped.map(({ groupKey, customerId, primaryLead }) => {
                 const destination = customerId

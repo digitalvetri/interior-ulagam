@@ -27,6 +27,18 @@ data/
 .vercel
 README.md
 
+# Non-app dirs — agents, skills, docs, rules are Claude tooling, not the Next.js app
+frontend/
+backend/
+interior-studio-os/
+agents/
+skills/
+rules/
+PRPs/
+docs/
+resources/
+hooks/
+
 # Legacy Supabase-era SQL patches — superseded by drizzle/meta journal
 drizzle/legacy/
 scripts/snap-out/

@@ -269,7 +269,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false }: NewLeadDialogP
   return (
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button>+ New Lead</Button>
+        <Button suppressHydrationWarning>+ New Lead</Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">

@@ -225,7 +225,7 @@ body {
   align-items: center;
   border-radius: var(--radius);
   transition: background-color 0.12s ease, color 0.12s ease;
-  color: var(--text-secondary);
+  color: #3A3A38;
   position: relative;
 }
 .nav-item:hover {

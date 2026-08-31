@@ -23,8 +23,8 @@ const PAGE_TITLES: Record<string, string> = {
 export function PageHeading() {
   const pathname = usePathname();
 
-  // Dashboard has its own greeting heading — skip the generic title there
-  if (pathname === '/dashboard') return null;
+  // These pages have their own self-contained header sections
+  if (pathname === '/dashboard' || pathname === '/leads') return null;
 
   const title = Object.entries(PAGE_TITLES).find(
     ([key]) => pathname === key || pathname.startsWith(key + '/')
