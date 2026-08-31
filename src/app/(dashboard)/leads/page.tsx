@@ -68,12 +68,6 @@ function getRottingStatus(lastActivityAt: string): RottingStatus {
   return 'rotting';
 }
 
-function scoreColor(score: number): string {
-  if (score >= 70) return 'var(--success)';
-  if (score >= 40) return 'var(--warning)';
-  return 'var(--text-tertiary)';
-}
-
 const FU_STYLE = {
   overdue:  { bg: 'var(--danger-soft)', color: 'var(--danger)' },
   today:    { bg: 'var(--warning-soft)', color: 'var(--warning)' },
@@ -112,7 +106,6 @@ const LeadListCard = memo(function LeadListCard({
   destinationHref?: string;
 }) {
   const router = useRouter();
-  const [showScorePop, setShowScorePop] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -130,8 +123,6 @@ const LeadListCard = memo(function LeadListCard({
   const age = daysSince(lead.lastActivityAt);
   const rotting = getRottingStatus(lead.lastActivityAt);
   const borderColor = ROTTING_BORDER[rotting];
-  const score = lead.score ?? 0;
-  const sColor = scoreColor(score);
 
   const waHref = `https://wa.me/91${lead.contactPhone.replace(/\D/g, '')}`;
 
@@ -147,66 +138,13 @@ const LeadListCard = memo(function LeadListCard({
       }}
       onClick={() => router.push(destinationHref ?? `/leads/${lead.id}`)}
     >
-        <div className="flex items-start gap-3">
-          {/* Avatar + Score */}
-          <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
-            <div
-              className="h-9 w-9 rounded-full flex items-center justify-center text-[12px] font-bold text-white select-none"
-              style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}
-            >
-              {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-            </div>
-            {/* Score badge with breakdown popover */}
-            <div
-              className="relative"
-              onMouseEnter={() => setShowScorePop(true)}
-              onMouseLeave={() => setShowScorePop(false)}
-              onClick={e => e.stopPropagation()}
-            >
-              <div
-                className="rounded-full text-white text-[9px] font-bold px-1.5 py-0.5 leading-none cursor-default select-none"
-                style={{ background: sColor, minWidth: 22, textAlign: 'center' }}
-              >
-                {score}
-              </div>
-              {showScorePop && lead.scoreBreakdown && (
-                <div
-                  className="absolute z-50 top-full left-1/2 mt-1.5 w-44 rounded-xl p-3 shadow-xl"
-                  style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', transform: 'translateX(-50%)' }}
-                >
-                  <p className="text-[10px] font-bold mb-2 tracking-wider" style={{ color: 'var(--violet-primary)' }}>
-                    SCORE BREAKDOWN
-                  </p>
-                  {(
-                    [
-                      { label: 'Recency',      val: lead.scoreBreakdown.recency,      max: 30 },
-                      { label: 'Value',        val: lead.scoreBreakdown.value,        max: 25 },
-                      { label: 'Completeness', val: lead.scoreBreakdown.completeness, max: 20 },
-                      { label: 'Source',       val: lead.scoreBreakdown.source,       max: 15 },
-                      { label: 'Engagement',   val: lead.scoreBreakdown.engagement,   max: 10 },
-                    ] as { label: string; val: number; max: number }[]
-                  ).map(({ label, val, max }) => (
-                    <div key={label} className="mb-1.5">
-                      <div className="flex justify-between mb-0.5" style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
-                        <span>{label}</span>
-                        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{val}/{max}</span>
-                      </div>
-                      <div className="h-1 rounded-full" style={{ background: 'var(--surface-muted)' }}>
-                        <div
-                          className="h-1 rounded-full"
-                          style={{ width: `${(val / max) * 100}%`, background: sColor }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {lead.scoreBreakdown.engagement < 4 && (
-                    <p className="text-[9px] mt-2 pt-2" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border-subtle)' }}>
-                      Tip: add a note or call to boost engagement
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
+        <div className="flex items-center gap-3">
+          {/* Avatar */}
+          <div
+            className="h-9 w-9 rounded-full flex items-center justify-center text-[12px] font-bold text-white select-none flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}
+          >
+            {lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
           </div>
 
           {/* Main content */}
@@ -271,6 +209,7 @@ const LeadListCard = memo(function LeadListCard({
                 <div className="relative" ref={menuRef}>
                   <button
                     type="button"
+                    suppressHydrationWarning
                     title="More actions"
                     onClick={() => setShowMenu(v => !v)}
                     className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
@@ -284,6 +223,7 @@ const LeadListCard = memo(function LeadListCard({
                     >
                       <button
                         type="button"
+                    suppressHydrationWarning
                         onClick={() => { setShowMenu(false); router.push(`/leads/${lead.id}`); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
                         style={{ color: 'var(--text-heading)' }}
@@ -292,6 +232,7 @@ const LeadListCard = memo(function LeadListCard({
                       </button>
                       <button
                         type="button"
+                    suppressHydrationWarning
                         onClick={() => { setShowMenu(false); onViewFollowUps(lead); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-violet-50 transition-colors"
                         style={{ color: 'var(--text-heading)' }}
@@ -300,6 +241,7 @@ const LeadListCard = memo(function LeadListCard({
                       </button>
                       <button
                         type="button"
+                    suppressHydrationWarning
                         onClick={() => { setShowMenu(false); onArchive(lead.id); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-amber-50 transition-colors"
                         style={{ color: 'var(--text-heading)' }}
@@ -309,6 +251,7 @@ const LeadListCard = memo(function LeadListCard({
                       <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
                         <button
                           type="button"
+                    suppressHydrationWarning
                           onClick={() => { setShowMenu(false); onDelete(lead.id); }}
                           className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-red-50 transition-colors text-red-600"
                         >
@@ -370,6 +313,49 @@ const LeadListCard = memo(function LeadListCard({
     </div>
   );
 });
+
+/* ── KPI Stats Bar ───────────────────────────────────────────────────────────── */
+function KpiBar({ leads }: { leads: Lead[] }) {
+  const now = new Date();
+  const newCount     = leads.filter(l => l.stage === 'new').length;
+  const fuToday      = leads.filter(l => followUpState(l.followUpDate) === 'today').length;
+  const goingCold    = leads.filter(l => {
+    const d = daysSince(l.lastActivityAt);
+    return d > 7 && !['won', 'lost'].includes(l.stage);
+  }).length;
+  const wonThisMonth = leads.filter(l => {
+    if (l.stage !== 'won') return false;
+    const d = new Date(l.createdAt);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const stats = [
+    { label: 'New leads',            value: newCount,     icon: Users,         accent: 'var(--accent-base)', bg: 'var(--accent-soft)' },
+    { label: 'Follow-up due today',  value: fuToday,      icon: BellRing,      accent: 'var(--warning)',     bg: 'var(--warning-soft)' },
+    { label: 'Going cold',           value: goingCold,    icon: AlertTriangle, accent: 'var(--danger)',      bg: 'var(--danger-soft)' },
+    { label: 'Converted this month', value: wonThisMonth, icon: TrendingUp,    accent: 'var(--success)',     bg: 'var(--success-soft)' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {stats.map(({ label, value, icon: Icon, accent, bg }) => (
+        <div
+          key={label}
+          className="rounded-xl p-3.5 flex items-center gap-3"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+        >
+          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
+            <Icon className="h-4 w-4" style={{ color: accent }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-2xl font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{value}</p>
+            <p className="text-[11px] mt-0.5 leading-tight" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ── Pipeline Intelligence Panel ────────────────────────────────────────────── */
 interface StageStats { count: number; valuePaise: number }
@@ -636,7 +622,7 @@ export default function LeadsPage() {
   }, [filtered]);
 
   return (
-    <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
+    <div>
 
       {/* Follow-up modals */}
       {followUpLead && (
@@ -669,7 +655,7 @@ export default function LeadsPage() {
         onCancel={() => setPendingAction(null)}
       />
 
-      <div className="pt-4 pb-6 space-y-3">
+      <div className="pb-6 space-y-3">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
@@ -713,14 +699,17 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        {/* ── KPI Stats Bar ──────────────────────────────────────────────── */}
+        {!loading && <KpiBar leads={leads} />}
+
         {/* ── Pipeline Intelligence Panel ─────────────────────────────── */}
         {showPipeline && !loading && (
           <PipelinePanel leads={leads} />
         )}
 
-        {/* ── Search + sort + filter ──────────────────────────────────────── */}
+        {/* ── Search + sort ───────────────────────────────────────────────── */}
         <div className="flex items-center gap-2">
-          {/* Search — grows but capped so sort/filter stay balanced */}
+          {/* Search */}
           <div className="relative flex-1 min-w-[160px] max-w-[400px]">
             <Search className="studio-search-icon" style={{ width: 14, height: 14 }} />
             <input
@@ -730,6 +719,7 @@ export default function LeadsPage() {
               placeholder="Search name, phone, city…"
               className="studio-input w-full text-[13px] h-[38px]"
               style={{ paddingLeft: '2.25rem' }}
+              suppressHydrationWarning
             />
           </div>
 
@@ -738,7 +728,7 @@ export default function LeadsPage() {
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as SortKey)}
-              className="studio-input h-[38px] text-[13px] pl-3 pr-7 cursor-pointer appearance-none"
+              className="studio-input h-[38px] text-[13px] pl-3 pr-8 cursor-pointer appearance-none min-w-[140px]"
               style={{ color: 'var(--text-primary)' }}
               suppressHydrationWarning
             >
@@ -750,77 +740,8 @@ export default function LeadsPage() {
             </select>
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
           </div>
-
-          {/* Filter toggle */}
-          <button
-            type="button"
-            className="flex items-center gap-1.5 h-[38px] px-3 rounded-[10px] text-[13px] font-medium transition-colors flex-shrink-0"
-            style={{
-              background: showFilters ? 'var(--purple-soft)' : 'var(--surface-card)',
-              color: showFilters ? 'var(--violet-primary)' : 'var(--text-primary)',
-              border: showFilters ? '1.5px solid var(--accent-soft)' : '1.5px solid var(--border-subtle)',
-            }}
-            onClick={() => setShowFilters(v => !v)}
-          >
-            <Filter className="h-3.5 w-3.5" />
-            Filter
-            {(filterPriority !== 'all' || filterSource !== 'all') && (
-              <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: 'var(--accent-base)' }} />
-            )}
-          </button>
         </div>
 
-        {/* ── Expanded filter row ─────────────────────────────────────────── */}
-        {showFilters && (
-          <div
-            className="flex gap-2 flex-wrap items-center p-3 rounded-[10px]"
-            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-          >
-            <div className="relative flex-shrink-0">
-              <select
-                value={filterPriority}
-                onChange={e => setFilterPriority(e.target.value as LeadPriority | 'all')}
-                className="studio-input text-[13px] h-[34px] pl-3 pr-7 cursor-pointer appearance-none"
-                style={{ color: 'var(--text-primary)' }}
-                suppressHydrationWarning
-              >
-                <option value="all">All Priority</option>
-                <option value="hot">🔴 Hot</option>
-                <option value="warm">🟠 Warm</option>
-                <option value="cold">🔵 Cold</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--text-secondary)' }} />
-            </div>
-            <div className="relative flex-shrink-0">
-              <select
-                value={filterSource}
-                onChange={e => setFilterSource(e.target.value as LeadSource | 'all')}
-                className="studio-input text-[13px] h-[34px] pl-3 pr-7 cursor-pointer appearance-none"
-                style={{ color: 'var(--text-primary)' }}
-                suppressHydrationWarning
-              >
-                <option value="all">All Sources</option>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="instagram">Instagram</option>
-                <option value="referral">Referral</option>
-                <option value="website">Website</option>
-                <option value="walk_in">Walk-in</option>
-                <option value="other">Other</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3" style={{ color: 'var(--text-secondary)' }} />
-            </div>
-            {(filterPriority !== 'all' || filterSource !== 'all') && (
-              <button
-                type="button"
-                className="text-[12px] px-2.5 h-[34px] rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
-                style={{ color: 'var(--text-secondary)' }}
-                onClick={() => { setFilterPriority('all'); setFilterSource('all'); }}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-        )}
 
         {/* ── Status filter chips ─────────────────────────────────────────── */}
         <div className="flex gap-1.5 overflow-x-auto pb-0.5 flex-nowrap" style={{ scrollbarWidth: 'none' }}>
@@ -832,6 +753,7 @@ export default function LeadsPage() {
                 key={chip.key}
                 type="button"
                 onClick={() => setActiveChip(chip.key)}
+                suppressHydrationWarning
                 className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium transition-all"
                 style={isActive ? {
                   background: 'var(--violet-primary)',

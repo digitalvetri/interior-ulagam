@@ -135,18 +135,6 @@ function SidebarBody({
       </div>
 
 
-      {/* ── Role pill ────────────────────────────────────────────────── */}
-      {role && !iconOnly && (
-        <div className="px-4 pt-3 pb-0">
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text)' }}
-          >
-            {ROLE_LABELS[role] ?? role}
-          </span>
-        </div>
-      )}
-
       {/* ── Nav groups ───────────────────────────────────────────────── */}
       <nav
         className="flex-1 overflow-y-auto py-1"
@@ -179,7 +167,6 @@ function SidebarBody({
           {!iconOnly && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-[12px] font-semibold text-[var(--text-heading)]">{fullName || 'Account'}</p>
-              <p className="text-[10px] text-[var(--text-tertiary)]">{ROLE_LABELS[role] ?? (role || '—')}</p>
             </div>
           )}
         </div>
