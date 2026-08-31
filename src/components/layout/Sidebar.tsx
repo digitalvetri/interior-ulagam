@@ -39,7 +39,7 @@ function NavGroupSection({
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
-          className="group flex w-full items-center justify-between px-3 py-1.5 text-left"
+          className="group flex w-full items-center justify-between px-3 py-1 text-left"
           suppressHydrationWarning
         >
           <span
@@ -74,7 +74,7 @@ function NavGroupSection({
                 title={iconOnly ? label : undefined}
                 className={`nav-item ${active ? 'active' : ''}`}
                 style={{
-                  padding: iconOnly ? '11px 0' : '9px 12px',
+                  padding: iconOnly ? '10px 0' : '7px 12px',
                   justifyContent: iconOnly ? 'center' : 'flex-start',
                   gap: iconOnly ? 0 : 11,
                 }}
@@ -90,7 +90,7 @@ function NavGroupSection({
                 <Icon className="nav-icon flex-shrink-0" style={{ width: 17, height: 17 }} />
 
                 {!iconOnly && (
-                  <span className="flex-1 text-[13.5px] font-medium leading-none">{label}</span>
+                  <span className="flex-1 text-[14px] font-medium leading-none">{label}</span>
                 )}
               </Link>
             );
@@ -116,39 +116,27 @@ function SidebarBody({
     <>
       {/* ── Logo ─────────────────────────────────────────────────────── */}
       <div
-        className="flex h-[60px] flex-shrink-0 items-center border-b border-[var(--border-subtle)]"
+        className="flex h-[70px] flex-shrink-0 items-center border-b border-[var(--border-subtle)]"
         style={{ padding: iconOnly ? '0 12px' : '0 16px', gap: iconOnly ? 0 : 10, justifyContent: iconOnly ? 'center' : 'flex-start' }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/brand/logo-icon.png"
           alt="The Interior Studio"
-          width={32} height={32}
-          className="h-8 w-8 flex-shrink-0 rounded-lg object-contain"
+          width={34} height={34}
+          className="h-[34px] w-[34px] flex-shrink-0 rounded-lg object-contain"
         />
         {!iconOnly && (
           <div className="min-w-0 leading-tight">
-            <p className="truncate text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>The Interior Studio</p>
-            <p className="text-[10px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Studio OS</p>
+            <p className="truncate text-[14px] font-bold" style={{ color: 'var(--text-heading)' }}>The Interior Studio</p>
+            <p className="text-[11px] font-medium" style={{ color: 'var(--text-tertiary)' }}>Studio OS</p>
           </div>
         )}
       </div>
 
-      {/* ── Role pill ────────────────────────────────────────────────── */}
-      {role && !iconOnly && (
-        <div className="px-4 pt-3 pb-0">
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-            style={{ backgroundColor: 'var(--accent-soft)', color: '#6D4FE0' }}
-          >
-            {ROLE_LABELS[role] ?? role}
-          </span>
-        </div>
-      )}
-
       {/* ── Nav groups ───────────────────────────────────────────────── */}
       <nav
-        className="flex-1 overflow-y-auto py-2"
+        className="flex-1 overflow-y-auto py-1"
         style={{ scrollbarWidth: 'none' }}
       >
         {visibleGroups.map(group => (
@@ -182,9 +170,6 @@ function SidebarBody({
             </div>
           )}
         </div>
-        {!iconOnly && (
-          <p className="mt-2 px-1 text-[10px] text-[var(--text-tertiary)]">Built by DigitalVetri</p>
-        )}
       </div>
     </>
   );
@@ -239,7 +224,7 @@ export function Sidebar() {
   return (
     <>
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-card)] px-4">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-card)] px-4">
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/logo-icon.png" alt="" className="h-7 w-7 rounded object-contain" width={28} height={28} />
@@ -259,7 +244,7 @@ export function Sidebar() {
       {/* ── Mobile overlay ─────────────────────────────────────────── */}
       {mobileOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-30 bg-black/30"
+          className="md:hidden fixed inset-0 z-30 bg-black/30"
           onClick={closeMenu}
           aria-hidden="true"
         />
@@ -267,7 +252,7 @@ export function Sidebar() {
 
       {/* ── Mobile drawer ──────────────────────────────────────────── */}
       <aside
-        className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-64 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`studio-sidebar md:hidden fixed top-14 left-0 bottom-0 z-40 flex w-64 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <SidebarBody
           role={role} fullName={fullName} pathname={pathname}
@@ -277,7 +262,7 @@ export function Sidebar() {
 
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside
-        className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
+        className={`studio-sidebar hidden md:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
         <SidebarBody
           role={role} fullName={fullName} pathname={pathname} iconOnly={iconOnly}

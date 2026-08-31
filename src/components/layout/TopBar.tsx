@@ -2,62 +2,42 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CalendarDays, LogOut, Search } from 'lucide-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 import { CommandPalette } from '@/components/leads/CommandPalette';
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard':           'Dashboard',
-  '/leads':               'Lead Pipeline',
-  '/customers':           'Customers',
-  '/projects':            'Projects',
-  '/quotes':              'Quotations',
-  '/work-orders':         'Design Tasks',
-  '/materials':           'Materials',
-  '/vendors':             'Vendors',
-  '/purchase-orders':     'Purchase Orders',
-  '/invoices':            'Invoices',
-  '/accounts':            'Accounts & Payments',
-  '/employees':           'Employees',
-  '/calendar':            'Calendar',
-  '/analytics/designers': 'Analytics',
-  '/analytics':           'Analytics',
-  '/settings':            'Settings',
+const ROLE_LABELS: Record<string, string> = {
+  owner:      'Studio Owner',
+  designer:   'Designer',
+  accountant: 'Accountant',
+  supervisor: 'Site Supervisor',
 };
 
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
-  owner:      { bg: 'var(--text-heading)', text: 'var(--surface-card)' },
-  designer:   { bg: 'var(--success)', text: 'var(--surface-card)' },
-  accountant: { bg: 'var(--accent-base)', text: 'var(--surface-card)' },
-  supervisor: { bg: 'var(--warning)', text: 'var(--text-heading)' },
-};
-
-const GREETINGS: Record<string, string> = {
-  '/dashboard': "Here's what's happening with your business today.",
+  owner:      { bg: '#111110', text: '#FFFFFF' },
+  designer:   { bg: 'var(--success)', text: '#FFFFFF' },
+  accountant: { bg: 'var(--accent-base)', text: '#FFFFFF' },
+  supervisor: { bg: 'var(--warning)', text: '#111110' },
 };
 
 export function TopBar() {
   const [fullName, setFullName] = useState('');
   const [role, setRole]         = useState('');
-  const router   = useRouter();
-  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     fetch('/api/v1/me')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((body) => {
+      .then(r => r.ok ? r.json() : null)
+      .then(body => {
         if (!body?.data) return;
         setFullName(body.data.fullName ?? '');
         setRole(body.data.role ?? '');
       })
-      .catch(() => { /* identity unavailable — chrome renders without it */ });
+      .catch(() => {});
   }, []);
 
   async function handleSignOut() {
-    // Better Auth needs an explicit JSON content type and a body — without them
-    // it answers 415/400. The Origin header its CSRF check requires is added by
-    // the browser automatically.
     await fetch('/api/auth/sign-out', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,100 +47,113 @@ export function TopBar() {
     router.refresh();
   }
 
-  const pageTitle = Object.entries(PAGE_TITLES).find(([key]) =>
-    pathname === key || pathname.startsWith(key + '/')
-  )?.[1] ?? 'InterioOS';
-
-  const greeting = Object.entries(GREETINGS).find(([key]) =>
-    pathname === key || pathname.startsWith(key + '/')
-  )?.[1];
-
+  const initials  = fullName.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const roleStyle = ROLE_COLORS[role] ?? ROLE_COLORS.owner;
-  const initials  = fullName
-    .split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
-  const firstName = fullName.split(' ')[0] || fullName;
+  const roleLabel = ROLE_LABELS[role] ?? role;
 
   return (
     <>
       <CommandPalette />
-      <header className="studio-topbar flex h-16 items-center justify-between px-6 relative z-10 gap-6">
-        {/* Page title */}
-        <div className="min-w-0">
-          <h1
-            className="text-base font-bold tracking-tight truncate"
-            style={{ color: 'var(--text-heading)' }}
-          >
-            {pageTitle}
-          </h1>
-          {greeting && (
-            <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>
-              {firstName ? `Welcome back, ${firstName}! ` : ''}{greeting}
-            </p>
-          )}
-        </div>
+      <header className="studio-topbar flex h-16 items-center gap-4 px-6 relative z-10">
 
-      <div className="flex items-center gap-3 flex-shrink-0">
-        {/* ⌘K command palette trigger */}
+        {/* ── Search — always visible, proportional width ──────────── */}
         <button
           type="button"
           onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
-          className="topbar-search hidden md:flex items-center gap-2"
-          style={{ maxWidth: '180px', cursor: 'pointer', border: '1.5px solid var(--border-subtle)', borderRadius: 10, padding: '6px 12px', background: 'var(--surface-muted)' }}
+          className="flex items-center gap-2 flex-shrink-0"
+          style={{
+            width: 'clamp(140px, 22vw, 300px)',
+            cursor: 'pointer',
+            border: '1.5px solid var(--border-subtle)',
+            borderRadius: 10,
+            padding: '7px 12px',
+            background: 'var(--surface-muted)',
+          }}
           aria-label="Open command palette"
           suppressHydrationWarning
         >
           <Search className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-          <span style={{ fontSize: 12, color: 'var(--text-tertiary)', flex: 1 }}>Search…</span>
-          <kbd style={{ fontSize: 10, background: 'var(--surface-app)', color: 'var(--text-tertiary)', borderRadius: 4, padding: '1px 4px', border: '1px solid var(--border-subtle)' }}>⌘K</kbd>
-        </button>
-
-        {/* Calendar shortcut */}
-        <Link
-          href="/calendar"
-          aria-label="Open calendar"
-          title="Calendar"
-          className="rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-heading)' }}
-        >
-          <CalendarDays className="h-4 w-4" />
-        </Link>
-
-        {/* Theme toggle */}
-        <ThemeToggle />
-
-        {/* Notification bell — clicking opens a popover with the latest notifications */}
-        <NotificationsPopover />
-
-        {/* User info */}
-        <div className="flex items-center gap-2.5 pl-3 border-l" style={{ borderColor: 'var(--border-subtle)' }}>
-          {/* Avatar */}
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold flex-shrink-0"
-            style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}
-            title={fullName}
+          <span
+            className="hidden sm:block flex-1 text-left"
+            style={{ fontSize: 12, color: 'var(--text-tertiary)' }}
           >
-            {initials}
-          </div>
-          <div className="hidden sm:block leading-tight">
-            <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{fullName}</p>
-            <p className="text-[10px] capitalize" style={{ color: 'var(--text-secondary)' }}>{role}</p>
-          </div>
-        </div>
-
-        {/* Sign out */}
-        <button
-          type="button"
-          onClick={handleSignOut}
-          aria-label="Sign out"
-          className="ml-1 rounded-lg p-2 transition-colors hover:bg-red-50"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
-        >
-          <LogOut className="h-4 w-4" />
+            Search…
+          </span>
+          <kbd
+            className="hidden sm:block flex-shrink-0"
+            style={{
+              fontSize: 10,
+              background: 'var(--surface-app)',
+              color: 'var(--text-tertiary)',
+              borderRadius: 4,
+              padding: '2px 5px',
+              border: '1px solid var(--border-subtle)',
+              fontFamily: 'inherit',
+            }}
+          >
+            ⌘K
+          </kbd>
         </button>
-      </div>
-    </header>
+
+        {/* ── Spacer ──────────────────────────────────────────────── */}
+        <div className="flex-1" />
+
+        {/* ── Right actions ───────────────────────────────────────── */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+
+          <Link
+            href="/calendar"
+            aria-label="Calendar"
+            title="Calendar"
+            className="rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <CalendarDays className="h-4 w-4" />
+          </Link>
+
+          <ThemeToggle />
+
+          <NotificationsPopover />
+
+          {/* User pill — avatar always, name on sm+ */}
+          <div
+            className="flex items-center gap-2 ml-2 pl-3 border-l"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold flex-shrink-0"
+              style={{ backgroundColor: roleStyle.bg, color: roleStyle.text }}
+              title={fullName}
+            >
+              {initials}
+            </div>
+            {fullName && (
+              <div className="hidden sm:block leading-tight">
+                <p className="text-[13px] font-semibold whitespace-nowrap" style={{ color: 'var(--text-heading)' }}>
+                  {fullName}
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  {roleLabel}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Sign out */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            aria-label="Sign out"
+            title="Sign out"
+            className="ml-1 rounded-lg p-2 transition-colors hover:bg-red-50"
+            style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--danger)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
     </>
   );
 }

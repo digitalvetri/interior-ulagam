@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Users, FolderKanban, IndianRupee, TrendingUp,
-  Plus, ChevronRight, AlertCircle, CheckCircle2, Clock, Target,
+  Plus, Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -11,40 +11,66 @@ interface LeadStats {
   new: number; site_visit_scheduled: number; consultation_done: number;
   proposal_sent: number; negotiation: number; won: number; lost: number;
 }
-interface Project { id: string; name: string; lifecycleStage: string; totalContractPaise: number; }
-interface Receivable { projectName: string; milestoneName: string; amountPaise: number; dueDays: number; id: string; }
+interface Project {
+  id: string; name: string; lifecycleStage: string;
+  totalContractPaise: number | null; customerFullName: string | null;
+  leadContactName: string | null; expectedEndAt: string | null;
+}
+interface ReceivableItem {
+  id: string; projectName: string; label: string; amountPaise: number;
+  paymentStatus: 'pending' | 'link_sent' | 'overdue'; daysSinceCreation: number;
+}
+interface ReceivablesData {
+  items: ReceivableItem[]; totalOutstandingPaise: number; totalOverduePaise: number;
+}
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 function fmt(paise: number) {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
-
-/* Decorative sparkline — a static wave shape in the metric's accent color.
-   There's no time-series history API for these metrics, so this is a purely
-   stylistic flourish (no fabricated numbers are plotted on it). */
-function Sparkline({ color }: { color: string }) {
-  return (
-    <svg viewBox="0 0 100 28" preserveAspectRatio="none" className="w-full h-7 mt-3">
-      <path
-        d="M0,20 C10,8 18,24 28,16 C38,8 46,22 56,14 C66,6 74,18 84,10 C90,6 96,10 100,6"
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+function todayLabel(): string {
+  return new Date().toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
 }
 
-/* ── KPI Card ───────────────────────────────────────────────────────────── */
-/* Circular pastel icon badge + colored sparkline per metric. */
+/* ── Stage config ───────────────────────────────────────────────────────── */
+const STAGE_PROGRESS: Record<string, number> = {
+  design_pending: 10, design_in_progress: 30, design_approved: 45,
+  procurement: 55, execution: 70, snagging: 85, handover: 93, complete: 100,
+};
+const STAGE_META: Record<string, { label: string; bg: string; text: string }> = {
+  design_pending:     { label: 'Design Pending',  bg: 'var(--surface-muted)', text: 'var(--text-secondary)' },
+  design_in_progress: { label: 'Designing',       bg: 'var(--accent-soft)',   text: 'var(--accent-text)'   },
+  design_approved:    { label: 'Design ✓',        bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
+  procurement:        { label: 'Procurement',      bg: 'var(--warning-soft)',  text: 'var(--warning-text)'  },
+  execution:          { label: 'Execution',        bg: 'var(--accent-soft)',   text: 'var(--accent-text)'   },
+  snagging:           { label: 'Snagging',         bg: 'var(--warning-soft)',  text: 'var(--warning-text)'  },
+  handover:           { label: 'Handover',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
+  complete:           { label: 'Complete',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
+};
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
-  blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)' },
+  blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)'   },
   orange: { bg: 'var(--accent-orange-bg)', fg: 'var(--accent-orange)' },
-  green:  { bg: 'var(--accent-green-bg)',  fg: 'var(--accent-green)' },
+  green:  { bg: 'var(--accent-green-bg)',  fg: 'var(--accent-green)'  },
 } as const;
+const FUNNEL_STAGES: { key: keyof LeadStats; label: string }[] = [
+  { key: 'new',                  label: 'New Enquiry'  },
+  { key: 'site_visit_scheduled', label: 'Site Visit'   },
+  { key: 'consultation_done',    label: 'Consultation' },
+  { key: 'proposal_sent',        label: 'Proposal'     },
+  { key: 'negotiation',          label: 'Negotiation'  },
+  { key: 'won',                  label: 'Won'          },
+];
 
+/* ── KPI Card ───────────────────────────────────────────────────────────── */
 function KpiCard({
   label, value, sub, icon: Icon, accent = 'purple', loading,
 }: {
@@ -53,42 +79,28 @@ function KpiCard({
 }) {
   const a = KPI_ACCENTS[accent];
   return (
-    <div className="premium-card p-5">
-      <div
-        className="stat-badge mb-4"
-        style={{ backgroundColor: a.bg }}
-      >
-        <Icon className="h-5 w-5" style={{ color: a.fg }} strokeWidth={2} />
-      </div>
-      {loading ? (
-        <div className="skeleton h-8 w-24 mb-1" />
-      ) : (
-        <p className="kpi-value">{value}</p>
-      )}
-      <p className="mt-1 text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{label}</p>
-      {sub && <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{sub}</p>}
-      <Sparkline color={a.fg} />
-    </div>
-  );
-}
-
-/* ── Stage Badge ────────────────────────────────────────────────────────── */
-function StageBadge({ stage }: { stage: string }) {
-  const map: Record<string, { label: string; bg: string; text: string }> = {
-    planning:     { label: 'Planning',     bg: 'var(--surface-app)', text: 'var(--teal)' },
-    design:       { label: 'Design',       bg: 'var(--accent-orange-bg)', text: '#C2410C' },
-    procurement:  { label: 'Procurement',  bg: 'var(--accent-blue-bg)', text: 'var(--accent-text)' },
-    execution:    { label: 'Execution',    bg: 'var(--teal-soft)', text: 'var(--teal)' },
-    complete:     { label: 'Complete',     bg: 'var(--accent-green-bg)',  text: 'var(--success-text)' },
-  };
-  const s = map[stage] ?? { label: stage, bg: 'var(--surface-muted)', text: 'var(--text-heading)' };
-  return (
-    <span
-      className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold capitalize"
-      style={{ backgroundColor: s.bg, color: s.text }}
+    <div
+      className="premium-card p-4 group cursor-default"
+      style={{ transition: 'transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease' }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
     >
-      {s.label}
-    </span>
+      <div
+        className="stat-badge mb-3 transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5"
+        style={{ backgroundColor: a.bg, width: '2.25rem', height: '2.25rem' }}
+      >
+        <Icon className="h-4 w-4" style={{ color: a.fg }} strokeWidth={2} />
+      </div>
+      {loading
+        ? <div className="skeleton h-7 w-20 mb-1" />
+        : <p className="text-2xl font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{value}</p>
+      }
+      <p className="mt-1.5 text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{label}</p>
+      {loading
+        ? <div className="skeleton h-3.5 w-24 mt-1" />
+        : sub && <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{sub}</p>
+      }
+    </div>
   );
 }
 
@@ -100,153 +112,165 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border p-4 transition-all duration-150 hover:-translate-y-0.5"
-      style={{
-        backgroundColor: 'var(--surface-card)',
-        borderColor: 'var(--border-subtle)',
-        boxShadow: '0 1px 4px rgba(22,20,15,0.05)',
-        color: 'var(--text-heading)',
-      }}
+      className="group flex items-center gap-3 rounded-xl border p-3.5 transition-colors"
+      style={{ backgroundColor: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}
       onMouseEnter={e => (e.currentTarget.style.borderColor = a.fg)}
       onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
     >
-      <div
-        className="flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
-        style={{ backgroundColor: a.bg }}
-      >
-        <Icon className="h-4 w-4" style={{ color: a.fg }} />
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0" style={{ backgroundColor: a.bg }}>
+        <Icon className="h-3.5 w-3.5" style={{ color: a.fg }} />
       </div>
-      <span className="text-sm font-semibold">{label}</span>
-      <ChevronRight className="ml-auto h-4 w-4 opacity-40 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:opacity-70" />
+      <span className="text-sm font-semibold flex-1">{label}</span>
+      <ChevronRight className="h-3.5 w-3.5 opacity-30 group-hover:opacity-60 transition-opacity" />
     </Link>
   );
 }
 
-/* ── Funnel ─────────────────────────────────────────────────────────────── */
-const FUNNEL_STAGES: { key: keyof LeadStats; label: string }[] = [
-  { key: 'new',                  label: 'New' },
-  { key: 'site_visit_scheduled', label: 'Site Visit' },
-  { key: 'consultation_done',    label: 'Consultation' },
-  { key: 'proposal_sent',        label: 'Proposal Sent' },
-  { key: 'negotiation',          label: 'Negotiation' },
-  { key: 'won',                  label: 'Won' },
-];
-
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
+  const [firstName, setFirstName]     = useState('');
   const [leadStats, setLeadStats]     = useState<LeadStats | null>(null);
-  const [projects, setProjects]       = useState<Project[]>([]);
-  const [receivables, setReceivables] = useState<Receivable[]>([]);
-  const [loading, setLoading]         = useState(true);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [receivables, setReceivables] = useState<ReceivablesData>({
+    items: [], totalOutstandingPaise: 0, totalOverduePaise: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [ls, ps, rs] = await Promise.all([
+        const [me, ls, ps, rs] = await Promise.all([
+          fetch('/api/v1/me').then(r => r.json()),
           fetch('/api/v1/leads/stats').then(r => r.json()),
           fetch('/api/v1/projects').then(r => r.json()),
           fetch('/api/v1/accounts/receivables').then(r => r.json()),
         ]);
-        if (ls.data) setLeadStats(ls.data);
-        if (Array.isArray(ps.data)) setProjects(ps.data.slice(0, 5));
-        // API returns { data: { items: [...], totalOutstandingPaise, totalOverduePaise } }
-        if (Array.isArray(rs.data?.items)) {
-          setReceivables(
-            rs.data.items.slice(0, 5).map((item: {
-              id: string; projectName: string; label: string;
-              amountPaise: number; daysSinceCreation: number;
-            }) => ({
-              id: item.id,
-              projectName: item.projectName,
-              milestoneName: item.label,
-              amountPaise: item.amountPaise,
-              dueDays: item.daysSinceCreation,
-            }))
-          );
+        if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
+        if (ls?.data) setLeadStats(ls.data);
+        if (Array.isArray(ps?.data)) setAllProjects(ps.data);
+        if (rs?.data) {
+          setReceivables({
+            items: Array.isArray(rs.data.items) ? rs.data.items : [],
+            totalOutstandingPaise: rs.data.totalOutstandingPaise ?? 0,
+            totalOverduePaise: rs.data.totalOverduePaise ?? 0,
+          });
         }
-      } catch {
-        /* silent — empty state shown */
-      } finally {
-        setLoading(false);
-      }
+      } catch { /* silent */ } finally { setLoading(false); }
     }
     load();
   }, []);
 
-  const totalLeads   = leadStats ? Object.values(leadStats).reduce((a, b) => a + b, 0) : 0;
-  const activeLeads  = leadStats ? totalLeads - (leadStats.won + leadStats.lost) : 0;
-  const activeProj   = projects.filter(p => p.lifecycleStage !== 'complete').length;
-  const totalRec     = receivables.reduce((s, r) => s + r.amountPaise, 0);
-  const conversionPct = leadStats && totalLeads > 0
-    ? Math.round((leadStats.won / totalLeads) * 100) : 0;
+  /* ── Derived ──────────────────────────────────────────────────────── */
+  const totalLeads     = leadStats ? Object.values(leadStats).reduce((a, b) => a + b, 0) : 0;
+  const activeLeads    = leadStats ? totalLeads - (leadStats.won + leadStats.lost) : 0;
+  const activeProjects = allProjects.filter(p => p.lifecycleStage !== 'complete');
+  const conversionPct  = leadStats && totalLeads > 0 ? Math.round((leadStats.won / totalLeads) * 100) : 0;
+  const maxFunnelVal   = leadStats ? Math.max(1, ...FUNNEL_STAGES.map(s => leadStats[s.key])) : 1;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Action row */}
-      <div className="flex items-center justify-end">
+    <div className="space-y-4 animate-fade-in">
+
+      {/* ── Greeting + New Lead ───────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p
+            className="mb-1 text-[11px] font-semibold uppercase tracking-widest"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
+            Dashboard
+          </p>
+          <h1
+            className="text-xl font-bold leading-tight"
+            style={{ color: 'var(--text-heading)' }}
+            suppressHydrationWarning
+          >
+            {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+          </h1>
+          <p className="mt-0.5 text-sm" style={{ color: 'var(--text-secondary)' }} suppressHydrationWarning>
+            {todayLabel()}
+          </p>
+        </div>
         <Link
           href="/leads?new=1"
-          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm rounded-lg"
+          className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2 text-sm rounded-lg"
         >
           <Plus className="h-4 w-4" />
           New Lead
         </Link>
       </div>
 
-      {/* KPI grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Active Leads"    value={String(activeLeads)}  sub={`${totalLeads} total`}          icon={Users}        accent="purple" loading={loading} />
-        <KpiCard label="Active Projects" value={String(activeProj)}   sub={`${projects.length} total`}     icon={FolderKanban} accent="blue"   loading={loading} />
-        <KpiCard label="Pending Receivables" value={fmt(totalRec)}    sub={`${receivables.length} invoices`} icon={IndianRupee} accent="orange" loading={loading} />
-        <KpiCard label="Conversion Rate" value={`${conversionPct}%`}  sub={`${leadStats?.won ?? 0} won`}   icon={TrendingUp}   accent="green"  loading={loading} />
+      {/* ── KPI Cards ─────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Active Leads"        value={String(activeLeads)}        sub={`${totalLeads} total · ${leadStats?.won ?? 0} won`}       icon={Users}        accent="purple" loading={loading} />
+        <KpiCard label="Active Projects"     value={String(activeProjects.length)} sub={`${allProjects.length} total`}                          icon={FolderKanban} accent="blue"   loading={loading} />
+        <KpiCard label="Pending Receivables" value={`₹${((receivables.totalOutstandingPaise) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`} sub={`${receivables.items.length} invoice${receivables.items.length !== 1 ? 's' : ''}`} icon={IndianRupee} accent="orange" loading={loading} />
+        <KpiCard label="Conversion Rate"     value={`${conversionPct}%`}         sub={`${leadStats?.won ?? 0} won of ${totalLeads} leads`}       icon={TrendingUp}   accent="green"  loading={loading} />
       </div>
 
-      {/* Lead funnel + Projects side by side */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* ── Lead Funnel + Active Projects ─────────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
         {/* Lead Funnel */}
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Lead Funnel</h3>
-            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
+            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
               View all →
             </Link>
           </div>
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(5)].map((_, i) => <div key={i} className="skeleton h-9 w-full" />)}
+            <div className="space-y-2.5">
+              {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-8 w-full rounded" />)}
             </div>
           ) : !leadStats || totalLeads === 0 ? (
-            <EmptyState icon={Target} message="No leads in your funnel yet." action={{ href: '/leads', label: 'Add Lead' }} />
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                <Target className="h-6 w-6" style={{ color: 'var(--text-secondary)' }} />
+              </div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No leads yet</p>
+              <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>Add your first lead to see the pipeline.</p>
+              <Link href="/leads?new=1" className="btn-primary mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg">
+                <Plus className="h-3 w-3" /> Add Lead
+              </Link>
+            </div>
           ) : (
-            <div className="flex gap-4">
+            <div className="flex gap-3">
               <div className="flex-1 min-w-0 space-y-1.5">
-                {FUNNEL_STAGES.map((s, i, arr) => {
-                  const base = leadStats.new || Math.max(...arr.map(x => leadStats[x.key]), 1);
-                  const pct = Math.min(100 - i * 2, Math.max(16, base > 0 ? (leadStats[s.key] / base) * 100 : 100 - i * 14));
+                {FUNNEL_STAGES.map((s, i) => {
+                  const count = leadStats[s.key];
+                  const pct = Math.max(18, count === 0 ? 18 : Math.round((count / maxFunnelVal) * 100));
                   return (
-                    <div key={s.key} className="h-9 flex items-center">
-                      <div
-                        className="h-9"
-                        style={{
-                          width: `${pct}%`,
-                          background: 'var(--teal)',
-                          opacity: 1 - i * 0.11,
-                          clipPath: 'polygon(6% 0%, 94% 0%, 100% 100%, 0% 100%)',
-                          borderRadius: '4px',
-                        }}
-                      />
+                    <div key={s.key} className="h-8">
+                      <div style={{
+                        height: '100%', width: `${pct}%`,
+                        backgroundColor: 'var(--accent-base)',
+                        opacity: 0.9 - i * 0.13,
+                        clipPath: 'polygon(0 0, 92% 0, 100% 100%, 0 100%)',
+                        borderRadius: '4px',
+                      }} />
                     </div>
                   );
                 })}
               </div>
-              <div className="flex-shrink-0 space-y-1.5">
+              <div className="flex-shrink-0 space-y-1.5 w-32">
                 {FUNNEL_STAGES.map(s => (
-                  <div key={s.key} className="h-9 flex items-center justify-between gap-4 min-w-[9rem]">
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
-                    <span className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>{leadStats[s.key]}</span>
+                  <div key={s.key} className="h-8 flex items-center justify-between gap-1">
+                    <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                    <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--text-heading)' }}>{leadStats[s.key]}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {leadStats && totalLeads > 0 && (
+            <div className="mt-3 flex gap-5 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: 'var(--success)' }} />
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Won: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.won}</strong></span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: 'var(--danger)' }} />
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Lost: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.lost}</strong></span>
               </div>
             </div>
           )}
@@ -256,78 +280,97 @@ export default function DashboardPage() {
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Active Projects</h3>
-            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
+            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
               View all →
             </Link>
           </div>
           {loading ? (
             <div className="space-y-3">
-              {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-12 w-full" />)}
+              {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
             </div>
-          ) : projects.length === 0 ? (
-            <EmptyState icon={FolderKanban} message="No active projects" detail="Create a new project to get started." action={{ href: '/projects', label: 'New Project' }} large />
+          ) : activeProjects.length === 0 ? (
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                <FolderKanban className="h-6 w-6" style={{ color: 'var(--text-secondary)' }} />
+              </div>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No active projects</p>
+              <p className="mt-1 text-xs max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>Win a lead to kick off your first project.</p>
+              <Link href="/projects" className="btn-primary mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg">
+                <Plus className="h-3 w-3" /> New Project
+              </Link>
+            </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: 'var(--surface-muted)' }}>
-              {projects.map(p => (
-                <div key={p.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{p.name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                      {fmt(p.totalContractPaise ?? 0)}
-                    </p>
-                  </div>
-                  <StageBadge stage={p.lifecycleStage} />
-                </div>
-              ))}
+            <div className="space-y-3">
+              {activeProjects.slice(0, 5).map(p => {
+                const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
+                const s = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
+                const client = p.customerFullName || p.leadContactName;
+                return (
+                  <Link
+                    key={p.id}
+                    href={`/projects/${p.id}`}
+                    className="block rounded-xl border p-3.5 transition-colors hover:border-[var(--accent-base)]"
+                    style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
+                      <span className="inline-block flex-shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap" style={{ backgroundColor: s.bg, color: s.text }}>
+                        {s.label}
+                      </span>
+                    </div>
+                    {client && <p className="text-[11px] mb-2 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>}
+                    <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)', transition: 'width 0.5s ease' }} />
+                    </div>
+                    <p className="mt-1 text-[11px] font-bold text-right" style={{ color: 'var(--accent-base)' }}>{pct}%</p>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {/* Pending Receivables + Quick Actions */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* ── Pending Payments + Quick Actions ──────────────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
-        {/* Pending Receivables */}
+        {/* Pending Payments */}
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Pending Payments</h3>
-            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--teal)' }}>
+            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
               View all →
             </Link>
           </div>
           {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-12 w-full" />)}
+            <div className="space-y-2.5">
+              {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
             </div>
-          ) : receivables.length === 0 ? (
-            <div
-              className="flex items-center gap-4 rounded-xl p-5"
-              style={{ backgroundColor: 'var(--accent-green-bg)' }}
-            >
-              <div className="flex h-11 w-11 items-center justify-center rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--surface-card)' }}>
-                <CheckCircle2 className="h-6 w-6" style={{ color: 'var(--accent-green)' }} />
-              </div>
+          ) : receivables.items.length === 0 ? (
+            <div className="flex items-center gap-3 rounded-xl px-4 py-4" style={{ backgroundColor: 'var(--success-soft)' }}>
+              <CheckCircle2 className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--success-text)' }} />
               <div>
-                <p className="text-sm font-bold" style={{ color: 'var(--success-text)' }}>All payments up to date.</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)' }}>Great job! No pending payments.</p>
+                <p className="text-sm font-bold" style={{ color: 'var(--success-text)' }}>All payments up to date</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)' }}>No pending or overdue invoices.</p>
               </div>
             </div>
           ) : (
-            <div className="divide-y" style={{ borderColor: 'var(--surface-muted)' }}>
-              {receivables.map((r) => (
-                <div key={r.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+            <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+              {receivables.items.slice(0, 5).map(r => (
+                <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    {r.dueDays > 7
-                      ? <AlertCircle className="h-4 w-4 flex-shrink-0 text-red-500" />
-                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--accent-orange)' }} />}
+                    {r.paymentStatus === 'overdue'
+                      ? <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                      : <Clock className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--warning-text)' }} />
+                    }
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                        {r.projectName}
-                      </p>
-                      <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{r.milestoneName}</p>
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{r.projectName}</p>
+                      <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{r.label}</p>
                     </div>
                   </div>
-                  <p className="text-sm font-bold ml-3 flex-shrink-0" style={{ color: 'var(--accent-orange)' }}>{fmt(r.amountPaise)}</p>
+                  <p className="text-sm font-bold ml-3 flex-shrink-0" style={{ color: r.paymentStatus === 'overdue' ? 'var(--danger-text)' : 'var(--warning-text)' }}>
+                    {fmt(r.amountPaise)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -337,73 +380,14 @@ export default function DashboardPage() {
         {/* Quick Actions */}
         <div className="premium-card p-5">
           <h3 className="section-title mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <QuickAction href="/leads?new=1"      label="Add New Lead"         icon={Users}        accent="purple" />
-            <QuickAction href="/quotes"          label="Create Quotation"    icon={Plus}         accent="orange" />
-            <QuickAction href="/projects"        label="Create Project"      icon={FolderKanban} accent="blue" />
-            <QuickAction href="/analytics/designers" label="View Reports"    icon={TrendingUp}   accent="green" />
+          <div className="grid grid-cols-2 gap-2.5">
+            <QuickAction href="/leads?new=1"         label="Add New Lead"     icon={Users}        accent="purple" />
+            <QuickAction href="/quotes"              label="Create Quotation" icon={Plus}         accent="orange" />
+            <QuickAction href="/projects"            label="New Project"      icon={FolderKanban} accent="blue"   />
+            <QuickAction href="/analytics/designers" label="View Reports"     icon={TrendingUp}   accent="green"  />
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ── Empty State helper ─────────────────────────────────────────────────── */
-function EmptyState({
-  icon: Icon, message, detail, action, large = false,
-}: {
-  icon: React.ElementType;
-  message: string;
-  detail?: string;
-  action?: { href: string; label: string };
-  large?: boolean;
-}) {
-  if (large) {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 text-center">
-        <div className="relative mb-4" style={{ width: 72, height: 72 }}>
-          <div className="absolute inset-0 rounded-2xl rotate-6" style={{ backgroundColor: 'var(--teal-soft)' }} />
-          <div className="absolute inset-0 rounded-2xl -rotate-3 flex items-center justify-center" style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <Icon className="h-7 w-7" style={{ color: 'var(--teal)' }} />
-          </div>
-        </div>
-        <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{message}</p>
-        {detail && <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>{detail}</p>}
-        {action && (
-          <Link
-            href={action.href}
-            className="btn-primary mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {action.label}
-          </Link>
-        )}
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center justify-between gap-4 rounded-xl p-4" style={{ backgroundColor: 'var(--surface-app)' }}>
-      <div className="flex items-center gap-3 min-w-0">
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg flex-shrink-0"
-          style={{ backgroundColor: 'var(--teal-soft)' }}
-        >
-          <Icon className="h-4 w-4" style={{ color: 'var(--teal)' }} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{message}</p>
-          {detail && <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{detail}</p>}
-        </div>
-      </div>
-      {action && (
-        <Link
-          href={action.href}
-          className="btn-primary flex-shrink-0 px-3 py-1.5 text-xs rounded-lg"
-        >
-          {action.label}
-        </Link>
-      )}
     </div>
   );
 }
