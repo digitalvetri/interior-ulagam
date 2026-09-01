@@ -43,9 +43,9 @@ interface CustomerResult {
 type CustomerType = 'new' | 'existing';
 
 const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
-  { value: 'hot',  label: 'Hot — High urgency, likely to convert soon' },
-  { value: 'warm', label: 'Warm — Interested but not yet urgent' },
-  { value: 'cold', label: 'Cold — Early stage or low engagement' },
+  { value: 'hot',  label: 'Hot' },
+  { value: 'warm', label: 'Warm' },
+  { value: 'cold', label: 'Cold' },
 ];
 
 const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
