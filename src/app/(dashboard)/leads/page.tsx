@@ -630,11 +630,13 @@ export default function LeadsPage() {
 
   /* Group filtered leads by customer — one card per customer on the list */
   const grouped = useMemo(() => {
-    const map = new Map<string, { groupKey: string; customerId: string | null; primaryLead: Lead }>();
+    const map = new Map<string, { groupKey: string; customerId: string | null; primaryLead: Lead; count: number }>();
     for (const lead of filtered) {
       const key = lead.customerId ?? `__phone__${lead.contactPhone}`;
       if (!map.has(key)) {
-        map.set(key, { groupKey: key, customerId: lead.customerId ?? null, primaryLead: lead });
+        map.set(key, { groupKey: key, customerId: lead.customerId ?? null, primaryLead: lead, count: 1 });
+      } else {
+        map.get(key)!.count += 1;
       }
     }
     return Array.from(map.values());
@@ -836,10 +838,12 @@ export default function LeadsPage() {
         ) : (
           <div className="space-y-2">
             <AnimatePresence initial={false}>
-              {grouped.map(({ groupKey, customerId, primaryLead }) => {
-                const destination = customerId
-                  ? `/leads/customer/${customerId}`
-                  : `/leads/customer/p/${encodeURIComponent(primaryLead.contactPhone)}`;
+              {grouped.map(({ groupKey, customerId, primaryLead, count }) => {
+                const destination = count === 1
+                  ? `/leads/${primaryLead.id}`
+                  : customerId
+                    ? `/leads/customer/${customerId}`
+                    : `/leads/customer/p/${encodeURIComponent(primaryLead.contactPhone)}`;
                 return (
                   <motion.div
                     key={groupKey}
