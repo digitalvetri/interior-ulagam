@@ -719,7 +719,8 @@ export default function LeadDetailPage() {
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   function handlePipelineStepClick(stepKey: string) {
-    if (stepKey === 'won') { void changeStage('won'); }
+    if (stepKey === 'site_visit') { setShowSiteVisitModal(true); }
+    else if (stepKey === 'won') { void changeStage('won'); }
     else { void advanceStage(stepKey); }
   }
 
@@ -956,7 +957,11 @@ export default function LeadDetailPage() {
               {nextStageAction && (
                 <button
                   type="button"
-                  onClick={() => nextStageAction.terminal ? changeStage(nextStageAction.targetStage) : advanceStage(nextStageAction.targetStage)}
+                  onClick={() => {
+                    if (nextStageAction.targetStage === 'site_visit') { setShowSiteVisitModal(true); }
+                    else if (nextStageAction.terminal) { void changeStage(nextStageAction.targetStage); }
+                    else { void advanceStage(nextStageAction.targetStage); }
+                  }}
                   disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50 transition-opacity"
                   style={{ background: nextStageAction.terminal ? 'var(--success)' : 'var(--violet-primary)', color: '#fff' }}
@@ -1002,8 +1007,9 @@ export default function LeadDetailPage() {
           {/* Desktop: left = Requirement, right = Follow-up + Customer + Site stacked */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
 
-            {/* LEFT — REQUIREMENT */}
-            <div className="rounded-2xl p-5 h-full" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            {/* LEFT column — Requirement + Quotations */}
+            <div className="space-y-4">
+            <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Requirement</p>
                 <button type="button" onClick={() => setShowEditDialog(true)}
@@ -1049,6 +1055,62 @@ export default function LeadDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* QUOTATIONS */}
+            <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: leadQuotes.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                  Quotations{leadQuotes.length > 0 ? ` (${leadQuotes.length})` : ''}
+                </p>
+                <button type="button" onClick={createQuote} disabled={creatingQuote}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                  style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                  <Plus className="h-3.5 w-3.5" />{creatingQuote ? 'Creating…' : 'New Quotation'}
+                </button>
+              </div>
+              {leadQuotes.length > 0 ? (
+                <div className="px-5 py-4 space-y-2">
+                  {leadQuotes.map(q => (
+                    <Link key={q.id} href={`/quotes/${q.id}`}
+                      className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
+                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-heading)' }}>
+                            QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{
+                            background: q.status === 'approved' ? 'var(--success-soft)' : q.status === 'sent' ? 'var(--accent-soft)' : 'var(--surface-card)',
+                            color: q.status === 'approved' ? 'var(--success-text)' : q.status === 'sent' ? 'var(--accent-text)' : 'var(--text-secondary)',
+                          }}>{q.status.toUpperCase()}</span>
+                          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                            {fmtDate(q.createdAt)}
+                          </span>
+                        </div>
+                        {q.totalPaise > 0 && (
+                          <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>
+                            {fmt(q.totalPaise)}
+                          </p>
+                        )}
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-5 py-8 text-center">
+                  <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>No quotations yet</p>
+                  <button type="button" onClick={createQuote} disabled={creatingQuote}
+                    className="text-xs font-medium hover:underline disabled:opacity-50"
+                    style={{ color: 'var(--violet-primary)' }}>
+                    {creatingQuote ? 'Creating…' : 'Create first quotation →'}
+                  </button>
+                </div>
+              )}
+            </div>
+            </div>{/* end left column */}
 
             {/* RIGHT column — stacked cards */}
             <div className="space-y-4">
@@ -1232,158 +1294,6 @@ export default function LeadDetailPage() {
 
             </div>{/* end right column */}
           </div>{/* end 2-col grid */}
-
-          {/* ── QUOTATIONS ───────────────────────────────────────── */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: leadQuotes.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
-                Quotations{leadQuotes.length > 0 ? ` (${leadQuotes.length})` : ''}
-              </p>
-              <button type="button" onClick={createQuote} disabled={creatingQuote}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                <Plus className="h-3.5 w-3.5" />{creatingQuote ? 'Creating…' : 'New Quotation'}
-              </button>
-            </div>
-            {leadQuotes.length > 0 ? (
-              <div className="px-5 py-4 space-y-2">
-                {leadQuotes.map(q => (
-                  <Link key={q.id} href={`/quotes/${q.id}`}
-                    className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
-                    style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                    <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-heading)' }}>
-                          QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{
-                          background: q.status === 'approved' ? 'var(--success-soft)' : q.status === 'sent' ? 'var(--accent-soft)' : 'var(--surface-card)',
-                          color: q.status === 'approved' ? 'var(--success-text)' : q.status === 'sent' ? 'var(--accent-text)' : 'var(--text-secondary)',
-                        }}>{q.status.toUpperCase()}</span>
-                        <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                          {fmtDate(q.createdAt)}
-                        </span>
-                      </div>
-                      {q.totalPaise > 0 && (
-                        <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>
-                          {fmt(q.totalPaise)}
-                        </p>
-                      )}
-                    </div>
-                    <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="px-5 py-8 text-center">
-                <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>No quotations yet</p>
-                <button type="button" onClick={createQuote} disabled={creatingQuote}
-                  className="text-xs font-medium hover:underline disabled:opacity-50"
-                  style={{ color: 'var(--violet-primary)' }}>
-                  {creatingQuote ? 'Creating…' : 'Create first quotation →'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ── ACTIVITY ─────────────────────────────────────────── */}
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Activity</p>
-            </div>
-            <div className="px-5 py-4">
-              {/* Activity type selector */}
-              <div className="flex gap-1.5 mb-3">
-                {activityPills.map(({ type, label, Icon }) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setActivityType(type)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                    style={{
-                      background: activityType === type ? 'var(--violet-primary)' : 'var(--surface-muted)',
-                      color: activityType === type ? '#fff' : 'var(--text-secondary)',
-                      border: `1px solid ${activityType === type ? 'var(--violet-primary)' : 'var(--border-subtle)'}`,
-                    }}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Note textarea + voice */}
-              <div className="relative mb-3">
-                <textarea value={noteText} onChange={e => { setNoteText(e.target.value); setNoteError(null); }}
-                  placeholder={
-                    activityType === 'call'     ? 'Call outcome, what was discussed…' :
-                    activityType === 'whatsapp' ? 'Message sent or received…' :
-                    activityType === 'meeting'  ? 'Meeting summary, decisions made…' :
-                    'Add a note — client requirements, observations…'
-                  }
-                  onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveNote(); }}
-                  rows={3} className="studio-input w-full text-sm resize-none pr-10" />
-                <button type="button" title={recording ? 'Stop recording' : 'Record voice note'}
-                  onClick={recording ? stopRecording : startRecording} disabled={transcribing}
-                  className="absolute top-2 right-2 h-7 w-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
-                  style={{
-                    background: recording ? 'var(--danger-soft)' : transcribing ? 'var(--surface-muted)' : 'var(--purple-soft)',
-                    color: recording ? 'var(--danger)' : transcribing ? 'var(--text-secondary)' : 'var(--violet-primary)',
-                  }}>
-                  {recording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              {recording && (
-                <p className="text-xs flex items-center gap-1.5 mb-2" style={{ color: 'var(--danger)' }}>
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                  {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')} — tap mic to stop
-                </p>
-              )}
-              {transcribing && <p className="text-xs mb-2" style={{ color: 'var(--violet-primary)' }}>Transcribing voice note…</p>}
-              {noteError && <p className="text-xs mb-2 text-red-600">{noteError}</p>}
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={saveNote} disabled={savingNote || !noteText.trim()}
-                  className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
-                  <Plus className="h-4 w-4" />{savingNote ? 'Saving…' : `Log ${activityType === 'note' ? 'Note' : activityType === 'call' ? 'Call' : activityType === 'whatsapp' ? 'Message' : 'Meeting'}`}
-                </button>
-                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Ctrl+Enter</span>
-              </div>
-
-              {/* Timeline */}
-              {(upcomingActivities.length + historyActivities.length) > 0 ? (
-                <div className="pt-5 mt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  {upcomingActivities.length > 0 && (
-                    <>
-                      <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent-base)' }}>Upcoming</p>
-                      {upcomingActivities.map((a, i) => (
-                        <TimelineEntry key={a.id} activity={a} isLast={i === upcomingActivities.length - 1 && historyActivities.length === 0} />
-                      ))}
-                      {historyActivities.length > 0 && <div className="my-4" style={{ borderTop: '1px solid var(--border-subtle)' }} />}
-                    </>
-                  )}
-                  {historyActivities.length > 0 && (
-                    <>
-                      {upcomingActivities.length > 0 && (
-                        <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>History</p>
-                      )}
-                      {historyActivities.map((a, i) => (
-                        <TimelineEntry key={a.id} activity={a} isLast={i === historyActivities.length - 1} />
-                      ))}
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6 mt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <StickyNote className="h-6 w-6 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    No activity yet. Log a call, message, or note above.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* ── DOCUMENTS (collapsible) ──────────────────────────── */}
           <Section
