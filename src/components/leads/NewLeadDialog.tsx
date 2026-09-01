@@ -69,16 +69,6 @@ const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
   { value: 'other',     label: 'Other'     },
 ];
 
-const PROPERTY_TYPES = [
-  'Residential – Apartment',
-  'Residential – Villa / Independent House',
-  'Residential – Duplex / Penthouse',
-  'Commercial – Office',
-  'Commercial – Retail / Showroom',
-  'Commercial – Restaurant / Café',
-  'Other',
-];
-
 interface FormState {
   contactName: string;
   contactPhone: string;
@@ -87,9 +77,6 @@ interface FormState {
   contactCity: string;
   pincode: string;
   projectLocation: string;
-  projectName: string;
-  propertyType: string;
-  budgetBand: string;
   source: LeadSource;
   priority: LeadPriority | '';
   stage: LeadStage | '';
@@ -105,9 +92,6 @@ const INITIAL: FormState = {
   contactCity:     '',
   pincode:         '',
   projectLocation: '',
-  projectName:     '',
-  propertyType:    '',
-  budgetBand:      '',
   source:          'whatsapp',
   priority:        '',
   stage:           'new',
@@ -277,9 +261,6 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
     if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();
     if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
     if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
-    if (form.projectName.trim())     payload.projectName     = form.projectName.trim();
-    if (form.propertyType)           payload.propertyType    = form.propertyType;
-    if (form.budgetBand.trim())      payload.budgetBand      = form.budgetBand.trim();
     if (form.ownerId)                payload.ownerId         = form.ownerId;
     if (form.priority)               payload.priority        = form.priority;
     if (form.stage)                  payload.stage           = form.stage;
@@ -319,7 +300,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
         </DialogTrigger>
       )}
 
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
             {preselectedCustomer ? 'Add New Enquiry' : 'Add New Lead'}
@@ -333,57 +314,53 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
 
         <form onSubmit={handleSubmit} className="space-y-5 mt-1">
 
-          {/* ── 0. Customer — read-only when preselected, type selector otherwise ── */}
+          {/* ── 0. Customer selection — shown only before form is ready ── */}
           {preselectedCustomer ? (
-            <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-              <SectionLabel>Customer</SectionLabel>
-              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-                style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
-                    {preselectedCustomer.fullName}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                    {preselectedCustomer.phone}{preselectedCustomer.city ? ` · ${preselectedCustomer.city}` : ''}
-                  </p>
-                </div>
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                  style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                  Existing Customer
-                </span>
+            /* Read-only chip when launched from a customer context */
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+              style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                  {preselectedCustomer.fullName}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {preselectedCustomer.phone}{preselectedCustomer.city ? ` · ${preselectedCustomer.city}` : ''}
+                </p>
               </div>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                Existing Customer
+              </span>
             </div>
-          ) : (
+          ) : !showForm ? (
+            /* Step 1: choose type (disappears once selection is made) */
             <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
               <SectionLabel>Customer Type</SectionLabel>
               <div className="grid grid-cols-2 gap-3">
-                {(['new', 'existing'] as const).map(type => {
-                  const isSelected = customerType === type;
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => handleCustomerTypeChange(type)}
-                      className="rounded-lg px-4 py-3 text-left transition-all"
-                      style={{
-                        border: isSelected ? '2px solid var(--brand, #6366f1)' : '1px solid var(--border-subtle)',
-                        background: isSelected ? 'var(--brand-light, #eef2ff)' : 'var(--surface-base, white)',
-                      }}
-                    >
-                      <p className="text-sm font-semibold" style={{ color: isSelected ? 'var(--brand, #6366f1)' : 'var(--text-heading)' }}>
-                        {type === 'new' ? 'New Customer' : 'Existing Customer'}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                        {type === 'new'
-                          ? 'First-time enquiry from a new contact'
-                          : 'Returning client or known contact'}
-                      </p>
-                    </button>
-                  );
-                })}
+                {(['new', 'existing'] as const).map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleCustomerTypeChange(type)}
+                    className="rounded-lg px-4 py-3 text-left transition-all"
+                    style={{
+                      border: '1px solid var(--border-subtle)',
+                      background: 'var(--surface-base, white)',
+                    }}
+                  >
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                      {type === 'new' ? 'New Customer' : 'Existing Customer'}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                      {type === 'new'
+                        ? 'First-time enquiry from a new contact'
+                        : 'Returning client or known contact'}
+                    </p>
+                  </button>
+                ))}
               </div>
 
-              {/* Existing customer search */}
+              {/* Existing customer search (inline, same card) */}
               {customerType === 'existing' && !selectedCustomer && (
                 <div className="mt-4 relative" ref={searchRef}>
                   <Label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--text-heading)' }}>
@@ -425,31 +402,29 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                   )}
                 </div>
               )}
-
-              {/* Selected customer chip */}
-              {customerType === 'existing' && selectedCustomer && (
-                <div className="mt-4 flex items-center gap-3 rounded-lg px-3 py-2.5"
-                  style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
-                      {selectedCustomer.fullName}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                      {selectedCustomer.phone}{selectedCustomer.city ? ` · ${selectedCustomer.city}` : ''}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={clearSelectedCustomer}
-                    className="text-xs font-medium shrink-0 hover:underline"
-                    style={{ color: 'var(--brand, #6366f1)' }}
-                  >
-                    Change
-                  </button>
-                </div>
-              )}
             </div>
-          )}
+          ) : customerType === 'existing' && selectedCustomer ? (
+            /* Compact chip for existing customer — form is open, type picker is gone */
+            <div className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+              style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                  {selectedCustomer.fullName}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {selectedCustomer.phone}{selectedCustomer.city ? ` · ${selectedCustomer.city}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearSelectedCustomer}
+                className="text-xs font-medium shrink-0 hover:underline"
+                style={{ color: 'var(--brand, #6366f1)' }}
+              >
+                Change
+              </button>
+            </div>
+          ) : null}
 
           {/* ── Remaining form sections (shown only after type + customer selection) ── */}
           {showForm && (
@@ -519,42 +494,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                 </div>
               </div>
 
-              {/* ── 3. Project Details ── */}
-              <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                <SectionLabel>Project Details</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="sm:col-span-2">
-                    <Field id="projectName" label="Project Name">
-                      <Input id="projectName" className={inputCls}
-                        placeholder="e.g. Sharma Residence – 3BHK"
-                        value={form.projectName}
-                        onChange={e => set('projectName', e.target.value)} />
-                    </Field>
-                  </div>
-
-                  <Field id="propertyType" label="Project Type">
-                    <Select value={form.propertyType} onValueChange={v => set('propertyType', v)}>
-                      <SelectTrigger id="propertyType" className={inputCls}>
-                        <SelectValue placeholder="Select type…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PROPERTY_TYPES.map(t => (
-                          <SelectItem key={t} value={t}>{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field id="budgetBand" label="Budget Range">
-                    <Input id="budgetBand" className={inputCls}
-                      placeholder="e.g. 15L–20L"
-                      value={form.budgetBand}
-                      onChange={e => set('budgetBand', e.target.value)} />
-                  </Field>
-                </div>
-              </div>
-
-              {/* ── 4. Lead Info ── */}
+              {/* ── 3. Lead Info ── */}
               <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                 <SectionLabel>Lead Info</SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -615,7 +555,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                 </div>
               </div>
 
-              {/* ── 5. Requirements & Notes ── */}
+              {/* ── 4. Requirements & Notes ── */}
               <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                 <SectionLabel>Project Requirements &amp; Notes</SectionLabel>
                 <Textarea

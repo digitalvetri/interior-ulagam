@@ -16,21 +16,18 @@ import { LeadViewModal } from '@/components/leads/LeadViewModal';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
-type FilterKey = LeadStage | 'all' | 'follow_up';
+type FilterKey = LeadStage | 'all' | 'follow_up' | 'in_progress';
 type SortKey   = 'latest' | 'followup' | 'budget' | 'name' | 'score';
 type RottingStatus = 'fresh' | 'stale' | 'rotting';
+
+const IN_PROGRESS_STAGES: LeadStage[] = ['contacted', 'qualified', 'site_visit', 'measurement', 'quotation', 'negotiation'];
 
 /* ── Status chip config ─────────────────────────────────────────────────────── */
 const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
   { key: 'all',         label: 'All' },
   { key: 'new',         label: 'New' },
-  { key: 'follow_up',   label: 'Follow-up' },
-  { key: 'contacted',   label: 'Contacted' },
-  { key: 'qualified',   label: 'Qualified' },
-  { key: 'site_visit',  label: 'Site Visit' },
-  { key: 'measurement', label: 'Measurement' },
-  { key: 'quotation',   label: 'Quotation' },
-  { key: 'negotiation', label: 'Negotiation' },
+  { key: 'follow_up',   label: 'Follow Up Due' },
+  { key: 'in_progress', label: 'In Progress' },
   { key: 'won',         label: 'Won' },
   { key: 'lost',        label: 'Lost' },
 ];
@@ -567,7 +564,13 @@ export default function LeadsPage() {
     const counts: Record<string, number> = { all: leads.length };
     leads.forEach(l => {
       counts[l.stage] = (counts[l.stage] ?? 0) + 1;
-      if (l.followUpDate) counts['follow_up'] = (counts['follow_up'] ?? 0) + 1;
+      if (IN_PROGRESS_STAGES.includes(l.stage)) {
+        counts['in_progress'] = (counts['in_progress'] ?? 0) + 1;
+      }
+      const fuState = followUpState(l.followUpDate);
+      if (fuState === 'overdue' || fuState === 'today') {
+        counts['follow_up'] = (counts['follow_up'] ?? 0) + 1;
+      }
     });
     return counts;
   }, [leads]);
@@ -577,7 +580,12 @@ export default function LeadsPage() {
 
     /* Stage / chip filter */
     if (activeChip === 'follow_up') {
-      result = result.filter(l => !!l.followUpDate);
+      result = result.filter(l => {
+        const s = followUpState(l.followUpDate);
+        return s === 'overdue' || s === 'today';
+      });
+    } else if (activeChip === 'in_progress') {
+      result = result.filter(l => IN_PROGRESS_STAGES.includes(l.stage));
     } else if (activeChip !== 'all') {
       result = result.filter(l => l.stage === activeChip);
     }
