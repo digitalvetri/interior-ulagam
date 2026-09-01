@@ -82,6 +82,7 @@ const FUNNEL_STAGES: { key: keyof LeadStats; label: string }[] = [
   { key: 'negotiation',          label: 'Negotiation'  },
   { key: 'won',                  label: 'Won'          },
 ];
+const FUNNEL_COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#f59e0b', '#f97316', '#10b981'];
 
 /* ── Accent map ─────────────────────────────────────────────────────────── */
 const KPI_ACCENTS = {
@@ -230,23 +231,13 @@ export default function DashboardPage() {
   const activeLeads    = leadStats ? totalLeads - (leadStats.won + leadStats.lost) : 0;
   const activeProjects = allProjects.filter(p => p.lifecycleStage !== 'complete');
   const conversionPct  = leadStats && totalLeads > 0 ? Math.round((leadStats.won / totalLeads) * 100) : 0;
-  const maxFunnelVal   = leadStats ? Math.max(1, ...FUNNEL_STAGES.map(s => leadStats[s.key])) : 1;
   const overdueCount   = receivables.items.filter(r => r.paymentStatus === 'overdue').length;
   const overdueProjects = new Set(
     receivables.items.filter(r => r.paymentStatus === 'overdue').map(r => r.projectName),
   );
   const nowMs = new Date().getTime();
 
-  /* ── Dynamic Quick Actions ────────────────────────────────────────── */
-  const quickActions: { href: string; label: string; icon: React.ElementType; accent: keyof typeof KPI_ACCENTS }[] = [];
-  if (overdueCount > 0) {
-    quickActions.push({ href: '/accounts', label: `${overdueCount} payment${overdueCount > 1 ? 's' : ''} overdue`, icon: AlertCircle, accent: 'orange' });
-  }
-  if (pendingQuotesCount > 0) {
-    quickActions.push({ href: '/quotes', label: `${pendingQuotesCount} quote${pendingQuotesCount > 1 ? 's' : ''} awaiting approval`, icon: FileText, accent: 'purple' });
-  }
-  quickActions.push({ href: '/leads?new=1', label: 'Add New Lead', icon: Users, accent: 'purple' });
-  quickActions.push({ href: '/projects', label: 'New Project', icon: FolderKanban, accent: 'blue' });
+  /* ── (derived state only, no dynamic quickActions array needed) ───── */
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -295,8 +286,8 @@ export default function DashboardPage() {
             <Calendar className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
             <h3 className="section-title">Today&apos;s Schedule</h3>
           </div>
-          <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-            All leads →
+          <Link href="/calendar" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+            All Schedules →
           </Link>
         </div>
         {loading ? (
@@ -304,12 +295,20 @@ export default function DashboardPage() {
             {[1, 2, 3].map(i => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
           </div>
         ) : todayVisits.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-xl px-4 py-4" style={{ backgroundColor: 'var(--surface-muted)' }}>
+          <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: 'var(--surface-muted)' }}>
             <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-            <div>
+            <div className="flex-1">
               <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Scheduled visits will appear here.</p>
             </div>
+            <Link
+              href="/leads"
+              className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
+              style={{ backgroundColor: 'var(--accent-base)', color: '#fff' }}
+            >
+              <Plus className="h-3 w-3" />
+              Schedule Visit
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -380,53 +379,46 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="flex gap-3">
-              {/* Funnel bars */}
-              <div className="flex-1 min-w-0 space-y-1.5">
-                {FUNNEL_STAGES.map((s, i) => {
-                  const count = leadStats[s.key];
-                  const pct = Math.max(18, count === 0 ? 18 : Math.round((count / maxFunnelVal) * 100));
-                  return (
-                    <div key={s.key} className="h-9">
-                      <div style={{
-                        height: '100%', width: `${pct}%`,
-                        backgroundColor: 'var(--accent-base)',
-                        opacity: 0.9 - i * 0.13,
-                        clipPath: 'polygon(0 0, 92% 0, 100% 100%, 0 100%)',
-                        borderRadius: '4px',
-                      }} />
-                    </div>
-                  );
-                })}
-              </div>
-              {/* Labels + count + budget */}
-              <div className="flex-shrink-0 space-y-1.5 w-36">
-                {FUNNEL_STAGES.map(s => (
-                  <div key={s.key} className="h-9 flex items-center gap-2">
-                    <span className="flex-1 min-w-0 text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-xs font-bold leading-none" style={{ color: 'var(--text-heading)' }}>{leadStats[s.key]}</p>
-                      {(leadBudgets[s.key] ?? 0) > 0 && (
-                        <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-                          {fmtCompact(leadBudgets[s.key])}
-                        </p>
+            <div className="space-y-3">
+              {FUNNEL_STAGES.map((s, i) => {
+                const count = leadStats[s.key];
+                const pct = activeLeads > 0 && count > 0 ? Math.round((count / activeLeads) * 100) : 0;
+                const color = FUNNEL_COLORS[i];
+                const budget = leadBudgets[s.key] ?? 0;
+                return (
+                  <div key={s.key}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                      <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                      <span className="text-[11px] font-bold flex-shrink-0 min-w-[22px] text-center rounded-full px-1.5 py-0.5" style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-heading)' }}>{count}</span>
+                      {budget > 0 && (
+                        <span className="text-[10px] flex-shrink-0 w-11 text-right" style={{ color: 'var(--text-tertiary)' }}>
+                          {fmtCompact(budget)}
+                        </span>
                       )}
                     </div>
+                    <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.85 }}
+                      />
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           )}
           {leadStats && totalLeads > 0 && (
-            <div className="mt-3 flex gap-5 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="mt-4 flex items-center gap-5 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: 'var(--success)' }} />
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
                 <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Won: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.won}</strong></span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: 'var(--danger)' }} />
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--danger)' }} />
                 <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Lost: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.lost}</strong></span>
               </div>
+              <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{conversionPct}% conversion</span>
             </div>
           )}
         </div>
@@ -455,8 +447,8 @@ export default function DashboardPage() {
               </Link>
             </div>
           ) : (
-            <div className="space-y-3">
-              {activeProjects.slice(0, 5).map(p => {
+            <div className="space-y-1.5">
+              {activeProjects.slice(0, 3).map(p => {
                 const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
                 const s = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
                 const client = p.customerFullName || p.leadContactName;
@@ -472,33 +464,29 @@ export default function DashboardPage() {
                   <Link
                     key={p.id}
                     href={`/projects/${p.id}`}
-                    className="block rounded-xl border p-3.5 transition-colors hover:border-[var(--accent-base)]"
+                    className="block rounded-xl border p-2.5 transition-colors hover:border-[var(--accent-base)]"
                     style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center justify-between gap-2 mb-1">
                       <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {hasOverdue && (
+                          <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--danger)' }} title="Payment overdue" />
+                        )}
                         {showDaysBadge && (
-                          <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold whitespace-nowrap" style={{ backgroundColor: daysBadgeStyle.bg, color: daysBadgeStyle.text }}>
-                            {daysLeft < 0 ? `${Math.abs(daysLeft)}d over` : `${daysLeft}d left`}
+                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap" style={{ backgroundColor: daysBadgeStyle.bg, color: daysBadgeStyle.text }}>
+                            {daysLeft! < 0 ? `${Math.abs(daysLeft!)}d over` : `${daysLeft}d left`}
                           </span>
                         )}
-                        <span className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold whitespace-nowrap" style={{ backgroundColor: s.bg, color: s.text }}>
+                        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap" style={{ backgroundColor: s.bg, color: s.text }}>
                           {s.label}
                         </span>
                       </div>
                     </div>
                     {client && <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>}
-                    {hasOverdue && (
-                      <div className="mb-2 flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ backgroundColor: 'var(--danger-soft)' }}>
-                        <AlertCircle className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--danger-text)' }} />
-                        <span className="text-[10px] font-semibold" style={{ color: 'var(--danger-text)' }}>Payment overdue</span>
-                      </div>
-                    )}
-                    <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                    <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
                       <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)', transition: 'width 0.5s ease' }} />
                     </div>
-                    <p className="mt-1 text-[11px] font-bold text-right" style={{ color: 'var(--accent-base)' }}>{pct}%</p>
                   </Link>
                 );
               })}
@@ -511,7 +499,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 
         {/* Pending Payments */}
-        <div className="premium-card p-5">
+        <div className="premium-card p-5 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="section-title">Pending Payments</h3>
             <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
@@ -554,12 +542,45 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="premium-card p-5">
+        <div className="premium-card p-5 h-full flex flex-col">
           <h3 className="section-title mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-2 gap-2.5">
-            {quickActions.slice(0, 4).map(a => (
-              <QuickAction key={a.href + a.label} href={a.href} label={a.label} icon={a.icon} accent={a.accent} />
-            ))}
+
+          {/* Alert strip */}
+          {(overdueCount > 0 || pendingQuotesCount > 0) && (
+            <div className="mb-3 space-y-1.5">
+              {overdueCount > 0 && (
+                <Link
+                  href="/accounts"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: 'var(--danger-soft)' }}
+                >
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--danger-text)' }} />
+                  <span className="flex-1 text-xs font-semibold" style={{ color: 'var(--danger-text)' }}>
+                    {overdueCount} payment{overdueCount > 1 ? 's' : ''} overdue
+                  </span>
+                  <ChevronRight className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--danger-text)' }} />
+                </Link>
+              )}
+              {pendingQuotesCount > 0 && (
+                <Link
+                  href="/quotes"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: 'var(--warning-soft)' }}
+                >
+                  <FileText className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--warning-text)' }} />
+                  <span className="flex-1 text-xs font-semibold" style={{ color: 'var(--warning-text)' }}>
+                    {pendingQuotesCount} quote{pendingQuotesCount > 1 ? 's' : ''} awaiting approval
+                  </span>
+                  <ChevronRight className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--warning-text)' }} />
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Static action buttons */}
+          <div className="grid grid-cols-1 gap-2">
+            <QuickAction href="/projects"  label="New Project"      icon={FolderKanban} accent="blue"  />
+            <QuickAction href="/quotes"    label="Create Quotation" icon={FileText}     accent="green" />
           </div>
         </div>
       </div>

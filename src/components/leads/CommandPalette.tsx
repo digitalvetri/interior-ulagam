@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, Users, LayoutDashboard, FolderKanban, ArrowRight } from 'lucide-react';
 import { Lead, STAGE_LABELS } from '@/types/leads';
-import { NAV_GROUPS, FOOTER_NAV } from '@/lib/nav-items';
+import { NAV_GROUPS } from '@/lib/nav-items';
 
 interface Project {
   id: string;
@@ -21,7 +21,7 @@ function scoreColor(score: number): string {
   return 'var(--text-secondary)';
 }
 
-const ALL_NAV_ITEMS = [...NAV_GROUPS.flatMap(g => g.items), ...FOOTER_NAV];
+const ALL_NAV_ITEMS = NAV_GROUPS.flatMap(g => g.items);
 
 export function CommandPalette() {
   const [open, setOpen]                   = useState(false);

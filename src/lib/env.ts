@@ -28,10 +28,12 @@ export function assertEnv(): void {
       `Missing required environment variable(s): ${missing.join(', ')}.\n` +
       'Refusing to start — see .env.example. In Docker these come from .env.local, ' +
       'which docker-compose.yml declares as required.';
-    // Exit rather than throw: a thrown error during instrumentation can leave
-    // Next serving requests against a half-configured process.
     console.error(`[env] ${message}`);
-    process.exit(1);
+    // process.exit only available in Node.js runtime (not Edge); throw as fallback.
+    if (typeof process !== 'undefined' && typeof process.exit === 'function') {
+      process.exit(1);
+    }
+    throw new Error(message);
   }
 
   const absent = RECOMMENDED.filter((entry) => !process.env[entry.name]?.trim());
