@@ -800,21 +800,6 @@ export default function LeadsPage() {
           })}
         </div>
 
-        {/* ── Rotting border legend ───────────────────────────────────────── */}
-        <div className="flex items-center gap-4" style={{ color: 'var(--text-tertiary)', fontSize: 11 }}>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--border-subtle)' }} />
-            Fresh (&lt;7d)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--warning)' }} />
-            Stale (7–14d)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: 'var(--danger)' }} />
-            Rotting (&gt;14d)
-          </span>
-        </div>
 
         {/* ── Lead list ──────────────────────────────────────────────────── */}
         {loading ? (
