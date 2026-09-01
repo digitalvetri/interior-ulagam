@@ -484,6 +484,7 @@ function ListConfirmDialog({ open, title, message, confirmLabel, danger, onConfi
 
 /* ── Page ───────────────────────────────────────────────────────────────────── */
 export default function LeadsPage() {
+  const router       = useRouter();
   const searchParams = useSearchParams();
   const [leads, setLeads]           = useState<Lead[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -523,9 +524,9 @@ export default function LeadsPage() {
   // Real-time: instant push from Supabase + 30s polling fallback
   useRealtimeSync(['leads'], refetch);
 
-  const handleLeadCreated = useCallback(() => {
-    refetch();
-  }, [refetch]);
+  const handleLeadCreated = useCallback((lead: Lead) => {
+    router.push(`/leads/${lead.id}`);
+  }, [router]);
 
   const handleDeleteFromList = useCallback((id: string) => {
     const lead = leads.find(l => l.id === id);
