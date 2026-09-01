@@ -4,8 +4,8 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, Phone, Mail, MessageCircle, Calendar, FileText, Home,
-  User, MapPin, CheckCircle2, AlertCircle, Check,
+  ArrowLeft, ArrowRight, Phone, Mail, MessageCircle, Calendar, FileText, Home,
+  User, Users, MapPin, CheckCircle2, AlertCircle, Check,
   Plus, FolderKanban, ChevronDown, ChevronUp,
   Sparkles, Zap, ShieldAlert, Mic, MicOff,
   Edit2, Trash2, Archive, MoreVertical,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
+import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
 import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
 
@@ -36,10 +37,12 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 function followUpUrgency(dateIso: string): 'overdue' | 'today' | 'upcoming' {
-  const due = new Date(dateIso);
-  const now = new Date();
-  if (due < now) return 'overdue';
-  if (due.toDateString() === now.toDateString()) return 'today';
+  // Normalise to midnight local time — avoids IST/UTC offset false-positives.
+  const dateStr = dateIso.length === 10 ? dateIso : dateIso.split('T')[0];
+  const due = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  if (due < today) return 'overdue';
+  if (due.getTime() === today.getTime()) return 'today';
   return 'upcoming';
 }
 function fmtFollowUpDate(dateStr: string): string {
@@ -67,7 +70,7 @@ const SOURCE_LABELS: Record<string, string> = {
   website: 'Website', walk_in: 'Walk-in', other: 'Other',
 };
 
-/* ── Pipeline bar ──────────────────────────────────────────── */
+/* ── Pipeline ──────────────────────────────────────────────── */
 const PIPELINE_STEPS = [
   { key: 'new',         label: 'New' },
   { key: 'contacted',   label: 'Contacted' },
@@ -84,7 +87,21 @@ const LEGACY_STAGE_MAP: Record<string, string> = {
   proposal_sent:        'quotation',
 };
 
-function PipelineBar({ stage, isLost }: { stage: string; isLost: boolean }) {
+// Contextual next-stage action for each mid-pipeline stage.
+// terminal=true means use the /stage endpoint (won/lost), not the regular PATCH.
+const NEXT_STAGE_MAP: Record<string, { label: string; targetStage: string; terminal?: boolean }> = {
+  new:         { label: 'Mark as Contacted',  targetStage: 'contacted' },
+  contacted:   { label: 'Qualify Lead',        targetStage: 'qualified' },
+  qualified:   { label: 'Schedule Site Visit', targetStage: 'site_visit' },
+  site_visit:  { label: 'Measurement Done',    targetStage: 'measurement' },
+  measurement: { label: 'Move to Quotation',   targetStage: 'quotation' },
+  quotation:   { label: 'Start Negotiation',   targetStage: 'negotiation' },
+  negotiation: { label: 'Mark as Won',         targetStage: 'won', terminal: true },
+};
+
+function PipelineBar({ stage, isLost, onStepClick, disabled = false }: {
+  stage: string; isLost: boolean; onStepClick?: (stepKey: string) => void; disabled?: boolean;
+}) {
   if (isLost) {
     return (
       <div className="flex items-center gap-3 py-1">
@@ -105,16 +122,22 @@ function PipelineBar({ stage, isLost }: { stage: string; isLost: boolean }) {
     <div className="overflow-x-auto -mx-1 px-1 pb-1">
       <div className="flex items-start min-w-max">
         {PIPELINE_STEPS.map((step, i) => {
-          const done   = ci >= 0 && i < ci;
-          const active = i === ci;
-          const last   = i === PIPELINE_STEPS.length - 1;
+          const done      = ci >= 0 && i < ci;
+          const active    = i === ci;
+          const last      = i === PIPELINE_STEPS.length - 1;
+          const clickable = i > ci && !!onStepClick && !disabled;
           return (
             <React.Fragment key={step.key}>
               <div className="flex flex-col items-center" style={{ minWidth: 52 }}>
                 <div
-                  className="h-6 w-6 rounded-full flex items-center justify-center transition-all"
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  title={clickable ? `Move to ${step.label}` : undefined}
+                  onClick={clickable ? () => onStepClick(step.key) : undefined}
+                  onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onStepClick(step.key); } : undefined}
+                  className={`h-6 w-6 rounded-full flex items-center justify-center transition-all ${clickable ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-violet-300 hover:scale-110' : ''}`}
                   style={{
-                    background: done ? 'var(--accent-base)' : active ? 'var(--accent-base)' : 'var(--surface-muted)',
+                    background: (done || active) ? 'var(--accent-base)' : 'var(--surface-muted)',
                     border: active ? '2px solid var(--accent-base)' : done ? 'none' : '1.5px solid var(--border-subtle)',
                     boxShadow: active ? '0 0 0 3px rgba(99,102,241,0.18)' : 'none',
                     transform: active ? 'scale(1.18)' : 'scale(1)',
@@ -124,10 +147,11 @@ function PipelineBar({ stage, isLost }: { stage: string; isLost: boolean }) {
                   {active && <div className="h-2 w-2 rounded-full bg-white" />}
                 </div>
                 <span
-                  className="text-[10px] mt-1.5 text-center leading-tight"
+                  onClick={clickable ? () => onStepClick(step.key) : undefined}
+                  className={`text-[10px] mt-1.5 text-center leading-tight ${clickable ? 'cursor-pointer' : ''}`}
                   style={{
                     maxWidth: 48,
-                    color:      active ? 'var(--accent-base)' : done ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                    color:      active ? 'var(--accent-base)' : done ? 'var(--text-secondary)' : clickable ? 'var(--text-secondary)' : 'var(--text-tertiary)',
                     fontWeight: active ? 700 : 400,
                   }}
                 >
@@ -148,12 +172,12 @@ function PipelineBar({ stage, isLost }: { stage: string; isLost: boolean }) {
   );
 }
 
-/* ── Info card ─────────────────────────────────────────────── */
-function InfoCard({ title, children, cardRef }: { title: string; children: React.ReactNode; cardRef?: React.RefObject<HTMLDivElement | null> }) {
+/* ── Sub-card inside an InfoCard ───────────────────────────── */
+function LabelRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div ref={cardRef} className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-      <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>{title}</p>
-      {children}
+    <div className="flex items-baseline gap-2 py-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <span className="text-[11px] w-28 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
+      <span className="text-sm flex-1 font-medium" style={{ color: 'var(--text-heading)' }}>{value}</span>
     </div>
   );
 }
@@ -230,10 +254,13 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
 
 /* ── Activity timeline entry ───────────────────────────────── */
 const ACTIVITY_STYLE: Record<string, { Icon: React.ElementType; bg: string; color: string }> = {
-  note:         { Icon: StickyNote, bg: '#EEF2FF',             color: '#4338CA' },
-  follow_up:    { Icon: BellRing,   bg: '#FFFBEB',             color: '#D97706' },
-  stage_change: { Icon: Zap,        bg: 'var(--accent-soft)',  color: 'var(--accent-base)' },
-  site_visit:   { Icon: Home,       bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  note:         { Icon: StickyNote,    bg: '#EEF2FF',             color: '#4338CA' },
+  call:         { Icon: Phone,         bg: '#EFF6FF',             color: '#2563EB' },
+  whatsapp:     { Icon: MessageCircle, bg: '#F0FDF4',             color: '#16A34A' },
+  meeting:      { Icon: Users,         bg: '#FFF7ED',             color: '#D97706' },
+  follow_up:    { Icon: BellRing,      bg: '#FFFBEB',             color: '#D97706' },
+  stage_change: { Icon: Zap,           bg: 'var(--accent-soft)',  color: 'var(--accent-base)' },
+  site_visit:   { Icon: Home,          bg: 'var(--success-soft)', color: 'var(--success-text)' },
 };
 
 function TimelineEntry({ activity, isLast }: { activity: LeadActivity; isLast: boolean }) {
@@ -287,10 +314,14 @@ export default function LeadDetailPage() {
   const [uploadingDoc, setUploadingDoc]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Activity log
+  type ActivityLogType = 'call' | 'whatsapp' | 'meeting' | 'note';
+  const [activityType, setActivityType] = useState<ActivityLogType>('note');
   const [noteText, setNoteText]     = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [noteError, setNoteError]   = useState<string | null>(null);
 
+  // Follow-up
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpError, setFUError]     = useState<string | null>(null);
@@ -299,6 +330,7 @@ export default function LeadDetailPage() {
   const [fuSuccess, setFUSuccess]       = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
 
+  // Menus / dialogs
   const [showActionsMenu, setShowActionsMenu]       = useState(false);
   const [showEditDialog, setShowEditDialog]         = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
@@ -306,6 +338,8 @@ export default function LeadDetailPage() {
   const [deleting, setDeleting]   = useState(false);
   const [archiving, setArchiving] = useState(false);
 
+  // Stage actions
+  const [advancingStage, setAdvancingStage]           = useState(false);
   const [markingWon, setMarkingWon]                   = useState(false);
   const [markingLost, setMarkingLost]                 = useState(false);
   const [reopening, setReopening]                     = useState(false);
@@ -313,11 +347,23 @@ export default function LeadDetailPage() {
   const [lostReasonInput, setLostReasonInput]         = useState('');
   const [stageError, setStageError]                   = useState<string | null>(null);
 
+  // Customer conversion
+  const [converting, setConverting] = useState(false);
+  const [convertError, setConvertError] = useState<string | null>(null);
+
+  // Site visit modal
+  const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
+
+  // Toast
+  const [toast, setToast] = useState<string | null>(null);
+
+  // AI Brief
   type BriefData = { summary: string; nextBestAction: string; riskFlags: string[]; sentiment: 'hot' | 'warm' | 'cold' | 'lost' };
   const [brief, setBrief]               = useState<BriefData | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
   const [briefError, setBriefError]     = useState<string | null>(null);
 
+  // Voice recording
   const [recording, setRecording]               = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [transcribing, setTranscribing]         = useState(false);
@@ -383,17 +429,23 @@ export default function LeadDetailPage() {
   async function saveNote() {
     if (!noteText.trim()) return;
     setSavingNote(true); setNoteError(null);
+    const titleMap: Record<ActivityLogType, string> = {
+      call:     `Call — ${lead?.contactName ?? 'client'}`,
+      whatsapp: 'WhatsApp message',
+      meeting:  `Meeting — ${lead?.contactName ?? 'client'}`,
+      note:     'Note',
+    };
     try {
       const res = await fetch(`/api/v1/leads/${id}/activities`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'note', title: 'Note', description: noteText.trim() }),
+        body: JSON.stringify({ type: activityType, title: titleMap[activityType], description: noteText.trim() }),
       });
       const json = await res.json().catch(() => ({})) as { data?: LeadActivity; error?: string };
       if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
       setActivities(prev => [json.data!, ...prev]);
       setNoteText('');
     } catch (e) {
-      setNoteError(e instanceof Error ? e.message : 'Failed to save note');
+      setNoteError(e instanceof Error ? e.message : 'Failed to save');
     } finally { setSavingNote(false); }
   }
 
@@ -422,7 +474,7 @@ export default function LeadDetailPage() {
       setFollowUpDate(''); setFollowUpNote('');
       setFUSuccess(true); setTimeout(() => setFUSuccess(false), 3000);
     } catch (e) {
-      setFUError(e instanceof Error ? e.message : 'Failed to schedule follow-up');
+      setFUError(e instanceof Error ? e.message : 'Failed to schedule');
     } finally { setSavingFU(false); }
   }
 
@@ -436,8 +488,9 @@ export default function LeadDetailPage() {
       const json = await res.json().catch(() => ({})) as { data?: Lead; error?: string };
       if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
       setLead(json.data!);
+      setShowReschedule(false);
     } catch (e) {
-      setFUError(e instanceof Error ? e.message : 'Failed to clear follow-up');
+      setFUError(e instanceof Error ? e.message : 'Failed to clear');
     } finally { setClearingFU(false); }
   }
 
@@ -472,6 +525,29 @@ export default function LeadDetailPage() {
     } finally { setArchiving(false); }
   }
 
+  // Mid-pipeline stage advance (new → contacted → … → negotiation).
+  // Uses the regular PATCH endpoint; refetches activities to surface the auto-logged stage_change.
+  async function advanceStage(targetStage: string) {
+    setAdvancingStage(true); setStageError(null);
+    try {
+      const res = await fetch(`/api/v1/leads/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage: targetStage }),
+      });
+      const json = await res.json().catch(() => ({})) as { data?: Lead; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
+      setLead(json.data!);
+      const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
+      if (actRes?.ok) {
+        const { data } = await actRes.json() as { data: LeadActivity[] };
+        setActivities(data ?? []);
+      }
+    } catch (e) {
+      setStageError(e instanceof Error ? e.message : 'Stage change failed');
+    } finally { setAdvancingStage(false); }
+  }
+
+  // Terminal transitions (won / lost / reopen). Uses the /stage endpoint.
   async function changeStage(targetStage: string, lostReason?: string) {
     const isWonTarget  = targetStage === 'won';
     const isLostTarget = targetStage === 'lost';
@@ -571,13 +647,27 @@ export default function LeadDetailPage() {
     finally { setUploadingDoc(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   }
 
+  async function convertToCustomer() {
+    setConverting(true); setConvertError(null);
+    try {
+      const res = await fetch(`/api/v1/leads/${id}/convert-to-customer`, { method: 'POST' });
+      const json = await res.json() as { data?: { customerId: string }; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Conversion failed');
+      setCustomerId(json.data!.customerId);
+    } catch (e) {
+      setConvertError(e instanceof Error ? e.message : 'Conversion failed');
+    } finally { setConverting(false); }
+  }
+
   /* Loading / not-found */
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[300px]">
-        <div className="text-center">
-          <div className="skeleton h-8 w-48 mx-auto mb-3" />
-          <div className="skeleton h-4 w-32 mx-auto" />
+      <div className="p-6 space-y-4">
+        <div className="skeleton h-32 w-full rounded-2xl" />
+        <div className="skeleton h-16 w-full rounded-2xl" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="skeleton h-40 rounded-2xl" />
+          <div className="skeleton h-40 rounded-2xl" />
         </div>
       </div>
     );
@@ -594,14 +684,16 @@ export default function LeadDetailPage() {
     );
   }
 
-  /* Derived */
+  /* ── Derived ─────────────────────────────────────────── */
   const priorityCfg  = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
   const isWon        = lead.stage === 'won';
   const isLost       = lead.stage === 'lost';
   const isTerminal   = isWon || isLost;
   const initials     = lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
   const fuUrgency    = lead.followUpDate ? followUpUrgency(lead.followUpDate) : null;
-  const primaryQuote = leadQuotes[0] ?? null;
+
+  const normalizedStage = LEGACY_STAGE_MAP[lead.stage] ?? lead.stage;
+  const nextStageAction = !isTerminal ? (NEXT_STAGE_MAP[normalizedStage] ?? null) : null;
 
   const nowForTimeline = new Date();
   const upcomingActivities = [...activities]
@@ -623,10 +715,44 @@ export default function LeadDetailPage() {
     setFollowUpDate(d.toISOString().split('T')[0]);
   }
 
+  const stageActionsDisabled = advancingStage || markingWon || markingLost || reopening;
+  const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
+
+  function handlePipelineStepClick(stepKey: string) {
+    if (stepKey === 'won') { void changeStage('won'); }
+    else { void advanceStage(stepKey); }
+  }
+
+  async function handleSiteVisitSuccess() {
+    // Refresh lead — API auto-advances stage to site_visit_scheduled
+    const leadRes = await fetch(`/api/v1/leads/${id}`).catch(() => null);
+    if (leadRes?.ok) {
+      const { data } = await leadRes.json() as { data: Lead & { customerId?: string | null; linkedProject?: { id: string; name: string; lifecycleStage: string } | null } };
+      setLead(data);
+      setCustomerId(data.customerId ?? null);
+      if (data.linkedProject) setLinkedProject(data.linkedProject);
+    }
+    const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
+    if (actRes?.ok) {
+      const { data: actData } = await actRes.json() as { data: LeadActivity[] };
+      setActivities(actData ?? []);
+    }
+    setToast('Site visit scheduled!');
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  /* ── Activity type pills ─────────────────────────────── */
+  const activityPills: { type: ActivityLogType; label: string; Icon: React.ElementType }[] = [
+    { type: 'call',     label: 'Call',     Icon: Phone },
+    { type: 'whatsapp', label: 'WhatsApp', Icon: MessageCircle },
+    { type: 'meeting',  label: 'Meeting',  Icon: Users },
+    { type: 'note',     label: 'Note',     Icon: StickyNote },
+  ];
+
   return (
     <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
 
-      {/* Dialogs */}
+      {/* ── Dialogs ─────────────────────────────────────────────── */}
       <ConfirmDialog
         open={showDeleteConfirm}
         title="Delete lead?"
@@ -653,8 +779,15 @@ export default function LeadDetailPage() {
         onCancel={() => { setShowMarkLostDialog(false); setLostReasonInput(''); }}
         onConfirm={() => changeStage('lost', lostReasonInput)}
       />
+      <ScheduleSiteVisitModal
+        leadId={id}
+        open={showSiteVisitModal}
+        onOpenChange={setShowSiteVisitModal}
+        defaultAddress={lead.projectLocation || [lead.contactCity, lead.pincode].filter(Boolean).join(', ')}
+        onSuccess={() => { void handleSiteVisitSuccess(); }}
+      />
 
-      <div className="px-4 lg:px-6 pt-5 pb-24">
+      <div className="px-4 lg:px-6 pt-5 pb-28">
 
         {/* Back nav */}
         <Link href="/leads" className="inline-flex items-center gap-1.5 text-sm hover:opacity-75" style={{ color: 'var(--text-secondary)' }}>
@@ -663,7 +796,7 @@ export default function LeadDetailPage() {
 
         <div className="mt-4 space-y-4">
 
-          {/* ── HEADER CARD ─────────────────────────────────────── */}
+          {/* ── HEADER ──────────────────────────────────────────── */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
 
             {/* Terminal banner */}
@@ -674,25 +807,23 @@ export default function LeadDetailPage() {
                 color: isWon ? 'var(--success-text)' : '#DC2626',
               }}>
                 {isWon
-                  ? <><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Lead WON — ready to create a project</>
+                  ? <><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Lead WON</>
                   : <><AlertCircle  className="h-4 w-4 flex-shrink-0" /> Lead Lost{lead.lostReason ? ` — ${lead.lostReason}` : ''}</>
                 }
               </div>
             )}
 
             <div className="p-5">
-              {/* Row 1: Avatar + Name + More menu */}
-              <div className="flex items-start gap-4">
-                {/* Avatar */}
-                <div className="h-12 w-12 rounded-2xl flex items-center justify-center text-base font-bold text-white flex-shrink-0"
+              {/* Row 1: Avatar + Name + Priority + Stage + ⋯ menu */}
+              <div className="flex items-start gap-3">
+                <div className="h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #5B3FDD 100%)' }}>
                   {initials}
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  {/* Name + priority + stage */}
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-[20px] font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
+                    <h1 className="text-lg font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
                       {lead.contactName}
                     </h1>
                     {priorityCfg && (
@@ -702,19 +833,19 @@ export default function LeadDetailPage() {
                         {priorityCfg.label.toUpperCase()}
                       </span>
                     )}
-                    <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${STAGE_COLORS[lead.stage]}`}>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${STAGE_COLORS[lead.stage]}`}>
                       {STAGE_LABELS[lead.stage]}
                     </span>
                   </div>
 
-                  {/* Property type / project name */}
-                  {(lead.propertyType || lead.projectName) && (
+                  {/* Project name / property type subtitle */}
+                  {(lead.projectName || lead.propertyType) && (
                     <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                      {lead.propertyType ?? lead.projectName}
+                      {lead.projectName ?? lead.propertyType}
                     </p>
                   )}
 
-                  {/* Contact meta row */}
+                  {/* Contact meta */}
                   <div className="flex items-center gap-x-4 gap-y-1 mt-2 flex-wrap">
                     <a href={`tel:${lead.contactPhone}`} className="flex items-center gap-1 text-[13px] hover:underline" style={{ color: 'var(--text-secondary)' }}>
                       <Phone className="h-3.5 w-3.5 flex-shrink-0" />{lead.contactPhone}
@@ -734,13 +865,13 @@ export default function LeadDetailPage() {
                         <User className="h-3.5 w-3.5 flex-shrink-0" />{lead.designerName}
                       </span>
                     )}
-                    <span className="text-[13px]" style={{ color: 'var(--text-tertiary)' }}>
-                      {SOURCE_LABELS[lead.source] ?? lead.source}
+                    <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                      via {SOURCE_LABELS[lead.source] ?? lead.source}
                     </span>
                   </div>
                 </div>
 
-                {/* More (⋯) menu */}
+                {/* ⋯ menu — Edit / Archive / Delete */}
                 <div className="relative flex-shrink-0" ref={menuRef}>
                   <button type="button" onClick={() => setShowActionsMenu(v => !v)}
                     className="h-8 w-8 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
@@ -771,49 +902,26 @@ export default function LeadDetailPage() {
                 </div>
               </div>
 
-              {/* Action buttons */}
+              {/* Primary action buttons */}
               <div className="flex items-center gap-2 mt-4 flex-wrap">
+                <a href={`https://wa.me/91${waPhone}`} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+                  style={{ background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A' }}>
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </a>
+                <a href={`tel:${lead.contactPhone}`}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
+                  style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#2563EB' }}>
+                  <Phone className="h-4 w-4" /> Call
+                </a>
                 <button type="button" onClick={() => setShowEditDialog(true)}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                   style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                  <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Edit Lead
+                  <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Edit
                 </button>
-
-                <Link href={`/leads/${id}/site-visit`}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                  <Home className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Site Visit
-                </Link>
-
-                {primaryQuote ? (
-                  <Link href={`/quotes/${primaryQuote.id}`}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                    style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                    <FileText className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> View Quotation
-                  </Link>
-                ) : (
-                  <button type="button" onClick={createQuote} disabled={creatingQuote}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                    style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                    <FileText className="h-3.5 w-3.5" /> {creatingQuote ? 'Creating…' : 'Create Quotation'}
-                  </button>
-                )}
-
-                <a href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '').slice(-10)}`}
-                  target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                  style={{ background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A' }}>
-                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
-                </a>
-
-                <a href={`tel:${lead.contactPhone}`}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                  style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#2563EB' }}>
-                  <Phone className="h-3.5 w-3.5" /> Call
-                </a>
               </div>
 
-              {/* Project link */}
+              {/* Project link — only when won */}
               {(linkedProject || isWon) && (
                 <div className="mt-3">
                   {linkedProject ? (
@@ -834,73 +942,105 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
-          {/* ── PIPELINE CARD ───────────────────────────────────── */}
+          {/* ── PIPELINE + NEXT ACTION ───────────────────────────── */}
           <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <PipelineBar stage={lead.stage} isLost={isLost} />
+            <PipelineBar
+              stage={lead.stage}
+              isLost={isLost}
+              onStepClick={!isTerminal ? handlePipelineStepClick : undefined}
+              disabled={stageActionsDisabled}
+            />
 
-            {/* Won / Lost / Reopen actions */}
-            {(!isTerminal || isLost) && (
-              <div className="flex items-center gap-2 mt-4 pt-4 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                {!isTerminal && (
-                  <>
-                    <button type="button" onClick={() => changeStage('won')} disabled={markingWon || markingLost}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50 transition-opacity"
-                      style={{ background: 'var(--success)', color: '#fff' }}>
-                      <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Marking Won…' : 'Mark as Won'}
+            <div className="flex items-center gap-2 mt-4 pt-4 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              {/* Contextual next-action CTA */}
+              {nextStageAction && (
+                <button
+                  type="button"
+                  onClick={() => nextStageAction.terminal ? changeStage(nextStageAction.targetStage) : advanceStage(nextStageAction.targetStage)}
+                  disabled={stageActionsDisabled}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50 transition-opacity"
+                  style={{ background: nextStageAction.terminal ? 'var(--success)' : 'var(--violet-primary)', color: '#fff' }}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                  {(advancingStage || (markingWon && nextStageAction.terminal)) ? 'Moving…' : nextStageAction.label}
+                </button>
+              )}
+
+              {/* Reopen (lost state) */}
+              {isLost && (
+                <button type="button" onClick={() => changeStage('negotiation')} disabled={stageActionsDisabled}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50"
+                  style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                  <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}
+                </button>
+              )}
+
+              {/* Mark as Won / Mark as Lost — shown for active non-terminal leads */}
+              {!isTerminal && (
+                <div className="flex items-center gap-2 ml-auto">
+                  {/* Won */}
+                  {!nextStageAction?.terminal && (
+                    <button type="button" onClick={() => changeStage('won')} disabled={stageActionsDisabled}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl border disabled:opacity-50"
+                      style={{ borderColor: 'var(--success)', color: 'var(--success)', background: 'transparent' }}>
+                      <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Marking…' : 'Won'}
                     </button>
-                    <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={markingWon || markingLost}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl border disabled:opacity-50 transition-opacity"
-                      style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'transparent' }}>
-                      <AlertCircle className="h-4 w-4" /> Mark as Lost
-                    </button>
-                  </>
-                )}
-                {isLost && (
-                  <button type="button" onClick={() => changeStage('negotiation')} disabled={reopening}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50"
-                    style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                    <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}
+                  )}
+                  {/* Lost */}
+                  <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={stageActionsDisabled}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl border disabled:opacity-50"
+                    style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'transparent' }}>
+                    <AlertCircle className="h-4 w-4" /> Lost
                   </button>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
             {stageError && <p className="mt-2 text-xs text-red-600">{stageError}</p>}
           </div>
 
-          {/* ── INFO GRID ────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ── TWO-COLUMN INFO GRID ─────────────────────────────── */}
+          {/* Desktop: left = Requirement, right = Follow-up + Customer + Site stacked */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
 
-            {/* REQUIREMENT */}
-            <InfoCard title="Requirement">
-              {(lead.propertyType || lead.budgetBand || lead.projectName || lead.notes) ? (
-                <div className="space-y-2">
-                  {lead.propertyType && (
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{lead.propertyType}</p>
-                  )}
-                  {lead.projectName && (
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lead.projectName}</p>
-                  )}
-                  {lead.budgetBand && (
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      Budget:{' '}
-                      <span className="font-medium" style={{ color: 'var(--text-heading)' }}>{lead.budgetBand}</span>
-                    </p>
-                  )}
-                  {(lead.projectValuePaise ?? 0) > 0 && (
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      Final value:{' '}
-                      <span className="font-semibold" style={{ color: 'var(--text-gold)' }}>{fmt(lead.projectValuePaise!)}</span>
-                    </p>
-                  )}
+            {/* LEFT — REQUIREMENT */}
+            <div className="rounded-2xl p-5 h-full" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Requirement</p>
+                <button type="button" onClick={() => setShowEditDialog(true)}
+                  className="text-xs hover:underline" style={{ color: 'var(--violet-primary)' }}>
+                  Edit
+                </button>
+              </div>
+
+              {(lead.propertyType || lead.budgetBand || lead.projectName || lead.notes || (lead.projectValuePaise ?? 0) > 0) ? (
+                <div>
+                  <div className="-mt-1.5">
+                    {lead.propertyType && (
+                      <LabelRow label="Property Type" value={lead.propertyType} />
+                    )}
+                    {lead.projectName && (
+                      <LabelRow label="Project Name" value={lead.projectName} />
+                    )}
+                    {lead.budgetBand && (
+                      <LabelRow label="Budget" value={lead.budgetBand} />
+                    )}
+                    {(lead.projectValuePaise ?? 0) > 0 && (
+                      <LabelRow label="Project Value" value={
+                        <span style={{ color: 'var(--text-gold)', fontWeight: 600 }}>{fmt(lead.projectValuePaise!)}</span>
+                      } />
+                    )}
+                  </div>
                   {lead.notes && (
-                    <p className="text-sm leading-relaxed pt-2 mt-1" style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border-subtle)' }}>
-                      {lead.notes}
-                    </p>
+                    <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                      <p className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-tertiary)' }}>NOTES</p>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.notes}</p>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No requirement details yet.</p>
+                <div className="py-4 text-center">
+                  <FileText className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No project details yet</p>
                   <button type="button" onClick={() => setShowEditDialog(true)}
                     className="text-xs font-medium hover:underline"
                     style={{ color: 'var(--violet-primary)' }}>
@@ -908,163 +1048,190 @@ export default function LeadDetailPage() {
                   </button>
                 </div>
               )}
-            </InfoCard>
+            </div>
 
-            {/* NEXT FOLLOW-UP */}
-            <InfoCard title="Next Follow-up" cardRef={followUpRef}>
-              {lead.followUpDate ? (
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Calendar className="h-4 w-4 flex-shrink-0" style={{
-                      color: fuUrgency === 'overdue' ? 'var(--danger)' : fuUrgency === 'today' ? 'var(--warning)' : 'var(--text-secondary)',
-                    }} />
-                    <span className="text-base font-semibold" style={{
-                      color: fuUrgency === 'overdue' ? 'var(--danger)' : 'var(--text-heading)',
-                    }}>
-                      {fmtFollowUpDate(lead.followUpDate)}
-                    </span>
-                    {fuUrgency === 'overdue' && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>OVERDUE</span>
-                    )}
-                    {fuUrgency === 'today' && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>TODAY</span>
-                    )}
-                  </div>
-                  {nextFuActivity?.description && (
-                    <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>{nextFuActivity.description}</p>
-                  )}
+            {/* RIGHT column — stacked cards */}
+            <div className="space-y-4">
 
-                  {!showReschedule ? (
-                    <div className="flex gap-2 flex-wrap">
-                      <button type="button" onClick={clearFollowUp} disabled={clearingFU}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                        style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-                        <Check className="h-3 w-3" />{clearingFU ? 'Completing…' : 'Complete'}
-                      </button>
-                      <button type="button" onClick={() => setShowReschedule(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                        style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                        <Calendar className="h-3 w-3" /> Reschedule
-                      </button>
+              {/* NEXT FOLLOW-UP */}
+              <div ref={followUpRef} className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Next Follow-up</p>
+
+                {lead.followUpDate ? (
+                  <div>
+                    {/* Scheduled state */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="h-4 w-4 flex-shrink-0" style={{
+                        color: fuUrgency === 'overdue' ? 'var(--danger)' : fuUrgency === 'today' ? 'var(--warning)' : 'var(--accent-base)',
+                      }} />
+                      <span className="text-base font-semibold" style={{
+                        color: fuUrgency === 'overdue' ? 'var(--danger)' : 'var(--text-heading)',
+                      }}>
+                        {fmtFollowUpDate(lead.followUpDate)}
+                      </span>
+                      {fuUrgency === 'overdue' && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>OVERDUE</span>
+                      )}
+                      {fuUrgency === 'today' && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>TODAY</span>
+                      )}
                     </div>
-                  ) : (
-                    <div className="space-y-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {quickDates.map(({ label, days }) => (
-                          <button key={label} type="button" onClick={() => applyQuickDate(days)}
-                            className="px-2.5 py-1 text-xs rounded-lg"
-                            style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                            {label}
+                    {nextFuActivity?.description && (
+                      <p className="text-sm mb-3 ml-6" style={{ color: 'var(--text-secondary)' }}>{nextFuActivity.description}</p>
+                    )}
+
+                    {!showReschedule ? (
+                      <div className="flex gap-2 flex-wrap">
+                        <button type="button" onClick={clearFollowUp} disabled={clearingFU}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                          style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
+                          <Check className="h-3 w-3" />{clearingFU ? 'Completing…' : 'Complete'}
+                        </button>
+                        <button type="button" onClick={() => setShowReschedule(true)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                          <Calendar className="h-3 w-3" /> Reschedule
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {quickDates.map(({ label, days }) => (
+                            <button key={label} type="button" onClick={() => applyQuickDate(days)}
+                              className="px-2.5 py-1 text-xs rounded-lg"
+                              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
+                          className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
+                        <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
+                          placeholder="Purpose or notes…" rows={2} className="studio-input w-full text-sm resize-none" />
+                        {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
+                        <div className="flex gap-2">
+                          <button type="button" disabled={!followUpDate || savingFU}
+                            onClick={async () => { await scheduleFollowUp(); setShowReschedule(false); }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
+                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                            {savingFU ? 'Saving…' : 'Save'}
                           </button>
-                        ))}
+                          <button type="button" onClick={() => { setShowReschedule(false); setFollowUpDate(''); setFollowUpNote(''); }}
+                            className="px-3 py-1.5 text-xs rounded-lg"
+                            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                        className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
-                      <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
-                        placeholder="Purpose or notes…" rows={2} className="studio-input w-full text-sm resize-none" />
-                      {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
-                      <div className="flex gap-2">
-                        <button type="button" disabled={!followUpDate || savingFU}
-                          onClick={async () => { await scheduleFollowUp(); setShowReschedule(false); }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
-                          style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                          {savingFU ? 'Saving…' : 'Save'}
-                        </button>
-                        <button type="button" onClick={() => { setShowReschedule(false); setFollowUpDate(''); setFollowUpNote(''); }}
-                          className="px-3 py-1.5 text-xs rounded-lg"
-                          style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {followUpError && !showReschedule && <p className="mt-2 text-xs text-red-600">{followUpError}</p>}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No follow-up scheduled</p>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {quickDates.map(({ label, days }) => (
-                      <button key={label} type="button" onClick={() => applyQuickDate(days)}
-                        className="px-2.5 py-1 text-xs rounded-lg"
-                        style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                        {label}
-                      </button>
-                    ))}
+                    )}
+                    {followUpError && !showReschedule && <p className="mt-2 text-xs text-red-600">{followUpError}</p>}
                   </div>
-                  <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                    className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
-                  <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
-                    placeholder="Purpose or notes…" rows={2} className="studio-input w-full text-sm resize-none" />
-                  {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
-                  {fuSuccess && <p className="text-xs font-medium" style={{ color: 'var(--success)' }}>Scheduled!</p>}
-                  <button type="button" onClick={scheduleFollowUp} disabled={!followUpDate || savingFU}
-                    className="btn-primary flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50">
-                    <Calendar className="h-3.5 w-3.5" />{savingFU ? 'Saving…' : 'Schedule Follow-up'}
-                  </button>
-                </div>
-              )}
-            </InfoCard>
-
-            {/* CUSTOMER */}
-            <InfoCard title="Customer">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>{lead.contactName}</p>
-                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</p>
-                  {lead.contactEmail && (
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lead.contactEmail}</p>
-                  )}
-                  <span className="inline-block mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                    style={{
-                      background: customerId ? 'rgba(16,185,129,0.1)' : 'var(--surface-muted)',
-                      color: customerId ? 'var(--success-text)' : 'var(--text-secondary)',
-                    }}>
-                    {customerId ? 'Existing Customer' : 'New Contact'}
-                  </span>
-                </div>
-                {customerId && (
-                  <Link href={`/customers/${customerId}`}
-                    className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold hover:opacity-75"
-                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}>
-                    <ExternalLink className="h-3 w-3" /> View
-                  </Link>
+                ) : (
+                  /* No follow-up scheduled — compact form */
+                  <div className="space-y-2">
+                    <div className="flex gap-1.5 flex-wrap">
+                      {quickDates.map(({ label, days }) => (
+                        <button key={label} type="button" onClick={() => applyQuickDate(days)}
+                          className="px-2.5 py-1 text-xs rounded-lg"
+                          style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
+                      className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
+                    {followUpDate && (
+                      <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
+                        placeholder="Purpose (optional)…" rows={2} className="studio-input w-full text-sm resize-none" />
+                    )}
+                    {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
+                    {fuSuccess && <p className="text-xs font-medium" style={{ color: 'var(--success)' }}>Scheduled!</p>}
+                    {followUpDate && (
+                      <button type="button" onClick={scheduleFollowUp} disabled={savingFU}
+                        className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50">
+                        <Calendar className="h-3.5 w-3.5" />{savingFU ? 'Saving…' : 'Schedule'}
+                      </button>
+                    )}
+                    {!followUpDate && (
+                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Pick a date above to schedule.</p>
+                    )}
+                  </div>
                 )}
               </div>
-            </InfoCard>
 
-            {/* SITE LOCATION */}
-            <InfoCard title="Site Location">
-              {(lead.contactCity || lead.pincode || lead.projectLocation) ? (
-                <div>
-                  {lead.contactCity && (
-                    <p className="text-base font-semibold flex items-center gap-1.5" style={{ color: 'var(--text-heading)' }}>
-                      <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-                      {lead.contactCity}{lead.pincode ? ` — ${lead.pincode}` : ''}
-                    </p>
-                  )}
-                  {lead.projectLocation && (
-                    <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.projectLocation}</p>
-                  )}
-                  <Link href={`/leads/${id}/site-visit`}
-                    className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-xl text-xs font-semibold hover:opacity-75"
-                    style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                    <Home className="h-3 w-3" style={{ color: 'var(--violet-primary)' }} /> Site Visit Details
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No location details yet.</p>
-                  <button type="button" onClick={() => setShowEditDialog(true)}
-                    className="text-xs font-medium hover:underline text-left"
-                    style={{ color: 'var(--violet-primary)' }}>
-                    + Add location
-                  </button>
-                </div>
-              )}
-            </InfoCard>
+              {/* CUSTOMER */}
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Customer</p>
+                <p className="text-base font-semibold leading-tight" style={{ color: 'var(--text-heading)' }}>{lead.contactName}</p>
+                <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</p>
+                {lead.contactEmail && (
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lead.contactEmail}</p>
+                )}
 
-          </div>{/* end info grid */}
+                <div className="mt-3 flex items-center gap-2 flex-wrap">
+                  {customerId ? (
+                    <>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success-text)' }}>
+                        <CheckCircle2 className="h-3 w-3" /> Existing Customer
+                      </span>
+                      <Link href={`/customers/${customerId}`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}>
+                        <ExternalLink className="h-3 w-3" /> View Customer
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                        <User className="h-3 w-3" /> Not converted yet
+                      </span>
+                      <button type="button" onClick={convertToCustomer} disabled={converting}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75 disabled:opacity-50"
+                        style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                        <Plus className="h-3 w-3" />{converting ? 'Converting…' : 'Convert to Customer'}
+                      </button>
+                    </>
+                  )}
+                </div>
+                {convertError && <p className="mt-2 text-xs text-red-600">{convertError}</p>}
+              </div>
+
+              {/* SITE LOCATION */}
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Site Location</p>
+                {(lead.contactCity || lead.pincode || lead.projectLocation) ? (
+                  <div>
+                    {lead.contactCity && (
+                      <p className="font-semibold flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-heading)' }}>
+                        <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                        {lead.contactCity}{lead.pincode ? ` — ${lead.pincode}` : ''}
+                      </p>
+                    )}
+                    {lead.projectLocation && (
+                      <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.projectLocation}</p>
+                    )}
+                    <button type="button" onClick={() => setShowSiteVisitModal(true)}
+                      className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
+                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                      <Home className="h-3 w-3" style={{ color: 'var(--violet-primary)' }} /> Site Visit Details
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No location added yet.</p>
+                    <button type="button" onClick={() => setShowEditDialog(true)}
+                      className="text-xs font-medium hover:underline"
+                      style={{ color: 'var(--violet-primary)' }}>
+                      + Add location
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>{/* end right column */}
+          </div>{/* end 2-col grid */}
 
           {/* ── QUOTATIONS ───────────────────────────────────────── */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
@@ -1082,26 +1249,27 @@ export default function LeadDetailPage() {
               <div className="px-5 py-4 space-y-2">
                 {leadQuotes.map(q => (
                   <Link key={q.id} href={`/quotes/${q.id}`}
-                    className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
+                    className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
                     style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-heading)' }}>
-                            QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{
-                            background: q.status === 'approved' ? 'var(--success-soft)' : q.status === 'sent' ? 'var(--accent-soft)' : 'var(--surface-card)',
-                            color: q.status === 'approved' ? 'var(--success-text)' : q.status === 'sent' ? 'var(--accent-text)' : 'var(--text-secondary)',
-                          }}>{q.status.toUpperCase()}</span>
-                        </div>
-                        {q.totalPaise > 0 && (
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>
-                            {fmt(q.totalPaise)}
-                          </p>
-                        )}
+                    <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-heading)' }}>
+                          QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{
+                          background: q.status === 'approved' ? 'var(--success-soft)' : q.status === 'sent' ? 'var(--accent-soft)' : 'var(--surface-card)',
+                          color: q.status === 'approved' ? 'var(--success-text)' : q.status === 'sent' ? 'var(--accent-text)' : 'var(--text-secondary)',
+                        }}>{q.status.toUpperCase()}</span>
+                        <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                          {fmtDate(q.createdAt)}
+                        </span>
                       </div>
+                      {q.totalPaise > 0 && (
+                        <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>
+                          {fmt(q.totalPaise)}
+                        </p>
+                      )}
                     </div>
                     <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
                   </Link>
@@ -1114,60 +1282,85 @@ export default function LeadDetailPage() {
                 <button type="button" onClick={createQuote} disabled={creatingQuote}
                   className="text-xs font-medium hover:underline disabled:opacity-50"
                   style={{ color: 'var(--violet-primary)' }}>
-                  {creatingQuote ? 'Creating…' : 'Create first quotation'}
+                  {creatingQuote ? 'Creating…' : 'Create first quotation →'}
                 </button>
               </div>
             )}
           </div>
 
-          {/* ── ACTIVITY TIMELINE ────────────────────────────────── */}
+          {/* ── ACTIVITY ─────────────────────────────────────────── */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
             <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Activity</p>
             </div>
             <div className="px-5 py-4">
-              {/* Note input */}
-              <div className="mb-5">
-                <div className="relative">
-                  <textarea value={noteText} onChange={e => { setNoteText(e.target.value); setNoteError(null); }}
-                    placeholder="Add a note — call outcome, meeting summary, client requirements…"
-                    rows={3} className="studio-input w-full text-sm resize-none pr-10" />
-                  <button type="button" title={recording ? 'Stop recording' : 'Record voice note'}
-                    onClick={recording ? stopRecording : startRecording} disabled={transcribing}
-                    className="absolute top-2 right-2 h-7 w-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
+              {/* Activity type selector */}
+              <div className="flex gap-1.5 mb-3">
+                {activityPills.map(({ type, label, Icon }) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setActivityType(type)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                     style={{
-                      background: recording ? 'var(--danger-soft)' : transcribing ? 'var(--surface-muted)' : 'var(--purple-soft)',
-                      color: recording ? 'var(--danger)' : transcribing ? 'var(--text-secondary)' : 'var(--violet-primary)',
-                    }}>
-                    {recording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      background: activityType === type ? 'var(--violet-primary)' : 'var(--surface-muted)',
+                      color: activityType === type ? '#fff' : 'var(--text-secondary)',
+                      border: `1px solid ${activityType === type ? 'var(--violet-primary)' : 'var(--border-subtle)'}`,
+                    }}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {label}
                   </button>
-                </div>
-                {recording && (
-                  <p className="text-xs flex items-center gap-1.5 mt-1" style={{ color: 'var(--danger)' }}>
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                    {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')} — tap the mic to stop
-                  </p>
-                )}
-                {transcribing && <p className="text-xs mt-1" style={{ color: 'var(--violet-primary)' }}>Transcribing voice note…</p>}
-                {noteError && <p className="text-xs mt-1 text-red-600">{noteError}</p>}
-                <button type="button" onClick={saveNote} disabled={savingNote || !noteText.trim()}
-                  className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50 mt-2">
-                  <Plus className="h-4 w-4" />{savingNote ? 'Saving…' : 'Add Note'}
+                ))}
+              </div>
+
+              {/* Note textarea + voice */}
+              <div className="relative mb-3">
+                <textarea value={noteText} onChange={e => { setNoteText(e.target.value); setNoteError(null); }}
+                  placeholder={
+                    activityType === 'call'     ? 'Call outcome, what was discussed…' :
+                    activityType === 'whatsapp' ? 'Message sent or received…' :
+                    activityType === 'meeting'  ? 'Meeting summary, decisions made…' :
+                    'Add a note — client requirements, observations…'
+                  }
+                  onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveNote(); }}
+                  rows={3} className="studio-input w-full text-sm resize-none pr-10" />
+                <button type="button" title={recording ? 'Stop recording' : 'Record voice note'}
+                  onClick={recording ? stopRecording : startRecording} disabled={transcribing}
+                  className="absolute top-2 right-2 h-7 w-7 flex items-center justify-center rounded-lg transition-colors disabled:opacity-40"
+                  style={{
+                    background: recording ? 'var(--danger-soft)' : transcribing ? 'var(--surface-muted)' : 'var(--purple-soft)',
+                    color: recording ? 'var(--danger)' : transcribing ? 'var(--text-secondary)' : 'var(--violet-primary)',
+                  }}>
+                  {recording ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
                 </button>
+              </div>
+              {recording && (
+                <p className="text-xs flex items-center gap-1.5 mb-2" style={{ color: 'var(--danger)' }}>
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                  {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')} — tap mic to stop
+                </p>
+              )}
+              {transcribing && <p className="text-xs mb-2" style={{ color: 'var(--violet-primary)' }}>Transcribing voice note…</p>}
+              {noteError && <p className="text-xs mb-2 text-red-600">{noteError}</p>}
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={saveNote} disabled={savingNote || !noteText.trim()}
+                  className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+                  <Plus className="h-4 w-4" />{savingNote ? 'Saving…' : `Log ${activityType === 'note' ? 'Note' : activityType === 'call' ? 'Call' : activityType === 'whatsapp' ? 'Message' : 'Meeting'}`}
+                </button>
+                <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Ctrl+Enter</span>
               </div>
 
               {/* Timeline */}
               {(upcomingActivities.length + historyActivities.length) > 0 ? (
-                <div className="pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="pt-5 mt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   {upcomingActivities.length > 0 && (
                     <>
                       <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--accent-base)' }}>Upcoming</p>
                       {upcomingActivities.map((a, i) => (
                         <TimelineEntry key={a.id} activity={a} isLast={i === upcomingActivities.length - 1 && historyActivities.length === 0} />
                       ))}
-                      {historyActivities.length > 0 && (
-                        <div className="my-4" style={{ borderTop: '1px solid var(--border-subtle)' }} />
-                      )}
+                      {historyActivities.length > 0 && <div className="my-4" style={{ borderTop: '1px solid var(--border-subtle)' }} />}
                     </>
                   )}
                   {historyActivities.length > 0 && (
@@ -1182,10 +1375,10 @@ export default function LeadDetailPage() {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-6" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                <div className="text-center py-6 mt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                   <StickyNote className="h-6 w-6 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
                   <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    No activity yet. Add a note above to start tracking this lead.
+                    No activity yet. Log a call, message, or note above.
                   </p>
                 </div>
               )}
@@ -1327,6 +1520,14 @@ export default function LeadDetailPage() {
         </div>{/* end space-y-4 */}
       </div>{/* end px-4 */}
 
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-lg whitespace-nowrap"
+          style={{ background: '#059669', color: '#fff' }}>
+          {toast}
+        </div>
+      )}
+
       {/* Mobile floating bar */}
       <div className="lg:hidden floating-action-bar fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around px-4 py-3 gap-2"
         style={{ boxShadow: '0 -4px 16px rgba(0,0,0,0.08)', paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
@@ -1334,7 +1535,7 @@ export default function LeadDetailPage() {
           <Phone className="h-5 w-5 text-blue-600" />
           <span className="text-[10px] font-medium text-blue-600">Call</span>
         </a>
-        <a href={`https://wa.me/91${lead.contactPhone.replace(/\D/g, '').slice(-10)}`} target="_blank" rel="noreferrer"
+        <a href={`https://wa.me/91${waPhone}`} target="_blank" rel="noreferrer"
           className="flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl hover:bg-green-50">
           <MessageCircle className="h-5 w-5 text-green-600" />
           <span className="text-[10px] font-medium text-green-600">WhatsApp</span>
@@ -1357,6 +1558,15 @@ export default function LeadDetailPage() {
             <FolderKanban className="h-5 w-5 text-white" />
             <span className="text-[10px] font-medium text-white">Convert</span>
           </Link>
+        ) : nextStageAction ? (
+          <button type="button"
+            onClick={() => nextStageAction.terminal ? changeStage(nextStageAction.targetStage) : advanceStage(nextStageAction.targetStage)}
+            disabled={stageActionsDisabled}
+            className="flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl disabled:opacity-50"
+            style={{ background: 'var(--violet-primary)' }}>
+            <ArrowRight className="h-5 w-5 text-white" />
+            <span className="text-[10px] font-medium text-white">Advance</span>
+          </button>
         ) : (
           <div className="flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl" style={{ opacity: 0.35 }}>
             <FolderKanban className="h-5 w-5" style={{ color: 'var(--text-secondary)' }} />
