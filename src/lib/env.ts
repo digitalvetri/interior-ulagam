@@ -32,8 +32,9 @@ export function assertEnv(): void {
     // process.exit only available in Node.js runtime (not Edge); throw as fallback.
     if (typeof process !== 'undefined' && typeof process.exit === 'function') {
       process.exit(1);
+    } else {
+      throw new Error(message);
     }
-    throw new Error(message);
   }
 
   const absent = RECOMMENDED.filter((entry) => !process.env[entry.name]?.trim());
