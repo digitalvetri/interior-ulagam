@@ -11,11 +11,14 @@ import {
   Edit2, Trash2, Archive, MoreVertical,
   Upload, ExternalLink, X, StickyNote, BellRing,
 } from 'lucide-react';
-import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
+import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem, LeadFollowUp } from '@/types/leads';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
+import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
+import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
 import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
+import type { SiteVisit } from '@/types/site-visits';
 
 type LeadDocument = DocumentRow & { downloadUrl: string | null };
 
@@ -289,6 +292,218 @@ function TimelineEntry({ activity, isLast }: { activity: LeadActivity; isLast: b
   );
 }
 
+/* ── MeasurementsTabContent ────────────────────────────────── */
+function MeasurementsTabContent({ leadId, initialRounds, onRoundAdded }: {
+  leadId: string;
+  initialRounds: MeasurementRound[];
+  onRoundAdded: (round: MeasurementRound) => void;
+}) {
+  const [rounds, setRounds]           = useState<MeasurementRound[]>(initialRounds);
+  const [showAddRound, setShowAddRound] = useState(false);
+  const [roundName, setRoundName]     = useState('');
+  const [savingRound, setSavingRound] = useState(false);
+  const [roundErr, setRoundErr]       = useState<string | null>(null);
+  const [expandedId, setExpandedId]   = useState<string | null>(null);
+  const [addingTo, setAddingTo]       = useState<string | null>(null);
+  const [iRoom, setIRoom]   = useState('');
+  const [iItem, setIItem]   = useState('');
+  const [iLen, setILen]     = useState('');
+  const [iWid, setIWid]     = useState('');
+  const [iArea, setIArea]   = useState('');
+  const [iQty, setIQty]     = useState('1');
+  const [iUnit, setIUnit]   = useState('sqft');
+  const [iNotes, setINotes] = useState('');
+  const [savingItem, setSavingItem] = useState(false);
+  const [itemErr, setItemErr]       = useState<string | null>(null);
+
+  async function createRound() {
+    if (!roundName.trim()) return;
+    setSavingRound(true); setRoundErr(null);
+    try {
+      const res = await fetch(`/api/v1/leads/${leadId}/measurements`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roundName: roundName.trim() }),
+      });
+      const json = await res.json() as { data?: MeasurementRound; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed');
+      const newRound: MeasurementRound = { ...json.data!, items: [] };
+      setRounds(prev => [...prev, newRound]);
+      onRoundAdded(newRound);
+      setRoundName(''); setShowAddRound(false); setExpandedId(newRound.id);
+    } catch (e) { setRoundErr(e instanceof Error ? e.message : 'Failed'); }
+    finally { setSavingRound(false); }
+  }
+
+  function clearItemForm() {
+    setIRoom(''); setIItem(''); setILen(''); setIWid(''); setIArea('');
+    setIQty('1'); setIUnit('sqft'); setINotes(''); setItemErr(null);
+  }
+
+  async function addItem(roundId: string) {
+    if (!iRoom.trim() || !iItem.trim()) { setItemErr('Room and item name are required'); return; }
+    setSavingItem(true); setItemErr(null);
+    const dimensionsJson: Record<string, unknown> = { unit: iUnit };
+    if (iLen)  dimensionsJson['length'] = parseFloat(iLen);
+    if (iWid)  dimensionsJson['width']  = parseFloat(iWid);
+    if (iArea) dimensionsJson['area']   = parseFloat(iArea);
+    try {
+      const res = await fetch(`/api/v1/leads/${leadId}/measurements/${roundId}/items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room: iRoom.trim(), itemName: iItem.trim(), dimensionsJson,
+          qty: parseInt(iQty) || 1, unit: iUnit, notes: iNotes.trim() || null,
+        }),
+      });
+      const json = await res.json() as { data?: MeasurementItem; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed');
+      setRounds(prev => prev.map(r =>
+        r.id === roundId ? { ...r, items: [...(r.items ?? []), json.data!] } : r,
+      ));
+      clearItemForm(); setAddingTo(null);
+    } catch (e) { setItemErr(e instanceof Error ? e.message : 'Failed'); }
+    finally { setSavingItem(false); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          {rounds.length} Round{rounds.length !== 1 ? 's' : ''}
+        </p>
+        <button type="button" onClick={() => setShowAddRound(v => !v)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+          style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+          <Plus className="h-3.5 w-3.5" /> Add Round
+        </button>
+      </div>
+
+      {showAddRound && (
+        <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+          <input value={roundName} onChange={e => setRoundName(e.target.value)}
+            placeholder="Round name — e.g. Initial Measurement"
+            className="studio-input w-full text-sm" />
+          {roundErr && <p className="text-xs text-red-600">{roundErr}</p>}
+          <div className="flex gap-2">
+            <button type="button" onClick={createRound} disabled={savingRound || !roundName.trim()}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+              style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+              {savingRound ? 'Creating…' : 'Create Round'}
+            </button>
+            <button type="button" onClick={() => { setShowAddRound(false); setRoundName(''); setRoundErr(null); }}
+              className="px-3 py-1.5 rounded-lg text-xs"
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rounds.length === 0 && !showAddRound && (
+        <div className="text-center py-10">
+          <Home className="h-9 w-9 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+          <p className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No measurement rounds yet</p>
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Create a round to capture room dimensions for BOQ</p>
+        </div>
+      )}
+
+      {rounds.map(round => (
+        <div key={round.id} className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <button type="button"
+            onClick={() => setExpandedId(prev => prev === round.id ? null : round.id)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--surface-muted)] transition-colors">
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{round.roundName}</span>
+              {round.completedAt && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                  style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>DONE</span>
+              )}
+              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                {(round.items?.length ?? 0)} item{(round.items?.length ?? 0) !== 1 ? 's' : ''}
+              </span>
+              {round.scheduledAt && (
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{fmtDate(round.scheduledAt)}</span>
+              )}
+            </div>
+            {expandedId === round.id
+              ? <ChevronUp className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+              : <ChevronDown className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+            }
+          </button>
+
+          {expandedId === round.id && (
+            <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              {(round.items ?? []).length > 0 && (
+                <div>
+                  {(round.items ?? []).map((item, idx) => (
+                    <div key={item.id} className="px-4 py-3" style={{ borderBottom: idx < (round.items ?? []).length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                        {item.room} — {item.itemName}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                        {item.dimensionsJson.length && item.dimensionsJson.width
+                          ? `${item.dimensionsJson.length} × ${item.dimensionsJson.width} ${item.dimensionsJson.unit}`
+                          : item.dimensionsJson.area
+                          ? `${item.dimensionsJson.area} ${item.dimensionsJson.unit}`
+                          : '—'
+                        }{' · '}qty {item.qty} {item.unit}
+                      </p>
+                      {item.notes && (
+                        <p className="text-xs mt-0.5 italic" style={{ color: 'var(--text-tertiary)' }}>{item.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="px-4 py-3 space-y-2" style={{ background: 'var(--surface-muted)' }}>
+                {addingTo !== round.id ? (
+                  <button type="button" onClick={() => { setAddingTo(round.id); clearItemForm(); }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                    style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--violet-primary)' }}>
+                    <Plus className="h-3.5 w-3.5" /> Add Item
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={iRoom} onChange={e => setIRoom(e.target.value)} placeholder="Room" className="studio-input text-sm" />
+                      <input value={iItem} onChange={e => setIItem(e.target.value)} placeholder="Item / Work" className="studio-input text-sm" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input value={iLen}  onChange={e => setILen(e.target.value)}  placeholder="L (ft)" type="number" min="0" step="0.01" className="studio-input text-sm" />
+                      <input value={iWid}  onChange={e => setIWid(e.target.value)}  placeholder="W (ft)" type="number" min="0" step="0.01" className="studio-input text-sm" />
+                      <input value={iArea} onChange={e => setIArea(e.target.value)} placeholder="Area"   type="number" min="0" step="0.01" className="studio-input text-sm" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input value={iQty} onChange={e => setIQty(e.target.value)} placeholder="Qty" type="number" min="1" className="studio-input text-sm" />
+                      <select value={iUnit} onChange={e => setIUnit(e.target.value)} className="studio-input text-sm col-span-2">
+                        {['sqft', 'sqm', 'ft', 'm', 'rft', 'nos', 'lot'].map(u => <option key={u} value={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <input value={iNotes} onChange={e => setINotes(e.target.value)} placeholder="Notes (optional)" className="studio-input w-full text-sm" />
+                    {itemErr && <p className="text-xs text-red-600">{itemErr}</p>}
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => addItem(round.id)} disabled={savingItem}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                        style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                        {savingItem ? 'Saving…' : 'Save Item'}
+                      </button>
+                      <button type="button" onClick={() => { setAddingTo(null); clearItemForm(); }}
+                        className="px-3 py-1.5 rounded-lg text-xs"
+                        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── Page ──────────────────────────────────────────────────── */
 export default function LeadDetailPage() {
   const params = useParams();
@@ -354,6 +569,18 @@ export default function LeadDetailPage() {
   // Site visit modal
   const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
 
+  // Stage-action modals
+  const [showMarkContactedModal, setShowMarkContactedModal] = useState(false);
+  const [showQualifyModal, setShowQualifyModal]             = useState(false);
+
+  // Tabs
+  type TabKey = 'overview' | 'activity' | 'followups' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
+  const [activeTab, setActiveTab]           = useState<TabKey>('overview');
+  const [siteVisitsData, setSiteVisitsData] = useState<SiteVisit[]>([]);
+  const [measurementsData, setMeasurementsData] = useState<MeasurementRound[]>([]);
+  const [followUpsData, setFollowUpsData]   = useState<LeadFollowUp[]>([]);
+  const [tabLoaded, setTabLoaded]           = useState<Set<TabKey>>(new Set(['overview', 'activity', 'quotations', 'documents']));
+
   // Toast
   const [toast, setToast] = useState<string | null>(null);
 
@@ -394,7 +621,9 @@ export default function LeadDetailPage() {
       fetch(`/api/v1/leads/${id}/quotes`).catch(() => null),
       fetch(`/api/v1/leads/${id}/documents`).catch(() => null),
       fetch('/api/v1/me').catch(() => null),
-    ]).then(async ([leadRes, actRes, quotesRes, docsRes, meRes]) => {
+      fetch(`/api/v1/site-visits?leadId=${id}`).catch(() => null),
+      fetch(`/api/v1/leads/${id}/measurements`).catch(() => null),
+    ]).then(async ([leadRes, actRes, quotesRes, docsRes, meRes, svRes, mrRes]) => {
       if (leadRes.status === 404) { setNotFound(true); setLoading(false); return; }
       const { data: leadData } = await leadRes.json() as {
         data: Lead & {
@@ -421,6 +650,14 @@ export default function LeadDetailPage() {
       if (meRes?.ok) {
         const meJson = await meRes.json() as { data?: { role?: string } };
         setUserRole(meJson.data?.role ?? '');
+      }
+      if (svRes?.ok) {
+        const svJson = await svRes.json() as { data: SiteVisit[] };
+        setSiteVisitsData(svJson.data ?? []);
+      }
+      if (mrRes?.ok) {
+        const mrJson = await mrRes.json() as { data: MeasurementRound[] };
+        setMeasurementsData(mrJson.data ?? []);
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -718,8 +955,22 @@ export default function LeadDetailPage() {
   const stageActionsDisabled = advancingStage || markingWon || markingLost || reopening;
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
+  // Lazy-load follow-ups on first visit to that tab
+  useEffect(() => {
+    if (activeTab !== 'followups' || tabLoaded.has('followups') || !id) return;
+    fetch(`/api/v1/leads/${id}/follow-ups`)
+      .then(r => r.ok ? r.json() : null)
+      .then((json: { data?: LeadFollowUp[] } | null) => {
+        setFollowUpsData(json?.data ?? []);
+        setTabLoaded(prev => new Set([...prev, 'followups']));
+      })
+      .catch(() => setTabLoaded(prev => new Set([...prev, 'followups'])));
+  }, [activeTab, id, tabLoaded]);
+
   function handlePipelineStepClick(stepKey: string) {
-    if (stepKey === 'site_visit') { setShowSiteVisitModal(true); }
+    if (stepKey === 'contacted') { setShowMarkContactedModal(true); }
+    else if (stepKey === 'qualified') { setShowQualifyModal(true); }
+    else if (stepKey === 'site_visit') { setShowSiteVisitModal(true); }
     else if (stepKey === 'won') { void changeStage('won'); }
     else { void advanceStage(stepKey); }
   }
@@ -785,7 +1036,35 @@ export default function LeadDetailPage() {
         open={showSiteVisitModal}
         onOpenChange={setShowSiteVisitModal}
         defaultAddress={lead.projectLocation || [lead.contactCity, lead.pincode].filter(Boolean).join(', ')}
-        onSuccess={() => { void handleSiteVisitSuccess(); }}
+        onSuccess={(visit) => {
+          setSiteVisitsData(prev => [visit as SiteVisit, ...prev]);
+          void handleSiteVisitSuccess();
+        }}
+      />
+      <MarkContactedModal
+        leadId={id}
+        contactName={lead.contactName}
+        open={showMarkContactedModal}
+        onClose={() => setShowMarkContactedModal(false)}
+        onSuccess={(updatedLead, newActivity) => {
+          setLead(updatedLead);
+          setActivities(prev => [newActivity, ...prev]);
+          setShowMarkContactedModal(false);
+          setToast('Marked as contacted!');
+          setTimeout(() => setToast(null), 3000);
+        }}
+      />
+      <QualifyLeadModal
+        leadId={id}
+        lead={lead}
+        open={showQualifyModal}
+        onClose={() => setShowQualifyModal(false)}
+        onSuccess={(updatedLead) => {
+          setLead(updatedLead);
+          setShowQualifyModal(false);
+          setToast('Lead qualified!');
+          setTimeout(() => setToast(null), 3000);
+        }}
       />
 
       <div className="px-4 lg:px-6 pt-5 pb-28">
@@ -958,7 +1237,9 @@ export default function LeadDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (nextStageAction.targetStage === 'site_visit') { setShowSiteVisitModal(true); }
+                    if (nextStageAction.targetStage === 'contacted') { setShowMarkContactedModal(true); }
+                    else if (nextStageAction.targetStage === 'qualified') { setShowQualifyModal(true); }
+                    else if (nextStageAction.targetStage === 'site_visit') { setShowSiteVisitModal(true); }
                     else if (nextStageAction.terminal) { void changeStage(nextStageAction.targetStage); }
                     else { void advanceStage(nextStageAction.targetStage); }
                   }}
@@ -1003,60 +1284,585 @@ export default function LeadDetailPage() {
             {stageError && <p className="mt-2 text-xs text-red-600">{stageError}</p>}
           </div>
 
-          {/* ── TWO-COLUMN INFO GRID ─────────────────────────────── */}
-          {/* Desktop: left = Requirement, right = Follow-up + Customer + Site stacked */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
+          {/* ── TABS ─────────────────────────────────────────────── */}
 
-            {/* LEFT column — Requirement + Quotations */}
-            <div className="space-y-4">
-            <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Requirement</p>
-                <button type="button" onClick={() => setShowEditDialog(true)}
-                  className="text-xs hover:underline" style={{ color: 'var(--violet-primary)' }}>
-                  Edit
-                </button>
-              </div>
+          {/* Tab nav */}
+          <div className="flex gap-0 overflow-x-auto" style={{ borderBottom: '2px solid var(--border-subtle)' }}>
+            {(
+              [
+                { key: 'overview',     label: 'Overview',     count: 0 },
+                { key: 'activity',     label: 'Activity',     count: activities.length },
+                { key: 'followups',    label: 'Follow-ups',   count: followUpsData.length },
+                { key: 'sitevisits',   label: 'Site Visits',  count: siteVisitsData.length },
+                { key: 'measurements', label: 'Measurements', count: measurementsData.length },
+                { key: 'quotations',   label: 'Quotations',   count: leadQuotes.length },
+                { key: 'documents',    label: 'Documents',    count: leadDocs.length },
+              ] as { key: TabKey; label: string; count: number }[]
+            ).map(tab => (
+              <button key={tab.key} type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 -mb-0.5 transition-colors"
+                style={{
+                  borderColor: activeTab === tab.key ? 'var(--violet-primary)' : 'transparent',
+                  color: activeTab === tab.key ? 'var(--violet-primary)' : 'var(--text-secondary)',
+                  background: 'transparent',
+                }}>
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold"
+                    style={{
+                      background: activeTab === tab.key ? 'var(--violet-primary)' : 'var(--surface-muted)',
+                      color: activeTab === tab.key ? '#fff' : 'var(--text-secondary)',
+                    }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-              {(lead.propertyType || lead.budgetBand || lead.projectName || lead.notes || (lead.projectValuePaise ?? 0) > 0) ? (
-                <div>
-                  <div className="-mt-1.5">
-                    {lead.propertyType && (
-                      <LabelRow label="Property Type" value={lead.propertyType} />
-                    )}
-                    {lead.projectName && (
-                      <LabelRow label="Project Name" value={lead.projectName} />
-                    )}
-                    {lead.budgetBand && (
-                      <LabelRow label="Budget" value={lead.budgetBand} />
-                    )}
-                    {(lead.projectValuePaise ?? 0) > 0 && (
-                      <LabelRow label="Project Value" value={
-                        <span style={{ color: 'var(--text-gold)', fontWeight: 600 }}>{fmt(lead.projectValuePaise!)}</span>
-                      } />
-                    )}
+          {/* ── OVERVIEW ──────────────────────────────────────────── */}
+          {activeTab === 'overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
+
+              {/* LEFT — Requirements + linked project + lead score */}
+              <div className="space-y-4">
+                <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Requirement</p>
+                    <button type="button" onClick={() => setShowEditDialog(true)}
+                      className="text-xs hover:underline" style={{ color: 'var(--violet-primary)' }}>
+                      Edit
+                    </button>
                   </div>
-                  {lead.notes && (
-                    <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <p className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-tertiary)' }}>NOTES</p>
-                      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.notes}</p>
+                  {(lead.propertyType || lead.budgetBand || lead.projectName || lead.notes || (lead.projectValuePaise ?? 0) > 0) ? (
+                    <div>
+                      <div className="-mt-1.5">
+                        {lead.propertyType && <LabelRow label="Property Type" value={lead.propertyType} />}
+                        {lead.projectName && <LabelRow label="Project Name" value={lead.projectName} />}
+                        {lead.budgetBand && <LabelRow label="Budget" value={lead.budgetBand} />}
+                        {(lead.projectValuePaise ?? 0) > 0 && (
+                          <LabelRow label="Project Value" value={
+                            <span style={{ color: 'var(--text-gold)', fontWeight: 600 }}>{fmt(lead.projectValuePaise!)}</span>
+                          } />
+                        )}
+                      </div>
+                      {lead.notes && (
+                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                          <p className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-tertiary)' }}>NOTES</p>
+                          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center">
+                      <FileText className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                      <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No project details yet</p>
+                      <button type="button" onClick={() => setShowEditDialog(true)}
+                        className="text-xs font-medium hover:underline"
+                        style={{ color: 'var(--violet-primary)' }}>
+                        + Add details
+                      </button>
+                    </div>
+                  )}
+                </div>{/* end Requirements card */}
+
+                {/* Linked project — shown when won */}
+                {linkedProject && (
+                  <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--success-soft)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <FolderKanban className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--success)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--success-text)' }}>Linked Project</p>
+                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-heading)' }}>{linkedProject.name}</p>
+                    </div>
+                    <Link href={`/projects/${linkedProject.id}`}
+                      className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                      style={{ background: 'var(--success)', color: '#fff' }}>
+                      Open <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
+                )}
+
+                {/* Lead Score — owner only */}
+                {userRole === 'owner' && (lead.score ?? 0) > 0 && lead.scoreBreakdown && (
+                  <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                    <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Lead Score</p>
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="text-3xl font-bold" style={{
+                        color: (lead.score ?? 0) >= 70 ? 'var(--success)' : (lead.score ?? 0) >= 40 ? 'var(--warning)' : 'var(--text-secondary)',
+                      }}>{lead.score}</div>
+                      <div>
+                        <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>out of 100</p>
+                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Updated automatically on activity</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {([
+                        { label: 'Recency',       val: lead.scoreBreakdown.recency,      max: 30 },
+                        { label: 'Project Value', val: lead.scoreBreakdown.value,        max: 25 },
+                        { label: 'Completeness',  val: lead.scoreBreakdown.completeness, max: 20 },
+                        { label: 'Source',        val: lead.scoreBreakdown.source,       max: 15 },
+                        { label: 'Engagement',    val: lead.scoreBreakdown.engagement,   max: 10 },
+                      ] as { label: string; val: number; max: number }[]).map(({ label, val, max }) => (
+                        <div key={label}>
+                          <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+                            <span>{label}</span>
+                            <span className="font-medium" style={{ color: 'var(--text-heading)' }}>{val}/{max}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
+                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${(val / max) * 100}%`, background: 'var(--violet-primary)' }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>{/* end left column */}
+
+              {/* RIGHT column — Follow-up + Customer + Site */}
+              <div className="space-y-4">
+
+                {/* NEXT FOLLOW-UP */}
+                <div ref={followUpRef} className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Next Follow-up</p>
+                  {lead.followUpDate ? (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar className="h-4 w-4 flex-shrink-0" style={{
+                          color: fuUrgency === 'overdue' ? 'var(--danger)' : fuUrgency === 'today' ? 'var(--warning)' : 'var(--accent-base)',
+                        }} />
+                        <span className="text-base font-semibold" style={{
+                          color: fuUrgency === 'overdue' ? 'var(--danger)' : 'var(--text-heading)',
+                        }}>
+                          {fmtFollowUpDate(lead.followUpDate)}
+                        </span>
+                        {fuUrgency === 'overdue' && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>OVERDUE</span>
+                        )}
+                        {fuUrgency === 'today' && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>TODAY</span>
+                        )}
+                      </div>
+                      {nextFuActivity?.description && (
+                        <p className="text-sm mb-3 ml-6" style={{ color: 'var(--text-secondary)' }}>{nextFuActivity.description}</p>
+                      )}
+                      {!showReschedule ? (
+                        <div className="flex gap-2 flex-wrap">
+                          <button type="button" onClick={clearFollowUp} disabled={clearingFU}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                            style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
+                            <Check className="h-3 w-3" />{clearingFU ? 'Completing…' : 'Complete'}
+                          </button>
+                          <button type="button" onClick={() => setShowReschedule(true)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                            <Calendar className="h-3 w-3" /> Reschedule
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {quickDates.map(({ label, days }) => (
+                              <button key={label} type="button" onClick={() => applyQuickDate(days)}
+                                className="px-2.5 py-1 text-xs rounded-lg"
+                                style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
+                            className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
+                          <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
+                            placeholder="Purpose or notes…" rows={2} className="studio-input w-full text-sm resize-none" />
+                          {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
+                          <div className="flex gap-2">
+                            <button type="button" disabled={!followUpDate || savingFU}
+                              onClick={async () => { await scheduleFollowUp(); setShowReschedule(false); }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
+                              style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                              {savingFU ? 'Saving…' : 'Save'}
+                            </button>
+                            <button type="button" onClick={() => { setShowReschedule(false); setFollowUpDate(''); setFollowUpNote(''); }}
+                              className="px-3 py-1.5 text-xs rounded-lg"
+                              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {followUpError && !showReschedule && <p className="mt-2 text-xs text-red-600">{followUpError}</p>}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex gap-1.5 flex-wrap">
+                        {quickDates.map(({ label, days }) => (
+                          <button key={label} type="button" onClick={() => applyQuickDate(days)}
+                            className="px-2.5 py-1 text-xs rounded-lg"
+                            style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
+                        className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
+                      {followUpDate && (
+                        <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
+                          placeholder="Purpose (optional)…" rows={2} className="studio-input w-full text-sm resize-none" />
+                      )}
+                      {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
+                      {fuSuccess && <p className="text-xs font-medium" style={{ color: 'var(--success)' }}>Scheduled!</p>}
+                      {followUpDate && (
+                        <button type="button" onClick={scheduleFollowUp} disabled={savingFU}
+                          className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50">
+                          <Calendar className="h-3.5 w-3.5" />{savingFU ? 'Saving…' : 'Schedule'}
+                        </button>
+                      )}
+                      {!followUpDate && (
+                        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Pick a date above to schedule.</p>
+                      )}
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="py-4 text-center">
-                  <FileText className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                  <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No project details yet</p>
-                  <button type="button" onClick={() => setShowEditDialog(true)}
-                    className="text-xs font-medium hover:underline"
-                    style={{ color: 'var(--violet-primary)' }}>
-                    + Add details
+
+                {/* CUSTOMER */}
+                <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Customer</p>
+                  <p className="text-base font-semibold leading-tight" style={{ color: 'var(--text-heading)' }}>{lead.contactName}</p>
+                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</p>
+                  {lead.contactEmail && (
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lead.contactEmail}</p>
+                  )}
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    {customerId ? (
+                      <>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success-text)' }}>
+                          <CheckCircle2 className="h-3 w-3" /> Existing Customer
+                        </span>
+                        <Link href={`/customers/${customerId}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
+                          style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}>
+                          <ExternalLink className="h-3 w-3" /> View Customer
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                          <User className="h-3 w-3" /> Not converted yet
+                        </span>
+                        <button type="button" onClick={convertToCustomer} disabled={converting}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75 disabled:opacity-50"
+                          style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                          <Plus className="h-3 w-3" />{converting ? 'Converting…' : 'Convert to Customer'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {convertError && <p className="mt-2 text-xs text-red-600">{convertError}</p>}
+                </div>
+
+                {/* SITE LOCATION */}
+                <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Site Location</p>
+                  {(lead.contactCity || lead.pincode || lead.projectLocation) ? (
+                    <div>
+                      {lead.contactCity && (
+                        <p className="font-semibold flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-heading)' }}>
+                          <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                          {lead.contactCity}{lead.pincode ? ` — ${lead.pincode}` : ''}
+                        </p>
+                      )}
+                      {lead.projectLocation && (
+                        <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.projectLocation}</p>
+                      )}
+                      <button type="button" onClick={() => setShowSiteVisitModal(true)}
+                        className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
+                        style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                        <Home className="h-3 w-3" style={{ color: 'var(--violet-primary)' }} /> Schedule Site Visit
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No location added yet.</p>
+                      <button type="button" onClick={() => setShowEditDialog(true)}
+                        className="text-xs font-medium hover:underline"
+                        style={{ color: 'var(--violet-primary)' }}>
+                        + Add location
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ── ACTIVITY ──────────────────────────────────────────── */}
+          {activeTab === 'activity' && (
+            <div className="space-y-4">
+
+              {/* Log activity */}
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Log Activity</p>
+
+                {/* Activity type selector */}
+                <div className="flex gap-1.5 flex-wrap mb-3">
+                  {(['note', 'call', 'whatsapp', 'meeting'] as ActivityLogType[]).map(t => (
+                    <button key={t} type="button" onClick={() => setActivityType(t)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
+                      style={{
+                        background: activityType === t ? 'var(--accent-soft)' : 'var(--surface-muted)',
+                        border: `1.5px solid ${activityType === t ? 'var(--accent-base)' : 'var(--border-subtle)'}`,
+                        color: activityType === t ? 'var(--accent-base)' : 'var(--text-secondary)',
+                      }}>
+                      {t === 'whatsapp' ? 'WhatsApp' : t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea rows={3} value={noteText} onChange={e => setNoteText(e.target.value)}
+                  placeholder={activityType === 'note' ? 'Add a note…' : activityType === 'call' ? 'Call notes…' : activityType === 'whatsapp' ? 'WhatsApp message summary…' : 'Meeting notes…'}
+                  className="studio-input w-full text-sm resize-none mb-2" />
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button type="button" onClick={saveNote} disabled={savingNote || !noteText.trim()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                    style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                    {savingNote ? 'Saving…' : 'Save'}
                   </button>
+
+                  {/* Voice note button */}
+                  {!recording ? (
+                    <button type="button" onClick={startRecording} disabled={transcribing}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                      <Mic className="h-4 w-4" style={{ color: transcribing ? 'var(--text-tertiary)' : 'var(--danger)' }} />
+                      {transcribing ? 'Transcribing…' : 'Voice note'}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={stopRecording}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold"
+                      style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
+                      <MicOff className="h-4 w-4" />
+                      Stop ({recordingSeconds}s)
+                    </button>
+                  )}
+                </div>
+                {noteError && <p className="mt-2 text-xs text-red-600">{noteError}</p>}
+              </div>
+
+              {/* AI Brief */}
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>AI Brief</p>
+                  {brief && (
+                    <button type="button" onClick={generateBrief} disabled={briefLoading}
+                      className="text-xs disabled:opacity-50" style={{ color: 'var(--text-secondary)' }}>
+                      {briefLoading ? 'Regenerating…' : 'Regenerate'}
+                    </button>
+                  )}
+                </div>
+                {brief ? (
+                  <div className="space-y-3">
+                    {(() => {
+                      const S = {
+                        hot:  { bg: 'var(--danger-soft)',   color: 'var(--danger)' },
+                        warm: { bg: 'var(--warning-soft)',  color: 'var(--warning)' },
+                        cold: { bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
+                        lost: { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+                      };
+                      const s = S[brief.sentiment];
+                      return <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{brief.sentiment.toUpperCase()}</span>;
+                    })()}
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-heading)', lineHeight: '1.65' }}>{brief.summary}</p>
+                    <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--purple-soft)', border: '1px solid rgba(124,92,252,0.3)' }}>
+                      <Zap className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--violet-primary)' }} />
+                      <div>
+                        <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--violet-primary)' }}>NEXT BEST ACTION</p>
+                        <p className="text-sm" style={{ color: 'var(--text-heading)' }}>{brief.nextBestAction}</p>
+                      </div>
+                    </div>
+                    {brief.riskFlags.length > 0 && (
+                      <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-soft)' }}>
+                        <ShieldAlert className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
+                        <div>
+                          <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--danger)' }}>RISKS</p>
+                          <ul className="space-y-0.5">
+                            {brief.riskFlags.map(flag => <li key={flag} className="text-sm" style={{ color: 'var(--danger-text)' }}>· {flag}</li>)}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <Sparkles className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-secondary)' }} />
+                    <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+                      AI analyses this lead&apos;s activities, budget, and WhatsApp history for next steps and risk flags.
+                    </p>
+                    {briefError && <p className="text-xs text-red-600 mb-3">{briefError}</p>}
+                    <button type="button" onClick={generateBrief} disabled={briefLoading}
+                      className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
+                      <Sparkles className="h-4 w-4" />{briefLoading ? 'Generating…' : 'Generate Brief'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Activity Timeline */}
+              {historyActivities.length > 0 ? (
+                <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-tertiary)' }}>Timeline</p>
+                  <div className="space-y-0">
+                    {historyActivities.map((a, i) => (
+                      <TimelineEntry key={a.id} activity={a} isLast={i === historyActivities.length - 1} />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl p-5 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <StickyNote className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No activity yet. Log a call, note, or meeting above.</p>
                 </div>
               )}
             </div>
+          )}{/* end activity tab */}
 
-            {/* QUOTATIONS */}
+          {/* ── FOLLOW-UPS ────────────────────────────────────────── */}
+          {activeTab === 'followups' && (
+            <div className="space-y-3">
+              {!tabLoaded.has('followups') ? (
+                <div className="text-center py-10">
+                  <div className="skeleton h-16 w-full rounded-xl mb-2" />
+                  <div className="skeleton h-16 w-full rounded-xl" />
+                </div>
+              ) : followUpsData.length === 0 ? (
+                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <BellRing className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No follow-ups recorded yet</p>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Schedule a follow-up from the Overview tab</p>
+                </div>
+              ) : (
+                followUpsData.map(fu => (
+                  <div key={fu.id} className="rounded-xl p-4 flex items-start gap-3"
+                    style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ background: fu.completedAt ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
+                      {fu.completedAt
+                        ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success)' }} />
+                        : <Calendar className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {fu.followUpDate && (
+                          <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                            {fmtFollowUpDate(fu.followUpDate)}
+                          </span>
+                        )}
+                        {fu.followUpType && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase"
+                            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+                            {fu.followUpType}
+                          </span>
+                        )}
+                        {fu.completedAt && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                            style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
+                            Done
+                          </span>
+                        )}
+                      </div>
+                      {fu.comments && (
+                        <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
+                      )}
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                        Stage: {fu.stage} · {fmtDate(fu.createdAt)}
+                        {fu.createdByName ? ` · ${fu.createdByName}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}{/* end followups tab */}
+
+          {/* ── SITE VISITS ───────────────────────────────────────── */}
+          {activeTab === 'sitevisits' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  {siteVisitsData.length} Visit{siteVisitsData.length !== 1 ? 's' : ''}
+                </p>
+                <button type="button" onClick={() => setShowSiteVisitModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                  <Plus className="h-3.5 w-3.5" /> Schedule Visit
+                </button>
+              </div>
+
+              {siteVisitsData.length === 0 ? (
+                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <Home className="h-9 w-9 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No site visits yet</p>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Schedule a site visit to see the project location</p>
+                </div>
+              ) : (
+                siteVisitsData.map(sv => (
+                  <div key={sv.id} className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: sv.completedAt ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
+                        <Home className="h-4 w-4" style={{ color: sv.completedAt ? 'var(--success)' : 'var(--accent-base)' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                            {fmtDate(sv.scheduledAt)}
+                          </span>
+                          {sv.completedAt ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                              style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                              Scheduled
+                            </span>
+                          )}
+                        </div>
+                        {sv.locationJson?.address && (
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{sv.locationJson.address}</p>
+                        )}
+                        {sv.notes && (
+                          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{sv.notes}</p>
+                        )}
+                        {sv.photos.length > 0 && (
+                          <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>{sv.photos.length} photo{sv.photos.length !== 1 ? 's' : ''}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}{/* end sitevisits tab */}
+
+          {/* ── MEASUREMENTS ──────────────────────────────────────── */}
+          {activeTab === 'measurements' && (
+            <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              <MeasurementsTabContent
+                leadId={id}
+                initialRounds={measurementsData}
+                onRoundAdded={round => setMeasurementsData(prev => [...prev, round])}
+              />
+            </div>
+          )}{/* end measurements tab */}
+
+          {/* ── QUOTATIONS ────────────────────────────────────────── */}
+          {activeTab === 'quotations' && (
             <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
               <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: leadQuotes.length > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
                 <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
@@ -1070,33 +1876,39 @@ export default function LeadDetailPage() {
               </div>
               {leadQuotes.length > 0 ? (
                 <div className="px-5 py-4 space-y-2">
-                  {leadQuotes.map(q => (
-                    <Link key={q.id} href={`/quotes/${q.id}`}
-                      className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
-                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                      <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-heading)' }}>
-                            QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
-                          </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{
-                            background: q.status === 'approved' ? 'var(--success-soft)' : q.status === 'sent' ? 'var(--accent-soft)' : 'var(--surface-card)',
-                            color: q.status === 'approved' ? 'var(--success-text)' : q.status === 'sent' ? 'var(--accent-text)' : 'var(--text-secondary)',
-                          }}>{q.status.toUpperCase()}</span>
-                          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                            {fmtDate(q.createdAt)}
-                          </span>
+                  {leadQuotes.map(q => {
+                    const qStatusStyle =
+                      q.status === 'approved' || q.status === 'accepted'
+                        ? { bg: 'var(--success-soft)', color: 'var(--success-text)' }
+                        : q.status === 'sent'
+                        ? { bg: 'var(--accent-soft)', color: 'var(--accent-text)' }
+                        : q.status === 'rejected'
+                        ? { bg: 'var(--danger-soft)', color: 'var(--danger)' }
+                        : { bg: 'var(--surface-card)', color: 'var(--text-secondary)' };
+                    return (
+                      <Link key={q.id} href={`/quotes/${q.id}`}
+                        className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
+                        style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                        <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-mono font-semibold" style={{ color: 'var(--text-heading)' }}>
+                              QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+                              style={{ background: qStatusStyle.bg, color: qStatusStyle.color }}>
+                              {q.status.toUpperCase()}
+                            </span>
+                            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{fmtDate(q.createdAt)}</span>
+                          </div>
+                          {q.totalPaise > 0 && (
+                            <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>{fmt(q.totalPaise)}</p>
+                          )}
                         </div>
-                        {q.totalPaise > 0 && (
-                          <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>
-                            {fmt(q.totalPaise)}
-                          </p>
-                        )}
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                    </Link>
-                  ))}
+                        <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                      </Link>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="px-5 py-8 text-center">
@@ -1110,322 +1922,53 @@ export default function LeadDetailPage() {
                 </div>
               )}
             </div>
-            </div>{/* end left column */}
+          )}{/* end quotations tab */}
 
-            {/* RIGHT column — stacked cards */}
-            <div className="space-y-4">
-
-              {/* NEXT FOLLOW-UP */}
-              <div ref={followUpRef} className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Next Follow-up</p>
-
-                {lead.followUpDate ? (
-                  <div>
-                    {/* Scheduled state */}
-                    <div className="flex items-center gap-2 mb-1">
-                      <Calendar className="h-4 w-4 flex-shrink-0" style={{
-                        color: fuUrgency === 'overdue' ? 'var(--danger)' : fuUrgency === 'today' ? 'var(--warning)' : 'var(--accent-base)',
-                      }} />
-                      <span className="text-base font-semibold" style={{
-                        color: fuUrgency === 'overdue' ? 'var(--danger)' : 'var(--text-heading)',
-                      }}>
-                        {fmtFollowUpDate(lead.followUpDate)}
-                      </span>
-                      {fuUrgency === 'overdue' && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>OVERDUE</span>
-                      )}
-                      {fuUrgency === 'today' && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--warning-soft)', color: 'var(--warning)' }}>TODAY</span>
-                      )}
-                    </div>
-                    {nextFuActivity?.description && (
-                      <p className="text-sm mb-3 ml-6" style={{ color: 'var(--text-secondary)' }}>{nextFuActivity.description}</p>
-                    )}
-
-                    {!showReschedule ? (
-                      <div className="flex gap-2 flex-wrap">
-                        <button type="button" onClick={clearFollowUp} disabled={clearingFU}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                          style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-                          <Check className="h-3 w-3" />{clearingFU ? 'Completing…' : 'Complete'}
-                        </button>
-                        <button type="button" onClick={() => setShowReschedule(true)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                          style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                          <Calendar className="h-3 w-3" /> Reschedule
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2 mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {quickDates.map(({ label, days }) => (
-                            <button key={label} type="button" onClick={() => applyQuickDate(days)}
-                              className="px-2.5 py-1 text-xs rounded-lg"
-                              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                        <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                          className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
-                        <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
-                          placeholder="Purpose or notes…" rows={2} className="studio-input w-full text-sm resize-none" />
-                        {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
-                        <div className="flex gap-2">
-                          <button type="button" disabled={!followUpDate || savingFU}
-                            onClick={async () => { await scheduleFollowUp(); setShowReschedule(false); }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
-                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                            {savingFU ? 'Saving…' : 'Save'}
-                          </button>
-                          <button type="button" onClick={() => { setShowReschedule(false); setFollowUpDate(''); setFollowUpNote(''); }}
-                            className="px-3 py-1.5 text-xs rounded-lg"
-                            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {followUpError && !showReschedule && <p className="mt-2 text-xs text-red-600">{followUpError}</p>}
-                  </div>
-                ) : (
-                  /* No follow-up scheduled — compact form */
-                  <div className="space-y-2">
-                    <div className="flex gap-1.5 flex-wrap">
-                      {quickDates.map(({ label, days }) => (
-                        <button key={label} type="button" onClick={() => applyQuickDate(days)}
-                          className="px-2.5 py-1 text-xs rounded-lg"
-                          style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                      className="studio-input w-full text-sm" min={new Date().toISOString().split('T')[0]} />
-                    {followUpDate && (
-                      <textarea value={followUpNote} onChange={e => setFollowUpNote(e.target.value)}
-                        placeholder="Purpose (optional)…" rows={2} className="studio-input w-full text-sm resize-none" />
-                    )}
-                    {followUpError && <p className="text-xs text-red-600">{followUpError}</p>}
-                    {fuSuccess && <p className="text-xs font-medium" style={{ color: 'var(--success)' }}>Scheduled!</p>}
-                    {followUpDate && (
-                      <button type="button" onClick={scheduleFollowUp} disabled={savingFU}
-                        className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50">
-                        <Calendar className="h-3.5 w-3.5" />{savingFU ? 'Saving…' : 'Schedule'}
-                      </button>
-                    )}
-                    {!followUpDate && (
-                      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Pick a date above to schedule.</p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* CUSTOMER */}
-              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Customer</p>
-                <p className="text-base font-semibold leading-tight" style={{ color: 'var(--text-heading)' }}>{lead.contactName}</p>
-                <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</p>
-                {lead.contactEmail && (
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{lead.contactEmail}</p>
-                )}
-
-                <div className="mt-3 flex items-center gap-2 flex-wrap">
-                  {customerId ? (
-                    <>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success-text)' }}>
-                        <CheckCircle2 className="h-3 w-3" /> Existing Customer
-                      </span>
-                      <Link href={`/customers/${customerId}`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}>
-                        <ExternalLink className="h-3 w-3" /> View Customer
-                      </Link>
-                    </>
-                  ) : (
-                    <>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
-                        <User className="h-3 w-3" /> Not converted yet
-                      </span>
-                      <button type="button" onClick={convertToCustomer} disabled={converting}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75 disabled:opacity-50"
-                        style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                        <Plus className="h-3 w-3" />{converting ? 'Converting…' : 'Convert to Customer'}
-                      </button>
-                    </>
-                  )}
-                </div>
-                {convertError && <p className="mt-2 text-xs text-red-600">{convertError}</p>}
-              </div>
-
-              {/* SITE LOCATION */}
-              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Site Location</p>
-                {(lead.contactCity || lead.pincode || lead.projectLocation) ? (
-                  <div>
-                    {lead.contactCity && (
-                      <p className="font-semibold flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-heading)' }}>
-                        <MapPin className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-                        {lead.contactCity}{lead.pincode ? ` — ${lead.pincode}` : ''}
-                      </p>
-                    )}
-                    {lead.projectLocation && (
-                      <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.projectLocation}</p>
-                    )}
-                    <button type="button" onClick={() => setShowSiteVisitModal(true)}
-                      className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
-                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                      <Home className="h-3 w-3" style={{ color: 'var(--violet-primary)' }} /> Site Visit Details
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No location added yet.</p>
-                    <button type="button" onClick={() => setShowEditDialog(true)}
-                      className="text-xs font-medium hover:underline"
-                      style={{ color: 'var(--violet-primary)' }}>
-                      + Add location
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </div>{/* end right column */}
-          </div>{/* end 2-col grid */}
-
-          {/* ── DOCUMENTS (collapsible) ──────────────────────────── */}
-          <Section
-            title={`Documents${leadDocs.length > 0 ? ` (${leadDocs.length})` : ''}`}
-            defaultOpen={false}
-            action={
-              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingDoc}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                <Upload className="h-3.5 w-3.5" />{uploadingDoc ? 'Uploading…' : 'Upload'}
-              </button>
-            }
-          >
-            <input ref={fileInputRef} type="file" className="hidden"
-              onChange={e => { const f = e.target.files?.[0]; if (f) uploadDocument(f); }} />
-            {leadDocs.length > 0 ? (
-              <div className="space-y-2">
-                {leadDocs.map(doc => (
-                  <div key={doc.id} className="flex items-center gap-3 rounded-xl px-4 py-3"
-                    style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                    <FileText className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: 'var(--text-heading)' }}>{doc.name}</p>
-                      <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                        {doc.sizeBytes ? `${(doc.sizeBytes / 1024).toFixed(1)} KB · ` : ''}
-                        {fmtDate(doc.createdAt)}
-                      </p>
-                    </div>
-                    {doc.downloadUrl && (
-                      <a href={doc.downloadUrl} target="_blank" rel="noreferrer"
-                        className="flex-shrink-0 p-1.5 rounded-lg hover:bg-[var(--surface-muted)]">
-                        <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <Upload className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-secondary)' }} />
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Upload floor plans, mood boards, site photos, or any project document.</p>
-              </div>
-            )}
-          </Section>
-
-          {/* ── AI BRIEF ─────────────────────────────────────────── */}
-          <Section title="AI Brief" defaultOpen={false}>
-            {brief ? (
-              <div className="space-y-4">
-                {(() => {
-                  const S = {
-                    hot:  { bg: 'var(--danger-soft)',  color: 'var(--danger)' },
-                    warm: { bg: 'var(--warning-soft)', color: 'var(--warning)' },
-                    cold: { bg: 'var(--accent-soft)',  color: 'var(--accent-text)' },
-                    lost: { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
-                  };
-                  const s = S[brief.sentiment];
-                  return <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{brief.sentiment.toUpperCase()}</span>;
-                })()}
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-heading)', lineHeight: '1.65' }}>{brief.summary}</p>
-                <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--purple-soft)', border: '1px solid rgba(124,92,252,0.3)' }}>
-                  <Zap className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--violet-primary)' }} />
-                  <div>
-                    <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--violet-primary)' }}>NEXT BEST ACTION</p>
-                    <p className="text-sm" style={{ color: 'var(--text-heading)' }}>{brief.nextBestAction}</p>
-                  </div>
-                </div>
-                {brief.riskFlags.length > 0 && (
-                  <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-soft)' }}>
-                    <ShieldAlert className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
-                    <div>
-                      <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--danger)' }}>RISKS</p>
-                      <ul className="space-y-0.5">
-                        {brief.riskFlags.map(flag => <li key={flag} className="text-sm" style={{ color: 'var(--danger-text)' }}>· {flag}</li>)}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-                <button type="button" onClick={generateBrief} disabled={briefLoading} className="text-xs disabled:opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                  {briefLoading ? 'Regenerating…' : 'Regenerate'}
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-5">
-                <Sparkles className="h-8 w-8 mx-auto mb-3" style={{ color: 'var(--text-secondary)' }} />
-                <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                  AI analyses this lead&apos;s activities, budget, and WhatsApp history for next steps and risk flags.
+          {/* ── DOCUMENTS ─────────────────────────────────────────── */}
+          {activeTab === 'documents' && (
+            <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                  Documents{leadDocs.length > 0 ? ` (${leadDocs.length})` : ''}
                 </p>
-                {briefError && <p className="text-xs text-red-600 mb-3">{briefError}</p>}
-                <button type="button" onClick={generateBrief} disabled={briefLoading}
-                  className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
-                  <Sparkles className="h-4 w-4" />{briefLoading ? 'Generating…' : 'Generate Brief'}
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingDoc}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                  style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                  <Upload className="h-3.5 w-3.5" />{uploadingDoc ? 'Uploading…' : 'Upload'}
                 </button>
               </div>
-            )}
-          </Section>
-
-          {/* ── LEAD SCORE (owner only) ──────────────────────────── */}
-          {userRole === 'owner' && (lead.score ?? 0) > 0 && lead.scoreBreakdown && (
-            <Section title="Lead Score" defaultOpen={false}>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="text-3xl font-bold" style={{
-                  color: (lead.score ?? 0) >= 70 ? 'var(--success)' : (lead.score ?? 0) >= 40 ? 'var(--warning)' : 'var(--text-secondary)',
-                }}>
-                  {lead.score}
-                </div>
-                <div>
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>out of 100</p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Updated automatically on activity</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {([
-                  { label: 'Recency',       val: lead.scoreBreakdown.recency,      max: 30 },
-                  { label: 'Project Value', val: lead.scoreBreakdown.value,        max: 25 },
-                  { label: 'Completeness',  val: lead.scoreBreakdown.completeness, max: 20 },
-                  { label: 'Source',        val: lead.scoreBreakdown.source,       max: 15 },
-                  { label: 'Engagement',    val: lead.scoreBreakdown.engagement,   max: 10 },
-                ] as { label: string; val: number; max: number }[]).map(({ label, val, max }) => (
-                  <div key={label}>
-                    <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-                      <span>{label}</span>
-                      <span className="font-medium" style={{ color: 'var(--text-heading)' }}>{val}/{max}</span>
+              <input ref={fileInputRef} type="file" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadDocument(f); }} />
+              {leadDocs.length > 0 ? (
+                <div className="px-5 py-4 space-y-2">
+                  {leadDocs.map(doc => (
+                    <div key={doc.id} className="flex items-center gap-3 rounded-xl px-4 py-3"
+                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                      <FileText className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--text-heading)' }}>{doc.name}</p>
+                        <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                          {doc.sizeBytes ? `${(doc.sizeBytes / 1024).toFixed(1)} KB · ` : ''}
+                          {fmtDate(doc.createdAt)}
+                        </p>
+                      </div>
+                      {doc.downloadUrl && (
+                        <a href={doc.downloadUrl} target="_blank" rel="noreferrer"
+                          className="flex-shrink-0 p-1.5 rounded-lg hover:bg-[var(--surface-muted)]">
+                          <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+                        </a>
+                      )}
                     </div>
-                    <div className="h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
-                      <div className="h-1.5 rounded-full transition-all" style={{ width: `${(val / max) * 100}%`, background: 'var(--violet-primary)' }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
+                  ))}
+                </div>
+              ) : (
+                <div className="px-5 py-8 text-center">
+                  <Upload className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-secondary)' }} />
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Upload floor plans, mood boards, site photos, or any project document.</p>
+                </div>
+              )}
+            </div>
+          )}{/* end documents tab */}
 
         </div>{/* end space-y-4 */}
       </div>{/* end px-4 */}
