@@ -77,6 +77,58 @@ export interface LeadActivity {
   createdAt: string;
 }
 
+export interface MeasurementDimensions {
+  length?: number;
+  width?: number;
+  height?: number;
+  area?: number;
+  unit: 'ft' | 'm' | 'sqft' | 'sqm';
+  notes?: string;
+}
+
+export interface MeasurementItem {
+  id: string;
+  roundId: string;
+  room: string;
+  itemName: string;
+  dimensionsJson: MeasurementDimensions;
+  qty: number;
+  unit: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface MeasurementRound {
+  id: string;
+  leadId: string;
+  roundName: string;
+  scheduledAt?: string | null;
+  completedAt?: string | null;
+  assignedToId?: string | null;
+  assignedToName?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  items?: MeasurementItem[];
+}
+
+export type FollowUpType = 'call' | 'whatsapp' | 'meeting' | 'email';
+
+export interface LeadFollowUp {
+  id: string;
+  leadId: string;
+  followUpDate?: string | null;
+  followUpType?: FollowUpType | null;
+  stage: string;
+  clientStatus: string;
+  comments?: string | null;
+  completedAt?: string | null;
+  rescheduledFromId?: string | null;
+  rescheduledNotes?: string | null;
+  addToCalendar: boolean;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
 export const STAGE_ORDER: LeadStage[] = [
   'new', 'contacted', 'qualified', 'site_visit', 'measurement',
   'quotation', 'negotiation', 'won', 'lost',

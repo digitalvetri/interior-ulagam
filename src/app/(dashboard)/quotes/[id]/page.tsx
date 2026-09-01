@@ -18,7 +18,9 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: str
   draft:    { label: 'Draft',    bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
   sent:     { label: 'Sent',     bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
   approved: { label: 'Approved', bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
-  revised:  { label: 'Revised',  bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
+  accepted: { label: 'Accepted', bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  revised:  { label: 'Revised',  bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
+  rejected: { label: 'Rejected', bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
 };
 
 export default function QuotePage({ params }: { params: Promise<{ id: string }> }) {

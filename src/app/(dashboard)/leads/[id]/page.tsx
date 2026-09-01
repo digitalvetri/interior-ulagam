@@ -78,7 +78,6 @@ const PIPELINE_STEPS = [
   { key: 'site_visit',  label: 'Site Visit' },
   { key: 'measurement', label: 'Measurement' },
   { key: 'quotation',   label: 'Quotation' },
-  { key: 'negotiation', label: 'Negotiation' },
   { key: 'won',         label: 'Won' },
 ];
 const LEGACY_STAGE_MAP: Record<string, string> = {
@@ -93,9 +92,10 @@ const NEXT_STAGE_MAP: Record<string, { label: string; targetStage: string; termi
   new:         { label: 'Mark as Contacted',  targetStage: 'contacted' },
   contacted:   { label: 'Qualify Lead',        targetStage: 'qualified' },
   qualified:   { label: 'Schedule Site Visit', targetStage: 'site_visit' },
-  site_visit:  { label: 'Measurement Done',    targetStage: 'measurement' },
+  site_visit:  { label: 'Record Measurements', targetStage: 'measurement' },
   measurement: { label: 'Move to Quotation',   targetStage: 'quotation' },
-  quotation:   { label: 'Start Negotiation',   targetStage: 'negotiation' },
+  quotation:   { label: 'Mark as Won',         targetStage: 'won', terminal: true },
+  // negotiation is legacy — kept for backward compat with existing data
   negotiation: { label: 'Mark as Won',         targetStage: 'won', terminal: true },
 };
 
@@ -973,7 +973,7 @@ export default function LeadDetailPage() {
 
               {/* Reopen (lost state) */}
               {isLost && (
-                <button type="button" onClick={() => changeStage('negotiation')} disabled={stageActionsDisabled}
+                <button type="button" onClick={() => changeStage('quotation')} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50"
                   style={{ background: 'var(--violet-primary)', color: '#fff' }}>
                   <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}

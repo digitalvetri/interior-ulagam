@@ -64,6 +64,18 @@ export const materialCategoryEnum = pgEnum('material_category', [
 ]);
 export const siteLogSourceEnum = pgEnum('site_log_source', ['whatsapp', 'manual']);
 
+export const quoteStatusEnum = pgEnum('quote_status', [
+  'draft', 'sent', 'revised', 'accepted', 'rejected',
+]);
+
+export const siteVisitStatusEnum = pgEnum('site_visit_status', [
+  'scheduled', 'in_progress', 'completed', 'cancelled',
+]);
+
+export const followUpTypeEnum = pgEnum('follow_up_type', [
+  'call', 'whatsapp', 'meeting', 'email',
+]);
+
 export const documentKindEnum = pgEnum('document_kind', ['folder', 'file']);
 
 export const employmentTypeEnum = pgEnum('employment_type', [
@@ -243,6 +255,7 @@ export const siteVisits = pgTable('site_visits', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
   designerId: uuid('designer_id').references(() => users.id),
+  status: siteVisitStatusEnum('status').notNull().default('scheduled'),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   locationJson: jsonb('location_json'),
@@ -305,6 +318,7 @@ export const quotes = pgTable('quotes', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
   leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  parentQuoteId: uuid('parent_quote_id').references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
   version: integer('version').notNull().default(1),
   status: text('status').notNull().default('draft'),
   subtotalPaise: integer('subtotal_paise').notNull().default(0),
@@ -606,9 +620,11 @@ export const leadActivities = pgTable('lead_activities', {
   type: leadActivityTypeEnum('type').notNull(),
   title: text('title').notNull(),
   description: text('description'),
+  contactMethod: text('contact_method'), // e.g. 'call', 'whatsapp', 'in_person', 'email'
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   status: followUpStatusEnum('status'),
+  metadataJson: jsonb('metadata_json'),
   createdBy: uuid('created_by').references(() => users.id),
   ...timestamps,
 }, (t) => [
@@ -652,9 +668,13 @@ export const leadFollowUps = pgTable('lead_follow_ups', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
   followUpDate: timestamp('follow_up_date', { withTimezone: true }),
+  followUpType: followUpTypeEnum('follow_up_type'),
   stage: text('stage').notNull(),
   clientStatus: text('client_status').notNull(),
   comments: text('comments'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  rescheduledFromId: uuid('rescheduled_from_id').references((): AnyPgColumn => leadFollowUps.id, { onDelete: 'set null' }),
+  rescheduledNotes: text('rescheduled_notes'),
   addToCalendar: boolean('add_to_calendar').notNull().default(true),
   createdBy: uuid('created_by').references(() => users.id),
   updatedBy: uuid('updated_by').references(() => users.id),
@@ -663,4 +683,41 @@ export const leadFollowUps = pgTable('lead_follow_ups', {
 }, (t) => [
   index('lead_follow_ups_lead_idx').on(t.leadId),
   index('lead_follow_ups_tenant_lead_idx').on(t.tenantId, t.leadId),
+]);
+
+// ─── Measurement Rounds + Items ────────────────────────────────────────────────
+// A lead can have multiple measurement rounds (e.g. initial visit, second round
+// after design tweaks). Each round has structured dimension items stored as JSONB
+// so the data feeds directly into BOQ line calculations.
+
+export const measurementRounds = pgTable('measurement_rounds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  roundName: text('round_name').notNull().default('Round 1'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  assignedToId: uuid('assigned_to_id').references(() => users.id),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('measurement_rounds_lead_idx').on(t.leadId),
+  index('measurement_rounds_tenant_idx').on(t.tenantId),
+]);
+
+export const measurementItems = pgTable('measurement_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  roundId: uuid('round_id').notNull().references(() => measurementRounds.id, { onDelete: 'cascade' }),
+  room: text('room').notNull(),
+  itemName: text('item_name').notNull(),
+  // JSONB: { length?: number, width?: number, height?: number, area?: number, unit: 'ft'|'m', notes?: string }
+  // Flexible so designers can capture any dimension set without a fixed schema.
+  dimensionsJson: jsonb('dimensions_json').notNull().default(sql`'{}'::jsonb`),
+  qty: integer('qty').notNull().default(1),
+  unit: text('unit').notNull().default('sqft'),
+  notes: text('notes'),
+  ...timestamps,
+}, (t) => [
+  index('measurement_items_round_idx').on(t.roundId),
 ]);

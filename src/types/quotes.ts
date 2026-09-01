@@ -14,7 +14,7 @@ export interface QuoteLine {
   createdAt: string;
 }
 
-export type QuoteStatus = 'draft' | 'sent' | 'approved' | 'revised';
+export type QuoteStatus = 'draft' | 'sent' | 'revised' | 'accepted' | 'rejected' | 'approved';
 
 export interface Quote {
   id: string;
@@ -26,6 +26,7 @@ export interface Quote {
   leadContactPhone?: string | null;
   leadStage?: string | null;
   leadBudgetBand?: string | null;
+  parentQuoteId?: string | null;
   version: number;
   status: QuoteStatus;
   subtotalPaise: number;

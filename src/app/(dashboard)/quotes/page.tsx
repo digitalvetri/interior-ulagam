@@ -28,7 +28,9 @@ const STATUS_CONFIG: Record<Quote['status'], { label: string; icon: React.Elemen
   draft:    { label: 'Draft',    icon: Clock,        bg: '#F1F5F9', color: '#64748B' },
   sent:     { label: 'Sent',     icon: Send,         bg: '#FEF9C3', color: '#854D0E' },
   approved: { label: 'Approved', icon: CheckCircle2, bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  revised:  { label: 'Revised',  icon: RefreshCw,    bg: 'var(--danger-soft)', color: 'var(--danger)' },
+  accepted: { label: 'Accepted', icon: CheckCircle2, bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  revised:  { label: 'Revised',  icon: RefreshCw,    bg: 'var(--warning-soft)', color: '#92400E' },
+  rejected: { label: 'Rejected', icon: AlertTriangle, bg: 'var(--danger-soft)', color: 'var(--danger)' },
 };
 
 function QuoteNumberBadge({ version, id }: { version: number; id: string }) {
