@@ -1,11 +1,17 @@
 export type LeadStage =
   | 'new'
-  | 'site_visit_scheduled'
-  | 'consultation_done'
-  | 'proposal_sent'
+  | 'contacted'
+  | 'qualified'
+  | 'site_visit'
+  | 'measurement'
+  | 'quotation'
   | 'negotiation'
   | 'won'
-  | 'lost';
+  | 'lost'
+  // legacy — kept for display compat until data is migrated
+  | 'site_visit_scheduled'
+  | 'consultation_done'
+  | 'proposal_sent';
 
 export type LeadSource =
   | 'instagram'
@@ -72,41 +78,45 @@ export interface LeadActivity {
 }
 
 export const STAGE_ORDER: LeadStage[] = [
-  'new',
-  'site_visit_scheduled',
-  'consultation_done',
-  'proposal_sent',
-  'negotiation',
-  'won',
-  'lost',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation', 'won', 'lost',
 ];
 
 export const ACTIVE_STAGES: LeadStage[] = [
-  'new',
-  'site_visit_scheduled',
-  'consultation_done',
-  'proposal_sent',
-  'negotiation',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation',
 ];
 
 export const STAGE_LABELS: Record<LeadStage, string> = {
-  new: 'New Inquiry',
-  site_visit_scheduled: 'Site Visit',
-  consultation_done: 'Consultation',
-  proposal_sent: 'Proposal Sent',
+  new:         'New Inquiry',
+  contacted:   'Contacted',
+  qualified:   'Qualified',
+  site_visit:  'Site Visit',
+  measurement: 'Measurement',
+  quotation:   'Quotation',
   negotiation: 'Negotiation',
-  won: 'Won',
-  lost: 'Lost',
+  won:         'Won',
+  lost:        'Lost',
+  // legacy
+  site_visit_scheduled: 'Site Visit',
+  consultation_done:    'Consultation',
+  proposal_sent:        'Quotation',
 };
 
 export const STAGE_COLORS: Record<LeadStage, string> = {
-  new: 'bg-blue-100 text-blue-800',
-  site_visit_scheduled: 'bg-amber-100 text-amber-800',
-  consultation_done: 'bg-orange-100 text-orange-800',
-  proposal_sent: 'bg-indigo-100 text-indigo-800',
+  new:         'bg-blue-100 text-blue-800',
+  contacted:   'bg-sky-100 text-sky-800',
+  qualified:   'bg-teal-100 text-teal-800',
+  site_visit:  'bg-amber-100 text-amber-800',
+  measurement: 'bg-orange-100 text-orange-800',
+  quotation:   'bg-indigo-100 text-indigo-800',
   negotiation: 'bg-purple-100 text-purple-800',
-  won: 'bg-green-100 text-green-800',
-  lost: 'bg-gray-100 text-gray-600',
+  won:         'bg-green-100 text-green-800',
+  lost:        'bg-gray-100 text-gray-600',
+  // legacy
+  site_visit_scheduled: 'bg-amber-100 text-amber-800',
+  consultation_done:    'bg-orange-100 text-orange-800',
+  proposal_sent:        'bg-indigo-100 text-indigo-800',
 };
 
 export const PRIORITY_CONFIG: Record<LeadPriority, { label: string; bg: string; color: string; dot: string }> = {

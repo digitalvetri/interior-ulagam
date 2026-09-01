@@ -35,13 +35,19 @@ export interface Customer {
 }
 
 export const LEAD_STAGE_LABEL: Record<string, string> = {
-  new:                  'New enquiry',
+  new:         'New enquiry',
+  contacted:   'Contacted',
+  qualified:   'Qualified',
+  site_visit:  'Site visit',
+  measurement: 'Measurement',
+  quotation:   'Quotation',
+  negotiation: 'Negotiation',
+  won:         'Won',
+  lost:        'Lost',
+  // legacy
   site_visit_scheduled: 'Site visit scheduled',
   consultation_done:    'Consultation done',
   proposal_sent:        'Proposal sent',
-  negotiation:          'Negotiation',
-  won:                  'Won',
-  lost:                 'Lost',
 };
 
 export interface CustomerActivity {

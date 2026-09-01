@@ -9,13 +9,19 @@ import type { CustomerStage } from '@/types/customers';
 // a manual promotion after the relationship has fully ended.
 
 const LEAD_TO_CUSTOMER_STAGE: Record<string, CustomerStage> = {
-  new:                  'lead',
+  new:         'lead',
+  contacted:   'lead',
+  qualified:   'opportunity',
+  site_visit:  'opportunity',
+  measurement: 'opportunity',
+  quotation:   'opportunity',
+  negotiation: 'opportunity',
+  won:         'client',
+  lost:        'lead',
+  // legacy
   site_visit_scheduled: 'lead',
   consultation_done:    'opportunity',
   proposal_sent:        'opportunity',
-  negotiation:          'opportunity',
-  won:                  'client',
-  lost:                 'lead',
 };
 
 // Rank order — used to enforce the no-downgrade rule.

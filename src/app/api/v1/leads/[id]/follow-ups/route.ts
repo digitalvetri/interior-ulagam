@@ -6,8 +6,10 @@ import { leadFollowUps, leads, users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const VALID_STAGES = [
-  'new', 'site_visit_scheduled', 'consultation_done',
-  'proposal_sent', 'negotiation', 'won', 'lost',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation', 'won', 'lost',
+  // legacy
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ] as const;
 
 const VALID_STATUSES = [

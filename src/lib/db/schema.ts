@@ -20,8 +20,10 @@ import { sql } from 'drizzle-orm';
 export const userRoleEnum = pgEnum('user_role', ['owner', 'designer', 'supervisor', 'accountant']);
 
 export const leadStageEnum = pgEnum('lead_stage', [
-  'new', 'site_visit_scheduled', 'consultation_done',
-  'proposal_sent', 'negotiation', 'won', 'lost',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation', 'won', 'lost',
+  // legacy: kept for existing data compatibility
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ]);
 
 export const leadSourceEnum = pgEnum('lead_source', [

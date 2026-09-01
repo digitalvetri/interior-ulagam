@@ -45,12 +45,14 @@ function followUpUrgency(dateIso: string): 'overdue' | 'today' | 'upcoming' {
 
 /* ── Stage progress bar ── */
 const PIPELINE = [
-  { key: 'new',                  short: 'New' },
-  { key: 'site_visit_scheduled', short: 'Site Visit' },
-  { key: 'consultation_done',    short: 'Consult' },
-  { key: 'proposal_sent',        short: 'Proposal' },
-  { key: 'negotiation',          short: 'Negotiation' },
-  { key: 'won',                  short: 'Won' },
+  { key: 'new',         short: 'New' },
+  { key: 'contacted',   short: 'Contacted' },
+  { key: 'qualified',   short: 'Qualified' },
+  { key: 'site_visit',  short: 'Site Visit' },
+  { key: 'measurement', short: 'Measurement' },
+  { key: 'quotation',   short: 'Quotation' },
+  { key: 'negotiation', short: 'Negotiation' },
+  { key: 'won',         short: 'Won' },
 ];
 
 function StageProgressBar({ stage, isLost }: { stage: string; isLost: boolean }) {

@@ -19,14 +19,13 @@ const LeadSourceEnum = z.enum([
 ]);
 
 const LeadStageEnum = z.enum([
-  'new',
-  'site_visit_scheduled',
-  'consultation_done',
-  'proposal_sent',
-  'negotiation',
-  'won',
-  'lost',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation', 'won', 'lost',
+  // legacy values accepted for backward compat
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ]);
+
+const LeadPriorityEnum = z.enum(['hot', 'warm', 'cold']);
 
 const CreateLeadSchema = z.object({
   contactName:    z.string().min(1).max(120),
@@ -36,6 +35,8 @@ const CreateLeadSchema = z.object({
   contactCity:    z.string().max(80).optional(),
   pincode:        z.string().max(10).optional(),
   source:         LeadSourceEnum,
+  stage:          LeadStageEnum.optional(),
+  priority:       LeadPriorityEnum.optional(),
   propertyType:   z.string().max(80).optional(),
   projectName:    z.string().max(200).optional(),
   projectLocation: z.string().max(500).optional(),
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
 
   const {
     contactName, contactPhone, alternatePhone, contactEmail, contactCity,
-    pincode, source, propertyType, projectName, projectLocation,
+    pincode, source, stage, priority, propertyType, projectName, projectLocation,
     budgetBand, notes, ownerId,
   } = parsed.data;
 
@@ -151,6 +152,8 @@ export async function POST(request: NextRequest) {
         contactCity:     contactCity || null,
         pincode:         pincode || null,
         source,
+        stage:           stage ?? 'new',
+        priority:        priority ?? null,
         propertyType:    propertyType || null,
         projectName:     projectName || null,
         projectLocation: projectLocation || null,

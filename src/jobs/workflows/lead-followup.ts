@@ -30,11 +30,10 @@ export interface FollowupData {
 
 // Stages where nudging the client still makes sense — stop once won/lost
 const NUDGEABLE_STAGES = new Set([
-  'new',
-  'site_visit_scheduled',
-  'consultation_done',
-  'proposal_sent',
-  'negotiation',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation',
+  // legacy
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ]);
 
 async function isLeadNudgeable(leadId: string, tenantId: string): Promise<boolean> {

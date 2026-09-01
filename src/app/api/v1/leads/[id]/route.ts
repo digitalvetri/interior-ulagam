@@ -13,8 +13,9 @@ const LeadSourceEnum = z.enum(['instagram', 'whatsapp', 'referral', 'website', '
 
 // Won/lost are terminal — must use PATCH /api/v1/leads/[id]/stage for those.
 const MidPipelineStageEnum = z.enum([
-  'new', 'site_visit_scheduled', 'consultation_done',
-  'proposal_sent', 'negotiation',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'quotation', 'negotiation',
+  // legacy values accepted for backward compat
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ]);
 
 const PatchLeadSchema = z.object({

@@ -22,25 +22,34 @@ type RottingStatus = 'fresh' | 'stale' | 'rotting';
 
 /* ── Status chip config ─────────────────────────────────────────────────────── */
 const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
-  { key: 'all',                  label: 'All' },
-  { key: 'new',                  label: 'New' },
-  { key: 'follow_up',            label: 'Follow-up' },
-  { key: 'site_visit_scheduled', label: 'Site Visit' },
-  { key: 'consultation_done',    label: 'Consultation' },
-  { key: 'proposal_sent',        label: 'Quotation' },
-  { key: 'won',                  label: 'Won' },
-  { key: 'lost',                 label: 'Lost' },
+  { key: 'all',         label: 'All' },
+  { key: 'new',         label: 'New' },
+  { key: 'follow_up',   label: 'Follow-up' },
+  { key: 'contacted',   label: 'Contacted' },
+  { key: 'qualified',   label: 'Qualified' },
+  { key: 'site_visit',  label: 'Site Visit' },
+  { key: 'measurement', label: 'Measurement' },
+  { key: 'quotation',   label: 'Quotation' },
+  { key: 'negotiation', label: 'Negotiation' },
+  { key: 'won',         label: 'Won' },
+  { key: 'lost',        label: 'Lost' },
 ];
 
 /* ── Stage badge style ──────────────────────────────────────────────────────── */
 const STAGE_STYLE: Record<LeadStage, { bg: string; color: string }> = {
-  new:                  { bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
+  new:         { bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
+  contacted:   { bg: '#E0F2FE', color: '#0369A1' },
+  qualified:   { bg: '#CCFBF1', color: '#0F766E' },
+  site_visit:  { bg: '#FEF9C3', color: '#854D0E' },
+  measurement: { bg: 'var(--warning-soft)', color: '#C2410C' },
+  quotation:   { bg: '#EEF2FF', color: '#4338CA' },
+  negotiation: { bg: 'var(--accent-soft)', color: 'var(--accent-base)' },
+  won:         { bg: 'var(--success-soft)', color: 'var(--success-text)' },
+  lost:        { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+  // legacy
   site_visit_scheduled: { bg: '#FEF9C3', color: '#854D0E' },
   consultation_done:    { bg: 'var(--warning-soft)', color: '#C2410C' },
   proposal_sent:        { bg: '#EEF2FF', color: '#4338CA' },
-  negotiation:          { bg: 'var(--accent-soft)', color: 'var(--accent-base)' },
-  won:                  { bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  lost:                 { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
@@ -362,7 +371,7 @@ function KpiBar({ leads }: { leads: Lead[] }) {
 interface StageStats { count: number; valuePaise: number }
 
 const PIPELINE_STAGES: LeadStage[] = [
-  'new', 'site_visit_scheduled', 'consultation_done', 'proposal_sent', 'negotiation',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'quotation', 'negotiation',
 ];
 
 function PipelinePanel({ leads }: { leads: Lead[] }) {

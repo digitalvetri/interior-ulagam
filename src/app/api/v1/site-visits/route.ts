@@ -99,10 +99,10 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // Advance lead stage to site_visit_scheduled
+    // Advance lead stage to site_visit
     await db
       .update(leads)
-      .set({ stage: 'site_visit_scheduled', lastActivityAt: new Date() })
+      .set({ stage: 'site_visit', lastActivityAt: new Date() })
       .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)));
 
     return NextResponse.json(

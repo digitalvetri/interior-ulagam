@@ -3,8 +3,10 @@ import { z } from 'zod';
 // ─── Lead ─────────────────────────────────────────────────────────────────────
 
 export const LeadStageSchema = z.enum([
-  'new', 'site_visit_scheduled', 'consultation_done',
-  'proposal_sent', 'negotiation', 'won', 'lost',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'quotation', 'negotiation', 'won', 'lost',
+  // legacy values accepted for backward compat
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ]);
 export type LeadStage = z.infer<typeof LeadStageSchema>;
 

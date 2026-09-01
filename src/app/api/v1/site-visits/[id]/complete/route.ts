@@ -76,11 +76,10 @@ export async function POST(
       .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)))
       .returning();
 
-    // Advance lead stage to consultation_done
-    // (leadStageEnum has no 'site_visit_done'; consultation_done is the next valid stage)
+    // Advance lead stage to measurement (next stage after site visit)
     await db
       .update(leads)
-      .set({ stage: 'consultation_done', lastActivityAt: new Date() })
+      .set({ stage: 'measurement', lastActivityAt: new Date() })
       .where(and(eq(leads.id, visit.leadId), eq(leads.tenantId, ctx.tenantId)));
 
     return NextResponse.json({ data: updated, message: 'Site visit marked as completed' });

@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Lead, LeadSource } from '@/types/leads';
+import { Lead, LeadSource, LeadPriority, LeadStage } from '@/types/leads';
 
 interface NewLeadDialogProps {
   onSuccess: (lead: Lead) => void;
@@ -41,6 +41,24 @@ interface CustomerResult {
 }
 
 type CustomerType = 'new' | 'existing';
+
+const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
+  { value: 'hot',  label: 'Hot — High urgency, likely to convert soon' },
+  { value: 'warm', label: 'Warm — Interested but not yet urgent' },
+  { value: 'cold', label: 'Cold — Early stage or low engagement' },
+];
+
+const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
+  { value: 'new',         label: 'New' },
+  { value: 'contacted',   label: 'Contacted' },
+  { value: 'qualified',   label: 'Qualified' },
+  { value: 'site_visit',  label: 'Site Visit' },
+  { value: 'measurement', label: 'Measurement' },
+  { value: 'quotation',   label: 'Quotation' },
+  { value: 'negotiation', label: 'Negotiation' },
+  { value: 'won',         label: 'Won' },
+  { value: 'lost',        label: 'Lost' },
+];
 
 const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
   { value: 'whatsapp',  label: 'WhatsApp'  },
@@ -73,6 +91,8 @@ interface FormState {
   propertyType: string;
   budgetBand: string;
   source: LeadSource;
+  priority: LeadPriority | '';
+  stage: LeadStage | '';
   ownerId: string;
   notes: string;
 }
@@ -89,6 +109,8 @@ const INITIAL: FormState = {
   propertyType:    '',
   budgetBand:      '',
   source:          'whatsapp',
+  priority:        '',
+  stage:           'new',
   ownerId:         '',
   notes:           '',
 };
@@ -259,6 +281,8 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
     if (form.propertyType)           payload.propertyType    = form.propertyType;
     if (form.budgetBand.trim())      payload.budgetBand      = form.budgetBand.trim();
     if (form.ownerId)                payload.ownerId         = form.ownerId;
+    if (form.priority)               payload.priority        = form.priority;
+    if (form.stage)                  payload.stage           = form.stage;
     if (form.notes.trim())           payload.notes           = form.notes.trim();
 
     try {
@@ -541,6 +565,32 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                       </SelectTrigger>
                       <SelectContent>
                         {SOURCE_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  <Field id="priority" label="Lead Priority">
+                    <Select value={form.priority} onValueChange={v => set('priority', v as LeadPriority)}>
+                      <SelectTrigger id="priority" className={inputCls}>
+                        <SelectValue placeholder="Select priority…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORITY_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  <Field id="stage" label="Lead Stage">
+                    <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}>
+                      <SelectTrigger id="stage" className={inputCls}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STAGE_OPTIONS.map(o => (
                           <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                         ))}
                       </SelectContent>
