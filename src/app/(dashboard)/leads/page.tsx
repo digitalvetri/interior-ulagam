@@ -833,7 +833,10 @@ export default function LeadsPage() {
               {search || activeChip !== 'all' ? 'No leads match your filters' : 'No leads yet'}
             </p>
             {!search && activeChip === 'all' && (
-              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Add your first lead to get started</p>
+              <>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Capture your first enquiry to get started</p>
+                <NewLeadDialog onSuccess={handleLeadCreated} triggerLabel="+ Add New Lead" />
+              </>
             )}
           </div>
         ) : (
