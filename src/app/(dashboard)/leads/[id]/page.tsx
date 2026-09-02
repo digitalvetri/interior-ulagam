@@ -7,11 +7,11 @@ import {
   ArrowLeft, ArrowRight, Phone, Mail, MessageCircle, Calendar, FileText, Home,
   User, Users, MapPin, CheckCircle2, AlertCircle, Check,
   Plus, FolderKanban, ChevronDown, ChevronUp,
-  Sparkles, Zap, ShieldAlert, Mic, MicOff,
+  Zap,
   Edit2, Trash2, Archive, MoreVertical,
-  Upload, ExternalLink, X, StickyNote, BellRing, Download,
+  Upload, ExternalLink, X, Download,
 } from 'lucide-react';
-import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem, LeadFollowUp } from '@/types/leads';
+import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem } from '@/types/leads';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
@@ -232,43 +232,6 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
             {loading ? 'Marking Lost…' : 'Mark as Lost'}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Activity timeline entry ───────────────────────────────── */
-const ACTIVITY_STYLE: Record<string, { Icon: React.ElementType; bg: string; color: string }> = {
-  note:         { Icon: StickyNote,    bg: '#EEF2FF',             color: '#4338CA' },
-  call:         { Icon: Phone,         bg: '#EFF6FF',             color: '#2563EB' },
-  whatsapp:     { Icon: MessageCircle, bg: '#F0FDF4',             color: '#16A34A' },
-  meeting:      { Icon: Users,         bg: '#FFF7ED',             color: '#D97706' },
-  follow_up:    { Icon: BellRing,      bg: '#FFFBEB',             color: '#D97706' },
-  stage_change: { Icon: Zap,           bg: 'var(--accent-soft)',  color: 'var(--accent-base)' },
-  site_visit:   { Icon: Home,          bg: 'var(--success-soft)', color: 'var(--success-text)' },
-};
-
-function TimelineEntry({ activity, isLast }: { activity: LeadActivity; isLast: boolean }) {
-  const s = ACTIVITY_STYLE[activity.type] ?? ACTIVITY_STYLE.note;
-  const { Icon } = s;
-  return (
-    <div className="flex gap-3">
-      <div className="flex flex-col items-center flex-shrink-0">
-        <div className="h-7 w-7 rounded-full flex items-center justify-center" style={{ background: s.bg }}>
-          <Icon className="h-3.5 w-3.5" style={{ color: s.color }} />
-        </div>
-        {!isLast && <div className="w-px flex-1 mt-1" style={{ background: 'var(--border-subtle)', minHeight: 16 }} />}
-      </div>
-      <div className={`flex-1 min-w-0 ${!isLast ? 'pb-4' : ''}`}>
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{activity.title}</p>
-          <span className="text-[11px] flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>
-            {relDate(activity.createdAt)} · {fmtTime(activity.createdAt)}
-          </span>
-        </div>
-        {activity.description && (
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)', lineHeight: '1.55' }}>{activity.description}</p>
-        )}
       </div>
     </div>
   );
@@ -523,13 +486,6 @@ export default function LeadDetailPage() {
   const [uploadingDoc, setUploadingDoc]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Activity log
-  type ActivityLogType = 'call' | 'whatsapp' | 'meeting' | 'note';
-  const [activityType, setActivityType] = useState<ActivityLogType>('note');
-  const [noteText, setNoteText]     = useState('');
-  const [savingNote, setSavingNote] = useState(false);
-  const [noteError, setNoteError]   = useState<string | null>(null);
-
   // Follow-up
   const [followUpDate, setFollowUpDate] = useState('');
   const [followUpNote, setFollowUpNote] = useState('');
@@ -570,29 +526,15 @@ export default function LeadDetailPage() {
   const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
 
   // Tabs
-  type TabKey = 'overview' | 'activity' | 'followups' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
+  type TabKey = 'overview' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
   const [activeTab, setActiveTab]           = useState<TabKey>('overview');
   const [siteVisitsData, setSiteVisitsData] = useState<SiteVisit[]>([]);
   const [measurementsData, setMeasurementsData] = useState<MeasurementRound[]>([]);
-  const [followUpsData, setFollowUpsData]   = useState<LeadFollowUp[]>([]);
-  const [tabLoaded, setTabLoaded]           = useState<Set<TabKey>>(new Set(['overview', 'activity', 'quotations', 'documents']));
 
   // Toast
   const [toast, setToast] = useState<string | null>(null);
 
-  // AI Brief
-  type BriefData = { summary: string; nextBestAction: string; riskFlags: string[]; sentiment: 'hot' | 'warm' | 'cold' | 'lost' };
-  const [brief, setBrief]               = useState<BriefData | null>(null);
-  const [briefLoading, setBriefLoading] = useState(false);
-  const [briefError, setBriefError]     = useState<string | null>(null);
-
-  // Voice recording
-  const [recording, setRecording]               = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [transcribing, setTranscribing]         = useState(false);
-  const [userRole, setUserRole]                 = useState('');
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef   = useRef<Blob[]>([]);
+  const [userRole, setUserRole] = useState('');
 
   useEffect(() => {
     if (!showActionsMenu) return;
@@ -602,12 +544,6 @@ export default function LeadDetailPage() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showActionsMenu]);
-
-  useEffect(() => {
-    if (!recording) return;
-    const timerId = setInterval(() => setRecordingSeconds(s => s + 1), 1000);
-    return () => clearInterval(timerId);
-  }, [recording]);
 
   useEffect(() => {
     if (!id) return;
@@ -658,29 +594,6 @@ export default function LeadDetailPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
-
-  async function saveNote() {
-    if (!noteText.trim()) return;
-    setSavingNote(true); setNoteError(null);
-    const titleMap: Record<ActivityLogType, string> = {
-      call:     `Call — ${lead?.contactName ?? 'client'}`,
-      whatsapp: 'WhatsApp message',
-      meeting:  `Meeting — ${lead?.contactName ?? 'client'}`,
-      note:     'Note',
-    };
-    try {
-      const res = await fetch(`/api/v1/leads/${id}/activities`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: activityType, title: titleMap[activityType], description: noteText.trim() }),
-      });
-      const json = await res.json().catch(() => ({})) as { data?: LeadActivity; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
-      setActivities(prev => [json.data!, ...prev]);
-      setNoteText('');
-    } catch (e) {
-      setNoteError(e instanceof Error ? e.message : 'Failed to save');
-    } finally { setSavingNote(false); }
-  }
 
   async function scheduleFollowUp() {
     if (!followUpDate) return;
@@ -808,55 +721,6 @@ export default function LeadDetailPage() {
     } finally { setMarkingWon(false); setMarkingLost(false); setReopening(false); }
   }
 
-  async function generateBrief() {
-    setBriefLoading(true); setBriefError(null);
-    try {
-      const res = await fetch(`/api/v1/leads/${id}/brief`, { method: 'POST' });
-      const json = await res.json() as { data?: BriefData; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
-      setBrief(json.data!);
-    } catch (e) {
-      setBriefError(e instanceof Error ? e.message : 'Unable to generate brief');
-    } finally { setBriefLoading(false); }
-  }
-
-  async function startRecording() {
-    setNoteError(null);
-    let stream: MediaStream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch { setNoteError('Microphone access denied. Allow mic permission in your browser settings and try again.'); return; }
-    const mimeType = (
-      MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
-      MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
-      MediaRecorder.isTypeSupported('audio/ogg;codecs=opus') ? 'audio/ogg;codecs=opus' :
-      MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg' : null
-    );
-    let recorder: MediaRecorder;
-    try { recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream); }
-    catch (e) { stream.getTracks().forEach(t => t.stop()); setNoteError(e instanceof Error ? e.message : 'Your browser does not support audio recording. Try Chrome or Edge.'); return; }
-    audioChunksRef.current = [];
-    recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-    recorder.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      const ext = (mimeType ?? '').includes('ogg') ? 'ogg' : 'webm';
-      const blob = new Blob(audioChunksRef.current, { type: mimeType ?? 'audio/webm' });
-      if (blob.size === 0) { setNoteError('Recording was empty. Please try again.'); return; }
-      setTranscribing(true);
-      try {
-        const form = new FormData();
-        form.append('audio', blob, `voice-note.${ext}`);
-        const res = await fetch(`/api/v1/leads/${id}/voice-note`, { method: 'POST', body: form });
-        const json = await res.json() as { data?: { transcript: string }; error?: string };
-        if (!res.ok) throw new Error(json.error ?? 'Transcription failed');
-        setNoteText(prev => (prev ? prev + '\n' : '') + json.data!.transcript);
-      } catch (e) { setNoteError(e instanceof Error ? e.message : 'Transcription failed'); }
-      finally { setTranscribing(false); }
-    };
-    recorder.start(); mediaRecorderRef.current = recorder; setRecording(true);
-  }
-
-  function stopRecording() { mediaRecorderRef.current?.stop(); setRecording(false); setRecordingSeconds(0); }
-
   async function createQuote() {
     setCreatingQuote(true);
     try {
@@ -892,17 +756,6 @@ export default function LeadDetailPage() {
     } finally { setConverting(false); }
   }
 
-  // Lazy-load follow-ups on first visit to that tab
-  useEffect(() => {
-    if (activeTab !== 'followups' || tabLoaded.has('followups') || !id) return;
-    fetch(`/api/v1/leads/${id}/follow-ups`)
-      .then(r => r.ok ? r.json() : null)
-      .then((json: { data?: LeadFollowUp[] } | null) => {
-        setFollowUpsData(json?.data ?? []);
-        setTabLoaded(prev => new Set([...prev, 'followups']));
-      })
-      .catch(() => setTabLoaded(prev => new Set([...prev, 'followups'])));
-  }, [activeTab, id, tabLoaded]);
 
   /* Loading / not-found */
   if (loading) {
@@ -944,9 +797,6 @@ export default function LeadDetailPage() {
   const upcomingActivities = [...activities]
     .filter(a => a.type === 'follow_up' && a.scheduledAt && new Date(a.scheduledAt) > nowForTimeline)
     .sort((a, b) => new Date(a.scheduledAt!).getTime() - new Date(b.scheduledAt!).getTime());
-  const historyActivities = [...activities]
-    .filter(a => !(a.type === 'follow_up' && a.scheduledAt && new Date(a.scheduledAt) > nowForTimeline))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const nextFuActivity = upcomingActivities[0] ?? null;
 
@@ -988,14 +838,6 @@ export default function LeadDetailPage() {
     setToast('Site visit scheduled!');
     setTimeout(() => setToast(null), 3000);
   }
-
-  /* ── Activity type pills ─────────────────────────────── */
-  const activityPills: { type: ActivityLogType; label: string; Icon: React.ElementType }[] = [
-    { type: 'call',     label: 'Call',     Icon: Phone },
-    { type: 'whatsapp', label: 'WhatsApp', Icon: MessageCircle },
-    { type: 'meeting',  label: 'Meeting',  Icon: Users },
-    { type: 'note',     label: 'Note',     Icon: StickyNote },
-  ];
 
   return (
     <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
@@ -1301,8 +1143,6 @@ export default function LeadDetailPage() {
             {(
               [
                 { key: 'overview',     label: 'Overview',     count: 0 },
-                { key: 'activity',     label: 'Activity',     count: activities.length },
-                { key: 'followups',    label: 'Follow-ups',   count: followUpsData.length },
                 { key: 'sitevisits',   label: 'Site Visits',  count: siteVisitsData.length },
                 { key: 'measurements', label: 'Measurements', count: measurementsData.length },
                 { key: 'quotations',   label: 'Quotations',   count: leadQuotes.length },
@@ -1649,196 +1489,6 @@ export default function LeadDetailPage() {
               </div>
             </div>
           )}
-
-          {/* ── ACTIVITY ──────────────────────────────────────────── */}
-          {activeTab === 'activity' && (
-            <div className="space-y-4">
-
-              {/* Log activity */}
-              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Log Activity</p>
-
-                {/* Activity type selector */}
-                <div className="flex gap-1.5 flex-wrap mb-3">
-                  {(['note', 'call', 'whatsapp', 'meeting'] as ActivityLogType[]).map(t => (
-                    <button key={t} type="button" onClick={() => setActivityType(t)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-                      style={{
-                        background: activityType === t ? 'var(--accent-soft)' : 'var(--surface-muted)',
-                        border: `1.5px solid ${activityType === t ? 'var(--accent-base)' : 'var(--border-subtle)'}`,
-                        color: activityType === t ? 'var(--accent-base)' : 'var(--text-secondary)',
-                      }}>
-                      {t === 'whatsapp' ? 'WhatsApp' : t.charAt(0).toUpperCase() + t.slice(1)}
-                    </button>
-                  ))}
-                </div>
-
-                <textarea rows={3} value={noteText} onChange={e => setNoteText(e.target.value)}
-                  placeholder={activityType === 'note' ? 'Add a note…' : activityType === 'call' ? 'Call notes…' : activityType === 'whatsapp' ? 'WhatsApp message summary…' : 'Meeting notes…'}
-                  className="studio-input w-full text-sm resize-none mb-2" />
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button type="button" onClick={saveNote} disabled={savingNote || !noteText.trim()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-                    style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                    {savingNote ? 'Saving…' : 'Save'}
-                  </button>
-
-                  {/* Voice note button */}
-                  {!recording ? (
-                    <button type="button" onClick={startRecording} disabled={transcribing}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-                      style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                      <Mic className="h-4 w-4" style={{ color: transcribing ? 'var(--text-tertiary)' : 'var(--danger)' }} />
-                      {transcribing ? 'Transcribing…' : 'Voice note'}
-                    </button>
-                  ) : (
-                    <button type="button" onClick={stopRecording}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold"
-                      style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger)', color: 'var(--danger)' }}>
-                      <MicOff className="h-4 w-4" />
-                      Stop ({recordingSeconds}s)
-                    </button>
-                  )}
-                </div>
-                {noteError && <p className="mt-2 text-xs text-red-600">{noteError}</p>}
-              </div>
-
-              {/* AI Brief */}
-              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>AI Brief</p>
-                  {brief && (
-                    <button type="button" onClick={generateBrief} disabled={briefLoading}
-                      className="text-xs disabled:opacity-50" style={{ color: 'var(--text-secondary)' }}>
-                      {briefLoading ? 'Regenerating…' : 'Regenerate'}
-                    </button>
-                  )}
-                </div>
-                {brief ? (
-                  <div className="space-y-3">
-                    {(() => {
-                      const S = {
-                        hot:  { bg: 'var(--danger-soft)',   color: 'var(--danger)' },
-                        warm: { bg: 'var(--warning-soft)',  color: 'var(--warning)' },
-                        cold: { bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
-                        lost: { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
-                      };
-                      const s = S[brief.sentiment];
-                      return <span className="inline-block text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: s.bg, color: s.color }}>{brief.sentiment.toUpperCase()}</span>;
-                    })()}
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-heading)', lineHeight: '1.65' }}>{brief.summary}</p>
-                    <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--purple-soft)', border: '1px solid rgba(124,92,252,0.3)' }}>
-                      <Zap className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--violet-primary)' }} />
-                      <div>
-                        <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--violet-primary)' }}>NEXT BEST ACTION</p>
-                        <p className="text-sm" style={{ color: 'var(--text-heading)' }}>{brief.nextBestAction}</p>
-                      </div>
-                    </div>
-                    {brief.riskFlags.length > 0 && (
-                      <div className="rounded-xl p-3.5 flex items-start gap-3" style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-soft)' }}>
-                        <ShieldAlert className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--danger)' }} />
-                        <div>
-                          <p className="text-[10px] font-bold mb-1 tracking-wider" style={{ color: 'var(--danger)' }}>RISKS</p>
-                          <ul className="space-y-0.5">
-                            {brief.riskFlags.map(flag => <li key={flag} className="text-sm" style={{ color: 'var(--danger-text)' }}>· {flag}</li>)}
-                          </ul>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <Sparkles className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-secondary)' }} />
-                    <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                      AI analyses this lead&apos;s activities, budget, and WhatsApp history for next steps and risk flags.
-                    </p>
-                    {briefError && <p className="text-xs text-red-600 mb-3">{briefError}</p>}
-                    <button type="button" onClick={generateBrief} disabled={briefLoading}
-                      className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50">
-                      <Sparkles className="h-4 w-4" />{briefLoading ? 'Generating…' : 'Generate Brief'}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Activity Timeline */}
-              {historyActivities.length > 0 ? (
-                <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                  <p className="text-[11px] font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-tertiary)' }}>Timeline</p>
-                  <div className="space-y-0">
-                    {historyActivities.map((a, i) => (
-                      <TimelineEntry key={a.id} activity={a} isLast={i === historyActivities.length - 1} />
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl p-5 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                  <StickyNote className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No activity yet. Log a call, note, or meeting above.</p>
-                </div>
-              )}
-            </div>
-          )}{/* end activity tab */}
-
-          {/* ── FOLLOW-UPS ────────────────────────────────────────── */}
-          {activeTab === 'followups' && (
-            <div className="space-y-3">
-              {!tabLoaded.has('followups') ? (
-                <div className="text-center py-10">
-                  <div className="skeleton h-16 w-full rounded-xl mb-2" />
-                  <div className="skeleton h-16 w-full rounded-xl" />
-                </div>
-              ) : followUpsData.length === 0 ? (
-                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                  <BellRing className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                  <p className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No follow-ups recorded yet</p>
-                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Schedule a follow-up from the Overview tab</p>
-                </div>
-              ) : (
-                followUpsData.map(fu => (
-                  <div key={fu.id} className="rounded-xl p-4 flex items-start gap-3"
-                    style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: fu.completedAt ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
-                      {fu.completedAt
-                        ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success)' }} />
-                        : <Calendar className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-                      }
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {fu.followUpDate && (
-                          <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
-                            {fmtFollowUpDate(fu.followUpDate)}
-                          </span>
-                        )}
-                        {fu.followUpType && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold uppercase"
-                            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                            {fu.followUpType}
-                          </span>
-                        )}
-                        {fu.completedAt && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-                            style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-                            Done
-                          </span>
-                        )}
-                      </div>
-                      {fu.comments && (
-                        <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
-                      )}
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                        Stage: {fu.stage} · {fmtDate(fu.createdAt)}
-                        {fu.createdByName ? ` · ${fu.createdByName}` : ''}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}{/* end followups tab */}
 
           {/* ── SITE VISITS ───────────────────────────────────────── */}
           {activeTab === 'sitevisits' && (
