@@ -10,7 +10,11 @@ interface BrandingJson {
   tagline?: string;
   phone?: string;
   email?: string;
+  website?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  pinCode?: string;
   pan?: string;
   logoUrl?: string;
   bankName?: string;
@@ -24,6 +28,10 @@ interface BrandingJson {
   invoiceNumberPrefix?: string;
   poNumberPrefix?: string;
   quoteValidityDays?: number;
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerEmail?: string;
+  ownerPhotoUrl?: string;
   [k: string]: unknown;
 }
 
@@ -32,7 +40,11 @@ const PatchSchema = z.object({
   tagline:             z.string().max(500).nullable().optional(),
   phone:               z.string().max(30).nullable().optional(),
   email:               z.string().email().nullable().optional().or(z.literal('')),
+  website:             z.string().max(500).nullable().optional(),
   address:             z.string().max(1000).nullable().optional(),
+  city:                z.string().max(100).nullable().optional(),
+  state:               z.string().max(100).nullable().optional(),
+  pinCode:             z.string().max(10).nullable().optional(),
   gstin:               z.string().max(20).nullable().optional(),
   pan:                 z.string().max(20).nullable().optional(),
   logoUrl:             z.string().url().nullable().optional(),
@@ -47,6 +59,10 @@ const PatchSchema = z.object({
   invoiceNumberPrefix: z.string().max(20).nullable().optional(),
   poNumberPrefix:      z.string().max(20).nullable().optional(),
   quoteValidityDays:   z.number().int().min(1).max(365).nullable().optional(),
+  ownerName:           z.string().max(200).nullable().optional(),
+  ownerPhone:          z.string().max(30).nullable().optional(),
+  ownerEmail:          z.string().email().nullable().optional().or(z.literal('')),
+  ownerPhotoUrl:       z.string().url().nullable().optional(),
 });
 
 function buildResponse(row: { name: string; gstin: string | null; brandingJson: unknown }) {
@@ -58,7 +74,11 @@ function buildResponse(row: { name: string; gstin: string | null; brandingJson: 
     tagline:             str(b.tagline),
     phone:               str(b.phone),
     email:               str(b.email),
+    website:             str(b.website),
     address:             str(b.address),
+    city:                str(b.city),
+    state:               str(b.state),
+    pinCode:             str(b.pinCode),
     pan:                 str(b.pan),
     logoUrl:             str(b.logoUrl),
     bankName:            str(b.bankName),
@@ -72,6 +92,10 @@ function buildResponse(row: { name: string; gstin: string | null; brandingJson: 
     invoiceNumberPrefix: str(b.invoiceNumberPrefix) ?? 'INV-',
     poNumberPrefix:      str(b.poNumberPrefix) ?? 'PO-',
     quoteValidityDays:   typeof b.quoteValidityDays === 'number' ? b.quoteValidityDays : 30,
+    ownerName:           str(b.ownerName),
+    ownerPhone:          str(b.ownerPhone),
+    ownerEmail:          str(b.ownerEmail),
+    ownerPhotoUrl:       str(b.ownerPhotoUrl),
   };
 }
 
@@ -124,7 +148,11 @@ export async function PATCH(request: NextRequest) {
     setStr('tagline',             p.tagline);
     setStr('phone',               p.phone);
     setStr('email',               p.email && p.email !== '' ? p.email : null);
+    setStr('website',             p.website);
     setStr('address',             p.address);
+    setStr('city',                p.city);
+    setStr('state',               p.state);
+    setStr('pinCode',             p.pinCode);
     setStr('pan',                 p.pan);
     setStr('logoUrl',             p.logoUrl);
     setStr('bankName',            p.bankName);
@@ -135,9 +163,14 @@ export async function PATCH(request: NextRequest) {
     setStr('invoiceTerms',        p.invoiceTerms);
     setStr('poTerms',             p.poTerms);
     setStr('quoteNumberPrefix',   p.quoteNumberPrefix);
+    setStr('quoteNumberPrefix',   p.quoteNumberPrefix);
     setStr('invoiceNumberPrefix', p.invoiceNumberPrefix);
     setStr('poNumberPrefix',      p.poNumberPrefix);
     setNum('quoteValidityDays',   p.quoteValidityDays);
+    setStr('ownerName',           p.ownerName);
+    setStr('ownerPhone',          p.ownerPhone);
+    setStr('ownerEmail',          p.ownerEmail && p.ownerEmail !== '' ? p.ownerEmail : null);
+    setStr('ownerPhotoUrl',       p.ownerPhotoUrl);
 
     const patch: Record<string, unknown> = { brandingJson: branding };
     if (p.studioName !== undefined) patch.name  = p.studioName;
