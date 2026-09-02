@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Download, FileText, Receipt, Search } from 'lucide-react';
+import { AlertCircle, Download, FileText, IndianRupee, Plus, Receipt, Search, Zap } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 
 type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue';
@@ -56,6 +56,10 @@ export default function InvoicesPage() {
   const eInvoiceCount = rows.filter((r) => r.irn).length;
   const overdueCount  = rows.filter((r) => r.paymentStatus === 'overdue').length;
 
+  const outstandingPaise = rows
+    .filter((r) => r.paymentStatus !== 'paid')
+    .reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
+
   return (
     <div className="p-6 space-y-6 max-w-7xl">
       {/* Page header */}
@@ -63,42 +67,52 @@ export default function InvoicesPage() {
         <div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Invoices</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
-            All GST invoices issued across projects
+            {rows.length > 0 ? `${rows.length} shown` : 'All GST invoices issued across projects'}
           </p>
         </div>
         <Link
-          href="/accounts"
-          className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)]"
-          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+          href="/invoices/new"
+          className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+          style={{ background: 'var(--text-heading)' }}
         >
-          Accounts & Payments →
+          <Plus className="h-4 w-4" />
+          New Invoice
         </Link>
       </div>
 
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Invoiced',  value: formatRupees(totalInvoicedPaise), danger: false },
-          { label: 'Total Invoices',  value: String(rows.length),              danger: false },
-          { label: 'e-Invoices (IRN)', value: String(eInvoiceCount),           danger: false },
-          { label: 'Overdue',         value: String(overdueCount),             danger: overdueCount > 0 },
-        ].map(({ label, value, danger }) => (
-          <div
-            key={label}
-            className="rounded-2xl border p-4"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}
-          >
-            <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-              {label}
-            </p>
-            <p
-              className="text-xl font-bold mt-1 tabular-nums"
-              style={{ color: danger ? 'var(--danger)' : 'var(--text-heading)' }}
-            >
-              {value}
-            </p>
-          </div>
-        ))}
+        <KpiCard
+          label="Invoices"
+          value={String(rows.length)}
+          icon={FileText}
+          iconBg="#E8F5F0"
+          iconColor="#2D8A6A"
+        />
+        <KpiCard
+          label="Invoiced (Net)"
+          value={formatRupees(totalInvoicedPaise)}
+          icon={IndianRupee}
+          iconBg="#E8F5F0"
+          iconColor="#2D8A6A"
+          valueColor="#2D8A6A"
+        />
+        <KpiCard
+          label="Invoiced Outstanding"
+          value={formatRupees(outstandingPaise)}
+          sub="on invoiced milestones"
+          icon={AlertCircle}
+          iconBg={outstandingPaise > 0 ? '#FEF3CD' : '#E8F5F0'}
+          iconColor={outstandingPaise > 0 ? '#D97706' : '#2D8A6A'}
+          valueColor={outstandingPaise > 0 ? '#D97706' : undefined}
+        />
+        <KpiCard
+          label="e-Invoices (IRN)"
+          value={String(eInvoiceCount)}
+          icon={Zap}
+          iconBg="#EDE9FE"
+          iconColor="#7C3AED"
+        />
       </div>
 
       {/* Search */}
@@ -241,6 +255,48 @@ export default function InvoicesPage() {
             </table>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function KpiCard({
+  label, value, sub, icon: Icon, iconBg, iconColor, valueColor,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  iconBg: string;
+  iconColor: string;
+  valueColor?: string;
+}) {
+  return (
+    <div
+      className="rounded-2xl border p-5"
+      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          {label}
+        </p>
+        <span
+          className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
+          style={{ background: iconBg }}
+        >
+          <Icon className="h-3.5 w-3.5" style={{ color: iconColor }} />
+        </span>
+      </div>
+      <p
+        className="mt-2 text-2xl font-bold tabular-nums"
+        style={{ color: valueColor ?? 'var(--text-heading)' }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+          {sub}
+        </p>
       )}
     </div>
   );
