@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem, LeadFollowUp } from '@/types/leads';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
+import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
 import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
@@ -541,6 +542,7 @@ export default function LeadDetailPage() {
   // Menus / dialogs
   const [showActionsMenu, setShowActionsMenu]       = useState(false);
   const [showEditDialog, setShowEditDialog]         = useState(false);
+  const [showProjectDialog, setShowProjectDialog]   = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [deleting, setDeleting]   = useState(false);
@@ -1019,6 +1021,12 @@ export default function LeadDetailPage() {
           onSuccess={updated => { setLead(updated); setShowEditDialog(false); }}
         />
       )}
+      {showProjectDialog && (
+        <ProjectDetailsDialog
+          lead={lead} open={showProjectDialog} onOpenChange={setShowProjectDialog}
+          onSuccess={updated => { setLead(updated); setShowProjectDialog(false); }}
+        />
+      )}
       <MarkLostDialog
         open={showMarkLostDialog} value={lostReasonInput} onChange={setLostReasonInput}
         loading={markingLost}
@@ -1201,11 +1209,6 @@ export default function LeadDetailPage() {
                   style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
                   <Phone className="h-3.5 w-3.5" style={{ color: '#2563EB' }} /> Call
                 </a>
-                <button type="button" onClick={() => setShowEditDialog(true)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity"
-                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                  <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} /> Edit
-                </button>
               </div>
 
               {/* Project link — only when won */}
@@ -1355,7 +1358,7 @@ export default function LeadDetailPage() {
                 <div className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Project</p>
-                    <button type="button" onClick={() => setShowEditDialog(true)}
+                    <button type="button" onClick={() => setShowProjectDialog(true)}
                       className="text-[11px] font-medium hover:underline" style={{ color: 'var(--violet-primary)' }}>
                       Edit
                     </button>
@@ -1388,7 +1391,7 @@ export default function LeadDetailPage() {
                       )}
                     </div>
                   ) : (
-                    <button type="button" onClick={() => setShowEditDialog(true)}
+                    <button type="button" onClick={() => setShowProjectDialog(true)}
                       className="text-xs font-medium hover:underline" style={{ color: 'var(--violet-primary)' }}>
                       + Add project details
                     </button>
