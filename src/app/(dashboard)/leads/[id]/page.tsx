@@ -1074,14 +1074,14 @@ export default function LeadDetailPage() {
         }}
       />
 
-      <div className="px-4 lg:px-6 pt-5 pb-28">
+      <div className="px-4 lg:px-5 pt-4 pb-20">
 
         {/* Back nav */}
-        <Link href="/leads" className="inline-flex items-center gap-1.5 text-sm hover:opacity-75" style={{ color: 'var(--text-secondary)' }}>
-          <ArrowLeft className="h-4 w-4" /> Back to Pipeline
+        <Link href="/leads" className="inline-flex items-center gap-1.5 text-xs hover:opacity-75" style={{ color: 'var(--text-tertiary)' }}>
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to Pipeline
         </Link>
 
-        <div className="mt-4 space-y-4">
+        <div className="mt-3 space-y-3">
 
           {/* ── HEADER ──────────────────────────────────────────── */}
           <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
@@ -1100,11 +1100,11 @@ export default function LeadDetailPage() {
               </div>
             )}
 
-            <div className="p-5">
+            <div className="p-4">
               {/* Row 1: Avatar + Name + Priority + Stage + ⋯ menu */}
               <div className="flex items-start gap-3">
-                <div className="h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #5B3FDD 100%)' }}>
+                <div className="h-8 w-8 rounded-lg flex items-center justify-center text-xs font-semibold flex-shrink-0"
+                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                   {initials}
                 </div>
 
@@ -1190,21 +1190,21 @@ export default function LeadDetailPage() {
               </div>
 
               {/* Primary action buttons */}
-              <div className="flex items-center gap-2 mt-4 flex-wrap">
+              <div className="flex items-center gap-1.5 mt-3 flex-wrap">
                 <a href={`https://wa.me/91${waPhone}`} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-                  style={{ background: '#F0FDF4', border: '1px solid #86EFAC', color: '#16A34A' }}>
-                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity"
+                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                  <MessageCircle className="h-3.5 w-3.5" style={{ color: '#16A34A' }} /> WhatsApp
                 </a>
                 <a href={`tel:${lead.contactPhone}`}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold hover:opacity-90 transition-opacity"
-                  style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#2563EB' }}>
-                  <Phone className="h-4 w-4" /> Call
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity"
+                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                  <Phone className="h-3.5 w-3.5" style={{ color: '#2563EB' }} /> Call
                 </a>
                 <button type="button" onClick={() => setShowEditDialog(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity"
                   style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                  <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Edit
+                  <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} /> Edit
                 </button>
               </div>
 
@@ -1230,7 +1230,7 @@ export default function LeadDetailPage() {
           </div>
 
           {/* ── PIPELINE + NEXT ACTION ───────────────────────────── */}
-          <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <div className="rounded-2xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
             <PipelineBar
               stage={lead.stage}
               isLost={isLost}
@@ -1251,7 +1251,7 @@ export default function LeadDetailPage() {
                     else { void advanceStage(nextStageAction.targetStage); }
                   }}
                   disabled={stageActionsDisabled}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50 transition-opacity"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50 transition-opacity"
                   style={{ background: nextStageAction.terminal ? 'var(--success)' : 'var(--violet-primary)', color: '#fff' }}
                 >
                   <ArrowRight className="h-4 w-4" />
@@ -1262,9 +1262,9 @@ export default function LeadDetailPage() {
               {/* Reopen (lost state) */}
               {isLost && (
                 <button type="button" onClick={() => changeStage('quotation')} disabled={stageActionsDisabled}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
                   style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                  <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}
+                  <Zap className="h-3.5 w-3.5" />{reopening ? 'Reopening…' : 'Reopen Lead'}
                 </button>
               )}
 
@@ -1274,16 +1274,16 @@ export default function LeadDetailPage() {
                   {/* Won */}
                   {!nextStageAction?.terminal && (
                     <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl border disabled:opacity-50"
-                      style={{ borderColor: 'var(--success)', color: 'var(--success)', background: 'transparent' }}>
-                      <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Marking…' : 'Won'}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--success)', background: 'transparent' }}>
+                      <CheckCircle2 className="h-3.5 w-3.5" />{markingWon ? 'Marking…' : 'Won'}
                     </button>
                   )}
                   {/* Lost */}
                   <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={stageActionsDisabled}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl border disabled:opacity-50"
-                    style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: 'transparent' }}>
-                    <AlertCircle className="h-4 w-4" /> Lost
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-50"
+                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--danger)', background: 'transparent' }}>
+                    <AlertCircle className="h-3.5 w-3.5" /> Lost
                   </button>
                 </div>
               )}
