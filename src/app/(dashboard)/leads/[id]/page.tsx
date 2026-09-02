@@ -1330,56 +1330,17 @@ export default function LeadDetailPage() {
 
           {/* ── OVERVIEW ──────────────────────────────────────────── */}
           {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-start">
 
-              {/* LEFT — Requirements + linked project + lead score */}
-              <div className="space-y-4">
-                <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Requirement</p>
-                    <button type="button" onClick={() => setShowEditDialog(true)}
-                      className="text-xs hover:underline" style={{ color: 'var(--violet-primary)' }}>
-                      Edit
-                    </button>
-                  </div>
-                  {(lead.propertyType || lead.budgetBand || lead.projectName || lead.notes || (lead.projectValuePaise ?? 0) > 0) ? (
-                    <div>
-                      <div className="-mt-1.5">
-                        {lead.propertyType && <LabelRow label="Property Type" value={lead.propertyType} />}
-                        {lead.projectName && <LabelRow label="Project Name" value={lead.projectName} />}
-                        {lead.budgetBand && <LabelRow label="Budget" value={lead.budgetBand} />}
-                        {(lead.projectValuePaise ?? 0) > 0 && (
-                          <LabelRow label="Project Value" value={
-                            <span style={{ color: 'var(--text-gold)', fontWeight: 600 }}>{fmt(lead.projectValuePaise!)}</span>
-                          } />
-                        )}
-                      </div>
-                      {lead.notes && (
-                        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                          <p className="text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-tertiary)' }}>NOTES</p>
-                          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center">
-                      <FileText className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                      <p className="text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>No project details yet</p>
-                      <button type="button" onClick={() => setShowEditDialog(true)}
-                        className="text-xs font-medium hover:underline"
-                        style={{ color: 'var(--violet-primary)' }}>
-                        + Add details
-                      </button>
-                    </div>
-                  )}
-                </div>{/* end Requirements card */}
+              {/* LEFT — Project details + lead metadata + score */}
+              <div className="space-y-3">
 
                 {/* Linked project — shown when won */}
                 {linkedProject && (
-                  <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'var(--success-soft)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <FolderKanban className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--success)' }} />
+                  <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--success-soft)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                    <FolderKanban className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--success)' }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{ color: 'var(--success-text)' }}>Linked Project</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--success-text)' }}>Linked Project</p>
                       <p className="text-sm font-medium truncate" style={{ color: 'var(--text-heading)' }}>{linkedProject.name}</p>
                     </div>
                     <Link href={`/projects/${linkedProject.id}`}
@@ -1390,18 +1351,101 @@ export default function LeadDetailPage() {
                   </div>
                 )}
 
+                {/* Project details card */}
+                <div className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Project</p>
+                    <button type="button" onClick={() => setShowEditDialog(true)}
+                      className="text-[11px] font-medium hover:underline" style={{ color: 'var(--violet-primary)' }}>
+                      Edit
+                    </button>
+                  </div>
+                  {(lead.propertyType || lead.budgetBand || lead.projectName || (lead.projectValuePaise ?? 0) > 0) ? (
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                      {lead.propertyType && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Property</p>
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{lead.propertyType}</p>
+                        </div>
+                      )}
+                      {lead.budgetBand && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Budget</p>
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{lead.budgetBand}</p>
+                        </div>
+                      )}
+                      {lead.projectName && (
+                        <div className="col-span-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Project name</p>
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{lead.projectName}</p>
+                        </div>
+                      )}
+                      {(lead.projectValuePaise ?? 0) > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Project value</p>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-gold)' }}>{fmt(lead.projectValuePaise!)}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setShowEditDialog(true)}
+                      className="text-xs font-medium hover:underline" style={{ color: 'var(--violet-primary)' }}>
+                      + Add project details
+                    </button>
+                  )}
+                  {lead.notes && (
+                    <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Notes</p>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.notes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Lead metadata card */}
+                <div className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Lead Info</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Source</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                        {SOURCE_LABELS[lead.source] ?? lead.source}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Stage</p>
+                      <p className="text-sm font-medium capitalize" style={{ color: 'var(--text-heading)' }}>
+                        {(LEGACY_STAGE_MAP[lead.stage] ?? lead.stage).replace(/_/g, ' ')}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Created</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                        {new Date(lead.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Last activity</p>
+                      <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                        {relDate(lead.lastActivityAt)}
+                      </p>
+                    </div>
+                    {lead.designerName && (
+                      <div className="col-span-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Designer</p>
+                        <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{lead.designerName}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Lead Score — owner only */}
                 {userRole === 'owner' && (lead.score ?? 0) > 0 && lead.scoreBreakdown && (
-                  <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                    <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-tertiary)' }}>Lead Score</p>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="text-3xl font-bold" style={{
+                  <div className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Lead Score</p>
+                      <span className="text-2xl font-bold" style={{
                         color: (lead.score ?? 0) >= 70 ? 'var(--success)' : (lead.score ?? 0) >= 40 ? 'var(--warning)' : 'var(--text-secondary)',
-                      }}>{lead.score}</div>
-                      <div>
-                        <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>out of 100</p>
-                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Updated automatically on activity</p>
-                      </div>
+                      }}>{lead.score}<span className="text-xs font-normal ml-0.5" style={{ color: 'var(--text-tertiary)' }}>/100</span></span>
                     </div>
                     <div className="space-y-2">
                       {([
@@ -1411,14 +1455,12 @@ export default function LeadDetailPage() {
                         { label: 'Source',        val: lead.scoreBreakdown.source,       max: 15 },
                         { label: 'Engagement',    val: lead.scoreBreakdown.engagement,   max: 10 },
                       ] as { label: string; val: number; max: number }[]).map(({ label, val, max }) => (
-                        <div key={label}>
-                          <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-                            <span>{label}</span>
-                            <span className="font-medium" style={{ color: 'var(--text-heading)' }}>{val}/{max}</span>
-                          </div>
-                          <div className="h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
+                        <div key={label} className="flex items-center gap-3">
+                          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                          <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
                             <div className="h-1.5 rounded-full transition-all" style={{ width: `${(val / max) * 100}%`, background: 'var(--violet-primary)' }} />
                           </div>
+                          <span className="text-xs w-8 text-right font-medium" style={{ color: 'var(--text-heading)' }}>{val}/{max}</span>
                         </div>
                       ))}
                     </div>
