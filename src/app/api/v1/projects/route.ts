@@ -55,6 +55,7 @@ export async function GET(_request: NextRequest) {
         // Context: customer name or lead contact for display
         customerFullName:   customers.fullName,
         leadContactName:    leads.contactName,
+        projectLocation:    leads.projectLocation,
       })
       .from(projects)
       .leftJoin(customers, eq(projects.customerId, customers.id))

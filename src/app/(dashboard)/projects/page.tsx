@@ -2,11 +2,10 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Plus, FolderKanban, ChevronDown, AlertTriangle, MoreHorizontal } from 'lucide-react';
+import { Search, Plus, FolderKanban, ChevronDown, AlertTriangle, MapPin, User, IndianRupee } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Project } from '@/types/quotes';
 import { Lead } from '@/types/leads';
 import { formatRupees } from '@/lib/utils';
@@ -16,6 +15,7 @@ type LifecycleStage = Project['lifecycleStage'];
 interface ProjectRow extends Project {
   customerFullName?:  string | null;
   leadContactName?:   string | null;
+  projectLocation?:   string | null;
   collectedPaise:     number;
   nextMilestoneLabel: string | null;
 }
@@ -175,101 +175,92 @@ function LeadSelector({
   );
 }
 
-// ─── DataTable columns ────────────────────────────────────────────────────────
+// ─── Project Card ─────────────────────────────────────────────────────────────
 
-function CollectedBar({ collectedPaise, totalPaise }: { collectedPaise: number; totalPaise: number | null }) {
-  if (!totalPaise || totalPaise === 0) return <span style={{ color: 'var(--text-secondary)' }}>—</span>;
-  const pct = Math.min(100, Math.round((collectedPaise / totalPaise) * 100));
+function ProjectCard({ project, onClick }: { project: ProjectRow; onClick: () => void }) {
+  const stage = STAGE_STYLE[project.lifecycleStage];
+  const clientName = project.customerFullName ?? project.leadContactName;
+  const hasMoney = !!project.totalContractPaise && project.totalContractPaise > 0;
+  const progress = hasMoney
+    ? Math.min(100, Math.round((project.collectedPaise / project.totalContractPaise!) * 100))
+    : null;
+
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-2xl p-4 text-left"
+      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', transition: 'box-shadow 0.15s, border-color 0.15s' }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = '0 4px 16px rgba(22,20,15,0.07)';
+        e.currentTarget.style.borderColor = 'rgba(22,20,15,0.15)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = 'none';
+        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+      }}
+    >
+      {/* Stage badge */}
+      <div className="mb-3">
+        <span
+          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+          style={{ background: stage.bg, color: stage.fg }}
+        >
+          {stage.label}
+        </span>
       </div>
-      <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>{pct}%</span>
-    </div>
-  );
-}
 
-function makeColumns(onRowClick: (row: ProjectRow) => void): Column<ProjectRow>[] {
-  return [
-    {
-      key: 'name',
-      header: 'Project',
-      render: (row) => (
-        <div>
-          <p className="text-[13px] font-medium truncate max-w-[220px]" style={{ color: 'var(--text-heading)' }}>
-            {row.name}
+      {/* Project name */}
+      <p className="text-[14px] font-semibold leading-tight truncate"
+         style={{ color: 'var(--text-heading)' }}>
+        {project.name}
+      </p>
+
+      {/* Client + location */}
+      <div className="mt-1 space-y-0.5">
+        {clientName && (
+          <p className="flex items-center gap-1 text-[12px] truncate"
+             style={{ color: 'var(--text-secondary)' }}>
+            <User className="h-3 w-3 flex-shrink-0" />
+            {clientName}
           </p>
-          {(row.customerFullName ?? row.leadContactName) && (
-            <p className="text-[11px] truncate max-w-[220px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              {row.customerFullName ?? row.leadContactName}
+        )}
+        {project.projectLocation && (
+          <p className="flex items-center gap-1 text-[12px] truncate"
+             style={{ color: 'var(--text-secondary)' }}>
+            <MapPin className="h-3 w-3 flex-shrink-0" />
+            {project.projectLocation}
+          </p>
+        )}
+      </div>
+
+      {/* Money + progress + next milestone */}
+      {(hasMoney || project.nextMilestoneLabel) && (
+        <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          {hasMoney && (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[13px] font-semibold tnum" style={{ color: 'var(--text-heading)' }}>
+                {formatRupees(project.totalContractPaise!)}
+              </span>
+              {progress !== null && (
+                <div className="flex items-center gap-1.5">
+                  <div className="h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${progress}%`, background: 'var(--accent-base)' }} />
+                  </div>
+                  <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>{progress}%</span>
+                </div>
+              )}
+            </div>
+          )}
+          {project.nextMilestoneLabel && (
+            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+              → {project.nextMilestoneLabel}
             </p>
           )}
         </div>
-      ),
-    },
-    {
-      key: 'lifecycleStage',
-      header: 'Stage',
-      render: (row) => {
-        const s = STAGE_STYLE[row.lifecycleStage];
-        return (
-          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-md border whitespace-nowrap"
-            style={{ background: s.bg, color: s.fg, borderColor: s.border }}>
-            {s.label}
-          </span>
-        );
-      },
-    },
-    {
-      key: 'totalContractPaise',
-      header: 'Contract',
-      align: 'right',
-      render: (row) => row.totalContractPaise
-        ? <span className="tnum text-[13px]">{formatRupees(row.totalContractPaise)}</span>
-        : <span style={{ color: 'var(--text-secondary)' }}>—</span>,
-    },
-    {
-      key: 'collected',
-      header: 'Collected',
-      render: (row) => (
-        <CollectedBar collectedPaise={row.collectedPaise} totalPaise={row.totalContractPaise ?? null} />
-      ),
-    },
-    {
-      key: 'nextMilestone',
-      header: 'Next milestone',
-      render: (row) => row.nextMilestoneLabel
-        ? <span className="text-[12px] truncate max-w-[140px] block" style={{ color: 'var(--text-primary)' }}>{row.nextMilestoneLabel}</span>
-        : <span style={{ color: 'var(--text-secondary)' }}>—</span>,
-    },
-    {
-      key: 'designerIds',
-      header: 'Designer',
-      render: (row) => {
-        const n = Array.isArray(row.designerIds) ? row.designerIds.length : 0;
-        return n > 0
-          ? <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{n} assigned</span>
-          : <span style={{ color: 'var(--text-secondary)' }}>—</span>;
-      },
-    },
-    {
-      key: 'actions',
-      header: '',
-      width: 'w-10',
-      render: (row) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); onRowClick(row); }}
-          className="p-1 rounded transition-colors"
-          style={{ color: 'var(--text-secondary)' }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      ),
-    },
-  ];
+      )}
+    </button>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -384,23 +375,27 @@ export default function ProjectsPage() {
     }
   }
 
-  const columns = useMemo(
-    () => makeColumns((row) => router.push(`/projects/${row.id}`)),
-    [router],
-  );
-
-  const isEmpty   = !loading && !fetchError && projects.length === 0;
-  const noResults = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
+  const activeCount   = projects.filter(p => p.lifecycleStage !== 'complete').length;
+  const totalContract = projects.reduce((s, p) => s + (p.totalContractPaise ?? 0), 0);
+  const isEmpty       = !loading && !fetchError && projects.length === 0;
+  const noResults     = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-5">
       {/* Page header */}
-      <div className="flex items-end justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <div>
-          <h1 className="page-title">Projects</h1>
-          <p className="page-subtitle">
-            {loading ? 'Loading…' : `${projects.length} ${projects.length === 1 ? 'project' : 'projects'} in flight`}
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
+            Projects
+          </h1>
+          {!loading && projects.length > 0 && (
+            <span
+              className="rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
+            >
+              {projects.length}
+            </span>
+          )}
         </div>
         <button
           type="button"
@@ -442,7 +437,29 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Error */}
+      {/* Summary stats */}
+      {!loading && !fetchError && projects.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium"
+            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
+          >
+            <FolderKanban className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+            {activeCount} active
+          </span>
+          {totalContract > 0 && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium"
+              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
+            >
+              <IndianRupee className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+              {formatRupees(totalContract)} total contract
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Fetch error */}
       {fetchError && (
         <div className="premium-card flex flex-col items-center justify-center gap-2 p-12 text-center">
           <p className="text-sm font-medium" style={{ color: '#DC2626' }}>{fetchError}</p>
@@ -477,20 +494,33 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* DataTable */}
+      {/* Card grid */}
       {!fetchError && !isEmpty && (
-        <DataTable<ProjectRow>
-          columns={columns}
-          rows={filteredProjects}
-          getRowKey={(r) => r.id}
-          loading={loading}
-          onRowClick={(row) => router.push(`/projects/${row.id}`)}
-          emptyState={
-            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No projects match your search</p>
-            </div>
-          }
-        />
+        loading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl p-4 animate-pulse"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
+              >
+                <div className="h-5 w-24 rounded-full mb-3" style={{ background: 'var(--surface-muted)' }} />
+                <div className="h-4 w-40 rounded mb-2" style={{ background: 'var(--surface-muted)' }} />
+                <div className="h-3 w-28 rounded" style={{ background: 'var(--surface-muted)' }} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredProjects.map(project => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onClick={() => router.push(`/projects/${project.id}`)}
+              />
+            ))}
+          </div>
+        )
       )}
 
       {/* New Project Dialog */}
@@ -594,7 +624,7 @@ export default function ProjectsPage() {
   );
 }
 
-// ─── Helper components ──────────────────────────────────────────────────────
+// ─── Helper components ────────────────────────────────────────────────────────
 
 function FilterChip({
   active, onClick, label, count,
