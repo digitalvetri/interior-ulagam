@@ -61,21 +61,20 @@ export default function InvoicesPage() {
     .reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl">
+    <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Invoices</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+          <h1 className="page-title">Invoices</h1>
+          <p className="page-subtitle">
             {rows.length > 0 ? `${rows.length} shown` : 'All GST invoices issued across projects'}
           </p>
         </div>
         <Link
           href="/invoices/new"
-          className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-          style={{ background: 'var(--text-heading)' }}
+          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
           New Invoice
         </Link>
       </div>
@@ -117,16 +116,13 @@ export default function InvoicesPage() {
 
       {/* Search */}
       <div className="relative w-full max-w-sm">
-        <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
-          style={{ color: 'var(--text-tertiary)' }}
-        />
+        <Search className="studio-search-icon" style={{ color: 'var(--text-secondary)' }} />
         <input
           type="text"
           placeholder="Search invoice # or project…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="studio-input pl-9 w-full"
+          className="studio-input w-full h-9"
         />
       </div>
 
