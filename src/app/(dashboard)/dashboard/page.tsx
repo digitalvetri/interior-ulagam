@@ -240,7 +240,7 @@ export default function DashboardPage() {
   /* ── (derived state only, no dynamic quickActions array needed) ───── */
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in p-4 lg:p-6">
 
       {/* ── Greeting + New Lead ───────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">

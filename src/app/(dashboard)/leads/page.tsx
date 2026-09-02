@@ -651,7 +651,7 @@ export default function LeadsPage() {
   }, [filtered]);
 
   return (
-    <div>
+    <div className="p-4 lg:p-6">
 
       {/* Follow-up modals */}
       {followUpLead && (

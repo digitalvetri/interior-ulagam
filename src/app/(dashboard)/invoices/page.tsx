@@ -61,7 +61,7 @@ export default function InvoicesPage() {
     .reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 lg:p-6">
       {/* Page header */}
       <div className="flex items-center justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>

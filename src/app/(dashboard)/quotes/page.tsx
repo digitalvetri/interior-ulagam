@@ -215,7 +215,7 @@ export default function QuotesPage() {
   const deleteIsRisky = deleteTarget?.status === 'sent' || deleteTarget?.status === 'accepted' || deleteTarget?.status === 'approved';
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-4 lg:p-6">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>

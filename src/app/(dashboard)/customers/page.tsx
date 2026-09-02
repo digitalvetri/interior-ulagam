@@ -176,7 +176,7 @@ export default function CustomersPage() {
   const isEmpty = !loading && !fetchError && customers.length === 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 lg:p-6">
       {/* Page header */}
       <div className="flex items-end justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>

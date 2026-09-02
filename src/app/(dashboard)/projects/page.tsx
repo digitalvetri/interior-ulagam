@@ -381,7 +381,7 @@ export default function ProjectsPage() {
   const noResults     = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-4 lg:p-6">
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
