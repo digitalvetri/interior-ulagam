@@ -890,6 +890,18 @@ export default function LeadDetailPage() {
     } finally { setConverting(false); }
   }
 
+  // Lazy-load follow-ups on first visit to that tab
+  useEffect(() => {
+    if (activeTab !== 'followups' || tabLoaded.has('followups') || !id) return;
+    fetch(`/api/v1/leads/${id}/follow-ups`)
+      .then(r => r.ok ? r.json() : null)
+      .then((json: { data?: LeadFollowUp[] } | null) => {
+        setFollowUpsData(json?.data ?? []);
+        setTabLoaded(prev => new Set([...prev, 'followups']));
+      })
+      .catch(() => setTabLoaded(prev => new Set([...prev, 'followups'])));
+  }, [activeTab, id, tabLoaded]);
+
   /* Loading / not-found */
   if (loading) {
     return (
@@ -948,18 +960,6 @@ export default function LeadDetailPage() {
 
   const stageActionsDisabled = advancingStage || markingWon || markingLost || reopening;
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
-
-  // Lazy-load follow-ups on first visit to that tab
-  useEffect(() => {
-    if (activeTab !== 'followups' || tabLoaded.has('followups') || !id) return;
-    fetch(`/api/v1/leads/${id}/follow-ups`)
-      .then(r => r.ok ? r.json() : null)
-      .then((json: { data?: LeadFollowUp[] } | null) => {
-        setFollowUpsData(json?.data ?? []);
-        setTabLoaded(prev => new Set([...prev, 'followups']));
-      })
-      .catch(() => setTabLoaded(prev => new Set([...prev, 'followups'])));
-  }, [activeTab, id, tabLoaded]);
 
   function handlePipelineStepClick(stepKey: string) {
     if (stepKey === 'contacted') { setShowMarkContactedModal(true); }
