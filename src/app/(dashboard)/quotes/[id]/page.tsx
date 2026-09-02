@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, ClipboardList, Download, Eye, Phone, Tag, Layers, User,
+  ArrowLeft, ClipboardList, Download, Phone, Tag, Layers, User,
   CheckCircle2, Send, MessageCircle, Mail, FileText, IndianRupee,
   Upload, FileDown, ChevronDown, ChevronRight,
 } from 'lucide-react';
@@ -31,7 +31,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [actionError, setActionError]         = useState<string | null>(null);
   const [showAddForm, setShowAddForm]         = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showPreview, setShowPreview]         = useState(false);
   const [collapsedRooms, setCollapsedRooms]   = useState<Set<string>>(new Set());
 
   const fetchQuote = useCallback(() => {
@@ -255,137 +254,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
         />
       )}
 
-      {/* ── Client Preview Modal ──────────────────────────────────────────── */}
-      {showPreview && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowPreview(false)}
-        >
-          <div
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl"
-            style={{ background: '#FFFFFF', padding: '32px' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div />
-              <div className="flex items-center gap-2">
-                {quote.pdfUrl && (
-                  <a
-                    href={quote.pdfUrl}
-                    download
-                    className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50"
-                    style={{ borderColor: '#E5E7EB', color: '#374151' }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download PDF
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setShowPreview(false)}
-                  className="rounded-lg border px-3 py-1.5 text-xs font-medium"
-                  style={{ borderColor: '#E5E7EB', color: '#6B7280' }}
-                >
-                  ✕ Close
-                </button>
-              </div>
-            </div>
-
-            {/* Quote header */}
-            <div className="mb-6 border-b pb-4" style={{ borderColor: '#E5E7EB' }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#6B7280' }}>The Interior Studio</p>
-              <h2 className="text-2xl font-bold" style={{ color: '#111827' }}>{quoteLabel}</h2>
-              {quote.leadContactName && (
-                <p className="text-sm mt-1" style={{ color: '#374151' }}>
-                  Prepared for <strong>{quote.leadContactName}</strong>
-                </p>
-              )}
-              {quote.projectName && (
-                <p className="text-sm" style={{ color: '#6B7280' }}>Project: {quote.projectName}</p>
-              )}
-              <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>Created {fmtDate(quote.createdAt)}</p>
-            </div>
-
-            {/* Line items by room */}
-            {roomGroups.size === 0 ? (
-              <p className="py-8 text-center text-sm" style={{ color: '#6B7280' }}>No line items added yet.</p>
-            ) : (
-              <div className="space-y-6">
-                {[...roomGroups.entries()].map(([, group]) => (
-                  <div key={group.displayName}>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: '#6B7280' }}>
-                      {group.displayName}
-                    </p>
-                    <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid #E5E7EB' }}>
-                          <th className="text-left py-1.5 pr-2 text-xs font-semibold" style={{ color: '#374151', width: '40%' }}>Item</th>
-                          <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: '#374151' }}>Qty</th>
-                          <th className="text-left py-1.5 px-2 text-xs font-semibold" style={{ color: '#374151' }}>Unit</th>
-                          <th className="text-right py-1.5 px-2 text-xs font-semibold" style={{ color: '#374151' }}>Rate</th>
-                          <th className="text-right py-1.5 pl-2 text-xs font-semibold" style={{ color: '#374151' }}>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.lines.map(l => (
-                          <tr key={l.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
-                            <td className="py-1.5 pr-2 text-xs" style={{ color: '#111827' }}>{l.item}</td>
-                            <td className="py-1.5 px-2 text-right text-xs tabular-nums" style={{ color: '#374151' }}>{l.qty}</td>
-                            <td className="py-1.5 px-2 text-xs" style={{ color: '#6B7280' }}>{l.unit}</td>
-                            <td className="py-1.5 px-2 text-right text-xs tabular-nums" style={{ color: '#374151' }}>
-                              ₹{(l.clientRatePaise / 100).toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-1.5 pl-2 text-right text-xs font-medium tabular-nums" style={{ color: '#111827' }}>
-                              ₹{((l.clientRatePaise * l.qty) / 100).toLocaleString('en-IN')}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr>
-                          <td colSpan={4} className="pt-2 text-right text-xs font-semibold" style={{ color: '#374151' }}>Room Total</td>
-                          <td className="pt-2 pl-2 text-right text-xs font-bold tabular-nums" style={{ color: '#111827' }}>
-                            ₹{(group.totalPaise / 100).toLocaleString('en-IN')}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Totals */}
-            {(quote.lines?.length ?? 0) > 0 && (
-              <div className="mt-6 border-t pt-4 space-y-1.5" style={{ borderColor: '#E5E7EB' }}>
-                <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: '#6B7280' }}>Subtotal</span>
-                  <span className="tabular-nums font-medium" style={{ color: '#111827' }}>
-                    ₹{(quote.subtotalPaise / 100).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span style={{ color: '#6B7280' }}>GST (18%)</span>
-                  <span className="tabular-nums font-medium" style={{ color: '#111827' }}>
-                    ₹{(quote.gstPaise / 100).toLocaleString('en-IN')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-base font-bold border-t pt-2" style={{ borderColor: '#E5E7EB', color: '#111827' }}>
-                  <span>Total</span>
-                  <span className="tabular-nums">₹{(quote.totalPaise / 100).toLocaleString('en-IN')}</span>
-                </div>
-              </div>
-            )}
-
-            <p className="mt-6 text-center text-[10px]" style={{ color: '#9CA3AF' }}>
-              This is a client preview — cost and margin details are not shown.
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-5">
 
         {/* ── Back navigation ──────────────────────────────────────────────── */}
@@ -433,56 +301,40 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                   {quote.sentAt     && ` · Sent ${fmtDate(quote.sentAt)}`}
                   {quote.approvedAt && ` · Approved ${fmtDate(quote.approvedAt)}`}
                 </p>
+                {/* Share links — secondary, left-anchored */}
+                <div className="flex items-center gap-3 mt-1.5">
+                  {phone && (
+                    <a
+                      href={`https://wa.me/${phone}?text=${waText}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-medium transition-opacity hover:opacity-70"
+                      style={{ color: '#25D366' }}
+                    >
+                      <MessageCircle className="h-3 w-3" /> WhatsApp
+                    </a>
+                  )}
+                  <a
+                    href={`mailto:?subject=${mailSubj}&body=${mailBody}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium transition-opacity hover:opacity-70"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    <Mail className="h-3 w-3" /> Email
+                  </a>
+                </div>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-2">
-              {/* Compact icon buttons: Preview, Download (if PDF), WhatsApp, Email */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  title="Preview quotation"
-                  onClick={() => setShowPreview(true)}
-                  className="inline-flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
-                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
-                >
-                  <Eye className="h-4 w-4" />
-                </button>
-                {quote.pdfUrl && (
-                  <a
-                    href={quote.pdfUrl}
-                    download
-                    title="Download PDF"
-                    className="inline-flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
-                    style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                )}
-                {phone && (
-                  <a
-                    href={`https://wa.me/${phone}?text=${waText}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Send via WhatsApp"
-                    className="inline-flex items-center justify-center rounded-lg p-2 transition-colors"
-                    style={{ color: '#25D366', border: '1px solid rgba(37,211,102,0.3)' }}
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                  </a>
-                )}
-                <a
-                  href={`mailto:?subject=${mailSubj}&body=${mailBody}`}
-                  title="Send via Email"
-                  className="inline-flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
-                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
-                >
-                  <Mail className="h-4 w-4" />
-                </a>
-              </div>
-
-              {/* Primary action: Send / Approve */}
+              <Link
+                href={`/quotes/${id}/preview`}
+                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all hover:bg-[var(--surface-muted)]"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Link>
               {isDraft && (
                 <button type="button"
                   className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
