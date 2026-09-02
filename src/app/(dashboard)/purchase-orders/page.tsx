@@ -304,7 +304,7 @@ export default function PurchaseOrdersPage() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
+            className="studio-search-icon"
             style={{ color: 'var(--text-secondary)' }}
           />
           <input
@@ -312,7 +312,7 @@ export default function PurchaseOrdersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search PO number or project…"
-            className="studio-input w-full h-9 pl-9"
+            className="studio-input w-full h-9"
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">

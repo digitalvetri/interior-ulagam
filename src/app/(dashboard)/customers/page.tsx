@@ -29,21 +29,6 @@ const STATUS_STYLE: Record<ClientStatus, { dot: string; text: string; bg: string
   Prospect: { dot: '#F59E0B', text: '#92400E', bg: '#FFFBEB' },
 };
 
-// ─── Initials avatar ──────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = ['#6366F1','#8B5CF6','#EC4899','#14B8A6','#F59E0B','#10B981','#3B82F6','#EF4444'];
-function avatarColor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return parts.length >= 2
-    ? (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-    : (parts[0]?.slice(0, 2) ?? '??').toUpperCase();
-}
-
 // ─── Columns ──────────────────────────────────────────────────────────────────
 
 function makeColumns(onMenu: (row: CustomerRow) => void): Column<CustomerRow>[] {
@@ -51,29 +36,18 @@ function makeColumns(onMenu: (row: CustomerRow) => void): Column<CustomerRow>[] 
     {
       key: 'fullName',
       header: 'Client',
-      render: (row) => {
-        const color = avatarColor(row.fullName);
-        return (
-          <div className="flex items-center gap-2.5">
-            <div
-              className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0 text-white text-[11px] font-semibold"
-              style={{ background: color }}
-            >
-              {initials(row.fullName)}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium truncate max-w-[180px]" style={{ color: 'var(--text-heading)' }}>
-                {row.fullName}
-              </p>
-              {row.company && (
-                <p className="text-[11px] truncate max-w-[180px]" style={{ color: 'var(--text-secondary)' }}>
-                  {row.company}
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      },
+      render: (row) => (
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium truncate max-w-[200px]" style={{ color: 'var(--text-heading)' }}>
+            {row.fullName}
+          </p>
+          {row.company && (
+            <p className="text-[11px] truncate max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>
+              {row.company}
+            </p>
+          )}
+        </div>
+      ),
     },
     {
       key: 'phone',
@@ -202,11 +176,11 @@ export default function CustomersPage() {
   const isEmpty = !loading && !fetchError && customers.length === 0;
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-4">
       {/* Page header */}
-      <div className="flex items-end justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <div className="flex items-end justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>
-          <h1 className="page-title">Clients</h1>
+          <h1 className="page-title" style={{ fontSize: '1.5rem' }}>Clients</h1>
           <p className="page-subtitle">
             {loading ? 'Loading…' : `${customers.length} ${customers.length === 1 ? 'client' : 'clients'} in directory`}
           </p>
@@ -224,13 +198,13 @@ export default function CustomersPage() {
       {/* Search + status filter */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+          <Search className="studio-search-icon" style={{ color: 'var(--text-secondary)' }} />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, phone, city…"
-            className="studio-input w-full h-9 pl-9"
+            className="studio-input w-full h-9"
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">

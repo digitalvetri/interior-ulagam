@@ -79,7 +79,7 @@ export function DataTable<T>({
       <div className={cn('rounded-2xl overflow-hidden', className)}
         style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-card)' }}>
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex gap-4 px-4 py-3 border-b animate-pulse last:border-0"
+          <div key={i} className="flex gap-4 px-5 py-4 border-b animate-pulse last:border-0"
             style={{ borderColor: 'var(--border-subtle)' }}>
             {columns.map((c) => (
               <div key={c.key} className="h-4 rounded flex-1" style={{ background: 'var(--surface-muted)' }} />
@@ -108,7 +108,7 @@ export function DataTable<T>({
                   <th
                     key={col.key}
                     className={cn(
-                      'px-4 py-2.5 text-left font-semibold text-xs select-none',
+                      'px-5 py-3 text-left font-semibold text-xs select-none',
                       col.width,
                       col.align === 'right' && 'text-right',
                       col.align === 'center' && 'text-center',
@@ -126,24 +126,26 @@ export function DataTable<T>({
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((row, idx) => (
+              {pageRows.map((row) => (
                 <tr
                   key={getRowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
                     'border-b last:border-0 transition-colors',
-                    onRowClick && 'cursor-pointer hover:opacity-80',
+                    onRowClick && 'cursor-pointer',
                   )}
                   style={{
                     borderColor: 'var(--border-subtle)',
-                    background: idx % 2 === 0 ? 'var(--surface-card)' : 'var(--surface-app)',
+                    background: 'var(--surface-card)',
                   }}
+                  onMouseEnter={onRowClick ? e => (e.currentTarget.style.background = 'var(--surface-hover)') : undefined}
+                  onMouseLeave={onRowClick ? e => (e.currentTarget.style.background = 'var(--surface-card)') : undefined}
                 >
                   {columns.map((col) => (
                     <td
                       key={col.key}
                       className={cn(
-                        'px-4 py-3',
+                        'px-5 py-4',
                         col.align === 'right' && 'text-right',
                         col.align === 'center' && 'text-center',
                       )}
