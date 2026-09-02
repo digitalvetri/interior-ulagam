@@ -16,6 +16,7 @@ import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
 import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
+import { WonFlowModal } from '@/components/leads/WonFlowModal';
 import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
 import type { SiteVisit } from '@/types/site-visits';
@@ -572,6 +573,7 @@ export default function LeadDetailPage() {
   // Stage-action modals
   const [showMarkContactedModal, setShowMarkContactedModal] = useState(false);
   const [showQualifyModal, setShowQualifyModal]             = useState(false);
+  const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
 
   // Tabs
   type TabKey = 'overview' | 'activity' | 'followups' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
@@ -971,7 +973,7 @@ export default function LeadDetailPage() {
     if (stepKey === 'contacted') { setShowMarkContactedModal(true); }
     else if (stepKey === 'qualified') { setShowQualifyModal(true); }
     else if (stepKey === 'site_visit') { setShowSiteVisitModal(true); }
-    else if (stepKey === 'won') { void changeStage('won'); }
+    else if (stepKey === 'won') { setShowWonFlowModal(true); }
     else { void advanceStage(stepKey); }
   }
 
@@ -1064,6 +1066,19 @@ export default function LeadDetailPage() {
           setShowQualifyModal(false);
           setToast('Lead qualified!');
           setTimeout(() => setToast(null), 3000);
+        }}
+      />
+      <WonFlowModal
+        lead={lead}
+        open={showWonFlowModal}
+        onClose={() => setShowWonFlowModal(false)}
+        onSuccess={(project) => {
+          setLead(prev => prev ? { ...prev, stage: 'won' } : prev);
+          setLinkedProject({ id: project.id, name: project.name, lifecycleStage: 'design_pending' });
+          setShowWonFlowModal(false);
+          setToast(`Project "${project.name}" created!`);
+          setTimeout(() => setToast(null), 3000);
+          router.push(`/projects/${project.id}`);
         }}
       />
 
@@ -1240,7 +1255,7 @@ export default function LeadDetailPage() {
                     if (nextStageAction.targetStage === 'contacted') { setShowMarkContactedModal(true); }
                     else if (nextStageAction.targetStage === 'qualified') { setShowQualifyModal(true); }
                     else if (nextStageAction.targetStage === 'site_visit') { setShowSiteVisitModal(true); }
-                    else if (nextStageAction.terminal) { void changeStage(nextStageAction.targetStage); }
+                    else if (nextStageAction.terminal) { setShowWonFlowModal(true); }
                     else { void advanceStage(nextStageAction.targetStage); }
                   }}
                   disabled={stageActionsDisabled}
@@ -1266,7 +1281,7 @@ export default function LeadDetailPage() {
                 <div className="flex items-center gap-2 ml-auto">
                   {/* Won */}
                   {!nextStageAction?.terminal && (
-                    <button type="button" onClick={() => changeStage('won')} disabled={stageActionsDisabled}
+                    <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                       className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium rounded-xl border disabled:opacity-50"
                       style={{ borderColor: 'var(--success)', color: 'var(--success)', background: 'transparent' }}>
                       <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Marking…' : 'Won'}
@@ -2013,7 +2028,7 @@ export default function LeadDetailPage() {
           </Link>
         ) : nextStageAction ? (
           <button type="button"
-            onClick={() => nextStageAction.terminal ? changeStage(nextStageAction.targetStage) : advanceStage(nextStageAction.targetStage)}
+            onClick={() => nextStageAction.terminal ? setShowWonFlowModal(true) : advanceStage(nextStageAction.targetStage)}
             disabled={stageActionsDisabled}
             className="flex flex-col items-center gap-0.5 flex-1 py-1.5 rounded-xl disabled:opacity-50"
             style={{ background: 'var(--violet-primary)' }}>
