@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowUpRight, Download, FileSpreadsheet, IndianRupee, Search, TrendingUp,
+  AlertCircle, ArrowUpRight, FileSpreadsheet, IndianRupee, Search, TrendingUp,
   Wallet, Loader2, Zap, HandCoins, FileText, Calendar,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatRupees } from '@/lib/utils';
 
-type Tab = 'receivables' | 'payments' | 'invoices';
+type Tab = 'receivables' | 'payments';
 
 interface ReceivableRow {
   id: string;
@@ -34,23 +34,6 @@ interface PaymentRow {
   source: 'razorpay' | 'manual';
   reference: string | null;
   reconciledAt: string | null;
-  createdAt: string;
-}
-
-interface InvoiceRow {
-  id: string;
-  projectId: string;
-  projectName: string;
-  invoiceNumber: string;
-  invoiceDate: string;
-  subtotalPaise: number;
-  cgstPaise: number;
-  sgstPaise: number;
-  igstPaise: number;
-  placeOfSupply: string | null;
-  isInterstate: boolean;
-  irn: string | null;
-  pdfUrl: string | null;
   createdAt: string;
 }
 
@@ -94,10 +77,6 @@ export default function AccountsPage() {
   const [exportError, setExErr]   = useState<string | null>(null);
   const [busyExport, setBusyExport] = useState<string | null>(null);
 
-  const [invoices,        setInvoices]        = useState<InvoiceRow[]>([]);
-  const [invoicesLoading, setInvoicesLoading] = useState(false);
-  const [invoicesLoaded,  setInvoicesLoaded]  = useState(false);
-
   // Tally date range — default to current month
   const today = useMemo(() => new Date(), []);
   const [tallyFrom, setTallyFrom] = useState(isoDate(startOfMonth(today)));
@@ -109,19 +88,6 @@ export default function AccountsPage() {
       .then((res) => { setData(res.data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
-
-  useEffect(() => {
-    if (tab !== 'invoices' || invoicesLoaded) return;
-    setInvoicesLoading(true);
-    fetch('/api/v1/invoices')
-      .then((r) => r.json())
-      .then((res: { data: InvoiceRow[] }) => {
-        setInvoices(res.data ?? []);
-        setInvoicesLoaded(true);
-      })
-      .catch(() => setInvoicesLoaded(true))
-      .finally(() => setInvoicesLoading(false));
-  }, [tab, invoicesLoaded]);
 
   const filteredReceivables = useMemo(() => {
     if (!data) return [];
@@ -216,11 +182,18 @@ export default function AccountsPage() {
       {/* Header */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-heading)' }}>Finance</h1>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-heading)' }}>Accounts & Payments</h1>
           <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Receivables · captured payments · invoices · Tally exports
+            Receivables · captured payments · Tally exports
           </p>
         </div>
+        <Link
+          href="/invoices"
+          className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)]"
+          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+        >
+          View all Invoices →
+        </Link>
       </header>
 
       {exportError && (
@@ -391,11 +364,6 @@ export default function AccountsPage() {
             label="Payments received"
             count={paymentCount}
           />
-          <TabButton
-            active={tab === 'invoices'}
-            onClick={() => setTab('invoices')}
-            label="Invoices"
-          />
         </div>
 
         <div className="relative min-w-[240px] flex-1 max-w-md">
@@ -432,7 +400,6 @@ export default function AccountsPage() {
       <div className="flex-1 overflow-auto p-6">
         {tab === 'receivables' && <ReceivablesTable rows={filteredReceivables} />}
         {tab === 'payments'    && <PaymentsTable rows={filteredPayments} />}
-        {tab === 'invoices'    && <InvoicesTable rows={invoices} loading={invoicesLoading} />}
       </div>
     </div>
   );
@@ -696,128 +663,3 @@ function ExportButton({ busy, onClick, icon, label }: {
   );
 }
 
-// ─── Invoices table ───────────────────────────────────────────────────────────
-
-function InvoicesTable({ rows, loading }: { rows: InvoiceRow[]; loading: boolean }) {
-  if (loading) {
-    return (
-      <div className="flex h-32 items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-[var(--text-tertiary)]" />
-      </div>
-    );
-  }
-
-  if (rows.length === 0) {
-    return (
-      <div className="mx-auto max-w-md p-16 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-tertiary)]">
-          <FileText className="h-6 w-6" />
-        </div>
-        <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>No invoices yet</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          GST invoices are generated automatically when a milestone payment link is triggered.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-wide text-[var(--text-secondary)]">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold">Invoice #</th>
-              <th className="px-3 py-3 text-left font-semibold">Project</th>
-              <th className="px-3 py-3 text-left font-semibold">Date</th>
-              <th className="px-3 py-3 text-right font-semibold">Subtotal</th>
-              <th className="px-3 py-3 text-right font-semibold">GST</th>
-              <th className="px-3 py-3 text-right font-semibold">Total</th>
-              <th className="px-3 py-3 text-left font-semibold">Type</th>
-              <th className="px-3 py-3 text-left font-semibold">e-Invoice</th>
-              <th className="w-16 px-3 py-3"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((inv) => {
-              const gstPaise   = inv.isInterstate ? inv.igstPaise : inv.cgstPaise + inv.sgstPaise;
-              const totalPaise = inv.subtotalPaise + gstPaise;
-              return (
-                <tr key={inv.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
-                  <td className="px-4 py-2.5">
-                    <Link
-                      href={`/projects/${inv.projectId}/payments`}
-                      className="font-mono text-xs font-medium hover:text-emerald-600"
-                      style={{ color: 'var(--text-heading)' }}
-                    >
-                      {inv.invoiceNumber}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <Link
-                      href={`/projects/${inv.projectId}`}
-                      className="font-medium hover:text-emerald-600"
-                      style={{ color: 'var(--text-heading)' }}
-                    >
-                      {inv.projectName}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-2.5 tabular-nums text-[var(--text-secondary)]">
-                    {new Date(inv.invoiceDate + 'T00:00:00').toLocaleDateString('en-IN', {
-                      day: '2-digit', month: 'short', year: 'numeric',
-                    })}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-[var(--text-secondary)]">
-                    {formatRupees(inv.subtotalPaise)}
-                  </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums text-[var(--text-secondary)]">
-                    {formatRupees(gstPaise)}
-                    <span className="ml-1 text-[10px] text-[var(--text-tertiary)]">
-                      {inv.isInterstate ? 'IGST' : 'CGST+SGST'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                    {formatRupees(totalPaise)}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className={
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ' +
-                      (inv.isInterstate
-                        ? 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
-                        : 'bg-[var(--surface-muted)] text-[var(--text-secondary)] ring-1 ring-inset ring-[var(--border-subtle)]')
-                    }>
-                      {inv.isInterstate ? 'Interstate' : 'Intra-state'}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {inv.irn ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
-                        IRN
-                      </span>
-                    ) : (
-                      <span className="text-[var(--text-tertiary)] text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    {inv.pdfUrl ? (
-                      <a
-                        href={inv.pdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-300"
-                      >
-                        <Download className="h-3 w-3" />PDF
-                      </a>
-                    ) : (
-                      <span className="text-xs text-[var(--text-tertiary)]">—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}

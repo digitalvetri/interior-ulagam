@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { invoices, projects } from '@/lib/db/schema';
+import { invoices, milestones, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -37,9 +37,11 @@ export async function GET(request: NextRequest) {
         qrCodeUrl: invoices.qrCodeUrl,
         pdfUrl: invoices.pdfUrl,
         createdAt: invoices.createdAt,
+        paymentStatus: milestones.paymentStatus,
       })
       .from(invoices)
       .innerJoin(projects, eq(invoices.projectId, projects.id))
+      .leftJoin(milestones, eq(milestones.invoiceId, invoices.id))
       .where(and(...conditions))
       .orderBy(desc(invoices.createdAt));
 
