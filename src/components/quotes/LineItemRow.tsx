@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Trash2, Pencil, Copy } from 'lucide-react';
+import { Check, X, Trash2, Pencil, Copy, ChevronDown } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { QuoteLine } from '@/types/quotes';
+import { UNIT_PRESETS } from './AddLineForm';
 
 interface LineItemRowProps {
   line: QuoteLine;
@@ -17,29 +18,33 @@ interface LineItemRowProps {
 }
 
 export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: LineItemRowProps) {
-  const [editing,       setEditing]       = useState(false);
-  const [saving,        setSaving]        = useState(false);
-  const [deleting,      setDeleting]      = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteError,   setDeleteError]   = useState<string | null>(null);
-  const [saveError,     setSaveError]     = useState<string | null>(null);
+  const [editing,        setEditing]        = useState(false);
+  const [saving,         setSaving]         = useState(false);
+  const [deleting,       setDeleting]       = useState(false);
+  const [confirmDelete,  setConfirmDelete]  = useState(false);
+  const [deleteError,    setDeleteError]    = useState<string | null>(null);
+  const [saveError,      setSaveError]      = useState<string | null>(null);
 
-  const [roomInput,   setRoomInput]   = useState(line.room);
-  const [itemInput,   setItemInput]   = useState(line.item);
-  const [unitInput,   setUnitInput]   = useState(line.unit);
-  const [qtyInput,    setQtyInput]    = useState(String(line.qty));
-  const [costInput,   setCostInput]   = useState(String(line.costRatePaise / 100));
-  const [clientInput, setClientInput] = useState(String(line.clientRatePaise / 100));
+  const [roomInput,      setRoomInput]      = useState(line.room);
+  const [itemInput,      setItemInput]      = useState(line.item);
+  const [unitEditPreset, setUnitEditPreset] = useState('');
+  const [unitEditCustom, setUnitEditCustom] = useState('');
+  const [qtyInput,       setQtyInput]       = useState(String(line.qty));
+  const [costInput,      setCostInput]      = useState(String(line.costRatePaise / 100));
+  const [clientInput,    setClientInput]    = useState(String(line.clientRatePaise / 100));
 
   const parsedQty         = Math.max(1, Math.round(Number(qtyInput)    || 1));
   const parsedCostPaise   = Math.round((Number(costInput)   || 0) * 100);
   const parsedClientPaise = Math.round((Number(clientInput) || 0) * 100);
   const liveMarginPaise   = (parsedClientPaise - parsedCostPaise) * parsedQty;
+  const unitSaveValue     = unitEditPreset === 'Other' ? unitEditCustom.trim() : unitEditPreset;
 
   function handleEditStart() {
     setRoomInput(line.room);
     setItemInput(line.item);
-    setUnitInput(line.unit);
+    const preset = (UNIT_PRESETS as readonly string[]).includes(line.unit) ? line.unit : 'Other';
+    setUnitEditPreset(preset);
+    setUnitEditCustom(preset === 'Other' ? line.unit : '');
     setQtyInput(String(line.qty));
     setCostInput(String(line.costRatePaise / 100));
     setClientInput(String(line.clientRatePaise / 100));
@@ -62,7 +67,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
         body: JSON.stringify({
           room:            roomInput.trim(),
           item:            itemInput.trim(),
-          unit:            unitInput.trim(),
+          unit:            unitSaveValue || line.unit,
           qty:             parsedQty,
           costRatePaise:   parsedCostPaise,
           clientRatePaise: parsedClientPaise,
@@ -72,7 +77,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
       onUpdate(line.id, {
         room:            roomInput.trim(),
         item:            itemInput.trim(),
-        unit:            unitInput.trim(),
+        unit:            unitSaveValue || line.unit,
         qty:             parsedQty,
         costRatePaise:   parsedCostPaise,
         clientRatePaise: parsedClientPaise,
@@ -104,7 +109,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   if (confirmDelete) {
     return (
       <tr style={{ background: 'var(--danger-soft)', borderBottom: '1px solid var(--danger-soft)' }}>
-        <td colSpan={7} className="px-4 py-3">
+        <td colSpan={6} className="px-4 py-3">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
               Delete &quot;{line.item}&quot;? This cannot be undone.
@@ -134,8 +139,9 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   if (editing) {
     return (
       <tr style={{ background: '#F9F8FF', borderBottom: '1px solid var(--accent-soft)' }}>
-        <td colSpan={7} className="px-4 py-3">
+        <td colSpan={6} className="px-4 py-3">
           <div className="flex flex-wrap items-end gap-3">
+            {/* Room */}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Room</p>
               <input
@@ -147,6 +153,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 autoFocus
               />
             </div>
+            {/* Item */}
             <div className="flex-1 min-w-[140px]">
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Item</p>
               <input
@@ -157,16 +164,36 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 placeholder="Item description"
               />
             </div>
+            {/* Unit */}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Unit</p>
-              <input
-                type="text"
-                value={unitInput}
-                onChange={(e) => setUnitInput(e.target.value)}
-                className="studio-input w-20"
-                placeholder="sqft"
-              />
+              <div className="relative">
+                <select
+                  value={unitEditPreset}
+                  onChange={(e) => { setUnitEditPreset(e.target.value); if (e.target.value !== 'Other') setUnitEditCustom(''); }}
+                  className="studio-input w-28 appearance-none pr-7"
+                >
+                  <option value="">Select…</option>
+                  {UNIT_PRESETS.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3"
+                  style={{ color: 'var(--text-secondary)' }}
+                />
+              </div>
+              {unitEditPreset === 'Other' && (
+                <input
+                  type="text"
+                  value={unitEditCustom}
+                  onChange={(e) => setUnitEditCustom(e.target.value)}
+                  className="studio-input w-28 mt-1"
+                  placeholder="e.g. Bags"
+                />
+              )}
             </div>
+            {/* Qty */}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Qty</p>
               <input
@@ -177,19 +204,9 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 className="studio-input w-20 text-right"
               />
             </div>
+            {/* Rate (Client Rate) */}
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Cost ₹</p>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                value={costInput}
-                onChange={(e) => setCostInput(e.target.value)}
-                className="studio-input w-28 text-right"
-              />
-            </div>
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Client ₹</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Rate ₹</p>
               <input
                 type="number"
                 min={0}
@@ -199,6 +216,21 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 className="studio-input w-28 text-right"
               />
             </div>
+            {/* Your cost (internal) */}
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                Your cost ₹ <span className="normal-case font-normal">(internal)</span>
+              </p>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={costInput}
+                onChange={(e) => setCostInput(e.target.value)}
+                className="studio-input w-28 text-right"
+              />
+            </div>
+            {/* Live margin */}
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>Margin</p>
               <span
@@ -207,6 +239,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
                 {formatRupees(liveMarginPaise)}
               </span>
             </div>
+            {/* Save / Cancel */}
             <div className="flex items-center gap-1 pb-0.5">
               <button
                 type="button"
@@ -236,6 +269,8 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   }
 
   /* ── Normal display row ──────────────────────────────────────────────── */
+  // Shows: Item | Unit | Qty | Rate | Total | Actions
+  // Cost and margin are kept in the DB and visible in the sidebar summary — not shown in the table.
   return (
     <tr
       className="text-sm transition-colors group"
@@ -252,26 +287,19 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
       </td>
 
       {/* Unit */}
-      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>{line.unit}</td>
+      <td className="px-4 py-2.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>{line.unit}</td>
 
       {/* Qty */}
-      <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-heading)' }}>{line.qty}</td>
+      <td className="px-4 py-2.5 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>{line.qty}</td>
 
-      {/* Cost Rate */}
-      <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-heading)' }}>
-        {formatRupees(line.costRatePaise)}
-      </td>
-
-      {/* Client Rate */}
-      <td className="px-4 py-2.5 text-right" style={{ color: 'var(--text-heading)' }}>
+      {/* Rate (client rate) */}
+      <td className="px-4 py-2.5 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>
         {formatRupees(line.clientRatePaise)}
       </td>
 
-      {/* Margin */}
-      <td className="px-4 py-2.5 text-right">
-        <span className="font-semibold" style={{ color: line.marginPaise >= 0 ? 'var(--success)' : 'var(--danger)' }}>
-          {formatRupees(line.marginPaise)}
-        </span>
+      {/* Total = Rate × Qty */}
+      <td className="px-4 py-2.5 text-right tabular-nums font-semibold" style={{ color: 'var(--text-heading)' }}>
+        {formatRupees(line.clientRatePaise * line.qty)}
       </td>
 
       {/* Actions */}

@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, ClipboardList, Download, Phone, Tag, Layers, User,
+  ArrowLeft, ClipboardList, Download, Eye, Phone, Tag, Layers, User,
   CheckCircle2, Send, MessageCircle, Mail, FileText, IndianRupee,
   Upload, FileDown, ChevronDown, ChevronRight,
 } from 'lucide-react';
@@ -11,7 +11,6 @@ import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
 import { MarginSummary } from '@/components/quotes/MarginSummary';
 import { ImportBOQModal } from '@/components/quotes/ImportBOQModal';
-import { DocumentActions } from '@/components/ui/DocumentActions';
 import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
 
@@ -26,14 +25,14 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: str
 
 export default function QuotePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [quote, setQuote]                   = useState<Quote | null>(null);
-  const [loading, setLoading]               = useState(true);
-  const [actionPending, setActionPending]   = useState(false);
-  const [actionError, setActionError]       = useState<string | null>(null);
-  const [showAddForm, setShowAddForm]       = useState(false);
+  const [quote, setQuote]                     = useState<Quote | null>(null);
+  const [loading, setLoading]                 = useState(true);
+  const [actionPending, setActionPending]     = useState(false);
+  const [actionError, setActionError]         = useState<string | null>(null);
+  const [showAddForm, setShowAddForm]         = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showPreview, setShowPreview]       = useState(false);
-  const [collapsedRooms, setCollapsedRooms] = useState<Set<string>>(new Set());
+  const [showPreview, setShowPreview]         = useState(false);
+  const [collapsedRooms, setCollapsedRooms]   = useState<Set<string>>(new Set());
 
   const fetchQuote = useCallback(() => {
     setLoading(true);
@@ -118,7 +117,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
     const wb   = XLSX.utils.book_new();
 
     const sheetRows: (string | number)[][] = [
-      ['Room', 'Item', 'Unit', 'Qty', 'Cost Rate (₹)', 'Client Rate (₹)', 'Margin (₹)', 'Total (₹)'],
+      ['Room', 'Item', 'Unit', 'Qty', 'Rate (₹)', 'Total (₹)', 'Cost Rate (₹)', 'Margin (₹)'],
     ];
 
     for (const [, { displayName, lines: roomLines }] of roomGroups) {
@@ -129,25 +128,25 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
           l.item,
           l.unit,
           l.qty,
-          l.costRatePaise   / 100,
           l.clientRatePaise / 100,
-          l.marginPaise     / 100,
           (l.clientRatePaise * l.qty) / 100,
+          l.costRatePaise   / 100,
+          l.marginPaise     / 100,
         ]);
       }
     }
 
     if ((quote.lines?.length ?? 0) > 0) {
       sheetRows.push(['', '', '', '', '', '', '', '']);
-      sheetRows.push(['', '', '', '', '', '', 'Subtotal', quote.subtotalPaise / 100]);
-      sheetRows.push(['', '', '', '', '', '', 'GST (18%)', quote.gstPaise     / 100]);
-      sheetRows.push(['', '', '', '', '', '', 'TOTAL',    quote.totalPaise    / 100]);
+      sheetRows.push(['', '', '', '', '', 'Subtotal', '', quote.subtotalPaise / 100]);
+      sheetRows.push(['', '', '', '', '', 'GST (18%)', '', quote.gstPaise     / 100]);
+      sheetRows.push(['', '', '', '', '', 'TOTAL',    '', quote.totalPaise    / 100]);
     }
 
     const ws = XLSX.utils.aoa_to_sheet(sheetRows);
     ws['!cols'] = [
-      { wch: 22 }, { wch: 36 }, { wch: 8 }, { wch: 6 },
-      { wch: 15 }, { wch: 15 }, { wch: 14 }, { wch: 14 },
+      { wch: 22 }, { wch: 36 }, { wch: 10 }, { wch: 6 },
+      { wch: 13 }, { wch: 13 }, { wch: 13 }, { wch: 13 },
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Quotation');
@@ -184,11 +183,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
     }
   }
 
-  // Normalise room keys so "Living Room" and "living room" merge into one group
-  // Computed plainly rather than with useMemo. The previous version depended on
-  // `quote?.lines ?? []`, a new array each render, so the memo never held — and
-  // the React Compiler could not take it over while that memoization existed.
-  // With the manual memo gone the compiler handles caching itself.
   const roomGroups = (() => {
     const lines = quote?.lines ?? [];
     const map = new Map<string, { displayName: string; lines: QuoteLine[]; totalPaise: number }>();
@@ -204,14 +198,12 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
     return map;
   })();
 
-  // For rendering only — deliberately declared after the memo above so it is not
-  // one of its dependencies.
   const lines = quote?.lines ?? [];
 
   /* ── Loading ──────────────────────────────────────────────────────────── */
   if (loading) {
     return (
-      <div className="p-6 space-y-5">
+      <div className="space-y-5">
         <div className="skeleton h-4 w-28 rounded-lg" />
         <div className="skeleton h-36 rounded-2xl" />
         <div className="skeleton h-10 rounded-2xl" />
@@ -223,7 +215,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   /* ── Not found ────────────────────────────────────────────────────────── */
   if (!quote) {
     return (
-      <div className="p-6 flex flex-col items-center justify-center py-24 gap-5">
+      <div className="flex flex-col items-center justify-center py-24 gap-5">
         <FileText className="h-12 w-12" style={{ color: '#D1CAC0' }} />
         <p className="text-base font-medium" style={{ color: 'var(--danger)' }}>Quote not found.</p>
         <Link href="/quotes"
@@ -275,14 +267,31 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             style={{ background: '#FFFFFF', padding: '32px' }}
             onClick={e => e.stopPropagation()}
           >
-            <button
-              type="button"
-              onClick={() => setShowPreview(false)}
-              className="absolute right-4 top-4 text-xs font-medium"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              ✕ Close
-            </button>
+            <div className="flex items-center justify-between mb-6">
+              <div />
+              <div className="flex items-center gap-2">
+                {quote.pdfUrl && (
+                  <a
+                    href={quote.pdfUrl}
+                    download
+                    className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-gray-50"
+                    style={{ borderColor: '#E5E7EB', color: '#374151' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download PDF
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(false)}
+                  className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+                  style={{ borderColor: '#E5E7EB', color: '#6B7280' }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
 
             {/* Quote header */}
             <div className="mb-6 border-b pb-4" style={{ borderColor: '#E5E7EB' }}>
@@ -377,7 +386,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-      <div className="p-6 space-y-5">
+      <div className="space-y-5">
 
         {/* ── Back navigation ──────────────────────────────────────────────── */}
         {hasLead ? (
@@ -429,33 +438,51 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
 
             {/* Actions */}
             <div className="flex flex-wrap items-center gap-2">
-              {phone && (
-                <a href={`https://wa.me/${phone}?text=${waText}`}
-                  target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ borderColor: 'var(--success-soft)', background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-                  <MessageCircle className="h-4 w-4" />WhatsApp
+              {/* Compact icon buttons: Preview, Download (if PDF), WhatsApp, Email */}
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  title="Preview quotation"
+                  onClick={() => setShowPreview(true)}
+                  className="inline-flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+                {quote.pdfUrl && (
+                  <a
+                    href={quote.pdfUrl}
+                    download
+                    title="Download PDF"
+                    className="inline-flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+                    style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    <Download className="h-4 w-4" />
+                  </a>
+                )}
+                {phone && (
+                  <a
+                    href={`https://wa.me/${phone}?text=${waText}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Send via WhatsApp"
+                    className="inline-flex items-center justify-center rounded-lg p-2 transition-colors"
+                    style={{ color: '#25D366', border: '1px solid rgba(37,211,102,0.3)' }}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </a>
+                )}
+                <a
+                  href={`mailto:?subject=${mailSubj}&body=${mailBody}`}
+                  title="Send via Email"
+                  className="inline-flex items-center justify-center rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
+                >
+                  <Mail className="h-4 w-4" />
                 </a>
-              )}
-              <a href={`mailto:?subject=${mailSubj}&body=${mailBody}`}
-                className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                <Mail className="h-4 w-4" />Email
-              </a>
-              <button
-                type="button"
-                onClick={() => setShowPreview(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                <FileText className="h-4 w-4" />Client Preview
-              </button>
-              <DocumentActions
-                pdfUrl={quote.pdfUrl}
-                docType="quote"
-                docNumber={quoteLabel}
-                waPhone={phone}
-                waCaption={`Hi ${quote.leadContactName ?? 'there'}, your quotation ${quoteLabel} from The Interior Studio is ready.`}
-              />
+              </div>
+
+              {/* Primary action: Send / Approve */}
               {isDraft && (
                 <button type="button"
                   className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
@@ -575,7 +602,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 )}
               </h2>
               <div className="flex items-center gap-2 flex-wrap justify-end">
-                {/* Export Excel — available regardless of status */}
                 {lines.length > 0 && (
                   <button type="button"
                     onClick={handleExportExcel}
@@ -585,7 +611,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     Export Excel
                   </button>
                 )}
-                {/* Import BOQ + Add Line — draft only */}
                 {isDraft && !showAddForm && (
                   <>
                     <button type="button"
@@ -606,7 +631,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
               </div>
             </div>
 
-            {/* Table */}
+            {/* Table — 6 columns: Item | Unit | Qty | Rate | Total | (actions) */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -614,23 +639,24 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Item</th>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Unit</th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Qty</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Cost Rate ₹</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Client Rate ₹</th>
-                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Margin ₹</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Rate ₹</th>
+                    <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Total ₹</th>
                     <th className="px-4 py-2.5 w-24" />
                   </tr>
                 </thead>
                 <tbody>
                   {lines.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-14 text-center">
-                        <FileText className="h-9 w-9 mx-auto mb-3" style={{ color: '#D1CAC0' }} />
-                        <p className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>No line items yet</p>
-                        <p className="text-xs mt-1" style={{ color: '#C4BCAF' }}>
-                          Click &quot;Add Line&quot; or &quot;Import BOQ&quot; above to add rooms and items.
-                        </p>
-                      </td>
-                    </tr>
+                    showAddForm ? null : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-12 text-center">
+                          <FileText className="h-9 w-9 mx-auto mb-3" style={{ color: '#D1CAC0' }} />
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>No line items yet</p>
+                          <p className="text-xs mt-1" style={{ color: '#C4BCAF' }}>
+                            Click &quot;Add Line&quot; or &quot;Import BOQ&quot; above to add rooms and items.
+                          </p>
+                        </td>
+                      </tr>
+                    )
                   ) : (
                     Array.from(roomGroups.entries()).flatMap(([key, { displayName, lines: roomLines, totalPaise: roomTotal }]) => {
                       const isCollapsed = collapsedRooms.has(key);
@@ -644,7 +670,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                             cursor:       'pointer',
                           }}
                           onClick={() => toggleRoom(key)}>
-                          <td colSpan={7} className="px-4 py-2">
+                          <td colSpan={6} className="px-4 py-2">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 {isCollapsed
@@ -657,7 +683,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                                   {roomLines.length} item{roomLines.length !== 1 ? 's' : ''}
                                 </span>
                               </div>
-                              {/* Show room total when collapsed so user can scan room costs at a glance */}
                               <span
                                 className="text-[11px] font-semibold transition-opacity"
                                 style={{ color: 'var(--accent-base)', opacity: isCollapsed ? 1 : 0.4 }}>
@@ -683,9 +708,9 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
               </table>
             </div>
 
-            {/* Inline add form */}
+            {/* Inline add form — appears below table with no gap */}
             {showAddForm && (
-              <div style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+              <div style={{ borderTop: lines.length > 0 ? '1px solid var(--border-subtle)' : undefined, background: 'var(--surface-muted)' }}>
                 <AddLineForm
                   quoteId={id}
                   onSuccess={handleLineAdded}
