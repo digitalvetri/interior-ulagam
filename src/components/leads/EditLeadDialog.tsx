@@ -42,15 +42,6 @@ const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
 
 const TERMINAL_STAGES = new Set<LeadStage>(['won', 'lost']);
 
-const PROPERTY_TYPES = [
-  'Residential – Apartment',
-  'Residential – Villa / Independent House',
-  'Residential – Duplex / Penthouse',
-  'Commercial – Office',
-  'Commercial – Retail / Showroom',
-  'Commercial – Restaurant / Café',
-  'Other',
-];
 
 interface FormState {
   contactName: string;
@@ -60,10 +51,6 @@ interface FormState {
   contactCity: string;
   pincode: string;
   projectLocation: string;
-  projectName: string;
-  propertyType: string;
-  budgetBand: string;
-  finalPriceRupees: string;
   source: LeadSource;
   stage: LeadStage;
   ownerId: string;
@@ -96,42 +83,34 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
   const [error, setError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [form, setForm] = useState<FormState>({
-    contactName:      lead.contactName ?? '',
-    contactPhone:     lead.contactPhone ?? '',
-    alternatePhone:   lead.alternatePhone ?? '',
-    contactEmail:     lead.contactEmail ?? '',
-    contactCity:      lead.contactCity ?? '',
-    pincode:          lead.pincode ?? '',
-    projectLocation:  lead.projectLocation ?? '',
-    projectName:      lead.projectName ?? '',
-    propertyType:     lead.propertyType ?? '',
-    budgetBand:       lead.budgetBand ?? '',
-    finalPriceRupees: lead.projectValuePaise ? Math.round(lead.projectValuePaise / 100).toString() : '',
-    source:           lead.source ?? 'whatsapp',
-    stage:            lead.stage ?? 'new',
-    ownerId:          lead.ownerId ?? '',
-    notes:            lead.notes ?? '',
+    contactName:     lead.contactName ?? '',
+    contactPhone:    lead.contactPhone ?? '',
+    alternatePhone:  lead.alternatePhone ?? '',
+    contactEmail:    lead.contactEmail ?? '',
+    contactCity:     lead.contactCity ?? '',
+    pincode:         lead.pincode ?? '',
+    projectLocation: lead.projectLocation ?? '',
+    source:          lead.source ?? 'whatsapp',
+    stage:           lead.stage ?? 'new',
+    ownerId:         lead.ownerId ?? '',
+    notes:           lead.notes ?? '',
   });
 
   // Sync form when lead prop changes
   useEffect(() => {
     if (open) {
       setForm({
-        contactName:      lead.contactName ?? '',
-        contactPhone:     lead.contactPhone ?? '',
-        alternatePhone:   lead.alternatePhone ?? '',
-        contactEmail:     lead.contactEmail ?? '',
-        contactCity:      lead.contactCity ?? '',
-        pincode:          lead.pincode ?? '',
-        projectLocation:  lead.projectLocation ?? '',
-        projectName:      lead.projectName ?? '',
-        propertyType:     lead.propertyType ?? '',
-        budgetBand:       lead.budgetBand ?? '',
-        finalPriceRupees: lead.projectValuePaise ? Math.round(lead.projectValuePaise / 100).toString() : '',
-        source:           lead.source ?? 'whatsapp',
-        stage:            lead.stage ?? 'new',
-        ownerId:          lead.ownerId ?? '',
-        notes:            lead.notes ?? '',
+        contactName:     lead.contactName ?? '',
+        contactPhone:    lead.contactPhone ?? '',
+        alternatePhone:  lead.alternatePhone ?? '',
+        contactEmail:    lead.contactEmail ?? '',
+        contactCity:     lead.contactCity ?? '',
+        pincode:         lead.pincode ?? '',
+        projectLocation: lead.projectLocation ?? '',
+        source:          lead.source ?? 'whatsapp',
+        stage:           lead.stage ?? 'new',
+        ownerId:         lead.ownerId ?? '',
+        notes:           lead.notes ?? '',
       });
       setError(null);
     }
@@ -169,16 +148,8 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
     if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();
     if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
     if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
-    if (form.projectName.trim())     payload.projectName     = form.projectName.trim();
-    if (form.propertyType)           payload.propertyType    = form.propertyType;
-    if (form.budgetBand.trim())      payload.budgetBand      = form.budgetBand.trim();
     if (form.ownerId)                payload.ownerId         = form.ownerId;
     if (form.notes.trim())           payload.notes           = form.notes.trim();
-    // Final Price: always send so the server can update or clear it
-    const finalPriceRupees = parseFloat(form.finalPriceRupees);
-    payload.projectValuePaise = (form.finalPriceRupees.trim() && !isNaN(finalPriceRupees) && finalPriceRupees > 0)
-      ? Math.round(finalPriceRupees * 100)
-      : 0;
 
     try {
       const res = await fetch(`/api/v1/leads/${lead.id}`, {
@@ -251,40 +222,6 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
                     onChange={e => set('projectLocation', e.target.value)} />
                 </Field>
               </div>
-            </div>
-          </div>
-
-          {/* Project Details */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-            <SectionLabel>Project Details</SectionLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="sm:col-span-2">
-                <Field id="e-projectName" label="Project Name">
-                  <Input id="e-projectName" className={cls} value={form.projectName}
-                    onChange={e => set('projectName', e.target.value)} />
-                </Field>
-              </div>
-              <Field id="e-propertyType" label="Project Type">
-                <Select value={form.propertyType} onValueChange={v => set('propertyType', v)}>
-                  <SelectTrigger id="e-propertyType" className={cls}>
-                    <SelectValue placeholder="Select type…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROPERTY_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field id="e-budgetBand" label="Budget Range">
-                <Input id="e-budgetBand" className={cls} value={form.budgetBand}
-                  onChange={e => set('budgetBand', e.target.value)}
-                  placeholder="e.g. 10–20 lakhs" />
-              </Field>
-              <Field id="e-finalPrice" label="Final Price (₹)">
-                <Input id="e-finalPrice" type="number" min="0" step="1" className={cls}
-                  value={form.finalPriceRupees}
-                  onChange={e => set('finalPriceRupees', e.target.value)}
-                  placeholder="e.g. 1500000 for ₹15 lakhs" />
-              </Field>
             </div>
           </div>
 
