@@ -15,6 +15,8 @@ import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, Measur
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
+import { ScheduleMeasurementModal } from '@/components/leads/ScheduleMeasurementModal';
+import { CreateQuotationModal } from '@/components/leads/CreateQuotationModal';
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
 import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
 import { WonFlowModal } from '@/components/leads/WonFlowModal';
@@ -521,9 +523,11 @@ export default function LeadDetailPage() {
   const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
 
   // Stage-action modals
-  const [showMarkContactedModal, setShowMarkContactedModal] = useState(false);
-  const [showQualifyModal, setShowQualifyModal]             = useState(false);
-  const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
+  const [showMarkContactedModal, setShowMarkContactedModal]   = useState(false);
+  const [showQualifyModal, setShowQualifyModal]               = useState(false);
+  const [showWonFlowModal, setShowWonFlowModal]               = useState(false);
+  const [showMeasurementModal, setShowMeasurementModal]       = useState(false);
+  const [showQuotationModal, setShowQuotationModal]           = useState(false);
 
   // Tabs
   type TabKey = 'overview' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
@@ -814,10 +818,12 @@ export default function LeadDetailPage() {
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   function handlePipelineStepClick(stepKey: string) {
-    if (stepKey === 'contacted') { setShowMarkContactedModal(true); }
-    else if (stepKey === 'qualified') { setShowQualifyModal(true); }
-    else if (stepKey === 'site_visit') { setShowSiteVisitModal(true); }
-    else if (stepKey === 'won') { setShowWonFlowModal(true); }
+    if (stepKey === 'contacted')   { setShowMarkContactedModal(true); }
+    else if (stepKey === 'qualified')   { setShowQualifyModal(true); }
+    else if (stepKey === 'site_visit')  { setShowSiteVisitModal(true); }
+    else if (stepKey === 'measurement') { setShowMeasurementModal(true); }
+    else if (stepKey === 'quotation')   { setShowQuotationModal(true); }
+    else if (stepKey === 'won')         { setShowWonFlowModal(true); }
     else { void advanceStage(stepKey); }
   }
 
@@ -921,6 +927,47 @@ export default function LeadDetailPage() {
           setToast(`Project "${project.name}" created!`);
           setTimeout(() => setToast(null), 3000);
           router.push(`/projects/${project.id}`);
+        }}
+      />
+      <ScheduleMeasurementModal
+        leadId={id}
+        open={showMeasurementModal}
+        onOpenChange={setShowMeasurementModal}
+        onSuccess={async (round) => {
+          setMeasurementsData(prev => {
+            const exists = prev.some(r => r.id === round.id);
+            return exists ? prev : [round, ...prev];
+          });
+          await advanceStage('measurement');
+          const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
+          if (actRes?.ok) {
+            const { data: actData } = await actRes.json() as { data: LeadActivity[] };
+            setActivities(actData ?? []);
+          }
+          setToast('Measurement round created!');
+          setTimeout(() => setToast(null), 3000);
+        }}
+      />
+      <CreateQuotationModal
+        leadId={id}
+        leadName={lead.contactName}
+        open={showQuotationModal}
+        onOpenChange={setShowQuotationModal}
+        onSuccess={async (quote, openEditor) => {
+          setLeadQuotes(prev => [quote, ...prev]);
+          await advanceStage('quotation');
+          const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
+          if (actRes?.ok) {
+            const { data: actData } = await actRes.json() as { data: LeadActivity[] };
+            setActivities(actData ?? []);
+          }
+          if (openEditor) {
+            router.push(`/quotes/${quote.id}`);
+          } else {
+            setActiveTab('quotations');
+            setToast('Quotation created!');
+            setTimeout(() => setToast(null), 3000);
+          }
         }}
       />
 
@@ -1089,10 +1136,12 @@ export default function LeadDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (nextStageAction.targetStage === 'contacted') { setShowMarkContactedModal(true); }
-                    else if (nextStageAction.targetStage === 'qualified') { setShowQualifyModal(true); }
-                    else if (nextStageAction.targetStage === 'site_visit') { setShowSiteVisitModal(true); }
-                    else if (nextStageAction.terminal) { setShowWonFlowModal(true); }
+                    if (nextStageAction.targetStage === 'contacted')        { setShowMarkContactedModal(true); }
+                    else if (nextStageAction.targetStage === 'qualified')   { setShowQualifyModal(true); }
+                    else if (nextStageAction.targetStage === 'site_visit')  { setShowSiteVisitModal(true); }
+                    else if (nextStageAction.targetStage === 'measurement') { setShowMeasurementModal(true); }
+                    else if (nextStageAction.targetStage === 'quotation')   { setShowQuotationModal(true); }
+                    else if (nextStageAction.terminal)                      { setShowWonFlowModal(true); }
                     else { void advanceStage(nextStageAction.targetStage); }
                   }}
                   disabled={stageActionsDisabled}

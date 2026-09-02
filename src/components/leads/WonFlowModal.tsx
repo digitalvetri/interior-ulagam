@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, CheckCircle2, FolderKanban, User } from 'lucide-react';
+import { X, CheckCircle2, User } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface CreatedProject {
@@ -135,22 +135,7 @@ export function WonFlowModal({ lead, open, onClose, onSuccess, acceptedQuoteTota
             )}
           </div>
 
-          {/* What will happen */}
-          <div className="rounded-xl p-3.5 space-y-1.5" style={{ background: 'var(--success-soft)', border: '1px solid rgba(16,185,129,0.2)' }}>
-            <p className="text-xs font-semibold" style={{ color: 'var(--success-text)' }}>What happens next</p>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--success)' }} />
-              <p className="text-xs" style={{ color: 'var(--success-text)' }}>
-                {lead.customerId ? 'Existing customer record updated to client' : 'New customer profile created (duplicate check by phone)'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <FolderKanban className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--success)' }} />
-              <p className="text-xs" style={{ color: 'var(--success-text)' }}>Project created and linked to this lead</p>
-            </div>
-          </div>
-
-          {error && <p className="text-xs text-red-600">{error}</p>}
+{error && <p className="text-xs text-red-600">{error}</p>}
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose} disabled={submitting}
