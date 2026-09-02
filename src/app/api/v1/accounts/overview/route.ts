@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
-  payments, invoices, projects, milestones,
+  payments, invoices, projects, milestones, customers,
 } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
@@ -10,6 +10,7 @@ export interface ReceivableRow {
   id: string;
   projectId: string;
   projectName: string;
+  clientName: string | null;
   label: string;
   amountPaise: number;
   paymentStatus: 'pending' | 'link_sent' | 'overdue';
@@ -82,6 +83,7 @@ export async function GET() {
         id: milestones.id,
         projectId: milestones.projectId,
         projectName: projects.name,
+        clientName: customers.fullName,
         label: milestones.label,
         amountPaise: milestones.amountPaise,
         paymentStatus: milestones.paymentStatus,
@@ -89,6 +91,7 @@ export async function GET() {
       })
       .from(milestones)
       .innerJoin(projects, eq(milestones.projectId, projects.id))
+      .leftJoin(customers, eq(projects.customerId, customers.id))
       .where(and(
         eq(projects.tenantId, ctx.tenantId),
         sql`${milestones.paymentStatus} <> 'paid'`,
@@ -99,6 +102,7 @@ export async function GET() {
       id: r.id,
       projectId: r.projectId,
       projectName: r.projectName ?? '(unnamed project)',
+      clientName: r.clientName ?? null,
       label: r.label,
       amountPaise: r.amountPaise,
       paymentStatus: r.paymentStatus as ReceivableRow['paymentStatus'],

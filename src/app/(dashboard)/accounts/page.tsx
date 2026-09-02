@@ -3,19 +3,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowUpRight, FileSpreadsheet, IndianRupee, Search, TrendingUp,
-  Wallet, Loader2, Zap, HandCoins, FileText, Calendar,
+  AlertCircle, ArrowUpRight, ChevronDown, FileSpreadsheet,
+  IndianRupee, Search, TrendingUp, Wallet, Loader2, Zap, HandCoins,
+  FileText, Receipt,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { formatRupees } from '@/lib/utils';
 
-type Tab = 'receivables' | 'payments';
+type ActiveFilter = 'all' | 'pending' | 'link_sent' | 'overdue' | 'received';
 
 interface ReceivableRow {
   id: string;
   projectId: string;
   projectName: string;
+  clientName: string | null;
   label: string;
   amountPaise: number;
   paymentStatus: 'pending' | 'link_sent' | 'overdue';
@@ -51,33 +51,31 @@ interface OverviewPayload {
   payments: PaymentRow[];
 }
 
-const STATUS_BADGE: Record<ReceivableRow['paymentStatus'], string> = {
-  pending:   'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-950/40 dark:text-blue-300',
-  link_sent: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300',
-  overdue:   'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/40 dark:text-red-300',
+const STATUS_CONFIG: Record<ReceivableRow['paymentStatus'], { label: string; bg: string; color: string }> = {
+  pending:   { label: 'Pending',   bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+  link_sent: { label: 'Link sent', bg: '#FEF9C3',              color: '#92400E' },
+  overdue:   { label: 'Overdue',   bg: 'var(--danger-soft)',   color: 'var(--danger)' },
 };
 
-// ─── Tally date range presets ─────────────────────────────────────────────────
+// ─── Tally date range helpers ──────────────────────────────────────────────────
 function isoDate(d: Date): string { return d.toISOString().slice(0, 10); }
 function startOfMonth(d: Date): Date { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
 function startOfPrevMonth(d: Date): Date { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)); }
 function endOfPrevMonth(d: Date): Date { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 0)); }
 function startOfFY(d: Date): Date {
-  // Indian financial year — April 1 to March 31
   const y = d.getUTCMonth() >= 3 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
   return new Date(Date.UTC(y, 3, 1));
 }
 
 export default function AccountsPage() {
-  const [data, setData]           = useState<OverviewPayload | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [tab, setTab]             = useState<Tab>('receivables');
-  const [search, setSearch]       = useState('');
-  const [statusFilter, setStat]   = useState<ReceivableRow['paymentStatus'] | 'all'>('all');
-  const [exportError, setExErr]   = useState<string | null>(null);
+  const [data, setData]             = useState<OverviewPayload | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [activeFilter, setFilter]   = useState<ActiveFilter>('all');
+  const [search, setSearch]         = useState('');
+  const [tallyOpen, setTallyOpen]   = useState(false);
+  const [exportError, setExErr]     = useState<string | null>(null);
   const [busyExport, setBusyExport] = useState<string | null>(null);
 
-  // Tally date range — default to current month
   const today = useMemo(() => new Date(), []);
   const [tallyFrom, setTallyFrom] = useState(isoDate(startOfMonth(today)));
   const [tallyTo, setTallyTo]     = useState(isoDate(today));
@@ -93,11 +91,15 @@ export default function AccountsPage() {
     if (!data) return [];
     const q = search.trim().toLowerCase();
     return data.receivables.filter((r) => {
-      if (statusFilter !== 'all' && r.paymentStatus !== statusFilter) return false;
+      if (activeFilter !== 'all' && activeFilter !== 'received' && r.paymentStatus !== activeFilter) return false;
       if (!q) return true;
-      return r.projectName.toLowerCase().includes(q) || r.label.toLowerCase().includes(q);
+      return (
+        r.projectName.toLowerCase().includes(q) ||
+        r.label.toLowerCase().includes(q) ||
+        (r.clientName ?? '').toLowerCase().includes(q)
+      );
     });
-  }, [data, search, statusFilter]);
+  }, [data, search, activeFilter]);
 
   const filteredPayments = useMemo(() => {
     if (!data) return [];
@@ -129,20 +131,16 @@ export default function AccountsPage() {
   }
 
   async function downloadTally(kind: 'tally-sales-csv' | 'tally-sales-xml' | 'tally-receipts-csv' | 'tally-receipts-xml') {
-    if (!tallyFrom || !tallyTo) {
-      setExErr('Pick a date range first.');
-      return;
-    }
-    if (tallyFrom > tallyTo) {
-      setExErr('“From” date must be before “To” date.');
-      return;
-    }
+    if (!tallyFrom || !tallyTo) { setExErr('Pick a date range first.'); return; }
+    if (tallyFrom > tallyTo)   { setExErr('"From" date must be before "To" date.'); return; }
     setBusyExport(kind);
-    const ext = kind.endsWith('xml') ? 'xml' : 'csv';
+    const ext  = kind.endsWith('xml') ? 'xml' : 'csv';
     const type = kind.includes('sales') ? 'sales' : 'receipts';
-    const filename = `tally_${type}_${tallyFrom}_to_${tallyTo}.${ext}`;
     try {
-      await downloadExport(`/api/v1/exports/${kind}?from=${tallyFrom}&to=${tallyTo}`, filename);
+      await downloadExport(
+        `/api/v1/exports/${kind}?from=${tallyFrom}&to=${tallyTo}`,
+        `tally_${type}_${tallyFrom}_to_${tallyTo}.${ext}`,
+      );
     } finally {
       setBusyExport(null);
     }
@@ -165,7 +163,7 @@ export default function AccountsPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[var(--text-tertiary)]" />
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-tertiary)' }} />
       </div>
     );
   }
@@ -174,492 +172,573 @@ export default function AccountsPage() {
   }
 
   const k = data.kpis;
-  const receivableCount = data.receivables.length;
-  const paymentCount    = data.payments.length;
+
+  const filterCounts: Record<ActiveFilter, number> = {
+    all:       data.receivables.length,
+    pending:   data.receivables.filter((r) => r.paymentStatus === 'pending').length,
+    link_sent: data.receivables.filter((r) => r.paymentStatus === 'link_sent').length,
+    overdue:   data.receivables.filter((r) => r.paymentStatus === 'overdue').length,
+    received:  data.payments.length,
+  };
+
+  const FILTERS: { key: ActiveFilter; label: string }[] = [
+    { key: 'all',       label: 'All' },
+    { key: 'pending',   label: 'Pending' },
+    { key: 'link_sent', label: 'Link Sent' },
+    { key: 'overdue',   label: 'Overdue' },
+    { key: 'received',  label: 'Received' },
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-6 py-4 ">
+
+      {/* ── 1. Header ───────────────────────────────────────────────────────── */}
+      <header
+        className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 px-6 py-4"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--text-heading)' }}>Accounts & Payments</h1>
-          <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Receivables · captured payments · Tally exports
-          </p>
+          <h1 className="page-title">Accounts & Payments</h1>
+          <p className="page-subtitle">Track outstanding receivables and captured payments</p>
         </div>
         <Link
           href="/invoices"
-          className="inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)]"
-          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+          className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}
         >
-          View all Invoices →
+          View Invoices <ArrowUpRight className="h-3.5 w-3.5" />
         </Link>
       </header>
 
       {exportError && (
-        <div className="border-b border-red-200 bg-red-50 px-6 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+        <div
+          className="flex-shrink-0 px-6 py-2 text-xs text-red-700"
+          style={{ borderBottom: '1px solid #FCA5A5', background: '#FEF2F2' }}
+        >
           {exportError}
         </div>
       )}
 
-      {/* KPI row */}
-      <section className="grid grid-cols-2 gap-3 border-b border-[var(--border-subtle)] p-6 md:grid-cols-4">
-        <Kpi
+      {/* ── 2. Compact KPI summary ──────────────────────────────────────────── */}
+      <section
+        className="flex-shrink-0 grid grid-cols-2 gap-3 px-6 py-4 md:grid-cols-4"
+        style={{ borderBottom: '1px solid var(--border-subtle)' }}
+      >
+        <CompactKpi
           icon={Wallet}
           label="Outstanding"
           value={formatRupees(k.outstandingPaise)}
-          sub={`${k.openReceivableCount} milestone${k.openReceivableCount === 1 ? '' : 's'} to collect`}
-          accent="amber"
+          sub={`${k.openReceivableCount} to collect`}
+          iconBg="#FEF3CD"
+          iconColor="#D97706"
         />
-        <Kpi
+        <CompactKpi
           icon={AlertCircle}
           label="Overdue"
           value={formatRupees(k.overduePaise)}
           sub={k.overduePaise > 0 ? 'Needs follow-up' : 'None overdue'}
-          accent={k.overduePaise > 0 ? 'red' : 'slate'}
+          iconBg={k.overduePaise > 0 ? 'var(--danger-soft)' : 'var(--surface-muted)'}
+          iconColor={k.overduePaise > 0 ? 'var(--danger)' : 'var(--text-tertiary)'}
         />
-        <Kpi
+        <CompactKpi
           icon={TrendingUp}
           label="Collected · 30 days"
           value={formatRupees(k.collected30dPaise)}
-          sub={`${k.collected30dCount} payment${k.collected30dCount === 1 ? '' : 's'} in period`}
-          accent="emerald"
+          sub={`${k.collected30dCount} payment${k.collected30dCount === 1 ? '' : 's'}`}
+          iconBg="#D1FAE5"
+          iconColor="#059669"
         />
-        <Kpi
+        <CompactKpi
           icon={HandCoins}
-          label="Collected · all time"
+          label="Collected · All time"
           value={formatRupees(k.collectedAllTimePaise)}
-          sub={`${k.collectedAllTimeCount} total transactions`}
-          accent="blue"
+          sub={`${k.collectedAllTimeCount} transactions`}
+          iconBg="#DBEAFE"
+          iconColor="#2563EB"
         />
       </section>
 
-      {/* ── Tally export panel ────────────────────────────────────────── */}
-      <section className="border-b border-slate-200 px-6 py-5 dark:border-slate-800">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
+      {/* ── 3. Main working area ────────────────────────────────────────────── */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="space-y-5 p-6">
+
+          {/* Search + filter pills */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px] flex-1 max-w-sm">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+              <input
+                type="text"
+                placeholder="Search project, client, milestone…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 w-full rounded-xl border bg-[var(--surface-card)] pl-9 pr-3 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                style={{
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-heading)',
+                }}
+              />
+            </div>
+
             <div
-              className="flex h-9 w-9 items-center justify-center rounded-md"
-              style={{ background: 'var(--mint-mist)' }}
+              className="flex items-center gap-0.5 rounded-xl border p-0.5"
+              style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}
             >
-              <FileSpreadsheet className="h-4 w-4" style={{ color: 'var(--forest)' }} strokeWidth={2} />
-            </div>
-            <div>
-              <h2 className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>
-                Tally export
-              </h2>
-              <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                Import sales &amp; receipt vouchers into Tally Prime. Party &amp; sales ledgers are created on first import.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          {/* From / To */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>From</label>
-            <div className="relative">
-              <Calendar className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-              <input
-                type="date"
-                value={tallyFrom}
-                onChange={(e) => setTallyFrom(e.target.value)}
-                className="studio-input h-9 w-44 pl-8 tnum"
-              />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>To</label>
-            <div className="relative">
-              <Calendar className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-              <input
-                type="date"
-                value={tallyTo}
-                onChange={(e) => setTallyTo(e.target.value)}
-                className="studio-input h-9 w-44 pl-8 tnum"
-              />
+              {FILTERS.map(({ key, label }) => {
+                const active = activeFilter === key;
+                const isOverdue = key === 'overdue' && filterCounts.overdue > 0;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                    style={{
+                      background: active ? 'var(--surface-card)' : 'transparent',
+                      color: active
+                        ? (isOverdue ? 'var(--danger)' : 'var(--text-heading)')
+                        : 'var(--text-secondary)',
+                      boxShadow: active ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                    }}
+                  >
+                    {label}
+                    <span
+                      className="rounded-full px-1.5 py-px text-[10px] font-bold"
+                      style={{
+                        background: active
+                          ? (isOverdue ? 'var(--danger-soft)' : 'var(--surface-muted)')
+                          : 'transparent',
+                        color: isOverdue && active ? 'var(--danger)' : 'var(--text-tertiary)',
+                      }}
+                    >
+                      {filterCounts[key]}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Presets */}
-          <div className="flex gap-1.5 pb-0.5">
-            <PresetButton onClick={() => applyRangePreset('this-month')}>This month</PresetButton>
-            <PresetButton onClick={() => applyRangePreset('last-month')}>Last month</PresetButton>
-            <PresetButton onClick={() => applyRangePreset('fy')}>FY-to-date</PresetButton>
-          </div>
-        </div>
+          {/* Table */}
+          {activeFilter === 'received'
+            ? <ReceivedTable rows={filteredPayments} />
+            : <ReceivablesTable rows={filteredReceivables} activeFilter={activeFilter} />
+          }
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {/* Sales voucher exports */}
-          <div className="premium-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
-                  Sales vouchers
-                </h3>
-                <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                  Invoices raised in range. Customer Dr · Sales Cr · GST split.
-                </p>
-              </div>
-              <div className="flex gap-1.5 flex-shrink-0">
-                <ExportButton
-                  busy={busyExport === 'tally-sales-csv'}
-                  onClick={() => downloadTally('tally-sales-csv')}
-                  icon={<FileText className="h-3.5 w-3.5" />}
-                  label="CSV"
-                />
-                <ExportButton
-                  busy={busyExport === 'tally-sales-xml'}
-                  onClick={() => downloadTally('tally-sales-xml')}
-                  icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
-                  label="XML"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Receipt voucher exports */}
-          <div className="premium-card p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
-                  Receipt vouchers
-                </h3>
-                <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                  Payments captured in range. Bank Dr · Customer Cr.
-                </p>
-              </div>
-              <div className="flex gap-1.5 flex-shrink-0">
-                <ExportButton
-                  busy={busyExport === 'tally-receipts-csv'}
-                  onClick={() => downloadTally('tally-receipts-csv')}
-                  icon={<FileText className="h-3.5 w-3.5" />}
-                  label="CSV"
-                />
-                <ExportButton
-                  busy={busyExport === 'tally-receipts-xml'}
-                  onClick={() => downloadTally('tally-receipts-xml')}
-                  icon={<FileSpreadsheet className="h-3.5 w-3.5" />}
-                  label="XML"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Tabs + search + filters */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-subtle)] px-6 py-3 ">
-        <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] p-0.5 text-xs ">
-          <TabButton
-            active={tab === 'receivables'}
-            onClick={() => setTab('receivables')}
-            label="Receivables"
-            count={receivableCount}
-          />
-          <TabButton
-            active={tab === 'payments'}
-            onClick={() => setTab('payments')}
-            label="Payments received"
-            count={paymentCount}
-          />
-        </div>
-
-        <div className="relative min-w-[240px] flex-1 max-w-md">
-          <Search className="studio-search-icon" />
-          <Input
-            placeholder={tab === 'receivables' ? 'Search project or milestone…' : 'Search project, invoice or reference…'}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-11 h-[48px]"
-          />
-        </div>
-
-        {tab === 'receivables' && (
-          <div className="flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] p-0.5 text-xs ">
-            {(['all', 'pending', 'link_sent', 'overdue'] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => setStat(s)}
-                className={
-                  'rounded px-2.5 py-1 font-medium capitalize ' +
-                  (statusFilter === s
-                    ? 'bg-[var(--surface-card)] text-white '
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
-                }
-              >
-                {s === 'all' ? 'All' : s === 'link_sent' ? 'Link sent' : s}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {tab === 'receivables' && <ReceivablesTable rows={filteredReceivables} />}
-        {tab === 'payments'    && <PaymentsTable rows={filteredPayments} />}
-      </div>
-    </div>
-  );
-}
-
-// ─── KPI ────────────────────────────────────────────────────────────────────────
-
-function Kpi({
-  icon: Icon, label, value, sub, accent,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  sub: string;
-  accent: 'amber' | 'red' | 'emerald' | 'blue' | 'slate';
-}) {
-  const bg = {
-    amber:   'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
-    red:     'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-    emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
-    blue:    'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
-    slate:   'bg-[var(--surface-muted)] text-[var(--text-secondary)] ',
-  }[accent];
-  return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-4 shadow-sm ">
-      <div className="mb-2 flex items-center justify-between">
-        <span className={'flex h-8 w-8 items-center justify-center rounded-lg ' + bg}>
-          <Icon className="h-4 w-4" />
-        </span>
-      </div>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--text-secondary)]">{label}</p>
-      <p className="mt-0.5 text-xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{value}</p>
-      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{sub}</p>
-    </div>
-  );
-}
-
-// ─── Tab button ────────────────────────────────────────────────────────────────
-
-function TabButton({
-  active, onClick, label, count,
-}: { active: boolean; onClick: () => void; label: string; count?: number }) {
-  return (
-    <button
-      onClick={onClick}
-      className={
-        'inline-flex items-center gap-1.5 rounded px-3 py-1 font-medium ' +
-        (active
-          ? 'bg-[var(--surface-card)] text-white '
-          : 'text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] ')
-      }
-    >
-      {label}
-      {count !== undefined && (
-        <span className={'rounded-full px-1.5 text-[10px] font-bold ' + (active ? 'bg-white/20 text-white /20 ' : 'bg-[var(--surface-hover)] text-[var(--text-secondary)] ')}>
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-// ─── Receivables table ────────────────────────────────────────────────────────
-
-function ReceivablesTable({ rows }: { rows: ReceivableRow[] }) {
-  if (rows.length === 0) {
-    return (
-      <div className="mx-auto max-w-md p-16 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
-          <IndianRupee className="h-6 w-6" />
-        </div>
-        <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>All caught up</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">No outstanding milestones match your filters.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-sm ">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-        <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-wide text-[var(--text-secondary)] ">
-          <tr>
-            <th className="px-4 py-3 text-left font-semibold">Project</th>
-            <th className="px-3 py-3 text-left font-semibold">Milestone</th>
-            <th className="px-3 py-3 text-right font-semibold">Amount</th>
-            <th className="px-3 py-3 text-left font-semibold">Status</th>
-            <th className="px-3 py-3 text-right font-semibold">Age</th>
-            <th className="w-24 px-3 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-b border-[var(--border-subtle)] last:border-b-0 ">
-              <td className="px-4 py-2.5">
-                <Link
-                  href={`/projects/${r.projectId}/payments`}
-                  className="font-medium hover:text-emerald-600"
-                  style={{ color: 'var(--text-heading)' }}
+          {/* ── 4. Tally Export — collapsible ───────────────────────────────── */}
+          <div
+            className="overflow-hidden rounded-2xl border"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+          >
+            <button
+              type="button"
+              onClick={() => setTallyOpen(!tallyOpen)}
+              className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+                  style={{ background: '#ECFDF5' }}
                 >
-                  {r.projectName}
-                </Link>
-              </td>
-              <td className="px-3 py-2.5 text-[var(--text-secondary)] ">{r.label}</td>
-              <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                {formatRupees(r.amountPaise)}
-              </td>
-              <td className="px-3 py-2.5">
-                <span className={'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ' + STATUS_BADGE[r.paymentStatus]}>
-                  {r.paymentStatus.replace('_', ' ')}
+                  <FileSpreadsheet className="h-4 w-4" style={{ color: '#059669' }} />
                 </span>
-              </td>
-              <td className="px-3 py-2.5 text-right text-xs tabular-nums text-[var(--text-secondary)]">
-                {r.daysSinceCreation}d
-              </td>
-              <td className="px-3 py-2.5 text-right">
-                <Link
-                  href={`/projects/${r.projectId}/payments`}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-300"
-                >
-                  Manage <ArrowUpRight className="h-3 w-3" />
-                </Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-            </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                    Tally Export
+                  </p>
+                  <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                    Import sales &amp; receipt vouchers into Tally Prime
+                  </p>
+                </div>
+              </div>
+              <ChevronDown
+                className="h-4 w-4 flex-shrink-0 transition-transform"
+                style={{
+                  color: 'var(--text-tertiary)',
+                  transform: tallyOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                }}
+              />
+            </button>
+
+            {tallyOpen && (
+              <div
+                className="space-y-4 px-5 pb-5"
+                style={{ borderTop: '1px solid var(--border-subtle)' }}
+              >
+                {/* Date range */}
+                <div className="flex flex-wrap items-end gap-3 pt-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      From
+                    </label>
+                    <input
+                      type="date"
+                      value={tallyFrom}
+                      onChange={(e) => setTallyFrom(e.target.value)}
+                      className="h-9 rounded-lg border px-3 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                      style={{
+                        width: '160px',
+                        borderColor: 'var(--border-subtle)',
+                        background: 'var(--surface-card)',
+                        color: 'var(--text-heading)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      To
+                    </label>
+                    <input
+                      type="date"
+                      value={tallyTo}
+                      onChange={(e) => setTallyTo(e.target.value)}
+                      className="h-9 rounded-lg border px-3 text-sm outline-none transition-colors focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                      style={{
+                        width: '160px',
+                        borderColor: 'var(--border-subtle)',
+                        background: 'var(--surface-card)',
+                        color: 'var(--text-heading)',
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-1.5 pb-px">
+                    {(['this-month', 'last-month', 'fy'] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => applyRangePreset(p)}
+                        className="rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--surface-muted)]"
+                        style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}
+                      >
+                        {p === 'this-month' ? 'This month' : p === 'last-month' ? 'Last month' : 'FY-to-date'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Export cards */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ExportCard
+                    title="Sales Vouchers"
+                    desc="Invoices raised in range. Customer Dr · Sales Cr · GST split."
+                    onCsv={() => downloadTally('tally-sales-csv')}
+                    onXml={() => downloadTally('tally-sales-xml')}
+                    busyCsv={busyExport === 'tally-sales-csv'}
+                    busyXml={busyExport === 'tally-sales-xml'}
+                  />
+                  <ExportCard
+                    title="Receipt Vouchers"
+                    desc="Payments captured in range. Bank Dr · Customer Cr."
+                    onCsv={() => downloadTally('tally-receipts-csv')}
+                    onXml={() => downloadTally('tally-receipts-xml')}
+                    busyCsv={busyExport === 'tally-receipts-csv'}
+                    busyXml={busyExport === 'tally-receipts-xml'}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── Payments table ───────────────────────────────────────────────────────────
+// ─── Compact KPI card ──────────────────────────────────────────────────────────
 
-const PAY_STATUS_STYLES: Record<string, string> = {
-  captured:  'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300',
-  pending:   'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/40 dark:text-amber-300',
-  failed:    'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/40 dark:text-red-300',
-  refunded:  'bg-[var(--surface-muted)] text-[var(--text-secondary)] ring-1 ring-inset ring-slate-200 ',
-};
+function CompactKpi({
+  icon: Icon, label, value, sub, iconBg, iconColor,
+}: {
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  label: string; value: string; sub: string;
+  iconBg: string; iconColor: string;
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 rounded-xl border p-3.5"
+      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}
+    >
+      <span
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+        style={{ background: iconBg }}
+      >
+        <Icon className="h-4 w-4" style={{ color: iconColor }} />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          {label}
+        </p>
+        <p className="text-lg font-bold tabular-nums leading-tight" style={{ color: 'var(--text-heading)' }}>
+          {value}
+        </p>
+        <p className="truncate text-[10px]" style={{ color: 'var(--text-secondary)' }}>{sub}</p>
+      </div>
+    </div>
+  );
+}
 
-function PaymentsTable({ rows }: { rows: PaymentRow[] }) {
+// ─── Receivables table ─────────────────────────────────────────────────────────
+
+function ReceivablesTable({ rows, activeFilter }: { rows: ReceivableRow[]; activeFilter: ActiveFilter }) {
   if (rows.length === 0) {
     return (
-      <div className="mx-auto max-w-md p-16 text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-muted)] text-[var(--text-tertiary)] ">
-          <IndianRupee className="h-6 w-6" />
+      <div
+        className="rounded-2xl border p-12 text-center"
+        style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+      >
+        <div
+          className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full"
+          style={{ background: '#D1FAE5' }}
+        >
+          <IndianRupee className="h-5 w-5" style={{ color: '#059669' }} />
         </div>
-        <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>No payments recorded yet</h2>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Payments show up here as clients pay via Razorpay links or you record manual entries against an invoice.
+        <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+          {activeFilter === 'overdue' ? 'No overdue payments' : 'All caught up'}
+        </p>
+        <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+          No outstanding milestones match your filter.
         </p>
       </div>
     );
   }
+
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-sm ">
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{ borderColor: 'var(--border-subtle)' }}
+    >
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-        <thead className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs uppercase tracking-wide text-[var(--text-secondary)] ">
-          <tr>
-            <th className="px-4 py-3 text-left font-semibold">Date</th>
-            <th className="px-3 py-3 text-left font-semibold">Project</th>
-            <th className="px-3 py-3 text-left font-semibold">Invoice</th>
-            <th className="px-3 py-3 text-right font-semibold">Amount</th>
-            <th className="px-3 py-3 text-left font-semibold">Status</th>
-            <th className="px-3 py-3 text-left font-semibold">Source</th>
-            <th className="px-3 py-3 text-left font-semibold">Reference</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((p) => (
-            <tr key={p.id} className="border-b border-[var(--border-subtle)] last:border-b-0 ">
-              <td className="px-4 py-2.5 tabular-nums text-[var(--text-secondary)]">
-                {new Date(p.reconciledAt ?? p.createdAt).toLocaleDateString('en-IN', {
-                  day: '2-digit', month: 'short', year: 'numeric',
-                })}
-              </td>
-              <td className="px-3 py-2.5">
-                {p.projectId && p.projectName ? (
-                  <Link
-                    href={`/projects/${p.projectId}`}
-                    className="font-medium hover:text-emerald-600"
-                    style={{ color: 'var(--text-heading)' }}
-                  >
-                    {p.projectName}
-                  </Link>
-                ) : (
-                  <span className="text-[var(--text-tertiary)]">—</span>
-                )}
-              </td>
-              <td className="px-3 py-2.5">
-                {p.invoiceNumber ? (
-                  <Link
-                    href={`/invoices/${p.invoiceId}`}
-                    className="font-mono text-xs text-[var(--text-primary)] hover:text-emerald-600 "
-                  >
-                    {p.invoiceNumber}
-                  </Link>
-                ) : (
-                  <span className="text-[var(--text-tertiary)]">—</span>
-                )}
-              </td>
-              <td className="px-3 py-2.5 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                {formatRupees(p.amountPaise)}
-              </td>
-              <td className="px-3 py-2.5">
-                <span className={'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ' + (PAY_STATUS_STYLES[p.status] ?? PAY_STATUS_STYLES.pending)}>
-                  {p.status}
-                </span>
-              </td>
-              <td className="px-3 py-2.5">
-                <span className="inline-flex items-center gap-1 text-xs text-[var(--text-secondary)] ">
-                  {p.source === 'razorpay' ? <Zap className="h-3 w-3 text-blue-500" /> : <HandCoins className="h-3 w-3 text-[var(--text-tertiary)]" />}
-                  {p.source === 'razorpay' ? 'Razorpay' : 'Manual'}
-                </span>
-              </td>
-              <td className="px-3 py-2.5 truncate font-mono text-xs text-[var(--text-secondary)]" style={{ maxWidth: 220 }}>
-                {p.reference ?? '—'}
-              </td>
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              {['Project', 'Client', 'Milestone', 'Amount', 'Status', 'Age'].map((h) => (
+                <th
+                  key={h}
+                  className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide${h === 'Amount' ? ' text-right' : ''}`}
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {h}
+                </th>
+              ))}
+              <th className="px-4 py-3" />
             </tr>
-          ))}
-        </tbody>
-      </table>
-            </div>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const cfg = STATUS_CONFIG[r.paymentStatus];
+              return (
+                <tr
+                  key={r.id}
+                  className="transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                >
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/projects/${r.projectId}/payments`}
+                      className="font-medium hover:underline"
+                      style={{ color: 'var(--text-heading)' }}
+                    >
+                      {r.projectName}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {r.clientName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {r.label}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                    {formatRupees(r.amountPaise)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      style={{ background: cfg.bg, color: cfg.color }}
+                    >
+                      {cfg.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {r.daysSinceCreation}d
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      href={`/projects/${r.projectId}/payments`}
+                      className="inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70"
+                      style={{ color: 'var(--accent-base)' }}
+                    >
+                      Manage <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-// ─── Tally panel helpers ─────────────────────────────────────────────────────
+// ─── Received payments table ───────────────────────────────────────────────────
 
-function PresetButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+const PAY_STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  captured: { label: 'Received', bg: '#D1FAE5', color: '#059669' },
+  pending:  { label: 'Pending',  bg: '#FEF3CD', color: '#D97706' },
+  failed:   { label: 'Failed',   bg: 'var(--danger-soft)', color: 'var(--danger)' },
+  refunded: { label: 'Refunded', bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+};
+
+function ReceivedTable({ rows }: { rows: PaymentRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <div
+        className="rounded-2xl border p-12 text-center"
+        style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+      >
+        <div
+          className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full"
+          style={{ background: 'var(--surface-muted)' }}
+        >
+          <Receipt className="h-5 w-5" style={{ color: 'var(--text-tertiary)' }} />
+        </div>
+        <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No payments recorded yet</p>
+        <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
+          Payments appear here as clients pay via Razorpay links or you record manual entries.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="inline-flex items-center rounded-md px-2.5 py-1.5 text-[12px] font-medium border transition-colors"
-      style={{
-        background: 'var(--surface-card)',
-        color: 'var(--text-secondary)',
-        borderColor: 'var(--border-subtle)',
-      }}
+    <div
+      className="overflow-hidden rounded-2xl border"
+      style={{ borderColor: 'var(--border-subtle)' }}
     >
-      {children}
-    </button>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              {['Date', 'Project', 'Invoice', 'Amount', 'Status', 'Source'].map((h) => (
+                <th
+                  key={h}
+                  className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide${h === 'Amount' ? ' text-right' : ''}`}
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p) => {
+              const cfg = PAY_STATUS_CONFIG[p.status] ?? PAY_STATUS_CONFIG.pending;
+              return (
+                <tr
+                  key={p.id}
+                  className="transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                >
+                  <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {new Date(p.reconciledAt ?? p.createdAt).toLocaleDateString('en-IN', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                    })}
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.projectId && p.projectName ? (
+                      <Link
+                        href={`/projects/${p.projectId}`}
+                        className="font-medium hover:underline"
+                        style={{ color: 'var(--text-heading)' }}
+                      >
+                        {p.projectName}
+                      </Link>
+                    ) : (
+                      <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {p.invoiceNumber ? (
+                      <Link
+                        href={`/invoices/${p.invoiceId}`}
+                        className="font-mono text-xs hover:underline"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {p.invoiceNumber}
+                      </Link>
+                    ) : (
+                      <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                    {formatRupees(p.amountPaise)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span
+                      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      style={{ background: cfg.bg, color: cfg.color }}
+                    >
+                      {cfg.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      {p.source === 'razorpay'
+                        ? <Zap className="h-3 w-3" style={{ color: '#3B82F6' }} />
+                        : <HandCoins className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+                      }
+                      {p.source === 'razorpay' ? 'Razorpay' : 'Manual'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
-function ExportButton({ busy, onClick, icon, label }: {
-  busy: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+// ─── Tally export card ─────────────────────────────────────────────────────────
+
+function ExportCard({
+  title, desc, onCsv, onXml, busyCsv, busyXml,
+}: {
+  title: string; desc: string;
+  onCsv: () => void; onXml: () => void;
+  busyCsv: boolean; busyXml: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy}
-      className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] disabled:opacity-60"
+    <div
+      className="flex items-center justify-between gap-4 rounded-xl border p-4"
+      style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}
     >
-      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : icon}
-      {label}
-    </button>
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>{title}</p>
+        <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
+      </div>
+      <div className="flex flex-shrink-0 gap-1.5">
+        <button
+          type="button"
+          onClick={onCsv}
+          disabled={busyCsv}
+          className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] disabled:opacity-60"
+        >
+          {busyCsv ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+          CSV
+        </button>
+        <button
+          type="button"
+          onClick={onXml}
+          disabled={busyXml}
+          className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] disabled:opacity-60"
+        >
+          {busyXml ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+          XML
+        </button>
+      </div>
+    </div>
   );
 }
-
