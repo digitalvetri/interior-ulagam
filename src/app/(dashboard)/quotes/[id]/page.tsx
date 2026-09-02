@@ -254,7 +254,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
         />
       )}
 
-      <div className="space-y-5">
+      <div className="space-y-5 p-4 lg:p-6">
 
         {/* ── Back navigation ──────────────────────────────────────────────── */}
         {hasLead ? (
