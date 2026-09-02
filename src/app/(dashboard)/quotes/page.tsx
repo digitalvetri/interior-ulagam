@@ -26,14 +26,44 @@ import { Quote, Project } from '@/types/quotes';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 
-const STATUS_CONFIG: Record<Quote['status'], { label: string; icon: React.ElementType; bg: string; color: string }> = {
-  draft:    { label: 'Draft',    icon: Clock,        bg: '#F1F5F9', color: '#64748B' },
-  sent:     { label: 'Sent',     icon: Send,         bg: '#FEF9C3', color: '#854D0E' },
-  approved: { label: 'Approved', icon: CheckCircle2, bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  accepted: { label: 'Accepted', icon: CheckCircle2, bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  revised:  { label: 'Revised',  icon: RefreshCw,    bg: 'var(--warning-soft)', color: '#92400E' },
-  rejected: { label: 'Rejected', icon: AlertTriangle, bg: 'var(--danger-soft)', color: 'var(--danger)' },
-};
+// Compound filter keys — 'approved_combined' covers approved+accepted,
+// 'needs_attention' covers revised+rejected.
+type FilterKey = 'all' | Quote['status'] | 'approved_combined' | 'needs_attention';
+
+const KPI_CHIPS = [
+  {
+    key:   'draft' as FilterKey,
+    label: 'Draft',
+    Icon:  Clock,
+    color: '#64748B',
+    bg:    '#F1F5F9',
+    match: (q: Quote) => q.status === 'draft',
+  },
+  {
+    key:   'sent' as FilterKey,
+    label: 'Sent',
+    Icon:  Send,
+    color: '#854D0E',
+    bg:    '#FEF9C3',
+    match: (q: Quote) => q.status === 'sent',
+  },
+  {
+    key:   'approved_combined' as FilterKey,
+    label: 'Approved',
+    Icon:  CheckCircle2,
+    color: 'var(--success-text)',
+    bg:    'var(--success-soft)',
+    match: (q: Quote) => q.status === 'approved' || q.status === 'accepted',
+  },
+  {
+    key:   'needs_attention' as FilterKey,
+    label: 'Needs Attention',
+    Icon:  AlertTriangle,
+    color: 'var(--danger)',
+    bg:    'var(--danger-soft)',
+    match: (q: Quote) => q.status === 'revised' || q.status === 'rejected',
+  },
+] as const;
 
 function QuoteNumberBadge({ version, id }: { version: number; id: string }) {
   return (
@@ -53,7 +83,7 @@ export default function QuotesPage() {
   const router = useRouter();
   const [quotes,            setQuotes]            = useState<Quote[]>([]);
   const [loading,           setLoading]           = useState(true);
-  const [filterStatus,      setFilterStatus]      = useState<Quote['status'] | 'all'>('all');
+  const [filterKey,         setFilterKey]         = useState<FilterKey>('all');
   const [dialogOpen,        setDialogOpen]        = useState(false);
   const [projects,          setProjects]          = useState<Project[]>([]);
   const [projectsLoading,   setProjectsLoading]   = useState(false);
@@ -169,7 +199,12 @@ export default function QuotesPage() {
     }
   }
 
-  const filteredQuotes = filterStatus === 'all' ? quotes : quotes.filter(q => q.status === filterStatus);
+  const filteredQuotes = (() => {
+    if (filterKey === 'all') return quotes;
+    const chip = KPI_CHIPS.find(c => c.key === filterKey);
+    return chip ? quotes.filter(chip.match) : quotes;
+  })();
+
   const totalValue    = quotes.reduce((sum, q) => sum + (q.totalPaise ?? 0), 0);
   const approvedCount = quotes.filter((q) => q.status === 'accepted' || q.status === 'approved').length;
   const draftCount    = quotes.filter((q) => q.status === 'draft').length;
@@ -180,7 +215,7 @@ export default function QuotesPage() {
   const deleteIsRisky = deleteTarget?.status === 'sent' || deleteTarget?.status === 'accepted' || deleteTarget?.status === 'approved';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
@@ -195,31 +230,32 @@ export default function QuotesPage() {
         </button>
       </div>
 
-      {/* Summary cards — clickable to filter */}
+      {/* Compact KPI chips — single row, click to filter */}
       {quotes.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {(Object.keys(STATUS_CONFIG) as Array<Quote['status']>).map((status) => {
-            const cfg    = STATUS_CONFIG[status];
-            const Icon   = cfg.icon;
-            const count  = quotes.filter((q) => q.status === status).length;
-            const value  = quotes.filter((q) => q.status === status).reduce((s, q) => s + (q.totalPaise ?? 0), 0);
-            const active = filterStatus === status;
+        <div className="flex flex-wrap gap-2">
+          {KPI_CHIPS.map((chip) => {
+            const count  = quotes.filter(chip.match).length;
+            const active = filterKey === chip.key;
             return (
               <button
-                key={status}
+                key={chip.key}
                 type="button"
-                onClick={() => setFilterStatus(active ? 'all' : status)}
-                className="premium-card p-4 text-left transition-all"
-                style={active ? { outline: `2px solid ${cfg.color}`, outlineOffset: 2 } : undefined}
+                onClick={() => setFilterKey(active ? 'all' : chip.key)}
+                className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-[12px] font-medium border transition-colors"
+                style={
+                  active
+                    ? { background: chip.bg, color: chip.color, borderColor: chip.color }
+                    : { background: 'var(--surface-card)', color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }
+                }
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: cfg.bg }}>
-                    <Icon className="h-3.5 w-3.5" style={{ color: cfg.color }} />
-                  </span>
-                  <span className="text-xs font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
-                </div>
-                <p className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>{count}</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{formatRupees(value)}</p>
+                <chip.Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                {chip.label}
+                <span
+                  className="tabular-nums font-bold"
+                  style={{ color: active ? chip.color : 'var(--text-heading)' }}
+                >
+                  {count}
+                </span>
               </button>
             );
           })}
@@ -338,8 +374,8 @@ export default function QuotesPage() {
               className="flex items-center justify-between px-4 py-3 rounded-b-2xl"
               style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
               <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                {filterStatus !== 'all'
-                  ? <>{filteredQuotes.length} of {quotes.length} quotes <button type="button" onClick={() => setFilterStatus('all')} className="ml-1 underline" style={{ color: 'var(--accent-base)' }}>Clear filter</button></>
+                {filterKey !== 'all'
+                  ? <>{filteredQuotes.length} of {quotes.length} quotes <button type="button" onClick={() => setFilterKey('all')} className="ml-1 underline" style={{ color: 'var(--accent-base)' }}>Clear filter</button></>
                   : <>{quotes.length} quote{quotes.length !== 1 ? 's' : ''}</>
                 }
               </span>
@@ -481,4 +517,3 @@ export default function QuotesPage() {
     </div>
   );
 }
-
