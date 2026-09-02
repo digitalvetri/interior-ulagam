@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { vendors } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, count, inArray } from 'drizzle-orm';
+import { purchaseOrders } from '@/lib/db/schema';
 
 const MATERIAL_CATEGORIES = [
   'laminate',
@@ -59,7 +60,28 @@ export async function GET(request: NextRequest) {
       .where(and(...conditions))
       .orderBy(asc(vendors.name));
 
-    return NextResponse.json({ data: rows });
+    // Enrich with open PO counts
+    const vendorIds = rows.map((v) => v.id);
+    const openPOCountByVendor = new Map<string, number>();
+    if (vendorIds.length > 0) {
+      const openStatuses = ['draft', 'sent', 'acknowledged', 'partial'] as const;
+      const poCounts = await db
+        .select({ vendorId: purchaseOrders.vendorId, cnt: count() })
+        .from(purchaseOrders)
+        .where(and(
+          eq(purchaseOrders.tenantId, ctx.tenantId),
+          inArray(purchaseOrders.vendorId, vendorIds),
+          inArray(purchaseOrders.status, openStatuses),
+        ))
+        .groupBy(purchaseOrders.vendorId);
+      for (const pc of poCounts) {
+        if (pc.vendorId) openPOCountByVendor.set(pc.vendorId, Number(pc.cnt));
+      }
+    }
+
+    const enriched = rows.map((v) => ({ ...v, openPOCount: openPOCountByVendor.get(v.id) ?? 0 }));
+
+    return NextResponse.json({ data: enriched });
   } catch (err) {
     console.error('[vendors GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

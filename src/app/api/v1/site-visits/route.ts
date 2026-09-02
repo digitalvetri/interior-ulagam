@@ -4,6 +4,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteVisits, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { applyStageTransition } from '@/lib/leads/transitions';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -99,11 +100,7 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // Advance lead stage to site_visit
-    await db
-      .update(leads)
-      .set({ stage: 'site_visit', lastActivityAt: new Date() })
-      .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)));
+    await applyStageTransition(leadId, ctx.tenantId, ctx.dbUserId ?? null, 'site_visit');
 
     return NextResponse.json(
       { data: visit, message: 'Site visit scheduled' },

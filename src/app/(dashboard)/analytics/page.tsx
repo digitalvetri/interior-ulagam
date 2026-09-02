@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, ArrowRight, Users, FolderKanban, FileText, Wallet,
@@ -29,13 +30,15 @@ interface OverviewData {
 }
 
 const LEAD_STAGES = [
-  { key: 'new',                     label: 'New' },
-  { key: 'site_visit_scheduled',    label: 'Site visit' },
-  { key: 'consultation_done',       label: 'Consulted' },
-  { key: 'proposal_sent',           label: 'Proposal sent' },
-  { key: 'negotiation',             label: 'Negotiation' },
-  { key: 'won',                     label: 'Won' },
-  { key: 'lost',                    label: 'Lost' },
+  { key: 'new',         label: 'New' },
+  { key: 'contacted',   label: 'Contacted' },
+  { key: 'qualified',   label: 'Qualified' },
+  { key: 'site_visit',  label: 'Site visit' },
+  { key: 'measurement', label: 'Measurement' },
+  { key: 'quotation',   label: 'Quotation' },
+  { key: 'negotiation', label: 'Negotiation' },
+  { key: 'won',         label: 'Won' },
+  { key: 'lost',        label: 'Lost' },
 ];
 
 const PROJECT_STAGES = [
@@ -58,6 +61,7 @@ const QUOTE_STATUS_COLOR: Record<string, string> = {
 };
 
 export default function AnalyticsOverviewPage() {
+  const router = useRouter();
   const [data, setData]     = useState<OverviewData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -282,8 +286,9 @@ export default function AnalyticsOverviewPage() {
             <Funnel
               stages={LEAD_STAGES.map((s) => {
                 const c = data.leads.byStage.find((r) => r.stage === s.key)?.count ?? 0;
-                return { label: s.label, count: c };
+                return { key: s.key, label: s.label, count: c };
               })}
+              onClickStage={(key) => router.push(`/leads?stage=${key}`)}
             />
           </div>
 
@@ -294,7 +299,12 @@ export default function AnalyticsOverviewPage() {
                 const c = data.projects.byStage.find((r) => r.stage === s.key)?.count ?? 0;
                 const pct = data.projects.total > 0 ? (c / data.projects.total) * 100 : 0;
                 return (
-                  <div key={s.key}>
+                  <div
+                    key={s.key}
+                    onClick={() => c > 0 && router.push(`/projects?lifecycleStage=${s.key}`)}
+                    className={c > 0 ? 'cursor-pointer' : ''}
+                    title={c > 0 ? `View ${s.label} projects` : undefined}
+                  >
                     <div className="mb-1 flex items-center justify-between text-xs">
                       <span style={{ color: 'var(--text-heading)' }}>{s.label}</span>
                       <span className="tabular-nums text-[var(--text-secondary)]">{c}</span>
@@ -347,7 +357,13 @@ function Kpi({
   );
 }
 
-function Funnel({ stages }: { stages: { label: string; count: number }[] }) {
+function Funnel({
+  stages,
+  onClickStage,
+}: {
+  stages: { key: string; label: string; count: number }[];
+  onClickStage?: (key: string) => void;
+}) {
   const max = Math.max(1, ...stages.map((s) => s.count));
   return (
     <div className="space-y-2">
@@ -357,8 +373,14 @@ function Funnel({ stages }: { stages: { label: string; count: number }[] }) {
         const color = s.label === 'Won'  ? 'bg-emerald-500'
                     : s.label === 'Lost' ? 'bg-red-400'
                     : 'bg-slate-400';
+        const clickable = s.count > 0 && !!onClickStage;
         return (
-          <div key={s.label} className="flex items-center gap-3">
+          <div
+            key={s.label}
+            className={'flex items-center gap-3' + (clickable ? ' cursor-pointer' : '')}
+            onClick={() => clickable && onClickStage(s.key)}
+            title={clickable ? `View ${s.label} leads` : undefined}
+          >
             <div className="w-24 flex-shrink-0 text-xs text-[var(--text-secondary)] " style={{ opacity: isWonLost ? 1 : 0.9 }}>
               {s.label}
             </div>

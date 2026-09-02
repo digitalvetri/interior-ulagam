@@ -21,7 +21,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Vendor, MaterialCategory } from '@/types/vendors';
+import type { MaterialCategory } from '@/types/vendors';
+
+interface Vendor {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  gstin: string | null;
+  category: MaterialCategory | null;
+  address: string | null;
+  notes: string | null;
+  createdAt: string;
+  openPOCount: number;
+}
 
 // ─── Category config ──────────────────────────────────────────────────────────
 
@@ -532,7 +545,7 @@ export default function VendorsPage() {
                 }}
               >
                 <tr>
-                  {['Name', 'Category', 'Phone', 'Email', 'GSTIN', ''].map(h => (
+                  {['Vendor', 'Category', 'Phone', 'Address', 'Open POs', ''].map(h => (
                     <th
                       key={h}
                       className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
@@ -571,11 +584,11 @@ export default function VendorsPage() {
                         <td className="px-4 py-2.5 tnum" style={{ color: 'var(--text-secondary)' }}>
                           {vendor.phone ?? '—'}
                         </td>
-                        <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>
-                          {vendor.email ?? '—'}
+                        <td className="px-4 py-2.5 text-[12px] max-w-[180px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                          {vendor.address ?? '—'}
                         </td>
-                        <td className="px-4 py-2.5 font-mono text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>
-                          {vendor.gstin ?? '—'}
+                        <td className="px-4 py-2.5 text-[13px] tnum" style={{ color: vendor.openPOCount > 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                          {vendor.openPOCount > 0 ? vendor.openPOCount : '—'}
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <ChevronDown

@@ -14,6 +14,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSuccess: (project: CreatedProject) => void;
+  acceptedQuoteTotalPaise?: number;
 }
 
 function rupeesToPaise(rupees: string): number | undefined {
@@ -22,14 +23,15 @@ function rupeesToPaise(rupees: string): number | undefined {
   return Math.round(n * 100);
 }
 
-export function WonFlowModal({ lead, open, onClose, onSuccess }: Props) {
+export function WonFlowModal({ lead, open, onClose, onSuccess, acceptedQuoteTotalPaise }: Props) {
   const defaultName =
     lead.projectName?.trim() ||
     `${lead.contactName} — ${lead.propertyType ?? 'Interior'} Project`;
 
+  const sourcePaise = acceptedQuoteTotalPaise ?? lead.projectValuePaise;
   const defaultValue =
-    lead.projectValuePaise && lead.projectValuePaise > 0
-      ? (lead.projectValuePaise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+    sourcePaise && sourcePaise > 0
+      ? (sourcePaise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })
       : '';
 
   const [projectName, setProjectName] = useState(defaultName);

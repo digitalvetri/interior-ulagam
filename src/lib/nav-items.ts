@@ -11,9 +11,6 @@ import {
   Receipt,
   Wallet,
   UserCog,
-  CalendarCheck,
-  ShieldCheck,
-  KeyRound,
   Settings,
 } from 'lucide-react';
 
@@ -57,7 +54,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/projects',    label: 'Projects',     icon: FolderKanban, roles: ['owner', 'designer', 'supervisor'] },
       { href: '/quotes',      label: 'Quotations',   icon: FileText,     roles: ['owner', 'designer'] },
-      { href: '/work-orders', label: 'Design Tasks', icon: Wrench,       roles: ['owner', 'designer', 'supervisor'] },
+      { href: '/design-tasks', label: 'Design Tasks', icon: Wrench,       roles: ['owner', 'designer', 'supervisor'] },
     ],
   },
   {
@@ -82,10 +79,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'team',
     label: 'Team',
-    roles: ['owner', 'designer', 'supervisor'],
+    roles: ['owner'],
     items: [
-      { href: '/employees',  label: 'Employees',  icon: UserCog,      roles: ['owner'] },
-      { href: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ['owner', 'designer', 'supervisor'] },
+      { href: '/employees', label: 'Employees', icon: UserCog, roles: ['owner'] },
     ],
   },
   {
@@ -93,9 +89,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Administration',
     roles: ['owner'],
     items: [
-      { href: '/users',     label: 'Users',               icon: ShieldCheck, roles: ['owner'] },
-      { href: '/roles',     label: 'Roles & Permissions', icon: KeyRound,    roles: ['owner'] },
-      { href: '/settings',  label: 'Settings',            icon: Settings,    roles: ['owner'] },
+      { href: '/settings', label: 'Settings', icon: Settings, roles: ['owner'] },
     ],
   },
 ];

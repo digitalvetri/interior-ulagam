@@ -1,20 +1,23 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import Link from 'next/link';
-import { Search, Plus, FolderKanban, ChevronDown, Calendar, AlertTriangle } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, Plus, FolderKanban, ChevronDown, AlertTriangle, MoreHorizontal } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Project } from '@/types/quotes';
 import { Lead } from '@/types/leads';
 import { formatRupees } from '@/lib/utils';
 
 type LifecycleStage = Project['lifecycleStage'];
 
-interface ProjectListItem extends Project {
-  customerFullName?: string | null;
-  leadContactName?: string | null;
+interface ProjectRow extends Project {
+  customerFullName?:  string | null;
+  leadContactName?:   string | null;
+  collectedPaise:     number;
+  nextMilestoneLabel: string | null;
 }
 
 const STAGE_STYLE: Record<LifecycleStage, { bg: string; fg: string; border: string; label: string }> = {
@@ -32,9 +35,6 @@ const STAGE_ORDER: LifecycleStage[] = [
   'design_pending', 'design_in_progress', 'design_approved',
   'procurement', 'execution', 'snagging', 'handover', 'complete',
 ];
-
-// Precomputed at module load (day-granularity — acceptable for overdue display)
-const MODULE_TODAY_MS = new Date().setHours(0, 0, 0, 0);
 
 interface NewProjectForm {
   noLead: boolean;
@@ -78,7 +78,6 @@ function LeadSelector({
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Click-outside close
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
@@ -114,28 +113,18 @@ function LeadSelector({
         )}
         <ChevronDown
           className="h-3.5 w-3.5 flex-shrink-0 transition-transform"
-          style={{
-            color: 'var(--text-secondary)',
-            transform: open ? 'rotate(180deg)' : 'rotate(0)',
-          }}
+          style={{ color: 'var(--text-secondary)', transform: open ? 'rotate(180deg)' : 'rotate(0)' }}
         />
       </button>
 
       {open && (
         <div
           className="absolute z-50 top-full left-0 right-0 mt-1 overflow-hidden rounded-lg"
-          style={{
-            background: 'var(--surface-card)',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: '0 8px 24px rgba(22,20,15,0.08)',
-          }}
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 24px rgba(22,20,15,0.08)' }}
         >
           <div className="p-1.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
             <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5"
-                style={{ color: 'var(--text-secondary)' }}
-              />
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
               <input
                 type="text"
                 value={search}
@@ -148,9 +137,7 @@ function LeadSelector({
           </div>
           <div className="max-h-56 overflow-y-auto">
             {loading ? (
-              <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                Loading leads…
-              </div>
+              <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Loading leads…</div>
             ) : filtered.length === 0 ? (
               <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
                 {search ? 'No leads match your search.' : 'No leads found.'}
@@ -166,22 +153,14 @@ function LeadSelector({
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   onClick={() => select(lead)}
                 >
-                  <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {lead.contactName}
-                  </p>
+                  <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>{lead.contactName}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>
-                      {lead.contactPhone}
-                    </span>
+                    <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</span>
                     {lead.budgetBand && (
-                      <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                        · {lead.budgetBand}
-                      </span>
+                      <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>· {lead.budgetBand}</span>
                     )}
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded font-medium ml-auto"
-                      style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
-                    >
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium ml-auto"
+                      style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                       {lead.stage.replace(/_/g, ' ')}
                     </span>
                   </div>
@@ -195,105 +174,118 @@ function LeadSelector({
   );
 }
 
-// ─── Mini Stage Progress ──────────────────────────────────────────────────────
+// ─── DataTable columns ────────────────────────────────────────────────────────
 
-function MiniStageBar({ lifecycleStage }: { lifecycleStage: LifecycleStage }) {
-  const currentIdx = STAGE_ORDER.indexOf(lifecycleStage);
+function CollectedBar({ collectedPaise, totalPaise }: { collectedPaise: number; totalPaise: number | null }) {
+  if (!totalPaise || totalPaise === 0) return <span style={{ color: 'var(--text-secondary)' }}>—</span>;
+  const pct = Math.min(100, Math.round((collectedPaise / totalPaise) * 100));
   return (
-    <div className="flex items-center gap-0.5 mt-3">
-      {STAGE_ORDER.map((_, i) => (
-        <div
-          key={i}
-          className="h-1 flex-1 rounded-full"
-          style={{ background: i <= currentIdx ? 'var(--accent-base)' : 'var(--border-subtle)' }}
-        />
-      ))}
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+      </div>
+      <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>{pct}%</span>
     </div>
   );
 }
 
-// ─── Project Card ─────────────────────────────────────────────────────────────
-
-function ProjectCard({ project }: { project: ProjectListItem }) {
-  const s           = STAGE_STYLE[project.lifecycleStage];
-  const clientName  = project.customerFullName ?? project.leadContactName ?? null;
-  const endMs       = project.expectedEndAt ? new Date(project.expectedEndAt).getTime() : null;
-  const diffDays    = endMs !== null ? Math.round((endMs - MODULE_TODAY_MS) / 86_400_000) : null;
-  const isOverdue   = diffDays !== null && diffDays < 0;
-  const isDueSoon   = diffDays !== null && diffDays >= 0 && diffDays <= 14;
-
-  return (
-    <Link href={`/projects/${project.id}`} className="block group">
-      <div className="premium-card p-4 h-full transition-colors">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3
-            className="text-[14px] font-medium leading-snug line-clamp-2"
-            style={{ color: 'var(--text-heading)' }}
-          >
-            {project.name}
-          </h3>
-          <span
-            className="text-[11px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0 border whitespace-nowrap"
-            style={{ background: s.bg, color: s.fg, borderColor: s.border }}
-          >
+function makeColumns(onRowClick: (row: ProjectRow) => void): Column<ProjectRow>[] {
+  return [
+    {
+      key: 'name',
+      header: 'Project',
+      render: (row) => (
+        <div>
+          <p className="text-[13px] font-medium truncate max-w-[220px]" style={{ color: 'var(--text-heading)' }}>
+            {row.name}
+          </p>
+          {(row.customerFullName ?? row.leadContactName) && (
+            <p className="text-[11px] truncate max-w-[220px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              {row.customerFullName ?? row.leadContactName}
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'lifecycleStage',
+      header: 'Stage',
+      render: (row) => {
+        const s = STAGE_STYLE[row.lifecycleStage];
+        return (
+          <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-md border whitespace-nowrap"
+            style={{ background: s.bg, color: s.fg, borderColor: s.border }}>
             {s.label}
           </span>
-        </div>
-
-        {clientName && (
-          <p className="text-[12px] mb-2 truncate" style={{ color: 'var(--text-secondary)' }}>
-            {clientName}
-          </p>
-        )}
-
-        {project.totalContractPaise !== undefined && project.totalContractPaise > 0 && (
-          <p
-            className="text-[20px] font-semibold tnum"
-            style={{ color: 'var(--text-heading)', letterSpacing: '-0.02em', lineHeight: 1 }}
-          >
-            {formatRupees(project.totalContractPaise)}
-          </p>
-        )}
-
-        {diffDays !== null && (
-          <p className="mt-2 inline-flex items-center gap-1 text-[11px] tnum rounded-md px-1.5 py-0.5"
-            style={
-              isOverdue
-                ? { color: 'var(--danger)', background: 'var(--danger-soft)' }
-                : isDueSoon
-                ? { color: 'var(--warning-text)', background: 'var(--warning-soft)' }
-                : { color: 'var(--text-secondary)', background: 'transparent' }
-            }
-          >
-            <Calendar className="h-3 w-3 flex-shrink-0" />
-            {isOverdue
-              ? `${Math.abs(diffDays)}d overdue`
-              : diffDays === 0
-              ? 'Due today'
-              : isDueSoon
-              ? `${diffDays}d left`
-              : new Date(project.expectedEndAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-          </p>
-        )}
-
-        <MiniStageBar lifecycleStage={project.lifecycleStage} />
-      </div>
-    </Link>
-  );
+        );
+      },
+    },
+    {
+      key: 'totalContractPaise',
+      header: 'Contract',
+      align: 'right',
+      render: (row) => row.totalContractPaise
+        ? <span className="tnum text-[13px]">{formatRupees(row.totalContractPaise)}</span>
+        : <span style={{ color: 'var(--text-secondary)' }}>—</span>,
+    },
+    {
+      key: 'collected',
+      header: 'Collected',
+      render: (row) => (
+        <CollectedBar collectedPaise={row.collectedPaise} totalPaise={row.totalContractPaise ?? null} />
+      ),
+    },
+    {
+      key: 'nextMilestone',
+      header: 'Next milestone',
+      render: (row) => row.nextMilestoneLabel
+        ? <span className="text-[12px] truncate max-w-[140px] block" style={{ color: 'var(--text-primary)' }}>{row.nextMilestoneLabel}</span>
+        : <span style={{ color: 'var(--text-secondary)' }}>—</span>,
+    },
+    {
+      key: 'designerIds',
+      header: 'Designer',
+      render: (row) => {
+        const n = Array.isArray(row.designerIds) ? row.designerIds.length : 0;
+        return n > 0
+          ? <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{n} assigned</span>
+          : <span style={{ color: 'var(--text-secondary)' }}>—</span>;
+      },
+    },
+    {
+      key: 'actions',
+      header: '',
+      width: 'w-10',
+      render: (row) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRowClick(row); }}
+          className="p-1 rounded transition-colors"
+          style={{ color: 'var(--text-secondary)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      ),
+    },
+  ];
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ProjectsPage() {
-  const [projects, setProjects]     = useState<ProjectListItem[]>([]);
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const [projects, setProjects]     = useState<ProjectRow[]>([]);
   const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  // Filter + search
   const [search, setSearch]           = useState('');
-  const [filterStage, setFilterStage] = useState<LifecycleStage | 'all'>('all');
+  const [filterStage, setFilterStage] = useState<LifecycleStage | 'all'>(() => {
+    const s = searchParams.get('lifecycleStage');
+    return STAGE_ORDER.includes(s as LifecycleStage) ? (s as LifecycleStage) : 'all';
+  });
 
-  // Dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm]             = useState<NewProjectForm>(INITIAL_FORM);
   const [creating, setCreating]     = useState(false);
@@ -305,7 +297,7 @@ export default function ProjectsPage() {
     setFetchError(null);
     try {
       const res = await fetch('/api/v1/projects');
-      const json = await res.json() as { data: ProjectListItem[] };
+      const json = await res.json() as { data: ProjectRow[] };
       setProjects(json.data ?? []);
     } catch {
       setFetchError('Network error — please try again');
@@ -318,8 +310,6 @@ export default function ProjectsPage() {
   useEffect(() => { void loadProjects(); }, [loadProjects]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // ─── Derived ───────────────────────────────────────────────────────────────
-
   const filteredProjects = useMemo(() => {
     const q = search.trim().toLowerCase();
     return projects.filter(p => {
@@ -329,10 +319,6 @@ export default function ProjectsPage() {
       return p.name.toLowerCase().includes(q) || clientName.includes(q);
     });
   }, [projects, search, filterStage]);
-
-  const isFiltered = search.trim() !== '' || filterStage !== 'all';
-
-  // ─── Dialog ────────────────────────────────────────────────────────────────
 
   function openDialog() {
     setForm(INITIAL_FORM);
@@ -388,10 +374,8 @@ export default function ProjectsPage() {
         setApiError(body.error ?? 'Failed to create project. Please try again.');
         return;
       }
-
-      const { data } = await res.json() as { data: ProjectListItem };
-      setProjects(prev => [data, ...prev]);
       setDialogOpen(false);
+      await loadProjects();
     } catch {
       setApiError('Network error — please check your connection and try again.');
     } finally {
@@ -399,21 +383,22 @@ export default function ProjectsPage() {
     }
   }
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  const columns = useMemo(
+    () => makeColumns((row) => router.push(`/projects/${row.id}`)),
+    [router],
+  );
+
+  const isEmpty   = !loading && !fetchError && projects.length === 0;
+  const noResults = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
 
   return (
     <div className="space-y-5 p-6">
       {/* Page header */}
-      <div
-        className="flex items-end justify-between gap-4 pb-4"
-        style={{ borderBottom: '1px solid var(--border-subtle)' }}
-      >
+      <div className="flex items-end justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>
           <h1 className="page-title">Projects</h1>
           <p className="page-subtitle">
-            {loading
-              ? 'Loading…'
-              : `${projects.length} ${projects.length === 1 ? 'project' : 'projects'} in flight`}
+            {loading ? 'Loading…' : `${projects.length} ${projects.length === 1 ? 'project' : 'projects'} in flight`}
           </p>
         </div>
         <button
@@ -429,10 +414,7 @@ export default function ProjectsPage() {
       {/* Search + stage filter */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
-            style={{ color: 'var(--text-secondary)' }}
-          />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           <input
             type="text"
             value={search}
@@ -442,121 +424,75 @@ export default function ProjectsPage() {
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
-          <FilterChip
-            active={filterStage === 'all'}
-            onClick={() => setFilterStage('all')}
-            label="All"
-            count={projects.length}
-          />
+          <FilterChip active={filterStage === 'all'} onClick={() => setFilterStage('all')} label="All" count={projects.length} />
           {STAGE_ORDER.map(stage => {
-            const count = projects.filter(p => p.lifecycleStage === stage).length;
-            if (count === 0) return null;
+            const cnt = projects.filter(p => p.lifecycleStage === stage).length;
+            if (cnt === 0) return null;
             return (
               <FilterChip
                 key={stage}
                 active={filterStage === stage}
                 onClick={() => setFilterStage(stage)}
                 label={STAGE_STYLE[stage].label}
-                count={count}
+                count={cnt}
               />
             );
           })}
         </div>
       </div>
 
-      {/* Grid / states */}
-      {loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="p-4 space-y-3"
-              style={{
-                background: 'var(--surface-card)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 10,
-              }}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="skeleton h-4 w-40" />
-                <div className="skeleton h-5 w-20 rounded-md" />
-              </div>
-              <div className="skeleton h-6 w-32" />
-              <div className="skeleton h-3 w-28" />
-            </div>
-          ))}
-        </div>
-      ) : fetchError ? (
+      {/* Error */}
+      {fetchError && (
         <div className="premium-card flex flex-col items-center justify-center gap-2 p-12 text-center">
           <p className="text-sm font-medium" style={{ color: '#DC2626' }}>{fetchError}</p>
-          <button
-            onClick={() => void loadProjects()}
-            className="text-[12px] font-medium underline-offset-4 hover:underline"
-            style={{ color: 'var(--accent-base)' }}
-          >
+          <button onClick={() => void loadProjects()} className="text-[12px] font-medium underline-offset-4 hover:underline" style={{ color: 'var(--accent-base)' }}>
             Retry
           </button>
         </div>
-      ) : projects.length === 0 ? (
+      )}
+
+      {/* Empty state */}
+      {isEmpty && (
         <div className="premium-card flex flex-col items-center justify-center gap-3 p-14 text-center">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-full"
-            style={{ background: 'var(--accent-soft)' }}
-          >
+          <div className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: 'var(--accent-soft)' }}>
             <FolderKanban className="h-5 w-5" style={{ color: 'var(--accent-base)' }} strokeWidth={1.75} />
           </div>
-          <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
-            No projects yet
-          </p>
-          <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-            Turn a lead into a project to start tracking it.
-          </p>
-          <button
-            type="button"
-            onClick={openDialog}
-            className="btn-primary mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px]"
-          >
+          <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
+          <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Turn a lead into a project to start tracking it.</p>
+          <button type="button" onClick={openDialog} className="btn-primary mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px]">
             <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
             New project
           </button>
         </div>
-      ) : filteredProjects.length === 0 ? (
+      )}
+
+      {/* No results */}
+      {noResults && (
         <div className="premium-card flex flex-col items-center justify-center gap-2 p-12 text-center">
-          <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
-            No projects match your filters
-          </p>
-          <button
-            onClick={() => { setSearch(''); setFilterStage('all'); }}
-            className="text-[12px] font-medium underline-offset-4 hover:underline"
-            style={{ color: 'var(--accent-base)' }}
-          >
+          <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>No projects match your filters</p>
+          <button onClick={() => { setSearch(''); setFilterStage('all'); }} className="text-[12px] font-medium underline-offset-4 hover:underline" style={{ color: 'var(--accent-base)' }}>
             Clear filters
           </button>
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProjects.map(project => <ProjectCard key={project.id} project={project} />)}
-          </div>
-          {isFiltered && (
-            <div
-              className="flex items-center justify-between text-[11px] pt-1"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              <span>Showing {filteredProjects.length} of {projects.length}</span>
-              <button
-                onClick={() => { setSearch(''); setFilterStage('all'); }}
-                className="font-medium underline-offset-4 hover:underline"
-                style={{ color: 'var(--accent-base)' }}
-              >
-                Clear filters
-              </button>
-            </div>
-          )}
-        </>
       )}
 
-      {/* ── New Project Dialog ────────────────────────────────────────── */}
+      {/* DataTable */}
+      {!fetchError && !isEmpty && (
+        <DataTable<ProjectRow>
+          columns={columns}
+          rows={filteredProjects}
+          getRowKey={(r) => r.id}
+          loading={loading}
+          onRowClick={(row) => router.push(`/projects/${row.id}`)}
+          emptyState={
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No projects match your search</p>
+            </div>
+          }
+        />
+      )}
+
+      {/* New Project Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -564,7 +500,6 @@ export default function ProjectsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Lead vs standalone toggle */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -587,42 +522,20 @@ export default function ProjectsPage() {
             {form.noLead ? (
               <>
                 <FormField label="Client name" required error={errors.clientName}>
-                  <input
-                    type="text"
-                    placeholder="e.g. Priya Sharma"
-                    value={form.clientName}
-                    onChange={e => setField('clientName', e.target.value)}
-                    className="studio-input w-full h-9"
-                  />
+                  <input type="text" placeholder="e.g. Priya Sharma" value={form.clientName} onChange={e => setField('clientName', e.target.value)} className="studio-input w-full h-9" />
                 </FormField>
                 <FormField label="Client phone" required error={errors.clientPhone}>
-                  <input
-                    type="tel"
-                    placeholder="e.g. 9876543210"
-                    value={form.clientPhone}
-                    onChange={e => setField('clientPhone', e.target.value)}
-                    className="studio-input w-full h-9 tnum"
-                  />
+                  <input type="tel" placeholder="e.g. 9876543210" value={form.clientPhone} onChange={e => setField('clientPhone', e.target.value)} className="studio-input w-full h-9 tnum" />
                 </FormField>
               </>
             ) : (
               <FormField label="Lead" required error={errors.leadId}>
-                <LeadSelector
-                  value={{ id: form.leadId, label: form.leadLabel }}
-                  onChange={handleLeadSelect}
-                />
+                <LeadSelector value={{ id: form.leadId, label: form.leadLabel }} onChange={handleLeadSelect} />
               </FormField>
             )}
 
             <FormField label="Project name" required error={errors.name}>
-              <input
-                id="proj-name"
-                type="text"
-                placeholder="e.g. Sharma Residence — 3BHK"
-                value={form.name}
-                onChange={e => setField('name', e.target.value)}
-                className="studio-input w-full h-9"
-              />
+              <input id="proj-name" type="text" placeholder="e.g. Sharma Residence — 3BHK" value={form.name} onChange={e => setField('name', e.target.value)} className="studio-input w-full h-9" />
             </FormField>
 
             <FormField label="Total contract" hint="Optional, in ₹">
@@ -644,14 +557,7 @@ export default function ProjectsPage() {
             </FormField>
 
             {apiError && (
-              <div
-                className="rounded-md px-3 py-2 text-[12px]"
-                style={{
-                  background: '#FEF2F2',
-                  border: '1px solid #FECACA',
-                  color: '#991B1B',
-                }}
-              >
+              <div className="rounded-md px-3 py-2 text-[12px]" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B' }}>
                 {apiError}
               </div>
             )}
@@ -661,11 +567,7 @@ export default function ProjectsPage() {
             <button
               type="button"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border transition-colors"
-              style={{
-                borderColor: 'var(--border-subtle)',
-                color: 'var(--text-heading)',
-                background: 'var(--surface-card)',
-              }}
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
               onClick={() => setDialogOpen(false)}
               disabled={creating}
             >
@@ -708,10 +610,7 @@ function FilterChip({
       }
     >
       {label}
-      <span
-        className="tnum text-[11px] font-medium"
-        style={{ color: active ? 'var(--accent-base)' : 'var(--text-secondary)', opacity: active ? 1 : 0.7 }}
-      >
+      <span className="tnum text-[11px] font-medium" style={{ color: active ? 'var(--accent-base)' : 'var(--text-secondary)', opacity: active ? 1 : 0.7 }}>
         {count}
       </span>
     </button>
@@ -728,16 +627,10 @@ function FormField({ label, hint, required, error, children }: {
           {label}
           {required && <span style={{ color: 'var(--accent-base)' }}> *</span>}
         </label>
-        {hint && (
-          <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-            {hint}
-          </span>
-        )}
+        {hint && <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{hint}</span>}
       </div>
       {children}
-      {error && (
-        <p className="text-[11px] font-medium" style={{ color: '#DC2626' }}>{error}</p>
-      )}
+      {error && <p className="text-[11px] font-medium" style={{ color: '#DC2626' }}>{error}</p>}
     </div>
   );
 }

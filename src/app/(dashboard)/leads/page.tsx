@@ -7,13 +7,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Phone, MessageCircle, Calendar, MapPin, Home, User, Clock,
   Users, Filter, ChevronDown, BarChart2, ChevronUp, AlertTriangle, TrendingUp,
-  MoreVertical, Trash2, Archive, Edit2, BellRing,
+  MoreVertical, Trash2, Archive, Edit2, BellRing, LayoutList, Table2,
 } from 'lucide-react';
 import { Lead, LeadStage, LeadPriority, LeadSource, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 import { LeadViewModal } from '@/components/leads/LeadViewModal';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { DataTable, type Column } from '@/components/ui/DataTable';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { formatRupees } from '@/lib/utils';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 type FilterKey = LeadStage | 'all' | 'follow_up' | 'in_progress';
@@ -490,8 +493,13 @@ export default function LeadsPage() {
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
   const deferredSearch              = useDeferredValue(search);
-  const [activeChip, setActiveChip] = useState<FilterKey>('all');
+  const [activeChip, setActiveChip] = useState<FilterKey>(() => {
+    const s = searchParams.get('stage');
+    if (!s || s === 'all') return 'all';
+    return s as FilterKey;
+  });
   const [sortBy, setSortBy]         = useState<SortKey>('latest');
+  const [viewMode, setViewMode]         = useState<'cards' | 'table'>('cards');
   const [showFilters, setShowFilters]   = useState(false);
   const [showPipeline, setShowPipeline] = useState(false);
   const [filterPriority, setFilterPriority] = useState<LeadPriority | 'all'>('all');
@@ -716,6 +724,34 @@ export default function LeadsPage() {
                 ? <ChevronUp className="h-3 w-3" />
                 : <ChevronDown className="h-3 w-3" />}
             </button>
+            {/* Board / Table toggle */}
+            <div className="flex rounded-[10px] overflow-hidden" style={{ border: '1.5px solid var(--border-subtle)' }}>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                className="flex items-center gap-1.5 h-[34px] px-3 text-[13px] font-medium transition-colors"
+                style={{
+                  background: viewMode === 'cards' ? 'var(--purple-soft)' : 'var(--surface-card)',
+                  color: viewMode === 'cards' ? 'var(--violet-primary)' : 'var(--text-primary)',
+                }}
+                title="Card view"
+              >
+                <LayoutList className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className="flex items-center gap-1.5 h-[34px] px-3 text-[13px] font-medium transition-colors"
+                style={{
+                  background: viewMode === 'table' ? 'var(--purple-soft)' : 'var(--surface-card)',
+                  color: viewMode === 'table' ? 'var(--violet-primary)' : 'var(--text-primary)',
+                  borderLeft: '1.5px solid var(--border-subtle)',
+                }}
+                title="Table view"
+              >
+                <Table2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <NewLeadDialog onSuccess={handleLeadCreated} defaultOpen={searchParams.get('new') === '1'} />
           </div>
         </div>
@@ -835,7 +871,94 @@ export default function LeadsPage() {
               </>
             )}
           </div>
-        ) : (
+        ) : viewMode === 'table' ? (() => {
+          const leadColumns: Column<Lead>[] = [
+            {
+              key: 'name',
+              header: 'Name',
+              sortable: true,
+              render: (l) => (
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}>
+                    {l.contactName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
+                  <span className="font-medium text-sm" style={{ color: 'var(--text-heading)' }}>{l.contactName}</span>
+                </div>
+              ),
+            },
+            {
+              key: 'phone',
+              header: 'Phone',
+              render: (l) => <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>{l.contactPhone}</span>,
+            },
+            {
+              key: 'stage',
+              header: 'Stage',
+              render: (l) => <StatusBadge module="leads" status={l.stage} />,
+            },
+            {
+              key: 'score',
+              header: 'Score',
+              align: 'right',
+              sortable: true,
+              render: (l) => (
+                <span className="font-semibold tabular-nums text-sm" style={{ color: 'var(--text-heading)' }}>{l.score}</span>
+              ),
+            },
+            {
+              key: 'followup',
+              header: 'Follow-up',
+              render: (l) => {
+                if (!l.followUpDate) return <span style={{ color: 'var(--text-tertiary)' }}>—</span>;
+                const state = followUpState(l.followUpDate);
+                const colorMap = { overdue: 'var(--danger)', today: 'var(--warning)', upcoming: 'var(--success-text)' };
+                return (
+                  <span className="text-xs" style={{ color: state ? colorMap[state] : 'var(--text-secondary)' }}>
+                    {new Date(l.followUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </span>
+                );
+              },
+            },
+            {
+              key: 'budget',
+              header: 'Budget',
+              align: 'right',
+              render: (l) => l.projectValuePaise
+                ? <span className="text-sm tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatRupees(l.projectValuePaise)}</span>
+                : <span style={{ color: 'var(--text-tertiary)' }}>—</span>,
+            },
+            {
+              key: 'actions',
+              header: '',
+              align: 'right',
+              render: (l) => (
+                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" title="Schedule follow-up"
+                    onClick={(e) => { e.stopPropagation(); handleFollowUp(l); }}
+                    className="rounded-lg p-1.5 hover:opacity-70 transition-opacity"
+                    style={{ color: 'var(--accent-base)' }}>
+                    <BellRing className="h-3.5 w-3.5" />
+                  </button>
+                  <button type="button" title="Delete lead"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteFromList(l.id); }}
+                    className="rounded-lg p-1.5 hover:opacity-70 transition-opacity"
+                    style={{ color: 'var(--danger)' }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ),
+            },
+          ];
+          return (
+            <DataTable
+              columns={leadColumns}
+              rows={filtered}
+              getRowKey={(l) => l.id}
+              onRowClick={(l) => router.push(`/leads/${l.id}`)}
+            />
+          );
+        })() : (
           <div className="space-y-2">
             <AnimatePresence initial={false}>
               {grouped.map(({ groupKey, customerId, primaryLead, count }) => {

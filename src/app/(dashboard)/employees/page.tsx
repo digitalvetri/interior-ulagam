@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import { NewEmployeeDialog } from '@/components/employees/NewEmployeeDialog';
 import type { Employee, EmploymentType } from '@/types/employees';
+import { EmptyState } from '@/components/ui/EmptyState';
 
 type ViewMode = 'grid' | 'list';
 
@@ -157,7 +158,13 @@ export default function EmployeesPage() {
         {loading ? (
           <div className="p-12 text-center text-sm text-[var(--text-secondary)]">Loading employees…</div>
         ) : filtered.length === 0 ? (
-          <EmptyState hasQuery={search.trim().length > 0 || dept !== 'all'} onAdd={() => setDialog(true)} />
+          <EmptyState
+            hasQuery={search.trim().length > 0 || dept !== 'all'}
+            label="No employees yet"
+            description="Add your team — designers, supervisors, accountants — to manage roles and access."
+            actionLabel="Add first employee"
+            onAction={() => setDialog(true)}
+          />
         ) : view === 'grid' ? (
           <GridView rows={filtered} />
         ) : (
@@ -270,30 +277,3 @@ function ListView({ rows }: { rows: Employee[] }) {
   );
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
-
-function EmptyState({ hasQuery, onAdd }: { hasQuery: boolean; onAdd: () => void }) {
-  if (hasQuery) {
-    return (
-      <div className="p-16 text-center text-sm text-[var(--text-secondary)]">
-        No employees match your filters.
-      </div>
-    );
-  }
-  return (
-    <div className="mx-auto max-w-md p-16 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300">
-        <Plus className="h-7 w-7" />
-      </div>
-      <h2 className="text-base font-semibold" style={{ color: 'var(--text-heading)' }}>
-        No employees yet
-      </h2>
-      <p className="mt-1 text-sm" style={{ color: 'var(--text-secondary)' }}>
-        Add your team — designers, supervisors, accountants — to manage roles and access.
-      </p>
-      <Button onClick={onAdd} className="mt-5 gap-1.5">
-        <Plus className="h-4 w-4" /> Add first employee
-      </Button>
-    </div>
-  );
-}

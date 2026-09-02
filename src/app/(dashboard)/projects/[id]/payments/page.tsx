@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { Milestone, MilestonePaymentStatus } from '@/types/milestones';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
@@ -18,16 +19,6 @@ const STATUS_CONFIG: Record<MilestonePaymentStatus, { label: string; bg: string;
   overdue:   { label: 'Overdue',   bg: 'var(--danger-soft)', color: 'var(--danger)', dot: 'var(--danger)' },
 };
 
-function StatusBadge({ status }: { status: MilestonePaymentStatus }) {
-  const cfg = STATUS_CONFIG[status];
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-      style={{ background: cfg.bg, color: cfg.color }}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
 
 /* ── Send Payment Link Modal ───────────────────────────────────────────────── */
 
@@ -457,7 +448,7 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
                       </p>
                     )}
                   </div>
-                  <StatusBadge status={m.paymentStatus} />
+                  <StatusBadge module="milestones" status={m.paymentStatus} />
                 </div>
 
                 {m.paymentStatus !== 'paid' && (

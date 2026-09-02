@@ -6,6 +6,7 @@ import {
   ArrowLeft, Plus, FolderOpen, CheckCircle2, AlertTriangle, X,
   ExternalLink, } from 'lucide-react';
 import { Deliverable, DeliverableStatus, DeliverableType } from '@/types/deliverables';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 /* ── Config ────────────────────────────────────────────────────────────────── */
 
@@ -30,16 +31,6 @@ const ALL_STATUSES: DeliverableStatus[] = ['pending', 'in_progress', 'in_review'
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 
-function StatusBadge({ status }: { status: DeliverableStatus }) {
-  const cfg = STATUS_CONFIG[status];
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap"
-      style={{ background: cfg.bg, color: cfg.color }}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
 
 /* ── Deliverable Card ──────────────────────────────────────────────────────── */
 
@@ -93,7 +84,7 @@ function DeliverableCard({
             </p>
           </div>
         </div>
-        <StatusBadge status={d.status} />
+        <StatusBadge module="deliverables" status={d.status} />
       </div>
 
       {/* Change-order warning */}

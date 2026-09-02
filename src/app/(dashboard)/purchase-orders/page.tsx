@@ -13,7 +13,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
-import type { PurchaseOrder, POStatus, POLine } from '@/types/purchase-orders';
+import type { POStatus, POLine } from '@/types/purchase-orders';
+import type { PurchaseOrder as BasePurchaseOrder } from '@/types/purchase-orders';
+
+interface PurchaseOrder extends BasePurchaseOrder {
+  projectName: string | null;
+  vendorName:  string | null;
+  vendorContactName: string | null;
+  lineCount:   number;
+  totalPaise:  number;
+}
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -143,13 +152,13 @@ export default function PurchaseOrdersPage() {
     return orders.filter(o => {
       if (filterStatus !== 'all' && o.status !== filterStatus) return false;
       if (!q) return true;
-      const projectName = projectNameById.get(o.projectId) ?? '';
       return (
         o.poNumber.toLowerCase().includes(q) ||
-        projectName.toLowerCase().includes(q)
+        (o.projectName ?? '').toLowerCase().includes(q) ||
+        (o.vendorName ?? '').toLowerCase().includes(q)
       );
     });
-  }, [orders, search, filterStatus, projectNameById]);
+  }, [orders, search, filterStatus]);
 
   const isFiltered = search.trim() !== '' || filterStatus !== 'all';
 
@@ -392,13 +401,13 @@ export default function PurchaseOrdersPage() {
               >
                 <tr>
                   {[
-                    { label: 'PO number' },
+                    { label: 'PO #' },
                     { label: 'Project' },
                     { label: 'Vendor' },
+                    { label: 'Items', align: 'right' as const },
+                    { label: 'Value', align: 'right' as const },
                     { label: 'Status' },
-                    { label: 'Advance paid', align: 'right' as const },
-                    { label: 'Expected delivery' },
-                    { label: 'Created' },
+                    { label: 'Expected' },
                     { label: '' },
                   ].map(h => (
                     <th
@@ -417,8 +426,6 @@ export default function PurchaseOrdersPage() {
               <tbody>
                 {filteredOrders.map((po) => {
                   const s = STATUS_STYLES[po.status];
-                  const projectName = projectNameById.get(po.projectId);
-                  const vendorName = po.vendorId ? vendorNameById.get(po.vendorId) : null;
                   return (
                     <tr
                       key={po.id}
@@ -431,15 +438,21 @@ export default function PurchaseOrdersPage() {
                       <td className="px-4 py-2.5 font-medium tnum" style={{ color: 'var(--text-heading)' }}>
                         {po.poNumber}
                       </td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-primary)' }}>
-                        {projectName ?? (
+                      <td className="px-4 py-2.5 max-w-[160px] truncate" style={{ color: 'var(--text-primary)' }}>
+                        {po.projectName ?? (
                           <span className="font-mono text-[11px]" style={{ color: 'var(--text-secondary)' }}>
                             {po.projectId.slice(0, 8)}…
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2.5" style={{ color: 'var(--text-secondary)' }}>
-                        {vendorName ?? '—'}
+                      <td className="px-4 py-2.5 max-w-[140px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                        {po.vendorName ?? po.vendorContactName ?? '—'}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tnum" style={{ color: 'var(--text-secondary)' }}>
+                        {po.lineCount}
+                      </td>
+                      <td className="px-4 py-2.5 text-right tnum" style={{ color: 'var(--text-primary)' }}>
+                        {formatRupees(po.totalPaise)}
                       </td>
                       <td className="px-4 py-2.5">
                         <span
@@ -449,20 +462,12 @@ export default function PurchaseOrdersPage() {
                           {STATUS_LABELS[po.status]}
                         </span>
                       </td>
-                      <td className="px-4 py-2.5 text-right tnum" style={{ color: 'var(--text-primary)' }}>
-                        {formatRupees(po.advancePaidPaise)}
-                      </td>
                       <td className="px-4 py-2.5 tnum" style={{ color: 'var(--text-secondary)' }}>
                         {po.expectedDeliveryAt
                           ? new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN', {
-                              day: 'numeric', month: 'short', year: 'numeric',
+                              day: 'numeric', month: 'short',
                             })
                           : '—'}
-                      </td>
-                      <td className="px-4 py-2.5 tnum" style={{ color: 'var(--text-secondary)' }}>
-                        {new Date(po.createdAt).toLocaleDateString('en-IN', {
-                          day: 'numeric', month: 'short', year: 'numeric',
-                        })}
                       </td>
                       <td className="px-4 py-2.5 text-right">
                         {po.status === 'draft' ? (

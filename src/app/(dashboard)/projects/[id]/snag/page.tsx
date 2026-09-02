@@ -4,9 +4,10 @@ import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, CheckCircle2, Plus, AlertTriangle, X, Copy, Check,
-  ClipboardList, ExternalLink, PartyPopper,
+  ClipboardList, ExternalLink, PartyPopper, Download,
 } from 'lucide-react';
 import type { SnagItem, SnagStatus } from '@/types/snag';
+import { StatusBadge } from '@/components/ui/StatusBadge';
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
@@ -19,16 +20,6 @@ const STATUS_CONFIG: Record<SnagStatus, { label: string; bg: string; color: stri
 
 const STATUS_OPTIONS: SnagStatus[] = ['open', 'in_progress', 'resolved', 'client_confirmed'];
 
-function StatusBadge({ status }: { status: SnagStatus }) {
-  const cfg = STATUS_CONFIG[status];
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-      style={{ background: cfg.bg, color: cfg.color }}>
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
 
 /* ── Add Snag Modal ────────────────────────────────────────────────────────── */
 
@@ -344,7 +335,7 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
                   <p className="text-sm font-medium leading-snug flex-1" style={{ color: 'var(--text-heading)' }}>
                     {snag.description}
                   </p>
-                  <StatusBadge status={snag.status} />
+                  <StatusBadge module="snags" status={snag.status} />
                 </div>
 
                 {snag.photoUrl && (
@@ -403,10 +394,22 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
                     {handoverLoading ? 'Initiating…' : 'Initiate Handover'}
                   </button>
                   {handoverResult && (
-                    <p className="mt-2 text-xs font-medium"
-                      style={{ color: handoverResult.success ? 'var(--success-text)' : 'var(--danger)' }}>
-                      {handoverResult.message}
-                    </p>
+                    <div className="mt-2">
+                      <p className="text-xs font-medium"
+                        style={{ color: handoverResult.success ? 'var(--success-text)' : 'var(--danger)' }}>
+                        {handoverResult.message}
+                      </p>
+                      {handoverResult.success && (
+                        <a
+                          href={`/api/v1/projects/${id}/handover/cert`}
+                          download
+                          className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                          style={{ background: 'var(--surface-card)', border: '1px solid #86efac', color: 'var(--success-text)' }}
+                        >
+                          <Download className="h-3.5 w-3.5" /> Download Certificate
+                        </a>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

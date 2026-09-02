@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Building2, Users, Bell, FileText, Shield, Plug, Download,
-  Save, Eye, EyeOff, Check, ChevronRight, Loader2, KeyRound, Search, MailPlus,
+  Save, Eye, EyeOff, Check, ChevronRight, Loader2, KeyRound, Search, MailPlus, Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,34 +82,62 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 
 /* ── Profile tab ──────────────────────────────────────────────────────────── */
 function ProfileTab({ onSave }: { onSave: () => void }) {
-  const [studio, setStudio]     = useState('');
-  const [tagline, setTagline]   = useState('');
-  const [phone, setPhone]       = useState('');
-  const [email, setEmail]       = useState('');
-  const [address, setAddress]   = useState('');
-  const [gst, setGst]           = useState('');
-  const [pan, setPan]           = useState('');
-  const [loading, setLoading]   = useState(true);
-  const [saving, setSaving]     = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [studio, setStudio]         = useState('');
+  const [tagline, setTagline]       = useState('');
+  const [phone, setPhone]           = useState('');
+  const [email, setEmail]           = useState('');
+  const [address, setAddress]       = useState('');
+  const [gst, setGst]               = useState('');
+  const [pan, setPan]               = useState('');
+  const [logoUrl, setLogoUrl]       = useState('');
+  const [bankName, setBankName]     = useState('');
+  const [bankAccount, setBankAccount] = useState('');
+  const [bankIFSC, setBankIFSC]     = useState('');
+  const [bankUPI, setBankUPI]       = useState('');
+  const [loading, setLoading]       = useState(true);
+  const [saving, setSaving]         = useState(false);
+  const [uploading, setUploading]   = useState(false);
+  const [error, setError]           = useState<string | null>(null);
 
-  // Load current tenant profile
   useEffect(() => {
     fetch('/api/v1/settings/profile')
       .then((r) => r.json())
       .then((res) => {
         if (res?.data) {
-          setStudio(res.data.studioName ?? '');
-          setTagline(res.data.tagline   ?? '');
-          setPhone(res.data.phone       ?? '');
-          setEmail(res.data.email       ?? '');
-          setAddress(res.data.address   ?? '');
-          setGst(res.data.gstin         ?? '');
-          setPan(res.data.pan           ?? '');
+          setStudio(res.data.studioName   ?? '');
+          setTagline(res.data.tagline     ?? '');
+          setPhone(res.data.phone         ?? '');
+          setEmail(res.data.email         ?? '');
+          setAddress(res.data.address     ?? '');
+          setGst(res.data.gstin           ?? '');
+          setPan(res.data.pan             ?? '');
+          setLogoUrl(res.data.logoUrl     ?? '');
+          setBankName(res.data.bankName   ?? '');
+          setBankAccount(res.data.bankAccount ?? '');
+          setBankIFSC(res.data.bankIFSC   ?? '');
+          setBankUPI(res.data.bankUPI     ?? '');
         }
       })
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/v1/settings/logo', { method: 'POST', body: fd });
+      const body = await res.json().catch(() => ({})) as { data?: { logoUrl?: string }; error?: string };
+      if (!res.ok) throw new Error(body.error ?? 'Upload failed');
+      if (body.data?.logoUrl) setLogoUrl(body.data.logoUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function submit() {
     setSaving(true); setError(null);
@@ -118,13 +146,18 @@ function ProfileTab({ onSave }: { onSave: () => void }) {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          studioName: studio.trim() || undefined,
-          tagline:    tagline.trim() || null,
-          phone:      phone.trim()   || null,
-          email:      email.trim()   || null,
-          address:    address.trim() || null,
-          gstin:      gst.trim()     || null,
-          pan:        pan.trim()     || null,
+          studioName:  studio.trim()      || undefined,
+          tagline:     tagline.trim()     || null,
+          phone:       phone.trim()       || null,
+          email:       email.trim()       || null,
+          address:     address.trim()     || null,
+          gstin:       gst.trim()         || null,
+          pan:         pan.trim()         || null,
+          logoUrl:     logoUrl.trim()     || null,
+          bankName:    bankName.trim()    || null,
+          bankAccount: bankAccount.trim() || null,
+          bankIFSC:    bankIFSC.trim()    || null,
+          bankUPI:     bankUPI.trim()     || null,
         }),
       });
       const body = await res.json();
@@ -142,6 +175,31 @@ function ProfileTab({ onSave }: { onSave: () => void }) {
   return (
     <div>
       <SectionTitle>Business Profile</SectionTitle>
+
+      <FormRow label="Studio Logo" hint="PNG, JPEG or SVG — max 2 MB. Appears on all PDFs.">
+        <div className="flex items-center gap-4">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Studio logo" className="h-14 w-14 rounded-lg object-contain border border-[var(--border-subtle)]" />
+          ) : (
+            <div className="h-14 w-14 rounded-lg border border-dashed border-[var(--border-strong)] flex items-center justify-center">
+              <Building2 className="h-6 w-6" style={{ color: 'var(--text-tertiary)' }} />
+            </div>
+          )}
+          <div>
+            <label className="btn-secondary flex items-center gap-1.5 px-3 py-2 text-xs cursor-pointer">
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              {uploading ? 'Uploading…' : 'Upload Logo'}
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploading} />
+            </label>
+            {logoUrl && (
+              <button type="button" onClick={() => setLogoUrl('')} className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      </FormRow>
+
       <FormRow label="Studio Name">
         <input value={studio} onChange={e => setStudio(e.target.value)} className="studio-input w-full text-sm" />
       </FormRow>
@@ -163,6 +221,21 @@ function ProfileTab({ onSave }: { onSave: () => void }) {
       <FormRow label="PAN">
         <input value={pan} onChange={e => setPan(e.target.value)} className="studio-input w-full text-sm" placeholder="Optional" />
       </FormRow>
+
+      <p className="text-xs font-bold uppercase tracking-wider mt-6 mb-1" style={{ color: 'var(--text-tertiary)' }}>Bank Details (printed on invoices)</p>
+      <FormRow label="Bank Name">
+        <input value={bankName} onChange={e => setBankName(e.target.value)} className="studio-input w-full text-sm" placeholder="e.g. HDFC Bank" />
+      </FormRow>
+      <FormRow label="Account Number">
+        <input value={bankAccount} onChange={e => setBankAccount(e.target.value)} className="studio-input w-full text-sm" />
+      </FormRow>
+      <FormRow label="IFSC Code">
+        <input value={bankIFSC} onChange={e => setBankIFSC(e.target.value)} className="studio-input w-full text-sm" placeholder="e.g. HDFC0001234" />
+      </FormRow>
+      <FormRow label="UPI ID" hint="e.g. studio@upi">
+        <input value={bankUPI} onChange={e => setBankUPI(e.target.value)} className="studio-input w-full text-sm" placeholder="Optional" />
+      </FormRow>
+
       {error && <p className="pt-2 text-xs text-red-600">{error}</p>}
       <div className="pt-4">
         <button type="button" onClick={submit} disabled={saving} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm disabled:opacity-60">
@@ -398,49 +471,111 @@ function NotificationsTab({ onSave }: { onSave: () => void }) {
 
 /* ── Invoice tab ──────────────────────────────────────────────────────────── */
 function InvoiceTab({ onSave }: { onSave: () => void }) {
-  const [gstType, setGstType]   = useState<'works_contract' | 'goods'>('works_contract');
-  const [bankName, setBankName] = useState('');
-  const [accountNo, setAccountNo] = useState('');
-  const [ifsc, setIfsc]         = useState('');
-  const [terms, setTerms]       = useState('Payment due within 7 days of invoice date. GST applicable as per works contract rate.');
-  const [prefix, setPrefix]     = useState('INV-');
-  const [eInvoice, setEInvoice] = useState(false);
+  const [quotePrefix,   setQuotePrefix]   = useState('QUO-');
+  const [invoicePrefix, setInvoicePrefix] = useState('INV-');
+  const [poPrefix,      setPoPrefix]      = useState('PO-');
+  const [validityDays,  setValidityDays]  = useState('30');
+  const [quotationTerms, setQuotationTerms] = useState('');
+  const [invoiceTerms,   setInvoiceTerms]   = useState('');
+  const [poTerms,        setPoTerms]        = useState('');
+  const [eInvoice,       setEInvoice]       = useState(false);
+  const [loading,        setLoading]        = useState(true);
+  const [saving,         setSaving]         = useState(false);
+  const [error,          setError]          = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/v1/settings/profile')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.data) {
+          setQuotePrefix(res.data.quoteNumberPrefix     ?? 'QUO-');
+          setInvoicePrefix(res.data.invoiceNumberPrefix ?? 'INV-');
+          setPoPrefix(res.data.poNumberPrefix           ?? 'PO-');
+          setValidityDays(String(res.data.quoteValidityDays ?? 30));
+          setQuotationTerms(res.data.quotationTerms     ?? '');
+          setInvoiceTerms(res.data.invoiceTerms         ?? '');
+          setPoTerms(res.data.poTerms                   ?? '');
+        }
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function submit() {
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch('/api/v1/settings/profile', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          quoteNumberPrefix:   quotePrefix.trim()   || null,
+          invoiceNumberPrefix: invoicePrefix.trim() || null,
+          poNumberPrefix:      poPrefix.trim()      || null,
+          quoteValidityDays:   parseInt(validityDays, 10) || 30,
+          quotationTerms:      quotationTerms.trim() || null,
+          invoiceTerms:        invoiceTerms.trim()   || null,
+          poTerms:             poTerms.trim()        || null,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error ?? 'Failed to save');
+      onSave();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className="py-12 text-center text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</div>;
 
   return (
     <div>
       <SectionTitle>Quotation & Invoice Settings</SectionTitle>
-      <FormRow label="GST Rate" hint="Works contract: 18% (CGST 9% + SGST 9%)">
-        <div className="flex gap-3 flex-wrap">
-          {(['works_contract', 'goods'] as const).map(t => (
-            <button key={t} type="button" onClick={() => setGstType(t)}
-              className="px-4 py-2 rounded-xl text-sm font-medium border transition-colors"
-              style={{ background: gstType === t ? 'var(--text-primary)' : 'var(--surface-card)', color: gstType === t ? 'var(--surface-card)' : 'var(--text-primary)', borderColor: 'var(--text-primary)' }}>
-              {t === 'works_contract' ? 'Works Contract (18%)' : 'Goods (per HSN)'}
-            </button>
-          ))}
-        </div>
+
+      <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--text-tertiary)' }}>Numbering</p>
+      <FormRow label="Quote Prefix" hint="e.g. QUO- → QUO-A1B2C3">
+        <input value={quotePrefix} onChange={e => setQuotePrefix(e.target.value)} className="studio-input w-32 text-sm" placeholder="QUO-" />
       </FormRow>
       <FormRow label="Invoice Prefix">
-        <input value={prefix} onChange={e => setPrefix(e.target.value)} className="studio-input w-36 text-sm" placeholder="e.g. INV-" />
+        <input value={invoicePrefix} onChange={e => setInvoicePrefix(e.target.value)} className="studio-input w-32 text-sm" placeholder="INV-" />
       </FormRow>
+      <FormRow label="PO Prefix">
+        <input value={poPrefix} onChange={e => setPoPrefix(e.target.value)} className="studio-input w-32 text-sm" placeholder="PO-" />
+      </FormRow>
+      <FormRow label="Quote Validity" hint="Days after issue date">
+        <div className="flex items-center gap-2">
+          <input type="number" min="1" max="365" value={validityDays} onChange={e => setValidityDays(e.target.value)} className="studio-input w-24 text-sm" />
+          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>days</span>
+        </div>
+      </FormRow>
+
+      <p className="text-xs font-bold uppercase tracking-wider mt-6 mb-1" style={{ color: 'var(--text-tertiary)' }}>Terms &amp; Conditions (printed on PDFs)</p>
+      <FormRow label="Quotation Terms">
+        <textarea value={quotationTerms} onChange={e => setQuotationTerms(e.target.value)} rows={3}
+          placeholder="e.g. Prices valid for 30 days. 50% advance on confirmation…"
+          className="studio-input w-full text-sm resize-none" />
+      </FormRow>
+      <FormRow label="Invoice Terms">
+        <textarea value={invoiceTerms} onChange={e => setInvoiceTerms(e.target.value)} rows={3}
+          placeholder="e.g. Payment due within 7 days of invoice date…"
+          className="studio-input w-full text-sm resize-none" />
+      </FormRow>
+      <FormRow label="PO Terms">
+        <textarea value={poTerms} onChange={e => setPoTerms(e.target.value)} rows={3}
+          placeholder="e.g. Goods to be delivered by agreed date. Quality conformance required…"
+          className="studio-input w-full text-sm resize-none" />
+      </FormRow>
+
+      <p className="text-xs font-bold uppercase tracking-wider mt-6 mb-1" style={{ color: 'var(--text-tertiary)' }}>GST &amp; Compliance</p>
       <FormRow label="e-Invoice (IRN/QR)">
         <Toggle checked={eInvoice} onChange={setEInvoice} label="Enable e-Invoicing via GSP API" />
       </FormRow>
-      <FormRow label="Bank Name">
-        <input value={bankName} onChange={e => setBankName(e.target.value)} className="studio-input w-full text-sm" placeholder="e.g. HDFC Bank" />
-      </FormRow>
-      <FormRow label="Account Number">
-        <input value={accountNo} onChange={e => setAccountNo(e.target.value)} className="studio-input w-full text-sm" />
-      </FormRow>
-      <FormRow label="IFSC Code">
-        <input value={ifsc} onChange={e => setIfsc(e.target.value)} className="studio-input w-full text-sm" placeholder="e.g. HDFC0001234" />
-      </FormRow>
-      <FormRow label="Payment Terms">
-        <textarea value={terms} onChange={e => setTerms(e.target.value)} rows={3} className="studio-input w-full text-sm resize-none" />
-      </FormRow>
+
+      {error && <p className="pt-2 text-xs text-red-600">{error}</p>}
       <div className="pt-4">
-        <button type="button" onClick={onSave} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm">
-          <Save className="h-4 w-4" />Save Invoice Settings
+        <button type="button" onClick={submit} disabled={saving} className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm disabled:opacity-60">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {saving ? 'Saving…' : 'Save Invoice Settings'}
         </button>
       </div>
     </div>

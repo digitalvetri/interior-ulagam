@@ -4,6 +4,7 @@ import { quotes } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { enqueue } from '@/jobs/queue';
 import { eq, and } from 'drizzle-orm';
+import { applyStageTransition } from '@/lib/leads/transitions';
 
 export async function POST(
   _request: NextRequest,
@@ -39,6 +40,12 @@ export async function POST(
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
 
     await enqueue('quote/pdf.requested', { quoteId: id, tenantId: ctx.tenantId });
+
+    // Advance lead stage: v1 → quotation, v2+ → negotiation
+    if (quote.leadId) {
+      const targetStage = quote.version === 1 ? 'quotation' : 'negotiation';
+      await applyStageTransition(quote.leadId, ctx.tenantId, ctx.dbUserId ?? null, targetStage);
+    }
 
     return NextResponse.json(
       { data: null, message: 'Quote sent — PDF generation in progress' },

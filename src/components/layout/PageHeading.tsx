@@ -7,7 +7,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/customers':           'Customers',
   '/projects':            'Projects',
   '/quotes':              'Quotations',
-  '/work-orders':         'Design Tasks',
+  '/design-tasks':        'Design Tasks',
   '/materials':           'Materials',
   '/vendors':             'Vendors',
   '/purchase-orders':     'Purchase Orders',

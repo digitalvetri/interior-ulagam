@@ -11,6 +11,7 @@ import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
 import { MarginSummary } from '@/components/quotes/MarginSummary';
 import { ImportBOQModal } from '@/components/quotes/ImportBOQModal';
+import { DocumentActions } from '@/components/ui/DocumentActions';
 import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
 
@@ -448,13 +449,13 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
                 <FileText className="h-4 w-4" />Client Preview
               </button>
-              {quote.pdfUrl && (
-                <a href={quote.pdfUrl} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                  <Download className="h-4 w-4" />Download PDF
-                </a>
-              )}
+              <DocumentActions
+                pdfUrl={quote.pdfUrl}
+                docType="quote"
+                docNumber={quoteLabel}
+                waPhone={phone}
+                waCaption={`Hi ${quote.leadContactName ?? 'there'}, your quotation ${quoteLabel} from The Interior Studio is ready.`}
+              />
               {isDraft && (
                 <button type="button"
                   className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"

@@ -9,7 +9,7 @@ import {
   Plus, FolderKanban, ChevronDown, ChevronUp,
   Sparkles, Zap, ShieldAlert, Mic, MicOff,
   Edit2, Trash2, Archive, MoreVertical,
-  Upload, ExternalLink, X, StickyNote, BellRing,
+  Upload, ExternalLink, X, StickyNote, BellRing, Download,
 } from 'lucide-react';
 import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem, LeadFollowUp } from '@/types/leads';
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
@@ -20,6 +20,7 @@ import { WonFlowModal } from '@/components/leads/WonFlowModal';
 import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
 import type { SiteVisit } from '@/types/site-visits';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type LeadDocument = DocumentRow & { downloadUrl: string | null };
 
@@ -207,27 +208,6 @@ function Section({ title, defaultOpen = true, action, children }: {
   );
 }
 
-/* ── ConfirmDialog ─────────────────────────────────────────── */
-function ConfirmDialog({ open, title, message, confirmLabel, danger, onConfirm, onCancel, loading }: {
-  open: boolean; title: string; message: string; confirmLabel: string; danger?: boolean;
-  onConfirm: () => void; onCancel: () => void; loading?: boolean;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-        <h3 className="text-base font-bold mb-2" style={{ color: 'var(--text-heading)' }}>{title}</h3>
-        <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>{message}</p>
-        <div className="flex gap-2 justify-end">
-          <button type="button" onClick={onCancel} disabled={loading} className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>Cancel</button>
-          <button type="button" onClick={onConfirm} disabled={loading} className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50" style={{ background: danger ? 'var(--danger)' : 'var(--violet-primary)', color: '#fff' }}>
-            {loading ? 'Please wait…' : confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ── MarkLostDialog ────────────────────────────────────────── */
 function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }: {
@@ -371,11 +351,23 @@ function MeasurementsTabContent({ leadId, initialRounds, onRoundAdded }: {
         <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
           {rounds.length} Round{rounds.length !== 1 ? 's' : ''}
         </p>
-        <button type="button" onClick={() => setShowAddRound(v => !v)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-          style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-          <Plus className="h-3.5 w-3.5" /> Add Round
-        </button>
+        <div className="flex items-center gap-2">
+          {rounds.length > 0 && (
+            <a
+              href={`/api/v1/leads/${leadId}/measurements/pdf`}
+              download
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}
+            >
+              <Download className="h-3.5 w-3.5" /> PDF
+            </a>
+          )}
+          <button type="button" onClick={() => setShowAddRound(v => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+            <Plus className="h-3.5 w-3.5" /> Add Round
+          </button>
+        </div>
       </div>
 
       {showAddRound && (

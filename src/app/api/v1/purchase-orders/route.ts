@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { purchaseOrders } from '@/lib/db/schema';
+import { purchaseOrders, projects, vendors } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, count } from 'drizzle-orm';
+import { eq, and, count, desc } from 'drizzle-orm';
 
 const PO_STATUSES = [
   'draft',
@@ -51,11 +51,43 @@ export async function GET(request: NextRequest) {
     }
 
     const rows = await db
-      .select()
+      .select({
+        id:                  purchaseOrders.id,
+        tenantId:            purchaseOrders.tenantId,
+        projectId:           purchaseOrders.projectId,
+        vendorId:            purchaseOrders.vendorId,
+        vendorContactName:   purchaseOrders.vendorContactName,
+        vendorPhone:         purchaseOrders.vendorPhone,
+        poNumber:            purchaseOrders.poNumber,
+        linesJson:           purchaseOrders.linesJson,
+        status:              purchaseOrders.status,
+        advancePaidPaise:    purchaseOrders.advancePaidPaise,
+        expectedDeliveryAt:  purchaseOrders.expectedDeliveryAt,
+        pdfUrl:              purchaseOrders.pdfUrl,
+        createdAt:           purchaseOrders.createdAt,
+        projectName:         projects.name,
+        vendorName:          vendors.name,
+      })
       .from(purchaseOrders)
-      .where(and(...conditions));
+      .leftJoin(projects, eq(purchaseOrders.projectId, projects.id))
+      .leftJoin(vendors,  eq(purchaseOrders.vendorId,  vendors.id))
+      .where(and(...conditions))
+      .orderBy(desc(purchaseOrders.createdAt));
 
-    return NextResponse.json({ data: rows });
+    // Compute line count and total paise from linesJson
+    const enriched = rows.map((po) => {
+      const lines = Array.isArray(po.linesJson) ? (po.linesJson as Record<string, unknown>[]) : [];
+      const lineCount = lines.length;
+      const totalPaise = lines.reduce((sum, l) => {
+        const qty      = typeof l.qty === 'number' ? l.qty : 0;
+        const rate     = typeof l.ratePaise === 'number' ? l.ratePaise
+                       : typeof l.rate === 'number' ? l.rate * 100 : 0;
+        return sum + qty * rate;
+      }, 0);
+      return { ...po, lineCount, totalPaise };
+    });
+
+    return NextResponse.json({ data: enriched });
   } catch (err) {
     console.error('[purchase-orders GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

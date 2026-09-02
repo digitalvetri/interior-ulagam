@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, desc, eq, ilike, inArray, notInArray, or } from 'drizzle-orm';
+import { and, count, desc, eq, ilike, inArray, notInArray, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers, leads } from '@/lib/db/schema';
+import { customers, leads, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
 
@@ -88,12 +88,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Project count per customer
+    const projectCountByCustomer = new Map<string, number>();
+    if (ids.length > 0) {
+      const counts = await db
+        .select({ customerId: projects.customerId, cnt: count() })
+        .from(projects)
+        .where(and(eq(projects.tenantId, ctx.tenantId), inArray(projects.customerId, ids)))
+        .groupBy(projects.customerId);
+      for (const pc of counts) {
+        if (pc.customerId) projectCountByCustomer.set(pc.customerId, Number(pc.cnt));
+      }
+    }
+
     const rows = customerRows.map((c) => {
       const activeLead = leadByCustomer.get(c.id);
       return {
         ...c,
         activeLeadId:    activeLead?.id    ?? null,
         activeLeadStage: activeLead?.stage ?? null,
+        projectCount:    projectCountByCustomer.get(c.id) ?? 0,
       };
     });
 

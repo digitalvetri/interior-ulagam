@@ -13,6 +13,8 @@ interface PriceHistoryEntry {
 const UpdateMaterialSchema = z
   .object({
     currentRatePaise: z.number().int().nonnegative().optional(),
+    sellingRatePaise: z.number().int().nonnegative().optional(),
+    vendorId: z.string().uuid().nullable().optional(),
     name: z.string().min(1).optional(),
     brand: z.string().optional(),
     unit: z.string().min(1).optional(),
@@ -100,6 +102,8 @@ export async function PATCH(
     if (input.unit !== undefined) updateValues.unit = input.unit;
     if (input.hsnSac !== undefined) updateValues.hsnSac = input.hsnSac;
     if (input.notes !== undefined) updateValues.notes = input.notes;
+    if (input.sellingRatePaise !== undefined) updateValues.sellingRatePaise = input.sellingRatePaise;
+    if (input.vendorId !== undefined) updateValues.vendorId = input.vendorId;
 
     // Handle rate change: record price history and shift current → last
     if (

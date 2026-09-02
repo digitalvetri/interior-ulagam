@@ -1,13 +1,5 @@
-import { Boxes } from 'lucide-react';
-import { ComingSoonPage } from '@/components/ui/ComingSoonPage';
+import { redirect } from 'next/navigation';
 
-export default function InventoryPage() {
-  return (
-    <ComingSoonPage
-      icon={Boxes}
-      title="Inventory & Stock"
-      description="Stock levels are tracked through the Materials catalogue and Purchase Order GRNs."
-      cta={{ href: '/materials', label: 'Go to Materials' }}
-    />
-  );
+export default function InventoryRedirect() {
+  redirect('/materials');
 }

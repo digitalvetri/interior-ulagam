@@ -373,7 +373,7 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
     },
     {
       href: `/projects/${id}/boq`,
-      label: 'Procurement',
+      label: 'Procurement Status',
       description: 'BOQ vs. delivered reconciliation',
       badge: null,
       Icon: Package,

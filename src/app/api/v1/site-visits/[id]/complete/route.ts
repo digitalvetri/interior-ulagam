@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { siteVisits, leads } from '@/lib/db/schema';
+import { siteVisits } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { applyStageTransition } from '@/lib/leads/transitions';
 
 // ─── Zod Schema ──────────────────────────────────────────────────────────────
 
@@ -76,11 +77,7 @@ export async function POST(
       .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)))
       .returning();
 
-    // Advance lead stage to measurement (next stage after site visit)
-    await db
-      .update(leads)
-      .set({ stage: 'measurement', lastActivityAt: new Date() })
-      .where(and(eq(leads.id, visit.leadId), eq(leads.tenantId, ctx.tenantId)));
+    await applyStageTransition(visit.leadId, ctx.tenantId, ctx.dbUserId ?? null, 'measurement');
 
     return NextResponse.json({ data: updated, message: 'Site visit marked as completed' });
   } catch (e) {

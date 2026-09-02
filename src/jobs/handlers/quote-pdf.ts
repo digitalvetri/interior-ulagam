@@ -3,10 +3,10 @@ import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, customers, tenants, leads } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { renderQuotePdf, type QuotePdfInput } from '@/lib/pdf/quote';
+import { extractBranding, extractTerms, extractValidityDays } from '@/lib/pdf/branding';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 import { whatsapp } from '@/lib/whatsapp/send';
 
-// ── Internal step-return type (extends QuotePdfInput with extras for step 4) ─
 interface QuoteData extends QuotePdfInput {
   clientPhone: string | null;
   quoteVersion: number;
@@ -18,7 +18,6 @@ export const quotePdf = defineJob(
   async ({ event, step }) => {
     const { quoteId, tenantId } = event.data as { quoteId: string; tenantId: string };
 
-    // ── Step 1: Fetch everything needed to render the PDF ────────────────────
     const quoteData = await step.run('fetch-quote-data', async (): Promise<QuoteData> => {
       const [quote] = await db
         .select({
@@ -59,19 +58,20 @@ export const quotePdf = defineJob(
 
       let clientName = 'Valued Client';
       let clientPhone: string | null = null;
+      let clientAddress: string | null = null;
 
       if (project?.customerId) {
         const [customer] = await db
-          .select({ fullName: customers.fullName, phone: customers.phone })
+          .select({ fullName: customers.fullName, phone: customers.phone, address: customers.address })
           .from(customers)
           .where(eq(customers.id, project.customerId))
           .limit(1);
         if (customer) {
           clientName = customer.fullName;
           clientPhone = customer.phone;
+          clientAddress = customer.address;
         }
       } else if (quote.leadId) {
-        // Lead-linked pre-sale quote — use lead contact details
         const [lead] = await db
           .select({ contactName: leads.contactName, contactPhone: leads.contactPhone })
           .from(leads)
@@ -84,38 +84,44 @@ export const quotePdf = defineJob(
       }
 
       const [tenant] = await db
-        .select({ name: tenants.name, gstin: tenants.gstin })
+        .select({ name: tenants.name, gstin: tenants.gstin, brandingJson: tenants.brandingJson })
         .from(tenants)
         .where(eq(tenants.id, tenantId))
         .limit(1);
 
+      const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
+      const terms = extractTerms(tenant?.brandingJson, 'quotation');
+      const validityDays = extractValidityDays(tenant?.brandingJson);
+      const issuedAt = new Date(quote.createdAt);
+      const validUntil = new Date(issuedAt);
+      validUntil.setDate(validUntil.getDate() + validityDays);
+
       return {
         quoteNumber:   `QUO-${quoteId.slice(-6).toUpperCase()}`,
         version:       quote.version,
-        issuedAt:      new Date(quote.createdAt),
-        studio:        { name: tenant?.name ?? 'Interior Studio', gstin: tenant?.gstin ?? null },
-        client:        { name: clientName, phone: clientPhone },
+        issuedAt,
+        validUntil,
+        studio,
+        client:        { name: clientName, phone: clientPhone, address: clientAddress },
         project:       { name: project?.name ?? 'Estimate' },
         lines,
         subtotalPaise: quote.subtotalPaise,
         gstPaise:      quote.gstPaise,
         totalPaise:    quote.totalPaise,
+        terms,
         clientPhone,
         quoteVersion:  quote.version,
       };
     });
 
-    // ── Step 2: Render PDF + upload (combined to avoid serialising a Buffer) ─
     const pdfUrl = await step.run('render-and-upload', async (): Promise<string> => {
       const buffer = await renderQuotePdf({
         ...quoteData,
         issuedAt: new Date(quoteData.issuedAt),
+        validUntil: quoteData.validUntil ? new Date(quoteData.validUntil) : null,
       });
 
       const storagePath = `${tenantId}/${quoteId}-v${quoteData.quoteVersion}.pdf`;
-
-      // The quotes bucket is created with public read access by the minio-init
-      // service in docker-compose.yml.
       await putObject({
         bucket: QUOTES_BUCKET,
         key: storagePath,
@@ -123,12 +129,9 @@ export const quotePdf = defineJob(
         contentType: 'application/pdf',
       });
 
-      // Deliberately a public, non-expiring URL: this is persisted on the quote
-      // and sent to the client over WhatsApp.
       return getPublicUrl(QUOTES_BUCKET, storagePath);
     });
 
-    // ── Step 3: Persist the PDF URL and mark as sent ─────────────────────────
     await step.run('update-quote-record', async () => {
       await db
         .update(quotes)
@@ -136,17 +139,9 @@ export const quotePdf = defineJob(
         .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
     });
 
-    // ── Step 4: Notify client via WhatsApp (best-effort — never fails the job)
-    //    Document messages only deliver inside the 24h customer-service window.
-    //    Proactive sends outside that window require a registered template with
-    //    a document header. Register one and swap the send type when creds land.
     const waResult = await step.run('notify-client-whatsapp', async () => {
       if (!quoteData.clientPhone) return { skipped: 'no-phone' };
 
-      // Idempotency guard. A BullMQ retry re-runs this handler from the top —
-      // unlike Inngest, which memoised completed steps — so without this check a
-      // failure anywhere after the send would deliver the quote to the client a
-      // second time. waMessageId is only set once a send has succeeded.
       const [existing] = await db
         .select({ waMessageId: quotes.waMessageId })
         .from(quotes)
@@ -172,7 +167,6 @@ export const quotePdf = defineJob(
             `Please review and let us know if you have any questions.`,
         });
 
-        // Persist WA message ID for delivery tracking
         await db
           .update(quotes)
           .set({ waMessageId: messageId })
@@ -180,7 +174,7 @@ export const quotePdf = defineJob(
 
         return { sent: true, messageId, to: quoteData.clientPhone };
       } catch (err) {
-        console.error('[quote-pdf] WhatsApp send failed (likely outside 24h window):', err);
+        console.error('[quote-pdf] WhatsApp send failed:', err);
         return { skipped: 'send-error', error: String(err) };
       }
     });

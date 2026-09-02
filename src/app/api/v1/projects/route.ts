@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { projects, leads, customers } from '@/lib/db/schema';
+import { projects, leads, customers, milestones } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray, asc, ne } from 'drizzle-orm';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -62,7 +62,41 @@ export async function GET(_request: NextRequest) {
       .where(eq(projects.tenantId, ctx.tenantId))
       .orderBy(desc(projects.createdAt));
 
-    return NextResponse.json({ data: rows });
+    // Enrich with milestone data: collected paise + next unpaid milestone label
+    const projectIds = rows.map((r) => r.id);
+    const collectedByProject = new Map<string, number>();
+    const nextMilestoneByProject = new Map<string, string>();
+
+    if (projectIds.length > 0) {
+      const paidMilestones = await db
+        .select({ projectId: milestones.projectId, amountPaise: milestones.amountPaise })
+        .from(milestones)
+        .where(and(inArray(milestones.projectId, projectIds), eq(milestones.paymentStatus, 'paid')));
+
+      for (const m of paidMilestones) {
+        collectedByProject.set(m.projectId, (collectedByProject.get(m.projectId) ?? 0) + m.amountPaise);
+      }
+
+      const unpaidMilestones = await db
+        .select({ projectId: milestones.projectId, label: milestones.label })
+        .from(milestones)
+        .where(and(inArray(milestones.projectId, projectIds), ne(milestones.paymentStatus, 'paid')))
+        .orderBy(asc(milestones.createdAt));
+
+      for (const m of unpaidMilestones) {
+        if (!nextMilestoneByProject.has(m.projectId)) {
+          nextMilestoneByProject.set(m.projectId, m.label);
+        }
+      }
+    }
+
+    const enriched = rows.map((r) => ({
+      ...r,
+      collectedPaise:     collectedByProject.get(r.id) ?? 0,
+      nextMilestoneLabel: nextMilestoneByProject.get(r.id) ?? null,
+    }));
+
+    return NextResponse.json({ data: enriched });
   } catch (err) {
     return serverError('GET select', err);
   }

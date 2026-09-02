@@ -4,6 +4,9 @@ import type { JobDefinition } from '@/jobs/define';
 
 import { helloWorld } from '@/jobs/handlers/hello-world';
 import { quotePdf } from '@/jobs/handlers/quote-pdf';
+import { invoicePdf } from '@/jobs/handlers/invoice-pdf';
+import { receiptPdf } from '@/jobs/handlers/receipt-pdf';
+import { poPdf } from '@/jobs/handlers/po-pdf';
 import { leadScoreCompute } from '@/jobs/handlers/lead-score';
 import { leadEnrich } from '@/jobs/handlers/lead-enrich';
 import { milestonePaymentCaptured } from '@/jobs/handlers/milestone-payment';
@@ -46,6 +49,9 @@ type AnyDefinition = JobDefinition<unknown>;
 export const HANDLERS: Partial<Record<JobName, AnyDefinition>> = {
   [JOB.helloWorld]: helloWorld as AnyDefinition,
   [JOB.quotePdf]: quotePdf as AnyDefinition,
+  [JOB.invoicePdf]: invoicePdf as AnyDefinition,
+  [JOB.receiptPdf]: receiptPdf as AnyDefinition,
+  [JOB.poPdf]: poPdf as AnyDefinition,
   [JOB.leadEnrich]: leadEnrich as AnyDefinition,
   [JOB.leadScore]: leadScoreCompute as AnyDefinition,
   [JOB.languageDetection]: languageDetection as AnyDefinition,

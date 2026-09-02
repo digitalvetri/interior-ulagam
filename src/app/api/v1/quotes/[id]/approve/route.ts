@@ -25,13 +25,13 @@ export async function POST(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    if (quote.status === 'approved') {
-      return NextResponse.json({ error: 'Quote is already approved' }, { status: 422 });
+    if (quote.status === 'accepted') {
+      return NextResponse.json({ error: 'Quote is already accepted' }, { status: 422 });
     }
 
     if (quote.status !== 'sent') {
       return NextResponse.json(
-        { error: `Only sent quotes can be approved (current status: '${quote.status}')` },
+        { error: `Only sent quotes can be accepted (current status: '${quote.status}')` },
         { status: 422 },
       );
     }
@@ -41,7 +41,7 @@ export async function POST(
     const [updated] = await db
       .update(quotes)
       .set({
-        status: 'approved',
+        status: 'accepted',
         approvedAt: now,
         approvalAuditJson: {
           approvedBy: ctx.userId,
@@ -51,7 +51,13 @@ export async function POST(
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)))
       .returning();
 
-    return NextResponse.json({ data: updated, message: 'Quote approved' });
+    // Return the accepted quote total so the UI can pre-fill the Won Flow modal
+    return NextResponse.json({
+      data: updated,
+      message: 'Quote accepted — open Won Flow to convert this lead',
+      acceptedTotalPaise: updated.totalPaise,
+      leadId: updated.leadId,
+    });
   } catch (err) {
     console.error('[quotes/:id/approve POST]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
