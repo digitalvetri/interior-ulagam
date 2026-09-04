@@ -29,6 +29,22 @@ function isToday(dateIso?: string | null): boolean {
   return fd.getTime() === today.getTime();
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  instagram: 'Instagram', whatsapp: 'WhatsApp', referral: 'Referral',
+  website: 'Website', walk_in: 'Walk-in', other: 'Other',
+};
+
+function formatFollowUp(dateIso?: string | null): string {
+  if (!dateIso) return '—';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const fd    = new Date(dateIso); fd.setHours(0, 0, 0, 0);
+  const diff  = Math.round((fd.getTime() - today.getTime()) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  return fd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
 const STAGE_STYLE: Record<string, { bg: string; color: string }> = {
   new:                  { bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
   site_visit_scheduled: { bg: '#FEF9C3',              color: '#854D0E' },
@@ -72,7 +88,7 @@ function ProjectCard({
   const value   = (lead.projectValuePaise ?? 0) > 0
     ? `₹${((lead.projectValuePaise ?? 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
     : null;
-  const title   = lead.projectName ?? lead.propertyType ?? STAGE_LABELS[lead.stage];
+  const title   = lead.projectName ?? lead.propertyType ?? null;
   const subtype = lead.projectName && lead.propertyType ? lead.propertyType : null;
   const pc      = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
 
@@ -121,11 +137,13 @@ function ProjectCard({
           {/* Row 1: enquiry number + name + stage badge */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              Enquiry {index + 1}
+              Project {index + 1}
             </span>
-            <p className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--text-heading)' }}>
-              {title}
-            </p>
+            {title && (
+              <p className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--text-heading)' }}>
+                {title}
+              </p>
+            )}
             <span
               className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex-shrink-0"
               style={{ background: ss.bg, color: ss.color }}
@@ -172,6 +190,24 @@ function ProjectCard({
                 <Bell className="h-3 w-3" /> Overdue
               </span>
             )}
+          </div>
+
+          {/* Row 3: source · owner · follow-up */}
+          <div className="flex items-center gap-4 mt-2 flex-wrap">
+            <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Source</span>
+              &nbsp;{SOURCE_LABELS[lead.source] ?? lead.source}
+            </span>
+            {lead.designerName && (
+              <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>Owner</span>
+                &nbsp;{lead.designerName}
+              </span>
+            )}
+            <span className="flex items-center gap-1 text-[12px]" style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+              <span className="font-medium" style={{ color: overdue ? 'var(--danger)' : 'var(--text-secondary)' }}>Next Follow-up</span>
+              &nbsp;{formatFollowUp(lead.followUpDate)}
+            </span>
           </div>
         </Link>
 

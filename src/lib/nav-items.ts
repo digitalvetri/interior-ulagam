@@ -3,7 +3,6 @@ import {
   Users,
   UserCheck,
   FolderKanban,
-  FileText,
   ShoppingCart,
   Truck,
   Package,
@@ -53,7 +52,6 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['owner', 'designer', 'supervisor'],
     items: [
       { href: '/projects',    label: 'Projects',     icon: FolderKanban, roles: ['owner', 'designer', 'supervisor'] },
-      { href: '/quotes',      label: 'Quotations',   icon: FileText,     roles: ['owner', 'designer'] },
       { href: '/design-tasks', label: 'Design Tasks', icon: Wrench,       roles: ['owner', 'designer', 'supervisor'] },
     ],
   },

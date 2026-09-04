@@ -15,8 +15,6 @@ import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, Measur
 import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
-import { ScheduleMeasurementModal } from '@/components/leads/ScheduleMeasurementModal';
-import { CreateQuotationModal } from '@/components/leads/CreateQuotationModal';
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
 import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
 import { WonFlowModal } from '@/components/leads/WonFlowModal';
@@ -80,31 +78,29 @@ const SOURCE_LABELS: Record<string, string> = {
 
 /* ── Pipeline ──────────────────────────────────────────────── */
 const PIPELINE_STEPS = [
-  { key: 'new',         label: 'New' },
-  { key: 'contacted',   label: 'Contacted' },
-  { key: 'qualified',   label: 'Qualified' },
-  { key: 'site_visit',  label: 'Site Visit' },
-  { key: 'measurement', label: 'Measurement' },
-  { key: 'quotation',   label: 'Quotation' },
-  { key: 'won',         label: 'Won' },
+  { key: 'new',       label: 'New' },
+  { key: 'contacted', label: 'Contacted' },
+  { key: 'qualified', label: 'Qualified' },
+  { key: 'won',       label: 'Won' },
 ];
 const LEGACY_STAGE_MAP: Record<string, string> = {
-  site_visit_scheduled: 'site_visit',
-  consultation_done:    'measurement',
-  proposal_sent:        'quotation',
+  site_visit_scheduled: 'qualified',
+  consultation_done:    'qualified',
+  proposal_sent:        'qualified',
+  site_visit:           'qualified',
+  measurement:          'qualified',
+  quotation:            'qualified',
+  negotiation:          'qualified',
 };
 
 // Contextual next-stage action for each mid-pipeline stage.
 // terminal=true means use the /stage endpoint (won/lost), not the regular PATCH.
 const NEXT_STAGE_MAP: Record<string, { label: string; targetStage: string; terminal?: boolean }> = {
-  new:         { label: 'Mark as Contacted',  targetStage: 'contacted' },
-  contacted:   { label: 'Qualify Lead',        targetStage: 'qualified' },
-  qualified:   { label: 'Schedule Site Visit', targetStage: 'site_visit' },
-  site_visit:  { label: 'Record Measurements', targetStage: 'measurement' },
-  measurement: { label: 'Move to Quotation',   targetStage: 'quotation' },
-  quotation:   { label: 'Mark as Won',         targetStage: 'won', terminal: true },
-  // negotiation is legacy — kept for backward compat with existing data
-  negotiation: { label: 'Mark as Won',         targetStage: 'won', terminal: true },
+  new:         { label: 'Mark as Contacted', targetStage: 'contacted' },
+  contacted:   { label: 'Qualify Lead',      targetStage: 'qualified' },
+  qualified:   { label: 'Mark as Won',       targetStage: 'won', terminal: true },
+  // legacy stages — kept for backward compat with existing data
+  negotiation: { label: 'Mark as Won',       targetStage: 'won', terminal: true },
 };
 
 function PipelineBar({ stage, isLost, onStepClick, disabled = false }: {
@@ -523,11 +519,9 @@ export default function LeadDetailPage() {
   const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
 
   // Stage-action modals
-  const [showMarkContactedModal, setShowMarkContactedModal]   = useState(false);
-  const [showQualifyModal, setShowQualifyModal]               = useState(false);
-  const [showWonFlowModal, setShowWonFlowModal]               = useState(false);
-  const [showMeasurementModal, setShowMeasurementModal]       = useState(false);
-  const [showQuotationModal, setShowQuotationModal]           = useState(false);
+  const [showMarkContactedModal, setShowMarkContactedModal] = useState(false);
+  const [showQualifyModal, setShowQualifyModal]             = useState(false);
+  const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
 
   // Tabs
   type TabKey = 'overview' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
@@ -818,12 +812,9 @@ export default function LeadDetailPage() {
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   function handlePipelineStepClick(stepKey: string) {
-    if (stepKey === 'contacted')   { setShowMarkContactedModal(true); }
-    else if (stepKey === 'qualified')   { setShowQualifyModal(true); }
-    else if (stepKey === 'site_visit')  { setShowSiteVisitModal(true); }
-    else if (stepKey === 'measurement') { setShowMeasurementModal(true); }
-    else if (stepKey === 'quotation')   { setShowQuotationModal(true); }
-    else if (stepKey === 'won')         { setShowWonFlowModal(true); }
+    if (stepKey === 'contacted')      { setShowMarkContactedModal(true); }
+    else if (stepKey === 'qualified') { setShowQualifyModal(true); }
+    else if (stepKey === 'won')       { setShowWonFlowModal(true); }
     else { void advanceStage(stepKey); }
   }
 
@@ -927,47 +918,6 @@ export default function LeadDetailPage() {
           setToast(`Project "${project.name}" created!`);
           setTimeout(() => setToast(null), 3000);
           router.push(`/projects/${project.id}`);
-        }}
-      />
-      <ScheduleMeasurementModal
-        leadId={id}
-        open={showMeasurementModal}
-        onOpenChange={setShowMeasurementModal}
-        onSuccess={async (round) => {
-          setMeasurementsData(prev => {
-            const exists = prev.some(r => r.id === round.id);
-            return exists ? prev : [round, ...prev];
-          });
-          await advanceStage('measurement');
-          const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
-          if (actRes?.ok) {
-            const { data: actData } = await actRes.json() as { data: LeadActivity[] };
-            setActivities(actData ?? []);
-          }
-          setToast('Measurement round created!');
-          setTimeout(() => setToast(null), 3000);
-        }}
-      />
-      <CreateQuotationModal
-        leadId={id}
-        leadName={lead.contactName}
-        open={showQuotationModal}
-        onOpenChange={setShowQuotationModal}
-        onSuccess={async (quote, openEditor) => {
-          setLeadQuotes(prev => [quote, ...prev]);
-          await advanceStage('quotation');
-          const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
-          if (actRes?.ok) {
-            const { data: actData } = await actRes.json() as { data: LeadActivity[] };
-            setActivities(actData ?? []);
-          }
-          if (openEditor) {
-            router.push(`/quotes/${quote.id}`);
-          } else {
-            setActiveTab('quotations');
-            setToast('Quotation created!');
-            setTimeout(() => setToast(null), 3000);
-          }
         }}
       />
 
@@ -1098,6 +1048,11 @@ export default function LeadDetailPage() {
                   style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
                   <Phone className="h-3.5 w-3.5" style={{ color: '#2563EB' }} /> Call
                 </a>
+                <button type="button" onClick={() => setShowSiteVisitModal(true)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium hover:opacity-80 transition-opacity"
+                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                  <Home className="h-3.5 w-3.5" style={{ color: 'var(--violet-primary)' }} /> Site Visit
+                </button>
               </div>
 
               {/* Project link — only when won */}
@@ -1136,12 +1091,9 @@ export default function LeadDetailPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    if (nextStageAction.targetStage === 'contacted')        { setShowMarkContactedModal(true); }
-                    else if (nextStageAction.targetStage === 'qualified')   { setShowQualifyModal(true); }
-                    else if (nextStageAction.targetStage === 'site_visit')  { setShowSiteVisitModal(true); }
-                    else if (nextStageAction.targetStage === 'measurement') { setShowMeasurementModal(true); }
-                    else if (nextStageAction.targetStage === 'quotation')   { setShowQuotationModal(true); }
-                    else if (nextStageAction.terminal)                      { setShowWonFlowModal(true); }
+                    if (nextStageAction.targetStage === 'contacted')      { setShowMarkContactedModal(true); }
+                    else if (nextStageAction.targetStage === 'qualified') { setShowQualifyModal(true); }
+                    else if (nextStageAction.terminal)                    { setShowWonFlowModal(true); }
                     else { void advanceStage(nextStageAction.targetStage); }
                   }}
                   disabled={stageActionsDisabled}
@@ -1155,7 +1107,7 @@ export default function LeadDetailPage() {
 
               {/* Reopen (lost state) */}
               {isLost && (
-                <button type="button" onClick={() => changeStage('quotation')} disabled={stageActionsDisabled}
+                <button type="button" onClick={() => changeStage('contacted')} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
                   style={{ background: 'var(--violet-primary)', color: '#fff' }}>
                   <Zap className="h-3.5 w-3.5" />{reopening ? 'Reopening…' : 'Reopen Lead'}
@@ -1330,34 +1282,6 @@ export default function LeadDetailPage() {
                   </div>
                 </div>
 
-                {/* Lead Score — owner only */}
-                {userRole === 'owner' && (lead.score ?? 0) > 0 && lead.scoreBreakdown && (
-                  <div className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Lead Score</p>
-                      <span className="text-2xl font-bold" style={{
-                        color: (lead.score ?? 0) >= 70 ? 'var(--success)' : (lead.score ?? 0) >= 40 ? 'var(--warning)' : 'var(--text-secondary)',
-                      }}>{lead.score}<span className="text-xs font-normal ml-0.5" style={{ color: 'var(--text-tertiary)' }}>/100</span></span>
-                    </div>
-                    <div className="space-y-2">
-                      {([
-                        { label: 'Recency',       val: lead.scoreBreakdown.recency,      max: 30 },
-                        { label: 'Project Value', val: lead.scoreBreakdown.value,        max: 25 },
-                        { label: 'Completeness',  val: lead.scoreBreakdown.completeness, max: 20 },
-                        { label: 'Source',        val: lead.scoreBreakdown.source,       max: 15 },
-                        { label: 'Engagement',    val: lead.scoreBreakdown.engagement,   max: 10 },
-                      ] as { label: string; val: number; max: number }[]).map(({ label, val, max }) => (
-                        <div key={label} className="flex items-center gap-3">
-                          <span className="text-xs w-24 flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                          <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
-                            <div className="h-1.5 rounded-full transition-all" style={{ width: `${(val / max) * 100}%`, background: 'var(--violet-primary)' }} />
-                          </div>
-                          <span className="text-xs w-8 text-right font-medium" style={{ color: 'var(--text-heading)' }}>{val}/{max}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>{/* end left column */}
 
               {/* RIGHT column — Follow-up + Customer + Site */}
@@ -1517,11 +1441,6 @@ export default function LeadDetailPage() {
                       {lead.projectLocation && (
                         <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{lead.projectLocation}</p>
                       )}
-                      <button type="button" onClick={() => setShowSiteVisitModal(true)}
-                        className="inline-flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-75"
-                        style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                        <Home className="h-3 w-3" style={{ color: 'var(--violet-primary)' }} /> Schedule Site Visit
-                      </button>
                     </div>
                   ) : (
                     <div>

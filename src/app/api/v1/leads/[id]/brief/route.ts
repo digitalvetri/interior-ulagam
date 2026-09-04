@@ -115,7 +115,7 @@ export async function POST(
     const brief = await groqProvider.chatJSON({
       model: 'heavy',
       schema: BriefSchema,
-      system: `You are an AI assistant for The Interior Studio, an interior design studio in Coimbatore, Tamil Nadu.
+      system: `You are an AI assistant for Konst Design, a premium interior design studio in Coimbatore, Tamil Nadu.
 Analyse the lead data and produce a concise sales brief for the designer.
 Be specific, practical, and concise. Use Indian English. Reply with valid JSON only.`,
       user: `Lead: ${lead.contactName}

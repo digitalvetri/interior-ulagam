@@ -10,10 +10,10 @@ import { Quote, QuoteLine } from '@/types/quotes';
 // Until then, update these constants to match your studio's details.
 // ⚠ IMPORTANT: Review and correct COMPANY_GSTIN before sharing with clients —
 //   a wrong GSTIN on a commercial document creates compliance liability.
-const COMPANY_NAME    = 'The Interior Studio';
-const COMPANY_ADDRESS = 'Coimbatore, Tamil Nadu'; // update with full address
-const COMPANY_PHONE   = '';                        // e.g. '+91 98765 43210'
-const COMPANY_EMAIL   = '';                        // e.g. 'hello@studio.in'
+const COMPANY_NAME    = 'Konst Design';
+const COMPANY_ADDRESS = 'No.11 Barathi Nagar, Rathinapuri, Coimbatore 641027';
+const COMPANY_PHONE   = '+91 98943 31115';
+const COMPANY_EMAIL   = 'Mohasher11@gmail.com';
 const COMPANY_GSTIN   = '';                        // e.g. '33XXXXX0000X1ZX'
 
 // ── Commercial terms ─────────────────────────────────────────────────────────

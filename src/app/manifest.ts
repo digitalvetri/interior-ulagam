@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'InterioOS — Field',
-    short_name: 'InterioOS',
-    description: 'Field supervisor app for The Interior Studio',
+    name: 'Konst Design — Field',
+    short_name: 'KonstOS',
+    description: 'Field supervisor app for Konst Design',
     start_url: '/site-log',
     scope: '/',
     display: 'standalone',

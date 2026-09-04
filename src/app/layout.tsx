@@ -7,9 +7,9 @@ const inter = Inter({ variable: '--font-geist-sans', subsets: ['latin'], display
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'InterioOS',
-  description: 'WhatsApp-first CRM + Project Management + ERP + AI for interior design studios',
-  icons: { icon: '/brand/logo-icon.png' },
+  title: 'Konst Design',
+  description: 'Studio CRM + Project Management + ERP + AI for Konst Design',
+  icons: { icon: '/brand/logo-dark.png' },
 };
 
 // Runs synchronously before React hydrates so the theme lands on <html> before

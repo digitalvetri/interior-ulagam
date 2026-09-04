@@ -235,10 +235,10 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
     : null;
 
   const phone    = quote.leadContactPhone?.replace(/\D/g, '');
-  const waText   = encodeURIComponent(`Hello ${quote.leadContactName ?? ''}, please find your quotation ${quoteLabel} from The Interior Studio.`);
-  const mailSubj = encodeURIComponent(`Quotation ${quoteLabel} — The Interior Studio`);
+  const waText   = encodeURIComponent(`Hello ${quote.leadContactName ?? ''}, please find your quotation ${quoteLabel} from Konst Design.`);
+  const mailSubj = encodeURIComponent(`Quotation ${quoteLabel} — Konst Design`);
   const mailBody = encodeURIComponent(
-    `Dear ${quote.leadContactName ?? 'Client'},\n\nPlease find your quotation (${quoteLabel}) from The Interior Studio.\n\nRegards,\nThe Interior Studio`,
+    `Dear ${quote.leadContactName ?? 'Client'},\n\nPlease find your quotation (${quoteLabel}) from Konst Design.\n\nRegards,\nKonst Design`,
   );
 
   const fmtDate = (d?: string) =>

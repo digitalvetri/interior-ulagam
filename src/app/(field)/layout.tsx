@@ -2,11 +2,11 @@ import type { Metadata, Viewport } from 'next';
 import Image from 'next/image';
 
 export const metadata: Metadata = {
-  title: 'InterioOS Field',
+  title: 'Konst Design Field',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'InterioOS',
+    title: 'Konst Design',
   },
 };
 
@@ -38,7 +38,7 @@ export default function FieldLayout({ children }: { children: React.ReactNode })
           priority
         />
         <span className="text-sm font-semibold tracking-widest text-white">
-          INTERIOR STUDIO
+          KONST DESIGN
         </span>
       </header>
       <main className="flex-1 p-4">{children}</main>

@@ -4,7 +4,7 @@ import { LoginScene3DLazy } from '@/components/auth/LoginScene3DLazy';
 export default function LoginPage() {
   return (
     <div className="login-shell">
-      {/* ── Left: brand / architectural showcase panel ─────────────────── */}
+      {/* ── Left: brand panel ─────────────────────────────────────────────── */}
       <div className="login-hero">
         <div className="login-hero-grid" aria-hidden="true" />
         <div className="login-hero-glow" aria-hidden="true" />
@@ -15,13 +15,13 @@ export default function LoginPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/brand/logo-icon.png"
-                alt="InterioOS"
+                alt="Konst Design"
                 className="h-full w-full object-contain"
                 width={28}
                 height={28}
               />
             </div>
-            <span>InterioOS</span>
+            <span>Konst Design</span>
           </div>
 
           <div className="login-hero-illustration">
@@ -29,7 +29,7 @@ export default function LoginPage() {
           </div>
 
           <div className="login-hero-copy">
-            <h2>Where blueprints become homes.</h2>
+            <h2>Where spaces become experiences.</h2>
             <p>
               Design, track, and deliver every interior project — from the first
               concept sketch to final handover — inside one studio workspace.
@@ -38,43 +38,50 @@ export default function LoginPage() {
 
           <div className="login-hero-stats">
             <div>
-              <strong>250+</strong>
-              <span>Projects delivered</span>
+              <strong>14+</strong>
+              <span>Years of expertise</span>
             </div>
             <div>
               <strong>4.9★</strong>
               <span>Client rating</span>
             </div>
             <div>
-              <strong>12+</strong>
-              <span>Cities served</span>
+              <strong>2</strong>
+              <span>Studio locations</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── Right: sign-in form panel (glassmorphism) ───────────────────── */}
+      {/* ── Right: sign-in form panel ────────────────────────────────────── */}
       <div className="login-form-panel">
         <div className="login-form-blob login-form-blob--a" aria-hidden="true" />
         <div className="login-form-blob login-form-blob--b" aria-hidden="true" />
         <div className="login-form-blob login-form-blob--c" aria-hidden="true" />
 
         <div className="w-full max-w-sm animate-fade-in login-glass-card">
-          {/* Brand mark — mobile only, hero panel is hidden below lg */}
+          {/* Brand mark — mobile only */}
           <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/brand/logo-icon.png"
-              alt="InterioOS"
-              className="h-14 w-14 object-contain"
-              width={56}
+              alt="Konst Design"
+              className="h-14 w-auto object-contain"
+              width={120}
               height={56}
             />
-            <div className="text-center">
-              <h1 className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
-                InterioOS
-              </h1>
-            </div>
+          </div>
+
+          {/* Logo shown on desktop right panel above form */}
+          <div className="mb-6 hidden lg:flex lg:flex-col lg:items-center lg:gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/brand/logo-icon.png"
+              alt="Konst Design"
+              className="h-16 w-auto object-contain"
+              width={140}
+              height={64}
+            />
           </div>
 
           <div className="mb-9">

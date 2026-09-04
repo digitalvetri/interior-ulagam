@@ -107,17 +107,19 @@ function SidebarBody({
           borderBottom: '1px solid var(--border-subtle)',
         }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/brand/logo-icon.png"
-          alt="The Interior Studio"
-          width={28} height={28}
-          className="h-7 w-7 flex-shrink-0 rounded-lg object-contain"
-        />
+        <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-white p-0.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logo-icon.png"
+            alt="Konst Design"
+            width={28} height={28}
+            className="h-full w-full object-contain"
+          />
+        </div>
         {!iconOnly && (
           <div className="min-w-0 leading-tight">
             <p className="truncate text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
-              The Interior Studio
+              Konst Design
             </p>
             <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Studio OS</p>
           </div>
@@ -201,9 +203,11 @@ export function Sidebar() {
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-card)] px-4">
         <div className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/logo-icon.png" alt="" className="h-7 w-7 rounded object-contain" width={28} height={28} />
-          <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Interior Studio</span>
+          <div className="flex h-7 w-7 items-center justify-center rounded bg-white p-0.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/logo-icon.png" alt="" className="h-full w-full object-contain" width={28} height={28} />
+          </div>
+          <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Konst Design</span>
         </div>
         <button
           type="button"

@@ -4,7 +4,6 @@ import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteVisits, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { applyStageTransition } from '@/lib/leads/transitions';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -99,8 +98,6 @@ export async function POST(request: NextRequest) {
         notes: notes ?? null,
       })
       .returning();
-
-    await applyStageTransition(leadId, ctx.tenantId, ctx.dbUserId ?? null, 'site_visit');
 
     return NextResponse.json(
       { data: visit, message: 'Site visit scheduled' },

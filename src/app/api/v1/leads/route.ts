@@ -5,7 +5,6 @@ import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
-import { upsertCustomerFromLead } from '@/lib/customers/sync';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
@@ -186,39 +185,7 @@ export async function POST(request: NextRequest) {
         createdAt:         leads.createdAt,
       });
 
-    // 2. Upsert customer + link both FKs. Wrapped so a schema mismatch (e.g. missing
-    //    column before drizzle-kit push) never prevents the lead from being saved.
-    //    Run `pnpm drizzle-kit push` then call POST /api/v1/customers/backfill to link
-    //    any leads created while the column was absent.
-    let customerId: string | undefined;
-    try {
-      const result = await upsertCustomerFromLead(
-        {
-          id:              lead.id,
-          contactName:     lead.contactName,
-          contactPhone:    lead.contactPhone,
-          contactEmail:    lead.contactEmail ?? null,
-          source:          lead.source,
-          stage:           lead.stage,
-          ownerId:         lead.ownerId ?? null,
-          projectLocation: projectLocation ?? null,
-          contactCity:     contactCity ?? null,
-          pincode:         pincode ?? null,
-        },
-        ctx.tenantId,
-      );
-      customerId = result.customerId;
-
-      // 3. Link lead → customer
-      await db
-        .update(leads)
-        .set({ customerId })
-        .where(eq(leads.id, lead.id));
-    } catch (syncErr) {
-      console.error('[POST /api/v1/leads] customer sync failed (run drizzle-kit push):', syncErr);
-    }
-
-    // 4. Non-blocking: nudge sequence + enrichment + initial score
+    // 2. Non-blocking: nudge sequence + enrichment + initial score
     await enqueueBestEffort('lead/followup.start', {
       leadId: lead.id, tenantId: lead.tenantId,
       contactPhone: lead.contactPhone, contactName: lead.contactName,
@@ -228,7 +195,7 @@ export async function POST(request: NextRequest) {
     });
     await enqueueBestEffort('lead/score.compute', { leadId: lead.id, tenantId: lead.tenantId });
 
-    return NextResponse.json({ data: { ...lead, customerId }, message: 'Lead created' }, { status: 201 });
+    return NextResponse.json({ data: lead, message: 'Lead created' }, { status: 201 });
   } catch (e) {
     console.error('[POST /api/v1/leads]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

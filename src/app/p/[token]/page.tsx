@@ -96,7 +96,7 @@ export default async function ClientTrustTimelinePage({
         <div className="mx-auto max-w-3xl flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">
-              The Interior Studio
+              Konst Design
             </p>
             <h1 className="mt-0.5 text-xl font-bold text-gray-900">{project.name}</h1>
           </div>
@@ -247,7 +247,7 @@ export default async function ClientTrustTimelinePage({
 
       {/* Footer */}
       <footer className="border-t border-gray-100 py-6 text-center">
-        <p className="text-xs text-gray-400">Powered by InterioOS — DigitalVetri</p>
+        <p className="text-xs text-gray-400">Powered by Konst Design — DigitalVetri</p>
       </footer>
     </div>
   );

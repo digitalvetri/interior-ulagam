@@ -75,6 +75,7 @@ export function LoginForm() {
             onChange={e => setPassword(e.target.value)}
             className="studio-input studio-input--icon studio-input--icon-right w-full text-sm"
             placeholder="••••••••"
+            suppressHydrationWarning
           />
           <button
             type="button"
