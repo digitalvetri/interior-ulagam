@@ -20,7 +20,17 @@ export interface ClientMilestone {
   amountPaise: number;
   paymentStatus: 'pending' | 'link_sent' | 'paid' | 'overdue';
   paidAt: string | null;
+  razorpayLinkId: string | null;
   createdAt: string;
+}
+
+export interface ClientDesignDeliverable {
+  id: string;
+  type: string;
+  title: string;
+  status: 'draft' | 'shared' | 'changes_requested' | 'approved';
+  latestFileUrl: string | null;
+  approvedAt: string | null;
 }
 
 export interface ClientDeliverable {
@@ -58,6 +68,7 @@ export interface ClientProjectSnapshot {
   };
   milestones: ClientMilestone[];
   deliverables: ClientDeliverable[];
+  pendingDesignDeliverables: ClientDesignDeliverable[];
   recentSiteLogs: ClientSiteLog[];
   snagItems: SnagItem[];
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { clientTokens, projects, milestones, deliverables, siteLogs, snagItems } from '@/lib/db/schema';
+import { clientTokens, projects, milestones, deliverables, siteLogs, snagItems, designDeliverables, deliverableVersions } from '@/lib/db/schema';
 import { eq, and, desc, asc, inArray, isNull, gt } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import type { ClientProjectSnapshot } from '@/types/snag';
@@ -61,7 +61,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 });
     }
 
-    const [milestonesData, deliverablesData, siteLogsData, snagItemsData] = await Promise.all([
+    const [milestonesData, deliverablesData, siteLogsData, snagItemsData, designDeliverablesData] = await Promise.all([
       db
         .select({
           id: milestones.id,
@@ -71,6 +71,7 @@ export async function GET(
           amountPaise: milestones.amountPaise,
           paymentStatus: milestones.paymentStatus,
           paidAt: milestones.paidAt,
+          razorpayLinkId: milestones.razorpayLinkId,
           createdAt: milestones.createdAt,
         })
         .from(milestones)
@@ -123,7 +124,41 @@ export async function GET(
             inArray(snagItems.status, ['resolved', 'client_confirmed']),
           ),
         ),
+
+      // Design deliverables shared with client (status=shared) — require client approval
+      db
+        .select({
+          id:        designDeliverables.id,
+          type:      designDeliverables.type,
+          title:     designDeliverables.title,
+          status:    designDeliverables.status,
+          approvedAt: designDeliverables.approvedAt,
+        })
+        .from(designDeliverables)
+        .where(
+          and(
+            eq(designDeliverables.projectId, projectId),
+            eq(designDeliverables.status, 'shared'),
+          ),
+        ),
     ]);
+
+    // Fetch latest file URL per design deliverable (separate query to avoid N+1)
+    const ddIds = designDeliverablesData.map(d => d.id);
+    const latestVersionRows = ddIds.length > 0
+      ? await db
+          .select({ deliverableId: deliverableVersions.deliverableId, fileUrl: deliverableVersions.fileUrl, versionNumber: deliverableVersions.versionNumber })
+          .from(deliverableVersions)
+          .where(inArray(deliverableVersions.deliverableId, ddIds))
+          .orderBy(desc(deliverableVersions.versionNumber))
+      : [];
+
+    const latestFileByDd = new Map<string, string | null>();
+    for (const v of latestVersionRows) {
+      if (!latestFileByDd.has(v.deliverableId)) {
+        latestFileByDd.set(v.deliverableId, v.fileUrl);
+      }
+    }
 
     const snapshot: ClientProjectSnapshot = {
       project: {
@@ -139,6 +174,7 @@ export async function GET(
         amountPaise: m.amountPaise,
         paymentStatus: m.paymentStatus,
         paidAt: m.paidAt ? m.paidAt.toISOString() : null,
+        razorpayLinkId: m.razorpayLinkId ?? null,
         createdAt: m.createdAt.toISOString(),
       })),
       deliverables: deliverablesData.map((d) => ({
@@ -168,6 +204,14 @@ export async function GET(
         clientConfirmedAt: sn.clientConfirmedAt ? sn.clientConfirmedAt.toISOString() : null,
         waMessageId: sn.waMessageId ?? null,
         createdAt: sn.createdAt.toISOString(),
+      })),
+      pendingDesignDeliverables: designDeliverablesData.map(d => ({
+        id: d.id,
+        type: d.type,
+        title: d.title,
+        status: d.status,
+        latestFileUrl: latestFileByDd.get(d.id) ?? null,
+        approvedAt: d.approvedAt ? d.approvedAt.toISOString() : null,
       })),
     };
 
