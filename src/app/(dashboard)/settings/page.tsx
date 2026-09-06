@@ -7,11 +7,12 @@ import {
   FileText, IndianRupee, Users2, ArrowUpRight, ChevronRight,
   Globe, MapPin, Phone, Mail, Briefcase, Pencil, X, Save,
   Settings2, Milestone, Plus, Trash2,
+  GitBranch, Link2, Database, ShieldCheck, ShieldOff,
 } from 'lucide-react';
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee } from '@/types/employees';
 
-type SettingsTab = 'profile' | 'documents' | 'milestones';
+type SettingsTab = 'profile' | 'documents' | 'milestones' | 'pipeline' | 'users' | 'integrations' | 'data';
 
 interface DocumentSettings {
   quoteNumberPrefix: string;
@@ -194,6 +195,15 @@ export default function SettingsPage() {
   const [savingMS, setSavingMS]     = useState(false);
   const [savedMS, setSavedMS]       = useState(false);
 
+  // Pipeline tab state
+  const [coldDays, setColdDays]           = useState(14);
+  const [revisionCap, setRevisionCap]     = useState(2);
+  const [savingPipeline, setSavingPipeline] = useState(false);
+  const [savedPipeline, setSavedPipeline]   = useState(false);
+
+  // Users tab state
+  const [userPerms, setUserPerms] = useState<Record<string, Record<string, boolean>>>({});
+
   // Profile drafts
   const [dName, setDName]   = useState('');
   const [dPhone, setDPhone] = useState('');
@@ -223,7 +233,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/v1/settings/profile')
       .then(r => r.json())
-      .then(({ data }: { data: (ProfileData & DocumentSettings & { defaultMilestones?: MilestoneRow[] | null }) | null }) => {
+      .then(({ data }: { data: (ProfileData & DocumentSettings & { defaultMilestones?: MilestoneRow[] | null; coldDaysThreshold?: number; defaultRevisionCap?: number }) | null }) => {
         const m: ProfileData = {
           ownerName:    data?.ownerName    || DEFAULTS.ownerName,
           ownerPhone:   data?.ownerPhone   || DEFAULTS.ownerPhone,
@@ -261,12 +271,24 @@ export default function SettingsPage() {
         if (Array.isArray(data?.defaultMilestones) && (data.defaultMilestones as MilestoneRow[]).length > 0) {
           setMilestones(data.defaultMilestones as MilestoneRow[]);
         }
+
+        // Populate Pipeline tab
+        if (typeof data?.coldDaysThreshold === 'number') setColdDays(data.coldDaysThreshold);
+        if (typeof data?.defaultRevisionCap === 'number') setRevisionCap(data.defaultRevisionCap);
       })
       .finally(() => setLoading(false));
 
     fetch('/api/v1/employees')
       .then(r => r.json())
-      .then(({ data }: { data: Employee[] | null }) => setEmployees(data ?? []))
+      .then(({ data }: { data: Employee[] | null }) => {
+        setEmployees(data ?? []);
+        // Initialise per-user permission state
+        const perms: Record<string, Record<string, boolean>> = {};
+        (data ?? []).forEach((emp: Employee) => {
+          perms[emp.id] = (emp as Employee & { permissionsJson?: Record<string, boolean> }).permissionsJson ?? {};
+        });
+        setUserPerms(perms);
+      })
       .catch(() => {});
   }, []);
 
@@ -385,9 +407,13 @@ export default function SettingsPage() {
   const tabInputStyle = { borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' };
 
   const TABS: { key: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { key: 'profile',    label: 'Business Profile', icon: Building2 },
-    { key: 'documents',  label: 'Documents',        icon: Settings2 },
-    { key: 'milestones', label: 'Milestones',       icon: Milestone },
+    { key: 'profile',      label: 'Business Profile',  icon: Building2  },
+    { key: 'documents',    label: 'Documents',          icon: Settings2  },
+    { key: 'milestones',   label: 'Milestones',         icon: Milestone  },
+    { key: 'pipeline',     label: 'Pipeline',     icon: GitBranch },
+    { key: 'users',        label: 'Users',        icon: Users     },
+    { key: 'integrations', label: 'Integrations', icon: Link2     },
+    { key: 'data',         label: 'Data',         icon: Database  },
   ];
 
   return (
@@ -848,6 +874,276 @@ export default function SettingsPage() {
       </Card>
 
       </>}
+
+      {/* ── Pipeline tab ─────────────────────────────────────────────────── */}
+      {activeTab === 'pipeline' && (
+        <div className="space-y-4 max-w-2xl">
+          <Card>
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="text-sm font-bold mb-4" style={{ color: 'var(--text-heading)' }}>
+                  Lead Pipeline Stages
+                </h3>
+                <div className="space-y-2">
+                  {[
+                    { key: 'new',         label: 'New Enquiry',   desc: 'Just logged, not yet contacted' },
+                    { key: 'contacted',   label: 'Contacted',     desc: 'Initial contact made' },
+                    { key: 'site_visit',  label: 'Site Visit',    desc: 'Visit scheduled or done' },
+                    { key: 'measured',    label: 'Measured',      desc: 'Measurements taken' },
+                    { key: 'negotiation', label: 'Negotiation',   desc: 'Quote sent, negotiating' },
+                    { key: 'booked',      label: 'Booked / Won',  desc: 'Project confirmed' },
+                  ].map(({ key, label, desc }) => (
+                    <div key={key} className="flex items-center gap-3 rounded-xl px-4 py-3"
+                      style={{ backgroundColor: 'var(--surface-muted)' }}>
+                      <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: 'var(--accent-base)' }} />
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{label}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    Going-cold threshold (days)
+                  </label>
+                  <input
+                    type="number" min={1} max={365}
+                    className="input-field w-full"
+                    value={coldDays}
+                    onChange={e => setColdDays(Number(e.target.value) || 14)}
+                  />
+                  <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                    Leads with no activity after this many days are flagged as cold.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    Default free revisions per quote
+                  </label>
+                  <input
+                    type="number" min={0} max={20}
+                    className="input-field w-full"
+                    value={revisionCap}
+                    onChange={e => setRevisionCap(Number(e.target.value) || 0)}
+                  />
+                  <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                    Revisions beyond this cap trigger a change-order quote.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={async () => {
+                    setSavingPipeline(true);
+                    try {
+                      const res = await fetch('/api/v1/settings/profile', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ coldDaysThreshold: coldDays, defaultRevisionCap: revisionCap }),
+                      });
+                      if (res.ok) {
+                        setSavedPipeline(true);
+                        setTimeout(() => setSavedPipeline(false), 2000);
+                      }
+                    } finally { setSavingPipeline(false); }
+                  }}
+                  className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                  disabled={savingPipeline}
+                >
+                  {savedPipeline ? <Check className="h-4 w-4" /> : savingPipeline ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {savedPipeline ? 'Saved' : 'Save Pipeline Settings'}
+                </button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Users & Permissions tab ──────────────────────────────────────── */}
+      {activeTab === 'users' && (
+        <div className="space-y-4 max-w-4xl">
+          <Card>
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
+                Team Permissions
+              </h3>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Admin/owner users always have full access. Toggle flags for employee-role users below.
+              </p>
+              {loading ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+                </div>
+              ) : employees.length === 0 ? (
+                <p className="text-sm py-4 text-center" style={{ color: 'var(--text-secondary)' }}>No employees found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {employees.map(emp => {
+                    const perms = userPerms[emp.id] ?? {};
+                    const flags: { key: string; label: string }[] = [
+                      { key: 'canSeeFinance',     label: 'See Finance' },
+                      { key: 'canCreateQuotes',   label: 'Create Quotes' },
+                      { key: 'canSendQuotes',     label: 'Send Quotes' },
+                      { key: 'canRaisePO',        label: 'Raise POs' },
+                      { key: 'canRecordPayments', label: 'Record Payments' },
+                      { key: 'canSeeAllLeads',    label: 'See All Leads' },
+                    ];
+                    return (
+                      <div key={emp.id} className="rounded-xl border p-4 space-y-3"
+                        style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-muted)' }}>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{emp.fullName}</p>
+                          <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                            {emp.role} · {emp.jobTitle ?? '—'}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {flags.map(({ key, label }) => {
+                            const on = !!perms[key];
+                            return (
+                              <button
+                                key={key}
+                                onClick={async () => {
+                                  const next = !on;
+                                  setUserPerms(prev => ({
+                                    ...prev,
+                                    [emp.id]: { ...prev[emp.id], [key]: next },
+                                  }));
+                                  await fetch(`/api/v1/users/${emp.id}/permissions`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ [key]: next }),
+                                  });
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
+                                style={{
+                                  backgroundColor: on ? 'var(--success-soft)'  : 'var(--surface-card)',
+                                  color:            on ? 'var(--success-text)' : 'var(--text-secondary)',
+                                  border:           `1px solid ${on ? 'var(--success)' : 'var(--border-subtle)'}`,
+                                }}
+                              >
+                                {on ? <ShieldCheck className="h-3 w-3" /> : <ShieldOff className="h-3 w-3" />}
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Integrations tab ─────────────────────────────────────────────── */}
+      {activeTab === 'integrations' && (
+        <div className="space-y-4 max-w-2xl">
+          <Card>
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-heading)' }}>Integrations</h3>
+              {[
+                {
+                  name: 'WhatsApp Cloud API',
+                  icon: '💬',
+                  status: 'Configured',
+                  note: 'Meta Graph API v21+ · Phone Number ID set',
+                  ok: true,
+                },
+                {
+                  name: 'Razorpay',
+                  icon: '💳',
+                  status: 'Configured',
+                  note: 'Payment Links + Webhook · Key ID set',
+                  ok: true,
+                },
+                {
+                  name: 'Tally (Tally XML Push)',
+                  icon: '📊',
+                  status: 'Manual export',
+                  note: 'CSV/XML export available from Finance → Payments tab',
+                  ok: false,
+                },
+                {
+                  name: 'AI (Groq + Gemini)',
+                  icon: '🤖',
+                  status: 'Configured',
+                  note: 'Groq 120B/20B + Whisper · Gemini Flash for site photos',
+                  ok: true,
+                },
+              ].map(item => (
+                <div key={item.name}
+                  className="flex items-start gap-4 rounded-xl border px-4 py-4"
+                  style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-muted)' }}>
+                  <span className="text-2xl flex-shrink-0">{item.icon}</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{item.name}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{item.note}</p>
+                  </div>
+                  <span
+                    className="flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold"
+                    style={{
+                      backgroundColor: item.ok ? 'var(--success-soft)' : 'var(--surface-card)',
+                      color:            item.ok ? 'var(--success-text)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Data tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'data' && (
+        <div className="space-y-4 max-w-2xl">
+          <Card>
+            <div className="p-6 space-y-4">
+              <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-heading)' }}>Data Export</h3>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Export your data at any time. Files are generated on demand.
+              </p>
+              {[
+                { label: 'Leads (CSV)',          href: '/api/v1/exports?kind=leads&format=csv' },
+                { label: 'Projects (CSV)',        href: '/api/v1/exports?kind=projects&format=csv' },
+                { label: 'Invoices (CSV)',        href: '/api/v1/exports?kind=invoices&format=csv' },
+                { label: 'Expenses (CSV)',        href: '/api/v1/exports?kind=expenses&format=csv' },
+                { label: 'Tally XML (Payments)',  href: '/api/v1/accounts/tally-xml-push' },
+              ].map(item => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors hover:border-[var(--accent-base)]"
+                  style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-muted)' }}
+                >
+                  <span className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{item.label}</span>
+                  <Download className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--accent-base)' }} />
+                </a>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <div className="p-6">
+              <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-heading)' }}>Data Retention</h3>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                All data is stored in your Supabase project with daily automated backups. Contact support to request a full data export or account deletion.
+              </p>
+            </div>
+          </Card>
+        </div>
+      )}
 
     </div>
   );

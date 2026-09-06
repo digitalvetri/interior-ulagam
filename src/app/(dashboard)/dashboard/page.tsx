@@ -5,6 +5,7 @@ import {
   Users, FolderKanban, IndianRupee, TrendingUp,
   Plus, Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
   Calendar, MapPin, FileText, Home, PhoneCall,
+  CheckSquare, Truck,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -30,6 +31,13 @@ interface SiteVisit {
   id: string; leadId: string | null;
   scheduledAt: string; completedAt: string | null;
   locationJson: { address?: string } | null;
+}
+interface Task {
+  id: string; title: string; dueAt: string | null; completedAt: string | null;
+  relatedType: string | null;
+}
+interface PendingVendorDelivery {
+  poNumber: string; vendorName: string | null; expectedDeliveryAt: string | null;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
@@ -77,9 +85,6 @@ const STAGE_META: Record<string, { label: string; bg: string; text: string }> = 
   complete:           { label: 'Complete',         bg: 'var(--success-soft)',  text: 'var(--success-text)'  },
 };
 
-/* ── Lead funnel — matches the simplified pipeline ──────────────────────── */
-// "qualified" bucket aggregates legacy mid-pipeline stages (site_visit,
-// measurement, quotation, negotiation) so existing data still shows correctly.
 const FUNNEL_STAGES = [
   { key: 'new',       label: 'New Enquiry' },
   { key: 'contacted', label: 'Contacted'   },
@@ -88,7 +93,6 @@ const FUNNEL_STAGES = [
 ];
 const FUNNEL_COLORS = ['#6366f1', '#a855f7', '#f59e0b', '#10b981'];
 
-/* ── Accent map ─────────────────────────────────────────────────────────── */
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
   blue:   { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)'   },
@@ -119,13 +123,13 @@ function Sparkline({ data }: { data: number[] }) {
 
 /* ── KPI Card ───────────────────────────────────────────────────────────── */
 function KpiCard({
-  label, value, sub, icon: Icon, accent = 'purple', loading, sparkline,
+  label, value, sub, icon: Icon, accent = 'purple', loading, sparkline, href,
 }: {
   label: string; value: string; sub?: string; icon: React.ElementType;
-  accent?: keyof typeof KPI_ACCENTS; loading: boolean; sparkline?: number[];
+  accent?: keyof typeof KPI_ACCENTS; loading: boolean; sparkline?: number[]; href?: string;
 }) {
   const a = KPI_ACCENTS[accent];
-  return (
+  const inner = (
     <div
       className="premium-card p-4 group cursor-default"
       style={{ transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
@@ -154,6 +158,7 @@ function KpiCard({
       }
     </div>
   );
+  return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 /* ── Quick Action ───────────────────────────────────────────────────────── */
@@ -187,50 +192,89 @@ function QuickAction({
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
-  const [firstName, setFirstName]     = useState('Mohammed');
-  const [leadStats, setLeadStats]     = useState<LeadStats | null>(null);
-  const [leadBudgets, setLeadBudgets] = useState<Record<string, number>>({});
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [receivables, setReceivables] = useState<ReceivablesData>({
+  const [firstName,  setFirstName]  = useState('');
+  const [isAdmin,    setIsAdmin]    = useState(true);
+  const [myId,       setMyId]       = useState<string | null>(null);
+
+  // Admin state
+  const [leadStats,    setLeadStats]    = useState<LeadStats | null>(null);
+  const [leadBudgets,  setLeadBudgets]  = useState<Record<string, number>>({});
+  const [allProjects,  setAllProjects]  = useState<Project[]>([]);
+  const [receivables,  setReceivables]  = useState<ReceivablesData>({
     items: [], totalOutstandingPaise: 0, totalOverduePaise: 0,
   });
-  const [todayVisits, setTodayVisits]           = useState<SiteVisit[]>([]);
-  const [pendingQuotesCount, setPendingQuotesCount] = useState(0);
-  const [trendData, setTrendData]               = useState<number[]>([]);
-  const [loading, setLoading]                   = useState(true);
+  const [trendData,    setTrendData]    = useState<number[]>([]);
+  const [pendingQs,    setPendingQs]    = useState(0);
+  const [upcomingPOs,  setUpcomingPOs]  = useState<PendingVendorDelivery[]>([]);
+
+  // Shared state
+  const [todayVisits,  setTodayVisits]  = useState<SiteVisit[]>([]);
+  const [myTasks,      setMyTasks]      = useState<Task[]>([]);
+  const [myProjects,   setMyProjects]   = useState<Project[]>([]);
+
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [me, ls, ps, rs, sv, qs, ao] = await Promise.all([
+        const [me, sv, ts] = await Promise.all([
           fetch('/api/v1/me').then(r => r.json()),
-          fetch('/api/v1/leads/stats').then(r => r.json()),
-          fetch('/api/v1/projects').then(r => r.json()),
-          fetch('/api/v1/accounts/receivables').then(r => r.json()),
           fetch('/api/v1/site-visits').then(r => r.json()),
-          fetch('/api/v1/quotes?status=sent').then(r => r.json()),
-          fetch('/api/v1/analytics/overview').then(r => r.json()),
+          fetch('/api/v1/tasks?assigned=me&status=pending&limit=10').then(r => r.json()),
         ]);
+
+        const admin = !!(me?.data?.isAdmin || me?.data?.role === 'owner');
+        setIsAdmin(admin);
         if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
-        if (ls?.data?.counts) setLeadStats(ls.data.counts);
-        if (ls?.data?.budgets) setLeadBudgets(ls.data.budgets);
-        if (Array.isArray(ps?.data)) setAllProjects(ps.data);
-        if (rs?.data) {
-          setReceivables({
-            items: Array.isArray(rs.data.items) ? rs.data.items : [],
-            totalOutstandingPaise: rs.data.totalOutstandingPaise ?? 0,
-            totalOverduePaise: rs.data.totalOverduePaise ?? 0,
-          });
-        }
+        if (me?.data?.id) setMyId(me.data.id);
+
         const allVisits: SiteVisit[] = Array.isArray(sv?.data) ? sv.data : [];
         setTodayVisits(
           allVisits
             .filter(v => isToday(v.scheduledAt))
             .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
         );
-        setPendingQuotesCount(Array.isArray(qs?.data) ? qs.data.length : 0);
-        if (Array.isArray(ao?.data?.trend30d)) {
-          setTrendData(ao.data.trend30d.map((d: { amountPaise: number }) => d.amountPaise));
+        if (Array.isArray(ts?.data)) setMyTasks(ts.data);
+
+        if (admin) {
+          // Admin-specific data
+          const [ls, ps, rs, qs, ao, pos] = await Promise.all([
+            fetch('/api/v1/leads/stats').then(r => r.json()),
+            fetch('/api/v1/projects').then(r => r.json()),
+            fetch('/api/v1/accounts/receivables').then(r => r.json()),
+            fetch('/api/v1/quotes?status=sent').then(r => r.json()),
+            fetch('/api/v1/analytics/overview').then(r => r.json()),
+            fetch('/api/v1/purchase-orders?status=sent&limit=20').then(r => r.json()),
+          ]);
+          if (ls?.data?.counts) setLeadStats(ls.data.counts);
+          if (ls?.data?.budgets) setLeadBudgets(ls.data.budgets);
+          if (Array.isArray(ps?.data)) setAllProjects(ps.data);
+          if (rs?.data) {
+            setReceivables({
+              items: Array.isArray(rs.data.items) ? rs.data.items : [],
+              totalOutstandingPaise: rs.data.totalOutstandingPaise ?? 0,
+              totalOverduePaise: rs.data.totalOverduePaise ?? 0,
+            });
+          }
+          setPendingQs(Array.isArray(qs?.data) ? qs.data.length : 0);
+          if (Array.isArray(ao?.data?.trend30d)) {
+            setTrendData(ao.data.trend30d.map((d: { amountPaise: number }) => d.amountPaise));
+          }
+          if (Array.isArray(pos?.data)) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const soon = new Date(today.getTime() + 7 * 86400_000);
+            setUpcomingPOs(pos.data
+              .filter((po: { expectedDeliveryAt: string | null }) =>
+                po.expectedDeliveryAt && new Date(po.expectedDeliveryAt) <= soon)
+              .slice(0, 5));
+          }
+        } else {
+          // Employee: only load my projects
+          const ps = await fetch('/api/v1/projects?limit=20').then(r => r.json());
+          if (Array.isArray(ps?.data)) {
+            setMyProjects(ps.data.filter((p: Project) => p.lifecycleStage !== 'complete').slice(0, 5));
+          }
         }
       } catch { /* silent */ } finally { setLoading(false); }
     }
@@ -238,7 +282,6 @@ export default function DashboardPage() {
   }, []);
 
   /* ── Derived ──────────────────────────────────────────────────────── */
-  // Aggregate legacy mid-pipeline stages into the "qualified" bucket for display
   function funnelCount(key: string): number {
     if (!leadStats) return 0;
     if (key === 'qualified') {
@@ -267,9 +310,7 @@ export default function DashboardPage() {
       + leadStats.quotation + leadStats.negotiation
       + leadStats.won + leadStats.lost
     : 0;
-  const activeLeads    = leadStats
-    ? totalLeads - (leadStats.won + leadStats.lost)
-    : 0;
+  const activeLeads    = leadStats ? totalLeads - (leadStats.won + leadStats.lost) : 0;
   const activeProjects = allProjects.filter(p => p.lifecycleStage !== 'complete');
   const conversionPct  = leadStats && totalLeads > 0
     ? Math.round((leadStats.won / totalLeads) * 100) : 0;
@@ -279,131 +320,480 @@ export default function DashboardPage() {
   );
   const nowMs = new Date().getTime();
 
-  return (
-    <div className="space-y-4 animate-fade-in p-4 lg:p-6">
-
-      {/* ── Owner header ─────────────────────────────────────────────── */}
-      <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
-        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-lg font-bold"
-            style={{ background: 'linear-gradient(135deg, var(--violet-primary), #a855f7)' }}>
-            MS
-          </div>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5"
-              style={{ color: 'var(--text-tertiary)' }} suppressHydrationWarning>
-              {todayLabel()}
-            </p>
-            <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}
-              suppressHydrationWarning>
-              {greeting()}, {firstName} 👋
-            </h1>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Konst Design · Owner Dashboard
-            </p>
-          </div>
+  /* ── Header strip ────────────────────────────────────────────────── */
+  const HeaderStrip = () => (
+    <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
+      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+      <div className="flex items-center gap-4">
+        <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-lg font-bold"
+          style={{ background: 'linear-gradient(135deg, var(--violet-primary), #a855f7)' }}>
+          {firstName ? firstName.slice(0, 2).toUpperCase() : 'KD'}
         </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5"
+            style={{ color: 'var(--text-tertiary)' }} suppressHydrationWarning>
+            {todayLabel()}
+          </p>
+          <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}
+            suppressHydrationWarning>
+            {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Konst Design · {isAdmin ? 'Admin Dashboard' : 'My Workspace'}
+          </p>
+        </div>
+      </div>
+      {isAdmin && (
         <Link
           href="/leads?new=1"
           className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2 text-sm rounded-lg"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> New Lead
         </Link>
+      )}
+    </div>
+  );
+
+  /* ── Today widget (shared) ───────────────────────────────────────── */
+  const TodayVisitsWidget = () => (
+    <div className="premium-card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Home className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+          <h3 className="section-title">Today&apos;s Site Visits</h3>
+          {todayVisits.length > 0 && (
+            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+              {todayVisits.length}
+            </span>
+          )}
+        </div>
+        <Link href="/site-visits" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+          All →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+        </div>
+      ) : todayVisits.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
+          style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
+          <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {todayVisits.map(v => {
+            const time = new Date(v.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const address = v.locationJson?.address;
+            const isDone = !!v.completedAt;
+            return (
+              <Link
+                key={v.id}
+                href={v.leadId ? `/leads/${v.leadId}` : '/site-visits'}
+                className="group flex gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--accent-base)]"
+                style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)', opacity: isDone ? 0.6 : 1 }}
+              >
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: isDone ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
+                  {isDone
+                    ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
+                    : <Clock       className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                  }
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>{time}</p>
+                  {address && (
+                    <div className="flex items-start gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }} />
+                      <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{address}</p>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  /* ── My Tasks widget (shared) ────────────────────────────────────── */
+  const MyTasksWidget = () => (
+    <div className="premium-card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CheckSquare className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+          <h3 className="section-title">My Tasks</h3>
+          {myTasks.length > 0 && (
+            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+              {myTasks.length}
+            </span>
+          )}
+        </div>
+        <Link href="/tasks" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+          All →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
+        </div>
+      ) : myTasks.length === 0 ? (
+        <p className="text-sm py-3" style={{ color: 'var(--text-secondary)' }}>No pending tasks assigned to you.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {myTasks.slice(0, 5).map(t => {
+            const overdue = t.dueAt && new Date(t.dueAt) < new Date();
+            return (
+              <div key={t.id} className="flex items-center gap-2.5 rounded-lg px-3 py-2"
+                style={{ backgroundColor: 'var(--surface-muted)' }}>
+                <Clock className="h-3.5 w-3.5 flex-shrink-0"
+                  style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }} />
+                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{t.title}</span>
+                {t.dueAt && (
+                  <span className="text-[10px] flex-shrink-0"
+                    style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+                    {new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  /* ══════════════════════════════════════════════════════════════════════
+     ADMIN VIEW
+     ══════════════════════════════════════════════════════════════════════ */
+  if (isAdmin) {
+    return (
+      <div className="space-y-4 animate-fade-in p-4 lg:p-6">
+        <HeaderStrip />
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            label="Active Leads"
+            value={String(activeLeads)}
+            sub={`${totalLeads} total · ${leadStats?.won ?? 0} won`}
+            icon={Users} accent="purple" loading={loading} href="/leads"
+          />
+          <KpiCard
+            label="Quotations Pending"
+            value={String(pendingQs)}
+            sub={`Sent, awaiting acceptance`}
+            icon={FileText} accent="blue" loading={loading} href="/quotes"
+          />
+          <KpiCard
+            label="Active Projects"
+            value={String(activeProjects.length)}
+            sub={`${allProjects.length} total`}
+            icon={FolderKanban} accent="orange" loading={loading} href="/projects"
+          />
+          <KpiCard
+            label="Outstanding"
+            value={fmtCompact(receivables.totalOutstandingPaise)}
+            sub={overdueCount > 0 ? `${overdueCount} overdue` : 'No overdue'}
+            icon={IndianRupee} accent="green" loading={loading} sparkline={trendData} href="/finance"
+          />
+        </div>
+
+        {/* Today's Site Visits */}
+        <TodayVisitsWidget />
+
+        {/* Lead Funnel + Active Projects */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* Lead Funnel */}
+          <div className="premium-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="section-title">Lead Funnel</h3>
+              <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                View all →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-2.5">
+                {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-9 w-full rounded" />)}
+              </div>
+            ) : !leadStats || totalLeads === 0 ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <Target className="h-10 w-10 mb-3" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No leads yet</p>
+                <Link href="/leads?new=1" className="btn-primary mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg">
+                  <Plus className="h-3 w-3" /> Add Enquiry
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {FUNNEL_STAGES.map((s, i) => {
+                  const count  = funnelCount(s.key);
+                  const budget = funnelBudget(s.key);
+                  const pct    = activeLeads > 0 && count > 0 ? Math.round((count / activeLeads) * 100) : 0;
+                  const color  = FUNNEL_COLORS[i];
+                  return (
+                    <div key={s.key}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+                        <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+                        <span className="text-[11px] font-bold flex-shrink-0 min-w-[22px] text-center rounded-full px-1.5 py-0.5"
+                          style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-heading)' }}>
+                          {count}
+                        </span>
+                        {budget > 0 && (
+                          <span className="text-[10px] flex-shrink-0 w-12 text-right" style={{ color: 'var(--text-tertiary)' }}>
+                            {fmtCompact(budget)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.85 }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {leadStats && totalLeads > 0 && (
+              <div className="mt-4 flex items-center gap-5 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Won: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.won}</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--danger)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Lost: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.lost}</strong>
+                  </span>
+                </div>
+                <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>
+                  {conversionPct}% conversion
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Active Projects by Stage */}
+          <div className="premium-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="section-title">Projects by Stage</h3>
+              <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                View all →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+              </div>
+            ) : activeProjects.length === 0 ? (
+              <div className="flex flex-col items-center py-8 text-center">
+                <FolderKanban className="h-10 w-10 mb-3" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No active projects</p>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {activeProjects.slice(0, 5).map(p => {
+                  const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
+                  const s   = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
+                  const client = p.customerFullName || p.leadContactName;
+                  const hasOverdue = overdueProjects.has(p.name);
+                  return (
+                    <Link key={p.id} href={`/projects/${p.id}`}
+                      className="block rounded-xl border p-2.5 transition-colors hover:border-[var(--accent-base)]"
+                      style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {hasOverdue && (
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--danger)' }} title="Payment overdue" />
+                          )}
+                          <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                            style={{ backgroundColor: s.bg, color: s.text }}>
+                            {s.label}
+                          </span>
+                        </div>
+                      </div>
+                      {client && (
+                        <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>
+                      )}
+                      <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)' }} />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Overdue Payments + Vendor Deliveries Due */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* Overdue Payments */}
+          <div className="premium-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="section-title">Overdue Payments</h3>
+              <Link href="/finance" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                Finance →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-2.5">
+                {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
+              </div>
+            ) : receivables.items.length === 0 ? (
+              <div className="flex items-center gap-3 rounded-xl px-4 py-4" style={{ backgroundColor: 'var(--success-soft)' }}>
+                <CheckCircle2 className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--success-text)' }} />
+                <div>
+                  <p className="text-sm font-bold" style={{ color: 'var(--success-text)' }}>All clear</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)' }}>No pending or overdue invoices.</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {overdueCount > 0 && (
+                  <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
+                    style={{ background: 'var(--danger-soft)' }}>
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                    <span className="flex-1 text-xs font-semibold" style={{ color: 'var(--danger)' }}>
+                      {overdueCount} overdue
+                    </span>
+                    <span className="text-xs font-bold" style={{ color: 'var(--danger)' }}>
+                      {fmt(receivables.totalOverduePaise)}
+                    </span>
+                  </div>
+                )}
+                <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {receivables.items.filter(r => r.paymentStatus === 'overdue').slice(0, 5).map(r => (
+                    <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{r.projectName}</p>
+                          <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{r.label}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm font-bold ml-3 flex-shrink-0" style={{ color: 'var(--danger-text)' }}>
+                        {fmt(r.amountPaise)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Vendor Deliveries Due */}
+          <div className="premium-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Truck className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                <h3 className="section-title">Vendor Deliveries Due</h3>
+              </div>
+              <Link href="/purchase-orders" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                All POs →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-10 rounded-lg" />)}
+              </div>
+            ) : upcomingPOs.length === 0 ? (
+              <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
+                style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
+                <Truck className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No deliveries due this week</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {upcomingPOs.map((po, i) => (
+                  <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2.5"
+                    style={{ backgroundColor: 'var(--surface-muted)' }}>
+                    <Truck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--accent-base)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                        {po.vendorName ?? 'Unknown vendor'}
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{po.poNumber}</p>
+                    </div>
+                    {po.expectedDeliveryAt && (
+                      <span className="text-[10px] font-semibold flex-shrink-0"
+                        style={{ color: 'var(--warning-text)' }}>
+                        {new Date(po.expectedDeliveryAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+    );
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     EMPLOYEE VIEW
+     ══════════════════════════════════════════════════════════════════════ */
+  return (
+    <div className="space-y-4 animate-fade-in p-4 lg:p-6">
+      <HeaderStrip />
+
+      {/* My tasks + Today's visits */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <MyTasksWidget />
+        <TodayVisitsWidget />
       </div>
 
-      {/* ── KPI Cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label="Active Leads"
-          value={String(activeLeads)}
-          sub={`${totalLeads} total · ${leadStats?.won ?? 0} won`}
-          icon={Users} accent="purple" loading={loading}
-        />
-        <KpiCard
-          label="Active Projects"
-          value={String(activeProjects.length)}
-          sub={`${allProjects.length} total · ${allProjects.filter(p => p.lifecycleStage === 'complete').length} complete`}
-          icon={FolderKanban} accent="blue" loading={loading}
-        />
-        <KpiCard
-          label="Pending Receivables"
-          value={fmtCompact(receivables.totalOutstandingPaise)}
-          sub={`${receivables.items.length} invoice${receivables.items.length !== 1 ? 's' : ''}${overdueCount > 0 ? ` · ${overdueCount} overdue` : ''}`}
-          icon={IndianRupee} accent="orange" loading={loading} sparkline={trendData}
-        />
-        <KpiCard
-          label="Conversion Rate"
-          value={`${conversionPct}%`}
-          sub={`${leadStats?.won ?? 0} won of ${totalLeads} leads`}
-          icon={TrendingUp} accent="green" loading={loading}
-        />
-      </div>
-
-      {/* ── Today's Site Visits ────────────────────────────────────────── */}
+      {/* My Projects */}
       <div className="premium-card p-5">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Home className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-            <h3 className="section-title">Today&apos;s Site Visits</h3>
-            {todayVisits.length > 0 && (
-              <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
-                style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                {todayVisits.length}
-              </span>
-            )}
+            <FolderKanban className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+            <h3 className="section-title">My Projects</h3>
           </div>
-          <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-            All Leads →
+          <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+            All →
           </Link>
         </div>
         {loading ? (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map(i => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
           </div>
-        ) : todayVisits.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
-            style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
-            <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-            <div className="flex-1">
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                Go to a lead and click &quot;Site Visit&quot; to schedule one.
-              </p>
-            </div>
-          </div>
+        ) : myProjects.length === 0 ? (
+          <p className="text-sm py-4 text-center" style={{ color: 'var(--text-secondary)' }}>
+            No active projects assigned to you.
+          </p>
         ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {todayVisits.map(v => {
-              const time = new Date(v.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-              const address = v.locationJson?.address;
-              const isDone  = !!v.completedAt;
+          <div className="space-y-1.5">
+            {myProjects.map(p => {
+              const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
+              const s   = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
+              const client = p.customerFullName || p.leadContactName;
               return (
-                <Link
-                  key={v.id}
-                  href={v.leadId ? `/leads/${v.leadId}` : '/leads'}
-                  className="group flex gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--accent-base)]"
-                  style={{
-                    borderColor: 'var(--border-subtle)',
-                    backgroundColor: 'var(--surface-app)',
-                    opacity: isDone ? 0.6 : 1,
-                  }}
-                >
-                  <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
-                    style={{ backgroundColor: isDone ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
-                    {isDone
-                      ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
-                      : <Clock className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-                    }
+                <Link key={p.id} href={`/projects/${p.id}`}
+                  className="block rounded-xl border p-2.5 transition-colors hover:border-[var(--accent-base)]"
+                  style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                      style={{ backgroundColor: s.bg, color: s.text }}>
+                      {s.label}
+                    </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>{time}</p>
-                    {address && (
-                      <div className="flex items-start gap-1 mt-0.5">
-                        <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }} />
-                        <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{address}</p>
-                      </div>
-                    )}
+                  {client && (
+                    <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>
+                  )}
+                  <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)' }} />
                   </div>
                 </Link>
               );
@@ -412,253 +802,25 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Lead Funnel + Active Projects ─────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-        {/* Lead Funnel */}
-        <div className="premium-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="section-title">Lead Funnel</h3>
-            <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-              View all →
-            </Link>
-          </div>
-          {loading ? (
-            <div className="space-y-2.5">
-              {[...Array(4)].map((_, i) => <div key={i} className="skeleton h-9 w-full rounded" />)}
-            </div>
-          ) : !leadStats || totalLeads === 0 ? (
-            <div className="flex flex-col items-center py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3"
-                style={{ backgroundColor: 'var(--surface-muted)' }}>
-                <Target className="h-6 w-6" style={{ color: 'var(--text-secondary)' }} />
-              </div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No leads yet</p>
-              <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>Add your first enquiry to see the pipeline.</p>
-              <Link href="/leads?new=1" className="btn-primary mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs rounded-lg">
-                <Plus className="h-3 w-3" /> Add Enquiry
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {FUNNEL_STAGES.map((s, i) => {
-                const count  = funnelCount(s.key);
-                const budget = funnelBudget(s.key);
-                const pct    = activeLeads > 0 && count > 0 ? Math.round((count / activeLeads) * 100) : 0;
-                const color  = FUNNEL_COLORS[i];
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                      <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
-                      <span className="text-[11px] font-bold flex-shrink-0 min-w-[22px] text-center rounded-full px-1.5 py-0.5"
-                        style={{ backgroundColor: 'var(--surface-muted)', color: 'var(--text-heading)' }}>
-                        {count}
-                      </span>
-                      {budget > 0 && (
-                        <span className="text-[10px] flex-shrink-0 w-12 text-right" style={{ color: 'var(--text-tertiary)' }}>
-                          {fmtCompact(budget)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
-                      <div className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.85 }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          {leadStats && totalLeads > 0 && (
-            <div className="mt-4 flex items-center gap-5 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  Won: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.won}</strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--danger)' }} />
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  Lost: <strong style={{ color: 'var(--text-heading)' }}>{leadStats.lost}</strong>
-                </span>
-              </div>
-              <span className="ml-auto text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>
-                {conversionPct}% conversion
-              </span>
-            </div>
-          )}
+      {/* Quick Actions */}
+      <div className="premium-card p-5">
+        <h3 className="section-title mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 gap-2">
+          <QuickAction href="/tasks"       label="My Tasks"         icon={CheckSquare}  accent="purple" badge={myTasks.length} />
+          <QuickAction href="/site-visits" label="Site Visits"      icon={Home}         accent="blue"   />
+          <QuickAction href="/projects"    label="My Projects"      icon={FolderKanban} accent="orange" />
+          <QuickAction href="/quotes"      label="Quotations"       icon={FileText}     accent="green"  />
         </div>
 
-        {/* Active Projects */}
-        <div className="premium-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="section-title">Active Projects</h3>
-            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-              View all →
-            </Link>
-          </div>
-          {loading ? (
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
-            </div>
-          ) : activeProjects.length === 0 ? (
-            <div className="flex flex-col items-center py-8 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl mb-3"
-                style={{ backgroundColor: 'var(--surface-muted)' }}>
-                <FolderKanban className="h-6 w-6" style={{ color: 'var(--text-secondary)' }} />
-              </div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No active projects</p>
-              <p className="mt-1 text-xs max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>
-                Win a lead to kick off your first project.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {activeProjects.slice(0, 4).map(p => {
-                const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
-                const s   = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
-                const client = p.customerFullName || p.leadContactName;
-                const hasOverdue = overdueProjects.has(p.name);
-                const daysLeft = p.expectedEndAt
-                  ? Math.ceil((new Date(p.expectedEndAt).getTime() - nowMs) / 86_400_000)
-                  : null;
-                const showDaysBadge = daysLeft !== null && daysLeft <= 30;
-                const daysBadgeStyle = daysLeft !== null && daysLeft < 7
-                  ? { bg: 'var(--danger-soft)', text: 'var(--danger-text)' }
-                  : { bg: 'var(--warning-soft)', text: 'var(--warning-text)' };
-                return (
-                  <Link key={p.id} href={`/projects/${p.id}`}
-                    className="block rounded-xl border p-2.5 transition-colors hover:border-[var(--accent-base)]"
-                    style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}>
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {hasOverdue && (
-                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: 'var(--danger)' }} title="Payment overdue" />
-                        )}
-                        {showDaysBadge && (
-                          <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap"
-                            style={{ backgroundColor: daysBadgeStyle.bg, color: daysBadgeStyle.text }}>
-                            {daysLeft! < 0 ? `${Math.abs(daysLeft!)}d over` : `${daysLeft}d left`}
-                          </span>
-                        )}
-                        <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
-                          style={{ backgroundColor: s.bg, color: s.text }}>
-                          {s.label}
-                        </span>
-                      </div>
-                    </div>
-                    {client && (
-                      <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>
-                    )}
-                    {p.totalContractPaise && p.totalContractPaise > 0 && (
-                      <p className="text-[11px] mb-1.5 font-semibold" style={{ color: 'var(--text-gold)' }}>
-                        {fmtCompact(p.totalContractPaise)}
-                      </p>
-                    )}
-                    <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)', transition: 'width 0.5s ease' }} />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+        <div className="mt-4 pt-4 flex items-center gap-4 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <a href="tel:+919894331115"
+            className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline"
+            style={{ color: 'var(--text-secondary)' }}>
+            <PhoneCall className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+            +91 98943 31115
+          </a>
         </div>
       </div>
-
-      {/* ── Pending Payments + Quick Actions ──────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-        {/* Pending Payments */}
-        <div className="premium-card p-5 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="section-title">Pending Payments</h3>
-            <Link href="/accounts" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-              View all →
-            </Link>
-          </div>
-          {loading ? (
-            <div className="space-y-2.5">
-              {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-11 w-full rounded-lg" />)}
-            </div>
-          ) : receivables.items.length === 0 ? (
-            <div className="flex items-center gap-3 rounded-xl px-4 py-4" style={{ backgroundColor: 'var(--success-soft)' }}>
-              <CheckCircle2 className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--success-text)' }} />
-              <div>
-                <p className="text-sm font-bold" style={{ color: 'var(--success-text)' }}>All clear</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--success-text)' }}>No pending or overdue invoices.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {overdueCount > 0 && (
-                <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
-                  style={{ background: 'var(--danger-soft)' }}>
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--danger)' }} />
-                  <span className="flex-1 text-xs font-semibold" style={{ color: 'var(--danger)' }}>
-                    {overdueCount} payment{overdueCount > 1 ? 's' : ''} overdue
-                  </span>
-                  <span className="text-xs font-bold" style={{ color: 'var(--danger)' }}>
-                    {fmt(receivables.totalOverduePaise)}
-                  </span>
-                </div>
-              )}
-              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                {receivables.items.slice(0, 5).map(r => (
-                  <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {r.paymentStatus === 'overdue'
-                        ? <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--danger)' }} />
-                        : <Clock       className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--warning-text)' }} />
-                      }
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{r.projectName}</p>
-                        <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{r.label}</p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-bold ml-3 flex-shrink-0"
-                      style={{ color: r.paymentStatus === 'overdue' ? 'var(--danger-text)' : 'var(--warning-text)' }}>
-                      {fmt(r.amountPaise)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="premium-card p-5 flex flex-col">
-          <h3 className="section-title mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 gap-2">
-            <QuickAction href="/leads?new=1"  label="Add New Enquiry"     icon={Users}        accent="purple" />
-            <QuickAction href="/leads"        label="View Lead Pipeline"   icon={Target}       accent="blue"   />
-            <QuickAction href="/projects"     label="Open Projects"        icon={FolderKanban} accent="blue"   />
-            <QuickAction href="/accounts"     label="Accounts & Payments"  icon={IndianRupee}  accent="orange" badge={overdueCount} />
-            <QuickAction href="/leads"        label="Schedule Site Visit"  icon={Home}         accent="green"  />
-          </div>
-
-          {/* Studio contact strip */}
-          <div className="mt-4 pt-4 flex items-center gap-4 flex-wrap" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            <a href="tel:+919894331115"
-              className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline"
-              style={{ color: 'var(--text-secondary)' }}>
-              <PhoneCall className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-              +91 98943 31115
-            </a>
-            <a href="mailto:Mohasher11@gmail.com"
-              className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline"
-              style={{ color: 'var(--text-secondary)' }}>
-              <FileText className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-              Mohasher11@gmail.com
-            </a>
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }

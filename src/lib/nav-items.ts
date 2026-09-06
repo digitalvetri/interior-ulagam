@@ -17,6 +17,7 @@ import {
   Star,
   BarChart3,
   ClipboardList,
+  CheckSquare,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -111,9 +112,10 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'team',
     label: 'Team',
-    roles: ADMIN_ROLES,
+    roles: ALL_ROLES,
     items: [
-      { href: '/employees', label: 'Employees', icon: UserCog, roles: ADMIN_ROLES },
+      { href: '/tasks',     label: 'Tasks',     icon: CheckSquare, roles: ALL_ROLES },
+      { href: '/employees', label: 'Employees', icon: UserCog,     roles: ADMIN_ROLES },
     ],
   },
   {

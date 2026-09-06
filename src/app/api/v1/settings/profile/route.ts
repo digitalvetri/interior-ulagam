@@ -76,6 +76,8 @@ const PatchSchema = z.object({
   ownerPhone:            z.string().max(30).nullable().optional(),
   ownerEmail:            z.string().email().nullable().optional().or(z.literal('')),
   ownerPhotoUrl:         z.string().url().nullable().optional(),
+  coldDaysThreshold:     z.number().int().min(1).max(365).nullable().optional(),
+  defaultRevisionCap:    z.number().int().min(0).max(20).nullable().optional(),
 });
 
 function buildResponse(row: { name: string; gstin: string | null; brandingJson: unknown }) {
@@ -110,9 +112,11 @@ function buildResponse(row: { name: string; gstin: string | null; brandingJson: 
     placeOfSupply:        str(b.placeOfSupply),
     defaultMilestones:    Array.isArray(b.defaultMilestones) ? b.defaultMilestones as MilestoneDefault[] : null,
     ownerName:            str(b.ownerName),
-    ownerPhone:          str(b.ownerPhone),
-    ownerEmail:          str(b.ownerEmail),
-    ownerPhotoUrl:       str(b.ownerPhotoUrl),
+    ownerPhone:           str(b.ownerPhone),
+    ownerEmail:           str(b.ownerEmail),
+    ownerPhotoUrl:        str(b.ownerPhotoUrl),
+    coldDaysThreshold:    typeof b.coldDaysThreshold === 'number' ? b.coldDaysThreshold : 14,
+    defaultRevisionCap:   typeof b.defaultRevisionCap === 'number' ? b.defaultRevisionCap : 2,
   };
 }
 
@@ -194,6 +198,8 @@ export async function PATCH(request: NextRequest) {
     setStr('ownerPhone',          p.ownerPhone);
     setStr('ownerEmail',          p.ownerEmail && p.ownerEmail !== '' ? p.ownerEmail : null);
     setStr('ownerPhotoUrl',       p.ownerPhotoUrl);
+    setNum('coldDaysThreshold',   p.coldDaysThreshold);
+    setNum('defaultRevisionCap',  p.defaultRevisionCap);
 
     const patch: Record<string, unknown> = { brandingJson: branding };
     if (p.studioName !== undefined) patch.name  = p.studioName;

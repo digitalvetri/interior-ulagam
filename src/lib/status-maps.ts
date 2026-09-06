@@ -63,13 +63,28 @@ export const PO_STATUS_MAP: StatusMap = {
   cancelled:    { label: 'Cancelled',    bg: '#FEE2E2',                 color: '#B91C1C' },
 };
 
-export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos';
+export const SERVICE_REQUEST_STATUS: StatusMap = {
+  open:        { label: 'Open',        bg: 'var(--danger-soft)',   color: 'var(--danger)',       dot: 'var(--danger)' },
+  assigned:    { label: 'Assigned',    bg: 'var(--accent-soft)',   color: 'var(--accent-text)',  dot: 'var(--accent-base)' },
+  in_progress: { label: 'In Progress', bg: 'var(--warning-soft)',  color: 'var(--warning-text)', dot: 'var(--warning)' },
+  resolved:    { label: 'Resolved',    bg: 'var(--success-soft)',  color: 'var(--success-text)', dot: 'var(--success)' },
+};
+
+export const SERVICE_REQUEST_PRIORITY: StatusMap = {
+  low:    { label: 'Low',    bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+  medium: { label: 'Medium', bg: 'var(--warning-soft)',  color: 'var(--warning-text)'   },
+  high:   { label: 'High',   bg: 'var(--danger-soft)',   color: 'var(--danger)'         },
+  urgent: { label: 'Urgent', bg: 'var(--danger)',        color: '#fff'                  },
+};
+
+export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests';
 
 export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
-  leads:       LEAD_STATUS_MAP,
-  quotes:      QUOTE_STATUS_MAP,
-  milestones:  MILESTONE_STATUS_MAP,
-  deliverables: DELIVERABLE_STATUS_MAP,
-  snags:       SNAG_STATUS_MAP,
-  pos:         PO_STATUS_MAP,
+  leads:            LEAD_STATUS_MAP,
+  quotes:           QUOTE_STATUS_MAP,
+  milestones:       MILESTONE_STATUS_MAP,
+  deliverables:     DELIVERABLE_STATUS_MAP,
+  snags:            SNAG_STATUS_MAP,
+  pos:              PO_STATUS_MAP,
+  service_requests: SERVICE_REQUEST_STATUS,
 };
