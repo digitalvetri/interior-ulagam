@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { projects, milestones } from '@/lib/db/schema';
+import { projects, milestones, snagItems } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const patchBodySchema = z.object({
@@ -89,6 +89,26 @@ export async function PATCH(
           error: 'Stage gate failed: at least one milestone must be paid before moving to procurement',
         },
         { status: 422 }
+      );
+    }
+  }
+
+  // Stage gate: handover requires zero open/in_progress snag items
+  if (stage === 'handover') {
+    const [openSnagRow] = await db
+      .select({ c: count() })
+      .from(snagItems)
+      .where(
+        and(
+          eq(snagItems.projectId, id),
+          inArray(snagItems.status, ['open', 'in_progress']),
+        ),
+      );
+
+    if ((openSnagRow?.c ?? 0) > 0) {
+      return NextResponse.json(
+        { error: `Stage gate failed: ${openSnagRow.c} snag item(s) still open — resolve all snags before handover` },
+        { status: 422 },
       );
     }
   }

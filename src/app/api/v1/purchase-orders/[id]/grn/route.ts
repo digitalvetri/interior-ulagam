@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { grns, purchaseOrders } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, sum } from 'drizzle-orm';
 
 const CreateGRNSchema = z.object({
   lineId: z.string().uuid().optional(),
@@ -94,6 +94,32 @@ export async function POST(
         notes: input.notes ?? null,
       })
       .returning();
+
+    // Auto-update PO status based on total delivered vs ordered qty
+    if (po.status !== 'cancelled' && po.status !== 'draft') {
+      const lines = Array.isArray(po.linesJson)
+        ? (po.linesJson as Record<string, unknown>[])
+        : [];
+      const totalOrdered = lines.reduce<number>((s, l) => {
+        const qty = typeof l.qty === 'number' ? l.qty : 0;
+        return s + qty;
+      }, 0);
+
+      const [deliveredRow] = await db
+        .select({ total: sum(grns.deliveredQty) })
+        .from(grns)
+        .where(and(eq(grns.poId, id), eq(grns.tenantId, ctx.tenantId)));
+
+      const totalDelivered = Number(deliveredRow?.total ?? 0);
+
+      if (totalOrdered > 0) {
+        const newStatus = totalDelivered >= totalOrdered ? 'complete' : 'partial';
+        await db
+          .update(purchaseOrders)
+          .set({ status: newStatus })
+          .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.tenantId, ctx.tenantId)));
+      }
+    }
 
     return NextResponse.json({ data: grn, message: 'GRN recorded' }, { status: 201 });
   } catch (err) {

@@ -7,7 +7,7 @@ import {
   CheckCircle2, XCircle, Pencil, AlertTriangle, RefreshCw,
   FolderOpen, CreditCard, ClipboardList, Package, Receipt, Bug,
   FileText, Activity, Plus, ChevronRight, Calendar, MapPin,
-  ArrowRight,
+  ArrowRight, HardHat,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -399,6 +399,16 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       Icon: Bug,
       iconBg: 'bg-orange-50',
       iconColor: 'text-orange-600',
+      actionLabel: 'Manage',
+    },
+    {
+      href: `/projects/${id}/work-orders`,
+      label: 'Work Orders',
+      description: 'Carpentry, factory & vendor jobs',
+      badge: null,
+      Icon: HardHat,
+      iconBg: 'bg-stone-50',
+      iconColor: 'text-stone-600',
       actionLabel: 'Manage',
     },
     {
