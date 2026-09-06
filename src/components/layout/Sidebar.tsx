@@ -88,9 +88,9 @@ function NavGroupSection({
 // ─── Sidebar body (shared by desktop + mobile) ────────────────────────────────
 
 function SidebarBody({
-  role, pathname, iconOnly, onNavigate,
+  role, isAdmin, pathname, iconOnly, onNavigate,
 }: {
-  role: string; pathname: string;
+  role: string; isAdmin: boolean; pathname: string;
   iconOnly: boolean; onNavigate?: () => void;
 }) {
   const visibleGroups = NAV_GROUPS.filter(g => g.roles.some(r => r === role));
@@ -146,6 +146,11 @@ function SidebarBody({
           <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
             Built by DigitalVetri
           </p>
+          {isAdmin && (
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--accent-base)' }}>
+              Admin
+            </p>
+          )}
         </div>
       )}
     </>
@@ -157,6 +162,7 @@ function SidebarBody({
 export function Sidebar() {
   const pathname = usePathname();
   const [role, setRole]             = useState('');
+  const [isAdmin, setIsAdmin]       = useState(false);
   const [fullName, setFullName]     = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [iconOnly, setIconOnly]     = useState(false);
@@ -167,8 +173,14 @@ export function Sidebar() {
       .then(res => (res.ok ? res.json() : null))
       .then(body => {
         if (!body?.data) return;
-        setRole(body.data.role ?? '');
         setFullName(body.data.fullName ?? '');
+        // Treat legacy 'owner' as admin during transition
+        const isAdminFlag = body.data.isAdmin === true;
+        const normalized = isAdminFlag || body.data.role === 'owner' ? 'admin'
+          : ['designer', 'supervisor', 'accountant'].includes(body.data.role) ? 'employee'
+          : body.data.role;
+        setRole(normalized);
+        setIsAdmin(normalized === 'admin');
       })
       .catch(() => {});
   }, []);
@@ -235,7 +247,7 @@ export function Sidebar() {
         className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-64 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <SidebarBody
-          role={role} pathname={pathname}
+          role={role} isAdmin={isAdmin} pathname={pathname}
           iconOnly={false} onNavigate={closeMenu}
         />
       </aside>
@@ -245,7 +257,7 @@ export function Sidebar() {
         className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
         <SidebarBody
-          role={role} pathname={pathname} iconOnly={iconOnly}
+          role={role} isAdmin={isAdmin} pathname={pathname} iconOnly={iconOnly}
         />
 
         {/* Collapse / expand toggle */}

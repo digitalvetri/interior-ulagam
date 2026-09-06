@@ -3,14 +3,21 @@ import {
   Users,
   UserCheck,
   FolderKanban,
+  Ruler,
+  Palette,
+  FileText,
   ShoppingCart,
   Truck,
   Package,
+  HardHat,
   Wrench,
   Receipt,
   Wallet,
   UserCog,
   Settings,
+  Star,
+  BarChart3,
+  ClipboardList,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -28,66 +35,95 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+// Admin = full access. Employee = filtered by individual permissions.
+// During transition, old roles (owner, designer, supervisor, accountant) are
+// treated as: owner→admin, rest→employee.
+const ALL_ROLES = ['admin', 'employee', 'owner', 'designer', 'supervisor', 'accountant'];
+const ADMIN_ROLES = ['admin', 'owner'];
+const FINANCE_ROLES = ['admin', 'owner', 'accountant'];
+const DESIGN_ROLES = ['admin', 'owner', 'designer', 'employee'];
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'overview',
     label: 'Overview',
-    roles: ['owner', 'designer', 'accountant', 'supervisor'],
+    roles: ALL_ROLES,
     items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'designer', 'accountant', 'supervisor'] },
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
     ],
   },
   {
     key: 'crm',
     label: 'CRM',
-    roles: ['owner', 'designer'],
+    roles: ALL_ROLES,
     items: [
-      { href: '/leads',     label: 'Leads',   icon: Users,     roles: ['owner', 'designer'] },
-      { href: '/customers', label: 'Clients', icon: UserCheck, roles: ['owner', 'designer'] },
+      { href: '/leads',     label: 'Enquiries', icon: Users,      roles: ALL_ROLES },
+      { href: '/customers', label: 'Clients',   icon: UserCheck,  roles: ALL_ROLES },
     ],
   },
   {
     key: 'projects',
     label: 'Projects',
-    roles: ['owner', 'designer', 'supervisor'],
+    roles: ALL_ROLES,
     items: [
-      { href: '/projects',    label: 'Projects',     icon: FolderKanban, roles: ['owner', 'designer', 'supervisor'] },
-      { href: '/design-tasks', label: 'Design Tasks', icon: Wrench,       roles: ['owner', 'designer', 'supervisor'] },
+      { href: '/projects',     label: 'Projects',      icon: FolderKanban,  roles: ALL_ROLES },
+      { href: '/site-visits',  label: 'Site Visits',   icon: Ruler,         roles: DESIGN_ROLES },
+      { href: '/design-tasks', label: 'Design Tasks',  icon: Palette,       roles: DESIGN_ROLES },
+      { href: '/quotes',       label: 'Quotations',    icon: FileText,      roles: ALL_ROLES },
+      { href: '/work-orders',  label: 'Work Orders',   icon: ClipboardList, roles: ALL_ROLES },
     ],
   },
   {
     key: 'procurement',
     label: 'Procurement',
-    roles: ['owner', 'designer', 'accountant'],
+    roles: ALL_ROLES,
     items: [
-      { href: '/materials',       label: 'Materials',       icon: Package,      roles: ['owner', 'designer', 'accountant'] },
-      { href: '/vendors',         label: 'Vendors',         icon: Truck,        roles: ['owner', 'designer', 'accountant'] },
-      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: ['owner', 'accountant'] },
+      { href: '/materials',       label: 'Materials',       icon: Package,      roles: ALL_ROLES },
+      { href: '/vendors',         label: 'Vendors',         icon: Truck,        roles: ALL_ROLES },
+      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'site',
+    label: 'Site',
+    roles: ALL_ROLES,
+    items: [
+      { href: '/site-logs', label: 'Site Logs', icon: HardHat, roles: ALL_ROLES },
     ],
   },
   {
     key: 'finance',
     label: 'Finance',
-    roles: ['owner', 'accountant'],
+    roles: FINANCE_ROLES,
     items: [
-      { href: '/invoices', label: 'Invoices',            icon: Receipt, roles: ['owner', 'accountant'] },
-      { href: '/accounts', label: 'Accounts & Payments', icon: Wallet,  roles: ['owner', 'accountant'] },
+      { href: '/invoices', label: 'Invoices',            icon: Receipt, roles: FINANCE_ROLES },
+      { href: '/accounts', label: 'Accounts & Payments', icon: Wallet,  roles: FINANCE_ROLES },
+    ],
+  },
+  {
+    key: 'after_sales',
+    label: 'After Sales',
+    roles: ADMIN_ROLES,
+    items: [
+      { href: '/service',   label: 'Service Requests', icon: Wrench,    roles: ADMIN_ROLES },
+      { href: '/portfolio', label: 'Portfolio',        icon: Star,      roles: ADMIN_ROLES },
+      { href: '/reports',   label: 'Reports',          icon: BarChart3, roles: ADMIN_ROLES },
     ],
   },
   {
     key: 'team',
     label: 'Team',
-    roles: ['owner'],
+    roles: ADMIN_ROLES,
     items: [
-      { href: '/employees', label: 'Employees', icon: UserCog, roles: ['owner'] },
+      { href: '/employees', label: 'Employees', icon: UserCog, roles: ADMIN_ROLES },
     ],
   },
   {
     key: 'administration',
     label: 'Administration',
-    roles: ['owner'],
+    roles: ADMIN_ROLES,
     items: [
-      { href: '/settings', label: 'Settings', icon: Settings, roles: ['owner'] },
+      { href: '/settings', label: 'Settings', icon: Settings, roles: ADMIN_ROLES },
     ],
   },
 ];

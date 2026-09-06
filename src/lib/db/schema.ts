@@ -17,13 +17,15 @@ import { sql } from 'drizzle-orm';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export const userRoleEnum = pgEnum('user_role', ['owner', 'designer', 'supervisor', 'accountant']);
+export const userRoleEnum = pgEnum('user_role', ['owner', 'designer', 'supervisor', 'accountant', 'admin', 'employee']);
 
 export const leadStageEnum = pgEnum('lead_stage', [
   'new', 'contacted', 'qualified', 'site_visit', 'measurement',
   'quotation', 'negotiation', 'won', 'lost',
   // legacy: kept for existing data compatibility
   'site_visit_scheduled', 'consultation_done', 'proposal_sent',
+  // PRP Phase 0 additions
+  'measured', 'booked',
 ]);
 
 export const leadSourceEnum = pgEnum('lead_source', [
@@ -159,6 +161,9 @@ export const users = pgTable('users', {
   managerId: uuid('manager_id'),                     // self-FK, added via SQL
   emergencyContact: jsonb('emergency_contact_json'), // { name, relation, phone }
   status: text('status').notNull().default('active'), // active | on_leave | inactive
+  // Granular permission flags — defaults to all-false (least privilege).
+  // The migration script (migrate-p0.ts) back-fills based on legacy role values.
+  permissionsJson: jsonb('permissions_json').notNull().default(sql`'{"canSeeFinance":false,"canCreateQuotes":false,"canSendQuotes":false,"canRaisePO":false,"canRecordPayments":false,"canSeeAllLeads":false}'::jsonb`),
   ...timestamps,
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -243,6 +248,7 @@ export const leads = pgTable('leads', {
   firstTouchAt: timestamp('first_touch_at', { withTimezone: true }).notNull().defaultNow(),
   lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
+  coldFlagAt: timestamp('cold_flag_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [
   index('leads_tenant_stage_idx').on(t.tenantId, t.stage),
@@ -309,6 +315,8 @@ export const projects = pgTable('projects', {
   timelineJson: jsonb('timeline_json'),
   startedAt: timestamp('started_at', { withTimezone: true }),
   expectedEndAt: timestamp('expected_end_at', { withTimezone: true }),
+  // Denormalized convenience column for quick portal lookups (authoritative record is in clientTokens table).
+  clientPortalToken: text('client_portal_token').unique(),
   ...timestamps,
 }, (t) => [
   index('projects_tenant_stage_idx').on(t.tenantId, t.lifecycleStage),
@@ -322,12 +330,18 @@ export const quotes = pgTable('quotes', {
   parentQuoteId: uuid('parent_quote_id').references((): AnyPgColumn => quotes.id, { onDelete: 'set null' }),
   version: integer('version').notNull().default(1),
   status: text('status').notNull().default('draft'),
+  quoteNumber: text('quote_number'),
   subtotalPaise: integer('subtotal_paise').notNull().default(0),
+  discountPaise: integer('discount_paise').notNull().default(0),
+  gstPct: integer('gst_pct').notNull().default(18),
   gstPaise: integer('gst_paise').notNull().default(0),
   totalPaise: integer('total_paise').notNull().default(0),
+  marginPaise: integer('margin_paise').notNull().default(0),
   pdfUrl: text('pdf_url'),
+  termsText: text('terms_text'),
   sentAt: timestamp('sent_at', { withTimezone: true }),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   approvalAuditJson: jsonb('approval_audit_json'),
   waMessageId: text('wa_message_id'),
   createdBy: uuid('created_by').references(() => users.id),
@@ -346,7 +360,11 @@ export const quoteLines = pgTable('quote_lines', {
   costRatePaise: integer('cost_rate_paise').notNull().default(0),
   marginPaise: integer('margin_paise').notNull().default(0), // computed by app: (clientRate - costRate) * qty
   hsnSac: text('hsn_sac'),
+  finish: text('finish'),
+  sortOrder: integer('sort_order').notNull().default(0),
   materialId: uuid('material_id').references(() => materials.id),
+  // Nullable FK to quote_sections — set null when section is deleted, null for lines on old quotes.
+  sectionId: uuid('section_id').references((): AnyPgColumn => quoteSections.id, { onDelete: 'set null' }),
   ...timestamps,
 });
 
@@ -722,4 +740,148 @@ export const measurementItems = pgTable('measurement_items', {
   ...timestamps,
 }, (t) => [
   index('measurement_items_round_idx').on(t.roundId),
+]);
+
+// ─── Phase 0 additions ────────────────────────────────────────────────────────
+
+// ─── Quote Sections ───────────────────────────────────────────────────────────
+// Groups quote lines by room/area within a quote for cleaner presentation.
+// quoteLines.sectionId is a nullable FK back to this table.
+
+export const quoteSections = pgTable('quote_sections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
+  room: text('room').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  ...timestamps,
+}, (t) => [
+  index('quote_sections_quote_idx').on(t.quoteId),
+]);
+
+// ─── Work Orders ──────────────────────────────────────────────────────────────
+
+export const workOrderTypeEnum = pgEnum('work_order_type', [
+  'inhouse_carpentry', 'factory', 'vendor_job', 'site_work',
+]);
+export const workOrderStatusEnum = pgEnum('work_order_status', [
+  'planned', 'in_progress', 'ready', 'installed',
+]);
+
+export const workOrders = pgTable('work_orders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  quoteLineId: uuid('quote_line_id').references(() => quoteLines.id, { onDelete: 'set null' }),
+  title: text('title').notNull(),
+  type: workOrderTypeEnum('type').notNull().default('site_work'),
+  assignedUserId: uuid('assigned_user_id').references(() => users.id),
+  assignedVendorId: uuid('assigned_vendor_id').references(() => vendors.id),
+  startDate: date('start_date'),
+  dueDate: date('due_date'),
+  status: workOrderStatusEnum('status').notNull().default('planned'),
+  notes: text('notes'),
+  ...timestamps,
+}, (t) => [
+  index('work_orders_tenant_project_idx').on(t.tenantId, t.projectId),
+  index('work_orders_status_idx').on(t.status),
+]);
+
+// ─── Service Requests ─────────────────────────────────────────────────────────
+
+export const serviceRequestPriorityEnum = pgEnum('service_request_priority', [
+  'low', 'medium', 'high', 'urgent',
+]);
+export const serviceRequestStatusEnum = pgEnum('service_request_status', [
+  'open', 'assigned', 'in_progress', 'resolved',
+]);
+
+export const serviceRequests = pgTable('service_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  issue: text('issue').notNull(),
+  photoUrl: text('photo_url'),
+  priority: serviceRequestPriorityEnum('priority').notNull().default('medium'),
+  status: serviceRequestStatusEnum('status').notNull().default('open'),
+  assignedTo: uuid('assigned_to').references(() => users.id),
+  scheduledVisitAt: timestamp('scheduled_visit_at', { withTimezone: true }),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  notes: text('notes'),
+  ...timestamps,
+}, (t) => [
+  index('service_requests_tenant_status_idx').on(t.tenantId, t.status),
+]);
+
+// ─── Tasks ────────────────────────────────────────────────────────────────────
+// General-purpose task list (separate from designTasks which are project-specific).
+
+export const tasks = pgTable('tasks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  title: text('title').notNull(),
+  assignedTo: uuid('assigned_to').references(() => users.id),
+  relatedType: text('related_type'), // 'lead' | 'project' | 'quote' | 'invoice'
+  relatedId: uuid('related_id'),
+  dueAt: timestamp('due_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  notes: text('notes'),
+  ...timestamps,
+}, (t) => [
+  index('tasks_tenant_assigned_idx').on(t.tenantId, t.assignedTo),
+]);
+
+// ─── Design Deliverables (rich version) ──────────────────────────────────────
+// Separate from the existing `deliverables` table (which stays unchanged).
+// This richer schema supports versioning, client comments, and approval flow.
+
+export const designDeliverableTypeEnum = pgEnum('design_deliverable_type', [
+  'mood_board', '2d_layout', '3d_render', 'working_drawing', 'material_board',
+]);
+export const designDeliverableStatusEnum = pgEnum('design_deliverable_status', [
+  'draft', 'shared', 'changes_requested', 'approved',
+]);
+
+export const designDeliverables = pgTable('design_deliverables', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  leadId: uuid('lead_id').references(() => leads.id, { onDelete: 'set null' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  type: designDeliverableTypeEnum('type').notNull(),
+  title: text('title').notNull(),
+  revisionCap: integer('revision_cap').notNull().default(3),
+  status: designDeliverableStatusEnum('status').notNull().default('draft'),
+  approvedAt: timestamp('approved_at', { withTimezone: true }),
+  approvedByClient: text('approved_by_client'), // client name or timestamp string
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('design_deliverables_lead_idx').on(t.leadId),
+  index('design_deliverables_project_idx').on(t.projectId),
+]);
+
+export const deliverableVersions = pgTable('deliverable_versions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  deliverableId: uuid('deliverable_id').notNull().references(() => designDeliverables.id, { onDelete: 'cascade' }),
+  versionNumber: integer('version_number').notNull().default(1),
+  fileUrl: text('file_url').notNull(),
+  fileType: text('file_type'), // 'image/png', 'application/pdf', etc.
+  sharedAt: timestamp('shared_at', { withTimezone: true }),
+  notes: text('notes'),
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('deliverable_versions_deliverable_idx').on(t.deliverableId),
+]);
+
+export const deliverableComments = pgTable('deliverable_comments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  deliverableId: uuid('deliverable_id').notNull().references(() => designDeliverables.id, { onDelete: 'cascade' }),
+  versionId: uuid('version_id').references(() => deliverableVersions.id, { onDelete: 'set null' }),
+  body: text('body').notNull(),
+  fromClient: boolean('from_client').notNull().default(false),
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('deliverable_comments_deliverable_idx').on(t.deliverableId),
 ]);

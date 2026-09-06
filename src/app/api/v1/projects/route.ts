@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projects, leads, customers, milestones } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
+import { applyStageTransition } from '@/lib/leads/transitions';
 import { eq, and, desc, inArray, asc, ne } from 'drizzle-orm';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -223,6 +224,7 @@ export async function POST(request: NextRequest) {
         timelineJson:       projects.timelineJson,
         startedAt:          projects.startedAt,
         expectedEndAt:      projects.expectedEndAt,
+        clientPortalToken:  projects.clientPortalToken,
         createdAt:          projects.createdAt,
       });
   } catch (err) {
@@ -233,14 +235,13 @@ export async function POST(request: NextRequest) {
     return serverError('POST insert', new Error('Insert returned no rows'));
   }
 
-  // ── Mark lead as won (lead-linked path only) ─────────────────────────────────
+  // ── Mark lead as won via the authoritative transition gate ───────────────────
   if (leadId) {
     try {
-      await db
-        .update(leads)
-        .set({ stage: 'won', lastActivityAt: new Date() })
-        .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)));
+      await applyStageTransition(leadId, ctx.tenantId, ctx.dbUserId ?? null, 'won');
     } catch (err) {
+      // Non-fatal: transition may fail if already won or in an incompatible state.
+      // Project is already created — log and continue.
       console.error('[projects POST lead-update]', err);
     }
   }
