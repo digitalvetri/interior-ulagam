@@ -401,6 +401,16 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       iconColor: 'text-orange-600',
       actionLabel: 'Manage',
     },
+    {
+      href: `/projects/${id}/documents`,
+      label: 'Documents',
+      description: 'Quotations, invoices & PDFs',
+      badge: null,
+      Icon: FileText,
+      iconBg: 'bg-violet-50',
+      iconColor: 'text-violet-600',
+      actionLabel: 'View',
+    },
   ];
 }
 
@@ -1039,7 +1049,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--text-heading)]">Recent Documents</h2>
             <Link
-              href={`/projects/${id}/deliverables`}
+              href={`/projects/${id}/documents`}
               className="text-xs font-medium text-violet-600 hover:text-violet-700"
             >
               View All →
@@ -1047,13 +1057,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           </div>
           <div className="flex flex-col items-center py-6 text-center">
             <FileText className="mb-2 h-8 w-8 text-[var(--text-tertiary)]" />
-            <p className="text-sm text-[var(--text-secondary)]">No documents uploaded yet.</p>
+            <p className="text-sm text-[var(--text-secondary)]">No documents generated yet.</p>
             <Link
-              href={`/projects/${id}/deliverables`}
+              href={`/projects/${id}/documents`}
               className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100"
             >
-              <Plus className="h-3 w-3" />
-              Upload First Document
+              <ArrowRight className="h-3 w-3" />
+              View Documents
             </Link>
           </div>
         </div>

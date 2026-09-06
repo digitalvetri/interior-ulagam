@@ -95,7 +95,7 @@ export async function POST(
     const issuedAt = new Date(quote.createdAt);
     const validUntil = new Date(issuedAt.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
-    const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
+    const studio = extractBranding(tenant ?? { name: 'Konst Design' });
     const projectName =
       quote.projectName ??
       quote.leadContactName ??

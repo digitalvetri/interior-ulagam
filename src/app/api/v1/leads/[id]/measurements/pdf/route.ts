@@ -70,7 +70,7 @@ export async function GET(
     itemsByRound.get(item.roundId)?.push(item);
   }
 
-  const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
+  const studio = extractBranding(tenant ?? { name: 'Konst Design' });
   const docNumber = `MS-${id.slice(-6).toUpperCase()}`;
 
   try {

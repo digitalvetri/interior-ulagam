@@ -59,7 +59,7 @@ export async function POST(
       ? (invoice.hsnSacLinesJson as HsnLine[])
       : [];
 
-    const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
+    const studio = extractBranding(tenant ?? { name: 'Konst Design' });
 
     // 4. Render PDF buffer
     const buffer = await renderInvoicePdf({

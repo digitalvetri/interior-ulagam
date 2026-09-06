@@ -72,7 +72,7 @@ export async function GET(
     ))
     .orderBy(asc(snagItems.createdAt));
 
-  const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
+  const studio = extractBranding(tenant ?? { name: 'Konst Design' });
   const docNumber = `HC-${id.slice(-6).toUpperCase()}`;
 
   try {

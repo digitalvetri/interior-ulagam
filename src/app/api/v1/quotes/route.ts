@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         subtotalPaise:    quotes.subtotalPaise,
         gstPaise:         quotes.gstPaise,
         totalPaise:       quotes.totalPaise,
+        quoteNumber:      quotes.quoteNumber,
         pdfUrl:           quotes.pdfUrl,
         sentAt:           quotes.sentAt,
         approvedAt:       quotes.approvedAt,

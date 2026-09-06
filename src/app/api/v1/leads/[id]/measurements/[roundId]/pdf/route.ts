@@ -76,7 +76,7 @@ export async function POST(
       .where(eq(tenants.id, ctx.tenantId))
       .limit(1);
 
-    const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
+    const studio = extractBranding(tenant ?? { name: 'Konst Design' });
     const docNumber = `MS-${roundId.slice(-6).toUpperCase()}`;
 
     // 5. Render PDF buffer
