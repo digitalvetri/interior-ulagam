@@ -5,6 +5,11 @@ import { db } from '@/lib/db';
 import { tenants } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
+interface MilestoneDefault {
+  label: string;
+  pct: number;
+}
+
 interface BrandingJson {
   studio?: string;
   tagline?: string;
@@ -27,7 +32,11 @@ interface BrandingJson {
   quoteNumberPrefix?: string;
   invoiceNumberPrefix?: string;
   poNumberPrefix?: string;
+  receiptNumberPrefix?: string;
   quoteValidityDays?: number;
+  defaultGstPct?: number;
+  placeOfSupply?: string;
+  defaultMilestones?: MilestoneDefault[];
   ownerName?: string;
   ownerPhone?: string;
   ownerEmail?: string;
@@ -36,33 +45,37 @@ interface BrandingJson {
 }
 
 const PatchSchema = z.object({
-  studioName:          z.string().min(1).max(200).optional(),
-  tagline:             z.string().max(500).nullable().optional(),
-  phone:               z.string().max(30).nullable().optional(),
-  email:               z.string().email().nullable().optional().or(z.literal('')),
-  website:             z.string().max(500).nullable().optional(),
-  address:             z.string().max(1000).nullable().optional(),
-  city:                z.string().max(100).nullable().optional(),
-  state:               z.string().max(100).nullable().optional(),
-  pinCode:             z.string().max(10).nullable().optional(),
-  gstin:               z.string().max(20).nullable().optional(),
-  pan:                 z.string().max(20).nullable().optional(),
-  logoUrl:             z.string().url().nullable().optional(),
-  bankName:            z.string().max(200).nullable().optional(),
-  bankAccount:         z.string().max(50).nullable().optional(),
-  bankIFSC:            z.string().max(20).nullable().optional(),
-  bankUPI:             z.string().max(100).nullable().optional(),
-  quotationTerms:      z.string().max(2000).nullable().optional(),
-  invoiceTerms:        z.string().max(2000).nullable().optional(),
-  poTerms:             z.string().max(2000).nullable().optional(),
-  quoteNumberPrefix:   z.string().max(20).nullable().optional(),
-  invoiceNumberPrefix: z.string().max(20).nullable().optional(),
-  poNumberPrefix:      z.string().max(20).nullable().optional(),
-  quoteValidityDays:   z.number().int().min(1).max(365).nullable().optional(),
-  ownerName:           z.string().max(200).nullable().optional(),
-  ownerPhone:          z.string().max(30).nullable().optional(),
-  ownerEmail:          z.string().email().nullable().optional().or(z.literal('')),
-  ownerPhotoUrl:       z.string().url().nullable().optional(),
+  studioName:            z.string().min(1).max(200).optional(),
+  tagline:               z.string().max(500).nullable().optional(),
+  phone:                 z.string().max(30).nullable().optional(),
+  email:                 z.string().email().nullable().optional().or(z.literal('')),
+  website:               z.string().max(500).nullable().optional(),
+  address:               z.string().max(1000).nullable().optional(),
+  city:                  z.string().max(100).nullable().optional(),
+  state:                 z.string().max(100).nullable().optional(),
+  pinCode:               z.string().max(10).nullable().optional(),
+  gstin:                 z.string().max(20).nullable().optional(),
+  pan:                   z.string().max(20).nullable().optional(),
+  logoUrl:               z.string().url().nullable().optional(),
+  bankName:              z.string().max(200).nullable().optional(),
+  bankAccount:           z.string().max(50).nullable().optional(),
+  bankIFSC:              z.string().max(20).nullable().optional(),
+  bankUPI:               z.string().max(100).nullable().optional(),
+  quotationTerms:        z.string().max(2000).nullable().optional(),
+  invoiceTerms:          z.string().max(2000).nullable().optional(),
+  poTerms:               z.string().max(2000).nullable().optional(),
+  quoteNumberPrefix:     z.string().max(20).nullable().optional(),
+  invoiceNumberPrefix:   z.string().max(20).nullable().optional(),
+  poNumberPrefix:        z.string().max(20).nullable().optional(),
+  receiptNumberPrefix:   z.string().max(20).nullable().optional(),
+  quoteValidityDays:     z.number().int().min(1).max(365).nullable().optional(),
+  defaultGstPct:         z.number().min(0).max(100).nullable().optional(),
+  placeOfSupply:         z.string().max(100).nullable().optional(),
+  defaultMilestones:     z.array(z.object({ label: z.string().max(200), pct: z.number().min(0).max(100) })).nullable().optional(),
+  ownerName:             z.string().max(200).nullable().optional(),
+  ownerPhone:            z.string().max(30).nullable().optional(),
+  ownerEmail:            z.string().email().nullable().optional().or(z.literal('')),
+  ownerPhotoUrl:         z.string().url().nullable().optional(),
 });
 
 function buildResponse(row: { name: string; gstin: string | null; brandingJson: unknown }) {
@@ -88,11 +101,15 @@ function buildResponse(row: { name: string; gstin: string | null; brandingJson: 
     quotationTerms:      str(b.quotationTerms),
     invoiceTerms:        str(b.invoiceTerms),
     poTerms:             str(b.poTerms),
-    quoteNumberPrefix:   str(b.quoteNumberPrefix) ?? 'QUO-',
-    invoiceNumberPrefix: str(b.invoiceNumberPrefix) ?? 'INV-',
-    poNumberPrefix:      str(b.poNumberPrefix) ?? 'PO-',
-    quoteValidityDays:   typeof b.quoteValidityDays === 'number' ? b.quoteValidityDays : 30,
-    ownerName:           str(b.ownerName),
+    quoteNumberPrefix:    str(b.quoteNumberPrefix) ?? 'QUO-',
+    invoiceNumberPrefix:  str(b.invoiceNumberPrefix) ?? 'INV-',
+    poNumberPrefix:       str(b.poNumberPrefix) ?? 'PO-',
+    receiptNumberPrefix:  str(b.receiptNumberPrefix) ?? 'RCT-',
+    quoteValidityDays:    typeof b.quoteValidityDays === 'number' ? b.quoteValidityDays : 30,
+    defaultGstPct:        typeof b.defaultGstPct === 'number' ? b.defaultGstPct : 18,
+    placeOfSupply:        str(b.placeOfSupply),
+    defaultMilestones:    Array.isArray(b.defaultMilestones) ? b.defaultMilestones as MilestoneDefault[] : null,
+    ownerName:            str(b.ownerName),
     ownerPhone:          str(b.ownerPhone),
     ownerEmail:          str(b.ownerEmail),
     ownerPhotoUrl:       str(b.ownerPhotoUrl),
@@ -163,10 +180,16 @@ export async function PATCH(request: NextRequest) {
     setStr('invoiceTerms',        p.invoiceTerms);
     setStr('poTerms',             p.poTerms);
     setStr('quoteNumberPrefix',   p.quoteNumberPrefix);
-    setStr('quoteNumberPrefix',   p.quoteNumberPrefix);
     setStr('invoiceNumberPrefix', p.invoiceNumberPrefix);
     setStr('poNumberPrefix',      p.poNumberPrefix);
+    setStr('receiptNumberPrefix', p.receiptNumberPrefix);
     setNum('quoteValidityDays',   p.quoteValidityDays);
+    setNum('defaultGstPct',       p.defaultGstPct);
+    setStr('placeOfSupply',       p.placeOfSupply);
+    if (p.defaultMilestones !== undefined) {
+      if (p.defaultMilestones === null) delete branding.defaultMilestones;
+      else branding.defaultMilestones = p.defaultMilestones;
+    }
     setStr('ownerName',           p.ownerName);
     setStr('ownerPhone',          p.ownerPhone);
     setStr('ownerEmail',          p.ownerEmail && p.ownerEmail !== '' ? p.ownerEmail : null);

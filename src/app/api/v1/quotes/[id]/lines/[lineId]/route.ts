@@ -4,39 +4,24 @@ import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { recalculateQuoteTotals } from '@/lib/quotes/totals';
 
 const UpdateLineSchema = z
   .object({
     room: z.string().min(1).optional(),
     item: z.string().min(1).optional(),
+    description: z.string().optional(),
     unit: z.string().min(1).optional(),
     qty: z.number().int().positive().optional(),
     costRatePaise: z.number().int().nonnegative().optional(),
     clientRatePaise: z.number().int().nonnegative().optional(),
+    hsnSac: z.string().optional(),
+    finish: z.string().optional(),
+    sortOrder: z.number().int().optional(),
+    materialId: z.string().uuid().optional(),
+    sectionId: z.string().uuid().nullable().optional(),
   })
   .strict();
-
-async function recalculateQuoteTotals(quoteId: string): Promise<void> {
-  const allLines = await db
-    .select({
-      clientRatePaise: quoteLines.clientRatePaise,
-      qty: quoteLines.qty,
-    })
-    .from(quoteLines)
-    .where(eq(quoteLines.quoteId, quoteId));
-
-  const subtotalPaise = allLines.reduce(
-    (acc, l) => acc + l.clientRatePaise * l.qty,
-    0,
-  );
-  const gstPaise = Math.round(subtotalPaise * 0.18);
-  const totalPaise = subtotalPaise + gstPaise;
-
-  await db
-    .update(quotes)
-    .set({ subtotalPaise, gstPaise, totalPaise })
-    .where(eq(quotes.id, quoteId));
-}
 
 /** Verify quote belongs to tenant and return its current state. */
 async function getAuthorizedLine(

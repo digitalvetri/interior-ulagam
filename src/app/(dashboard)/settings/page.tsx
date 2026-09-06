@@ -6,9 +6,37 @@ import {
   Building2, Users, Download, Loader2, Upload, Check,
   FileText, IndianRupee, Users2, ArrowUpRight, ChevronRight,
   Globe, MapPin, Phone, Mail, Briefcase, Pencil, X, Save,
+  Settings2, Milestone, Plus, Trash2,
 } from 'lucide-react';
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee } from '@/types/employees';
+
+type SettingsTab = 'profile' | 'documents' | 'milestones';
+
+interface DocumentSettings {
+  quoteNumberPrefix: string;
+  invoiceNumberPrefix: string;
+  poNumberPrefix: string;
+  receiptNumberPrefix: string;
+  quotationTerms: string;
+  invoiceTerms: string;
+  poTerms: string;
+  quoteValidityDays: number;
+  defaultGstPct: number;
+  placeOfSupply: string;
+}
+
+interface MilestoneRow {
+  label: string;
+  pct: number;
+}
+
+const DEFAULT_MILESTONES: MilestoneRow[] = [
+  { label: 'Advance Payment', pct: 10 },
+  { label: 'Design Approval', pct: 40 },
+  { label: 'Before Handover', pct: 40 },
+  { label: 'Completion', pct: 10 },
+];
 
 interface ProfileData {
   studioName: string;
@@ -142,6 +170,7 @@ async function downloadExport(url: string, filename: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const [activeTab, setActiveTab]       = useState<SettingsTab>('profile');
   const [loading, setLoading]           = useState(true);
   const [employees, setEmployees]       = useState<Employee[]>([]);
   const logoInputRef                    = useRef<HTMLInputElement>(null);
@@ -149,6 +178,21 @@ export default function SettingsPage() {
 
   const [editingProfile, setEditingProfile] = useState(false);
   const [editingStudio, setEditingStudio]   = useState(false);
+
+  // Documents tab state
+  const [docSettings, setDocSettings] = useState<DocumentSettings>({
+    quoteNumberPrefix: 'QUO-', invoiceNumberPrefix: 'INV-',
+    poNumberPrefix: 'PO-', receiptNumberPrefix: 'RCT-',
+    quotationTerms: '', invoiceTerms: '', poTerms: '',
+    quoteValidityDays: 30, defaultGstPct: 18, placeOfSupply: '',
+  });
+  const [savingDoc, setSavingDoc]   = useState(false);
+  const [savedDoc, setSavedDoc]     = useState(false);
+
+  // Milestones tab state
+  const [milestones, setMilestones] = useState<MilestoneRow[]>(DEFAULT_MILESTONES);
+  const [savingMS, setSavingMS]     = useState(false);
+  const [savedMS, setSavedMS]       = useState(false);
 
   // Profile drafts
   const [dName, setDName]   = useState('');
@@ -179,7 +223,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/v1/settings/profile')
       .then(r => r.json())
-      .then(({ data }: { data: ProfileData | null }) => {
+      .then(({ data }: { data: (ProfileData & DocumentSettings & { defaultMilestones?: MilestoneRow[] | null }) | null }) => {
         const m: ProfileData = {
           ownerName:    data?.ownerName    || DEFAULTS.ownerName,
           ownerPhone:   data?.ownerPhone   || DEFAULTS.ownerPhone,
@@ -198,6 +242,25 @@ export default function SettingsPage() {
           gstin:        data?.gstin        || null,
         };
         setProfile(m);
+
+        // Populate Documents tab
+        setDocSettings({
+          quoteNumberPrefix:   data?.quoteNumberPrefix   ?? 'QUO-',
+          invoiceNumberPrefix: data?.invoiceNumberPrefix ?? 'INV-',
+          poNumberPrefix:      data?.poNumberPrefix      ?? 'PO-',
+          receiptNumberPrefix: data?.receiptNumberPrefix ?? 'RCT-',
+          quotationTerms:      data?.quotationTerms      ?? '',
+          invoiceTerms:        data?.invoiceTerms        ?? '',
+          poTerms:             data?.poTerms             ?? '',
+          quoteValidityDays:   data?.quoteValidityDays   ?? 30,
+          defaultGstPct:       data?.defaultGstPct       ?? 18,
+          placeOfSupply:       data?.placeOfSupply       ?? '',
+        });
+
+        // Populate Milestones tab
+        if (Array.isArray(data?.defaultMilestones) && (data.defaultMilestones as MilestoneRow[]).length > 0) {
+          setMilestones(data.defaultMilestones as MilestoneRow[]);
+        }
       })
       .finally(() => setLoading(false));
 
@@ -249,6 +312,45 @@ export default function SettingsPage() {
     finally { setBusyExport(null); }
   }
 
+  async function saveDocSettings() {
+    setSavingDoc(true);
+    try {
+      const res = await fetch('/api/v1/settings/profile', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          quoteNumberPrefix:   docSettings.quoteNumberPrefix.trim() || null,
+          invoiceNumberPrefix: docSettings.invoiceNumberPrefix.trim() || null,
+          poNumberPrefix:      docSettings.poNumberPrefix.trim() || null,
+          receiptNumberPrefix: docSettings.receiptNumberPrefix.trim() || null,
+          quotationTerms:      docSettings.quotationTerms.trim() || null,
+          invoiceTerms:        docSettings.invoiceTerms.trim() || null,
+          poTerms:             docSettings.poTerms.trim() || null,
+          quoteValidityDays:   docSettings.quoteValidityDays,
+          defaultGstPct:       docSettings.defaultGstPct,
+          placeOfSupply:       docSettings.placeOfSupply.trim() || null,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setSavedDoc(true); setTimeout(() => setSavedDoc(false), 2000);
+    } catch { /* ignore */ } finally { setSavingDoc(false); }
+  }
+
+  async function saveMilestones() {
+    setSavingMS(true);
+    try {
+      const res = await fetch('/api/v1/settings/profile', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ defaultMilestones: milestones }),
+      });
+      if (!res.ok) throw new Error();
+      setSavedMS(true); setTimeout(() => setSavedMS(false), 2000);
+    } catch { /* ignore */ } finally { setSavingMS(false); }
+  }
+
+  const milestoneTotal = milestones.reduce((s, r) => s + (Number(r.pct) || 0), 0);
+
   if (loading) {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>;
   }
@@ -278,6 +380,16 @@ export default function SettingsPage() {
 
   const fullAddress = [profile.address, profile.city, profile.state, profile.pinCode].filter(Boolean).join(', ');
 
+  // Shared input style helpers for new tabs
+  const tabInputCls = 'h-9 w-full rounded-lg border bg-[var(--surface-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30';
+  const tabInputStyle = { borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' };
+
+  const TABS: { key: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { key: 'profile',    label: 'Business Profile', icon: Building2 },
+    { key: 'documents',  label: 'Documents',        icon: Settings2 },
+    { key: 'milestones', label: 'Milestones',       icon: Milestone },
+  ];
+
   return (
     <div className="p-4 lg:p-6 space-y-4">
 
@@ -286,6 +398,215 @@ export default function SettingsPage() {
         <h1 className="page-title">Settings</h1>
         <p className="page-subtitle">Manage your profile, studio details, team and data</p>
       </div>
+
+      {/* ── Tab navigation ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 rounded-xl p-1 w-fit" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+        {TABS.map(({ key, label, icon: Icon }) => {
+          const active = activeTab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm font-medium transition-all"
+              style={{
+                background:   active ? 'var(--surface-card)' : 'transparent',
+                color:        active ? 'var(--accent-base)'  : 'var(--text-secondary)',
+                boxShadow:    active ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
+              }}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Documents tab ───────────────────────────────────────────────── */}
+      {activeTab === 'documents' && (
+        <div className="space-y-4 max-w-3xl">
+
+          {/* Document Prefixes */}
+          <Card>
+            <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Document Prefixes</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Prefix used when generating document numbers</p>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {([
+                ['quoteNumberPrefix',   'Quotation Prefix'],
+                ['invoiceNumberPrefix', 'Invoice Prefix'],
+                ['poNumberPrefix',      'Purchase Order Prefix'],
+                ['receiptNumberPrefix', 'Receipt Prefix'],
+              ] as [keyof DocumentSettings, string][]).map(([field, label]) => (
+                <Field key={field} label={label}>
+                  <input
+                    value={docSettings[field] as string}
+                    onChange={e => setDocSettings(s => ({ ...s, [field]: e.target.value }))}
+                    className={tabInputCls}
+                    style={tabInputStyle}
+                    placeholder={field === 'quoteNumberPrefix' ? 'QUO-' : field === 'invoiceNumberPrefix' ? 'INV-' : field === 'poNumberPrefix' ? 'PO-' : 'RCT-'}
+                  />
+                </Field>
+              ))}
+            </div>
+          </Card>
+
+          {/* Terms & Conditions */}
+          <Card>
+            <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Terms &amp; Conditions</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Default terms printed on each document type</p>
+            </div>
+            <div className="p-4 space-y-3">
+              {([
+                ['quotationTerms', 'Quotation Terms'],
+                ['invoiceTerms',   'Invoice Terms'],
+                ['poTerms',        'Purchase Order Terms'],
+              ] as [keyof DocumentSettings, string][]).map(([field, label]) => (
+                <Field key={field} label={label}>
+                  <textarea
+                    rows={4}
+                    value={docSettings[field] as string}
+                    onChange={e => setDocSettings(s => ({ ...s, [field]: e.target.value }))}
+                    className="w-full resize-none rounded-lg border bg-[var(--surface-card)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                    style={tabInputStyle}
+                  />
+                </Field>
+              ))}
+            </div>
+          </Card>
+
+          {/* Quote Settings */}
+          <Card>
+            <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Quote Settings</p>
+            </div>
+            <div className="p-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Field label="Quote Validity (days)">
+                <input
+                  type="number"
+                  min={1} max={365}
+                  value={docSettings.quoteValidityDays}
+                  onChange={e => setDocSettings(s => ({ ...s, quoteValidityDays: Number(e.target.value) || 30 }))}
+                  className={tabInputCls}
+                  style={tabInputStyle}
+                />
+              </Field>
+              <Field label="Default GST %">
+                <input
+                  type="number"
+                  min={0} max={100} step={0.5}
+                  value={docSettings.defaultGstPct}
+                  onChange={e => setDocSettings(s => ({ ...s, defaultGstPct: Number(e.target.value) || 18 }))}
+                  className={tabInputCls}
+                  style={tabInputStyle}
+                />
+              </Field>
+              <Field label="Place of Supply">
+                <input
+                  value={docSettings.placeOfSupply}
+                  onChange={e => setDocSettings(s => ({ ...s, placeOfSupply: e.target.value }))}
+                  placeholder="e.g. Tamil Nadu"
+                  className={tabInputCls}
+                  style={tabInputStyle}
+                />
+              </Field>
+            </div>
+          </Card>
+
+          {/* Save */}
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={saveDocSettings} disabled={savingDoc}
+              className="btn-primary inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold disabled:opacity-60">
+              {savingDoc ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {savingDoc ? 'Saving…' : 'Save Documents Settings'}
+            </button>
+            {savedDoc && (
+              <span className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--success)' }}>
+                <Check className="h-4 w-4" /> Saved
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Milestones tab ──────────────────────────────────────────────── */}
+      {activeTab === 'milestones' && (
+        <div className="space-y-4 max-w-xl">
+          <Card>
+            <div className="px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Default Milestone Split</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                Default payment milestone percentages applied to new projects
+              </p>
+            </div>
+            <div className="p-4 space-y-2">
+              {milestones.map((row, idx) => (
+                <div key={idx} className="flex items-center gap-3">
+                  <input
+                    value={row.label}
+                    onChange={e => setMilestones(ms => ms.map((m, i) => i === idx ? { ...m, label: e.target.value } : m))}
+                    placeholder="Milestone label"
+                    className="flex-1 h-9 rounded-lg border bg-[var(--surface-card)] px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                    style={tabInputStyle}
+                  />
+                  <div className="relative flex-shrink-0 w-24">
+                    <input
+                      type="number"
+                      min={0} max={100}
+                      value={row.pct}
+                      onChange={e => setMilestones(ms => ms.map((m, i) => i === idx ? { ...m, pct: Number(e.target.value) || 0 } : m))}
+                      className="h-9 w-full rounded-lg border bg-[var(--surface-card)] pl-3 pr-7 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                      style={tabInputStyle}
+                    />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--text-tertiary)' }}>%</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMilestones(ms => ms.filter((_, i) => i !== idx))}
+                    className="flex-shrink-0 rounded-lg p-1.5 transition-colors hover:bg-red-50"
+                    style={{ color: 'var(--danger)' }}
+                    title="Remove milestone"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setMilestones(ms => [...ms, { label: '', pct: 0 }])}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add milestone
+              </button>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+              <span className="text-sm font-semibold" style={{ color: milestoneTotal === 100 ? 'var(--success)' : 'var(--danger)' }}>
+                Total: {milestoneTotal}%
+                {milestoneTotal !== 100 && <span className="ml-2 text-[11px] font-normal">Must equal 100%</span>}
+              </span>
+            </div>
+          </Card>
+
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={saveMilestones} disabled={savingMS || milestoneTotal !== 100}
+              className="btn-primary inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold disabled:opacity-60">
+              {savingMS ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {savingMS ? 'Saving…' : 'Save Milestones'}
+            </button>
+            {savedMS && (
+              <span className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--success)' }}>
+                <Check className="h-4 w-4" /> Saved
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Business Profile tab ────────────────────────────────────────── */}
+      {activeTab === 'profile' && <>
 
       {/* ── Row 1: Studio (left) + Profile & Users (right) ────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
@@ -525,6 +846,8 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      </>}
 
     </div>
   );

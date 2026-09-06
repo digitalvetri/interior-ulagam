@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { recalculateQuoteTotals } from '@/lib/quotes/totals';
 
 export async function DELETE(
   _request: NextRequest,
@@ -35,6 +36,10 @@ export async function DELETE(
 const UpdateQuoteSchema = z
   .object({
     status: z.enum(['draft', 'sent', 'approved', 'revised']).optional(),
+    quoteNumber: z.string().optional(),
+    discountPaise: z.number().int().min(0).optional(),
+    gstPct: z.number().int().min(0).max(28).optional(),
+    termsText: z.string().optional(),
   })
   .strict();
 
@@ -159,6 +164,19 @@ export async function PATCH(
       .set(input)
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)))
       .returning();
+
+    // Recalculate totals when discount or GST rate changes
+    if (input.discountPaise !== undefined || input.gstPct !== undefined) {
+      await recalculateQuoteTotals(id);
+
+      // Re-fetch to return the freshly computed totals
+      const [refreshed] = await db
+        .select()
+        .from(quotes)
+        .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
+
+      return NextResponse.json({ data: refreshed, message: 'Quote updated' });
+    }
 
     return NextResponse.json({ data: updated, message: 'Quote updated' });
   } catch (err) {

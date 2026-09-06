@@ -1,18 +1,29 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, ClipboardList, Download, Phone, Tag, Layers, User,
   CheckCircle2, Send, MessageCircle, Mail, FileText, IndianRupee,
-  Upload, FileDown, ChevronDown, ChevronRight,
+  Upload, FileDown, ChevronDown, ChevronRight, Edit2, FolderKanban, Plus,
 } from 'lucide-react';
 import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
 import { MarginSummary } from '@/components/quotes/MarginSummary';
 import { ImportBOQModal } from '@/components/quotes/ImportBOQModal';
+import { DocumentActions } from '@/components/ui/DocumentActions';
 import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
+
+// Extended type for fields returned by the PATCH endpoint that aren't yet in the base Quote type
+interface QuoteExtended extends Quote {
+  quoteNumber?: string | null;
+  discountPaise?: number;
+  gstPct?: number;
+  termsText?: string | null;
+  acceptedAt?: string;
+}
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: string; dot: string }> = {
   draft:    { label: 'Draft',    bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
@@ -25,7 +36,8 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: str
 
 export default function QuotePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const [quote, setQuote]                     = useState<Quote | null>(null);
+  const router = useRouter();
+  const [quote, setQuote]                     = useState<QuoteExtended | null>(null);
   const [loading, setLoading]                 = useState(true);
   const [actionPending, setActionPending]     = useState(false);
   const [actionError, setActionError]         = useState<string | null>(null);
@@ -33,11 +45,35 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [showImportModal, setShowImportModal] = useState(false);
   const [collapsedRooms, setCollapsedRooms]   = useState<Set<string>>(new Set());
 
+  // Header inline editing (draft only)
+  const [editingDiscount, setEditingDiscount]   = useState(false);
+  const [editingGstPct, setEditingGstPct]       = useState(false);
+  const [editingTerms, setEditingTerms]         = useState(false);
+  const [discountInput, setDiscountInput]       = useState('');
+  const [gstPctInput, setGstPctInput]           = useState('');
+  const [termsInput, setTermsInput]             = useState('');
+  const [patchError, setPatchError]             = useState<string | null>(null);
+
+  // Add Room inline form
+  const [showAddRoom, setShowAddRoom]           = useState(false);
+  const [newRoomName, setNewRoomName]           = useState('');
+  const [addingRoom, setAddingRoom]             = useState(false);
+
+  // Book Project inline form
+  const [showBookForm, setShowBookForm]         = useState(false);
+  const [bookProjectName, setBookProjectName]   = useState('');
+  const [booking, setBooking]                   = useState(false);
+  const [bookError, setBookError]               = useState<string | null>(null);
+
+  const discountInputRef  = useRef<HTMLInputElement>(null);
+  const gstPctInputRef    = useRef<HTMLInputElement>(null);
+  const termsInputRef     = useRef<HTMLTextAreaElement>(null);
+
   const fetchQuote = useCallback(() => {
     setLoading(true);
     fetch(`/api/v1/quotes/${id}`)
       .then((r) => r.json())
-      .then(({ data }: { data: Quote }) => { setQuote(data); setLoading(false); })
+      .then(({ data }: { data: QuoteExtended }) => { setQuote(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
 
@@ -176,10 +212,28 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
       if (!res.ok) throw new Error(body.error ?? `Failed (${res.status})`);
       fetchQuote();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : 'Failed to mark approved');
+      setActionError(e instanceof Error ? e.message : 'Failed to mark accepted');
     } finally {
       setActionPending(false);
     }
+  }
+
+  async function handleBookProject() {
+    if (!bookProjectName.trim()) { setBookError('Project name is required'); return; }
+    setBooking(true); setBookError(null);
+    try {
+      const res = await fetch(`/api/v1/quotes/${id}/book`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectName: bookProjectName.trim(), advancePaidPaise: 0 }),
+      });
+      const json = await res.json() as { data?: { project: { id: string } }; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
+      router.push(`/projects/${json.data!.project.id}`);
+    } catch (e) {
+      setBookError(e instanceof Error ? e.message : 'Failed to book project');
+    } finally {
+      setBooking(false); }
   }
 
   const roomGroups = (() => {
@@ -322,6 +376,16 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     <Mail className="h-3 w-3" /> Email
                   </a>
                 </div>
+                {/* Document actions — PDF preview, download, WhatsApp */}
+                <DocumentActions
+                  pdfUrl={quote.pdfUrl ?? null}
+                  docType="quote"
+                  docNumber={quote.quoteNumber ?? quoteLabel}
+                  generateEndpoint={`/api/v1/quotes/${quote.id}/pdf`}
+                  waPhone={quote.leadContactPhone ?? undefined}
+                  waCaption={`Here is your Quotation ${quote.quoteNumber ?? quoteLabel} from Konst Design.`}
+                  className="mt-2"
+                />
               </div>
             </div>
 
@@ -349,7 +413,16 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                   style={{ background: 'var(--success)' }}
                   onClick={handleMarkApproved} disabled={actionPending}>
                   <CheckCircle2 className="h-4 w-4" />
-                  {actionPending ? 'Approving…' : 'Mark Approved'}
+                  {actionPending ? 'Accepting…' : 'Mark Accepted'}
+                </button>
+              )}
+              {quote.status === 'accepted' && !showBookForm && (
+                <button type="button"
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--violet-primary)' }}
+                  onClick={() => { setShowBookForm(true); setBookProjectName(quote.leadContactName ? `${quote.leadContactName}'s Project` : ''); }}>
+                  <FolderKanban className="h-4 w-4" />
+                  Book Project
                 </button>
               )}
             </div>
@@ -359,6 +432,42 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
             <div className="mt-3 rounded-xl px-4 py-2.5 text-sm flex items-center gap-2"
               style={{ background: 'var(--danger-soft)', color: 'var(--danger)', border: '1px solid var(--danger-soft)' }}>
               {actionError}
+            </div>
+          )}
+
+          {/* ── Book Project inline form ───────────────────────────────────── */}
+          {showBookForm && (
+            <div className="mt-4 rounded-xl p-4 space-y-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Create Project from this Quote</p>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Project Name *
+                </label>
+                <input
+                  type="text"
+                  value={bookProjectName}
+                  onChange={e => setBookProjectName(e.target.value)}
+                  placeholder="e.g. Vikram Nair — Full Home"
+                  className="studio-input w-full text-sm"
+                  autoFocus
+                />
+              </div>
+              {bookError && <p className="text-xs text-red-600">{bookError}</p>}
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Milestones will be seeded at 10 / 40 / 40 / 10% of ₹{(quote.totalPaise / 100).toLocaleString('en-IN')}.
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={handleBookProject} disabled={booking || !bookProjectName.trim()}
+                  className="px-4 py-1.5 rounded-lg text-sm font-semibold disabled:opacity-50"
+                  style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                  {booking ? 'Creating…' : 'Create Project'}
+                </button>
+                <button type="button" onClick={() => { setShowBookForm(false); setBookError(null); }}
+                  className="px-4 py-1.5 rounded-lg text-sm"
+                  style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
         </div>

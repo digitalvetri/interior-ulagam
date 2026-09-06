@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { recalculateQuoteTotals } from '@/lib/quotes/totals';
 
 const CreateLineSchema = z.object({
   room: z.string().min(1),
@@ -13,28 +14,6 @@ const CreateLineSchema = z.object({
   costRatePaise: z.number().int().nonnegative(),
   clientRatePaise: z.number().int().nonnegative(),
 });
-
-async function recalculateQuoteTotals(quoteId: string): Promise<void> {
-  const allLines = await db
-    .select({
-      clientRatePaise: quoteLines.clientRatePaise,
-      qty: quoteLines.qty,
-    })
-    .from(quoteLines)
-    .where(eq(quoteLines.quoteId, quoteId));
-
-  const subtotalPaise = allLines.reduce(
-    (acc, l) => acc + l.clientRatePaise * l.qty,
-    0,
-  );
-  const gstPaise = Math.round(subtotalPaise * 0.18);
-  const totalPaise = subtotalPaise + gstPaise;
-
-  await db
-    .update(quotes)
-    .set({ subtotalPaise, gstPaise, totalPaise })
-    .where(eq(quotes.id, quoteId));
-}
 
 export async function POST(
   request: NextRequest,

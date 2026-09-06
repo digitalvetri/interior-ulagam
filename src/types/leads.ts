@@ -4,6 +4,8 @@ export type LeadStage =
   | 'qualified'
   | 'site_visit'
   | 'measurement'
+  | 'measured'
+  | 'booked'
   | 'quotation'
   | 'negotiation'
   | 'won'
@@ -130,12 +132,12 @@ export interface LeadFollowUp {
 }
 
 export const STAGE_ORDER: LeadStage[] = [
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
-  'quotation', 'negotiation', 'won', 'lost',
+  'new', 'contacted', 'site_visit', 'measured',
+  'quotation', 'negotiation', 'booked', 'lost',
 ];
 
 export const ACTIVE_STAGES: LeadStage[] = [
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'new', 'contacted', 'site_visit', 'measured',
   'quotation', 'negotiation',
 ];
 
@@ -145,6 +147,8 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   qualified:   'Qualified',
   site_visit:  'Site Visit',
   measurement: 'Measurement',
+  measured:    'Measured',
+  booked:      'Booked',
   quotation:   'Quotation',
   negotiation: 'Negotiation',
   won:         'Won',
@@ -161,6 +165,8 @@ export const STAGE_COLORS: Record<LeadStage, string> = {
   qualified:   'bg-teal-100 text-teal-800',
   site_visit:  'bg-amber-100 text-amber-800',
   measurement: 'bg-orange-100 text-orange-800',
+  measured:    'bg-lime-100 text-lime-800',
+  booked:      'bg-emerald-100 text-emerald-800',
   quotation:   'bg-indigo-100 text-indigo-800',
   negotiation: 'bg-purple-100 text-purple-800',
   won:         'bg-green-100 text-green-800',

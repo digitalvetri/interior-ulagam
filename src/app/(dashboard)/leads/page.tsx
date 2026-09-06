@@ -46,6 +46,8 @@ const STAGE_STYLE: Record<LeadStage, { bg: string; color: string }> = {
   negotiation: { bg: 'var(--accent-soft)', color: 'var(--accent-base)' },
   won:         { bg: 'var(--success-soft)', color: 'var(--success-text)' },
   lost:        { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+  measured: { bg: '#D1FAE5', color: '#065F46' },
+  booked:   { bg: '#DCFCE7', color: '#14532D' },
   // legacy
   site_visit_scheduled: { bg: '#FEF9C3', color: '#854D0E' },
   consultation_done:    { bg: 'var(--warning-soft)', color: '#C2410C' },

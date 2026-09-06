@@ -9,29 +9,27 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getAuthContext();
-  if (!ctx) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
 
   try {
-    const [quote] = await db
-      .select()
+    const [existing] = await db
+      .select({
+        id: quotes.id,
+        status: quotes.status,
+        approvedAt: quotes.approvedAt,
+      })
       .from(quotes)
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
 
-    if (!quote) {
+    if (!existing) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    if (quote.status === 'accepted') {
-      return NextResponse.json({ error: 'Quote is already accepted' }, { status: 422 });
-    }
-
-    if (quote.status !== 'sent') {
+    if (existing.status !== 'sent' && existing.status !== 'approved') {
       return NextResponse.json(
-        { error: `Only sent quotes can be accepted (current status: '${quote.status}')` },
+        { error: 'Only sent or approved quotes can be accepted' },
         { status: 422 },
       );
     }
@@ -41,26 +39,16 @@ export async function POST(
     const [updated] = await db
       .update(quotes)
       .set({
-        status: 'accepted',
-        approvedAt: now,
+        status: 'approved',
         acceptedAt: now,
-        approvalAuditJson: {
-          approvedBy: ctx.userId,
-          approvedAt: now.toISOString(),
-        },
+        approvedAt: existing.approvedAt ?? now,
       })
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)))
       .returning();
 
-    // Return the accepted quote total so the UI can pre-fill the Won Flow modal
-    return NextResponse.json({
-      data: updated,
-      message: 'Quote accepted — open Won Flow to convert this lead',
-      acceptedTotalPaise: updated.totalPaise,
-      leadId: updated.leadId,
-    });
+    return NextResponse.json({ data: updated });
   } catch (err) {
-    console.error('[quotes/:id/approve POST]', err);
+    console.error('[quotes/:id/accept POST]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -35,6 +35,7 @@ export interface Quote {
   pdfUrl?: string;
   sentAt?: string;
   approvedAt?: string;
+  acceptedAt?: string;
   createdBy?: string;
   createdAt: string;
   updatedAt?: string;

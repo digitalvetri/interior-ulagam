@@ -5,6 +5,7 @@ import { applyStageTransition } from '@/lib/leads/transitions';
 
 const LeadStageEnum = z.enum([
   'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'measured', 'booked',
   'quotation', 'negotiation', 'won', 'lost',
   // legacy values accepted for backward compat
   'site_visit_scheduled', 'consultation_done', 'proposal_sent',

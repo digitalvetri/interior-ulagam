@@ -22,8 +22,20 @@ import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
 import type { SiteVisit } from '@/types/site-visits';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { DesignDeliverablesTab } from '@/components/leads/DesignDeliverablesTab';
 
 type LeadDocument = DocumentRow & { downloadUrl: string | null };
+
+interface LeadFollowUp {
+  id: string;
+  followUpDate: string | null;
+  stage: string;
+  clientStatus: string;
+  comments: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface WaMessage {
   id: string;
@@ -78,29 +90,34 @@ const SOURCE_LABELS: Record<string, string> = {
 
 /* ── Pipeline ──────────────────────────────────────────────── */
 const PIPELINE_STEPS = [
-  { key: 'new',       label: 'New' },
-  { key: 'contacted', label: 'Contacted' },
-  { key: 'qualified', label: 'Qualified' },
-  { key: 'won',       label: 'Won' },
+  { key: 'new',         label: 'New' },
+  { key: 'contacted',   label: 'Contacted' },
+  { key: 'site_visit',  label: 'Site Visit' },
+  { key: 'measured',    label: 'Measured' },
+  { key: 'negotiation', label: 'Negotiation' },
+  { key: 'booked',      label: 'Booked' },
 ];
 const LEGACY_STAGE_MAP: Record<string, string> = {
-  site_visit_scheduled: 'qualified',
-  consultation_done:    'qualified',
-  proposal_sent:        'qualified',
-  site_visit:           'qualified',
-  measurement:          'qualified',
-  quotation:            'qualified',
-  negotiation:          'qualified',
+  // old stages → nearest blueprint equivalent
+  qualified:            'contacted',
+  site_visit_scheduled: 'site_visit',
+  consultation_done:    'site_visit',
+  measurement:          'measured',
+  quotation:            'negotiation',
+  proposal_sent:        'negotiation',
+  won:                  'booked',
 };
 
 // Contextual next-stage action for each mid-pipeline stage.
-// terminal=true means use the /stage endpoint (won/lost), not the regular PATCH.
+// terminal=true means use the /stage endpoint (booked/lost), not the regular PATCH.
 const NEXT_STAGE_MAP: Record<string, { label: string; targetStage: string; terminal?: boolean }> = {
-  new:         { label: 'Mark as Contacted', targetStage: 'contacted' },
-  contacted:   { label: 'Qualify Lead',      targetStage: 'qualified' },
-  qualified:   { label: 'Mark as Won',       targetStage: 'won', terminal: true },
-  // legacy stages — kept for backward compat with existing data
-  negotiation: { label: 'Mark as Won',       targetStage: 'won', terminal: true },
+  new:         { label: 'Mark Contacted',      targetStage: 'contacted' },
+  contacted:   { label: 'Schedule Site Visit', targetStage: 'site_visit' },
+  site_visit:  { label: 'Mark Measured',       targetStage: 'measured' },
+  measured:    { label: 'Quotation Sent',      targetStage: 'negotiation' },
+  negotiation: { label: 'Mark Booked',         targetStage: 'booked', terminal: true },
+  // legacy compat
+  qualified:   { label: 'Schedule Site Visit', targetStage: 'site_visit' },
 };
 
 function PipelineBar({ stage, isLost, onStepClick, disabled = false }: {
@@ -236,9 +253,10 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
 }
 
 /* ── MeasurementsTabContent ────────────────────────────────── */
-function MeasurementsTabContent({ leadId, initialRounds, onRoundAdded }: {
+function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdded }: {
   leadId: string;
   initialRounds: MeasurementRound[];
+  draftQuotes: Quote[];
   onRoundAdded: (round: MeasurementRound) => void;
 }) {
   const [rounds, setRounds]           = useState<MeasurementRound[]>(initialRounds);
@@ -258,6 +276,30 @@ function MeasurementsTabContent({ leadId, initialRounds, onRoundAdded }: {
   const [iNotes, setINotes] = useState('');
   const [savingItem, setSavingItem] = useState(false);
   const [itemErr, setItemErr]       = useState<string | null>(null);
+
+  // Push-to-quote state
+  const [pushingRoundId, setPushingRoundId]   = useState<string | null>(null);
+  const [selectedQuoteId, setSelectedQuoteId] = useState('');
+  const [pushLoading, setPushLoading]         = useState(false);
+  const [pushResult, setPushResult]           = useState<string | null>(null);
+
+  async function handlePushToQuote(roundId: string) {
+    const quoteId = selectedQuoteId || draftQuotes[0]?.id;
+    if (!quoteId) return;
+    setPushLoading(true); setPushResult(null);
+    try {
+      const res = await fetch(`/api/v1/leads/${leadId}/measurements/${roundId}/push-to-quote`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quoteId }),
+      });
+      const json = await res.json() as { data?: { linesAdded: number }; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed');
+      setPushResult(`${json.data?.linesAdded ?? 0} lines added to quote`);
+      setPushingRoundId(null);
+    } catch (e) {
+      setPushResult(e instanceof Error ? e.message : 'Push failed');
+    } finally { setPushLoading(false); }
+  }
 
   async function createRound() {
     if (!roundName.trim()) return;
@@ -412,11 +454,51 @@ function MeasurementsTabContent({ leadId, initialRounds, onRoundAdded }: {
 
               <div className="px-4 py-3 space-y-2" style={{ background: 'var(--surface-muted)' }}>
                 {addingTo !== round.id ? (
-                  <button type="button" onClick={() => { setAddingTo(round.id); clearItemForm(); }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                    style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--violet-primary)' }}>
-                    <Plus className="h-3.5 w-3.5" /> Add Item
-                  </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button type="button" onClick={() => { setAddingTo(round.id); clearItemForm(); }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--violet-primary)' }}>
+                      <Plus className="h-3.5 w-3.5" /> Add Item
+                    </button>
+                    {/* Push to Quote */}
+                    {draftQuotes.length > 0 && (round.items?.length ?? 0) > 0 && (
+                      pushingRoundId === round.id ? (
+                        <div className="flex items-center gap-2">
+                          {draftQuotes.length > 1 && (
+                            <select value={selectedQuoteId || draftQuotes[0].id}
+                              onChange={e => setSelectedQuoteId(e.target.value)}
+                              className="studio-input text-xs py-1.5">
+                              {draftQuotes.map(q => (
+                                <option key={q.id} value={q.id}>
+                                  QUO-{q.id.slice(-6).toUpperCase()}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <button type="button" onClick={() => handlePushToQuote(round.id)} disabled={pushLoading}
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
+                            {pushLoading ? 'Pushing…' : 'Confirm Push'}
+                          </button>
+                          <button type="button" onClick={() => setPushingRoundId(null)}
+                            className="px-3 py-1.5 rounded-lg text-xs"
+                            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button type="button"
+                          onClick={() => { setPushingRoundId(round.id); setSelectedQuoteId(draftQuotes[0]?.id ?? ''); setPushResult(null); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                          <FileText className="h-3.5 w-3.5" /> Push to Quote
+                        </button>
+                      )
+                    )}
+                    {pushResult && pushingRoundId !== round.id && (
+                      <span className="text-xs" style={{ color: 'var(--success-text)' }}>{pushResult}</span>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
@@ -524,10 +606,12 @@ export default function LeadDetailPage() {
   const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
 
   // Tabs
-  type TabKey = 'overview' | 'sitevisits' | 'measurements' | 'quotations' | 'documents';
+  type TabKey = 'overview' | 'followups' | 'sitevisits' | 'measurements' | 'design' | 'quotations' | 'documents' | 'activity';
   const [activeTab, setActiveTab]           = useState<TabKey>('overview');
   const [siteVisitsData, setSiteVisitsData] = useState<SiteVisit[]>([]);
   const [measurementsData, setMeasurementsData] = useState<MeasurementRound[]>([]);
+  const [followUps, setFollowUps]           = useState<LeadFollowUp[]>([]);
+  const [followUpsLoaded, setFollowUpsLoaded] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<string | null>(null);
@@ -592,6 +676,18 @@ export default function LeadDetailPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [id]);
+
+  // Lazily fetch follow-ups when the tab is first opened
+  useEffect(() => {
+    if (activeTab !== 'followups' || followUpsLoaded || !id) return;
+    fetch(`/api/v1/leads/${id}/follow-ups`)
+      .then(r => r.json())
+      .then((res: { data?: LeadFollowUp[] }) => {
+        setFollowUps(res.data ?? []);
+        setFollowUpsLoaded(true);
+      })
+      .catch(() => setFollowUpsLoaded(true));
+  }, [activeTab, followUpsLoaded, id]);
 
   async function scheduleFollowUp() {
     if (!followUpDate) return;
@@ -782,7 +878,7 @@ export default function LeadDetailPage() {
 
   /* ── Derived ─────────────────────────────────────────── */
   const priorityCfg  = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
-  const isWon        = lead.stage === 'won';
+  const isWon        = lead.stage === 'won' || lead.stage === 'booked';
   const isLost       = lead.stage === 'lost';
   const isTerminal   = isWon || isLost;
   const initials     = lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
@@ -1143,11 +1239,14 @@ export default function LeadDetailPage() {
           <div className="flex gap-0 overflow-x-auto" style={{ borderBottom: '2px solid var(--border-subtle)' }}>
             {(
               [
-                { key: 'overview',     label: 'Overview',     count: 0 },
-                { key: 'sitevisits',   label: 'Site Visits',  count: siteVisitsData.length },
-                { key: 'measurements', label: 'Measurements', count: measurementsData.length },
-                { key: 'quotations',   label: 'Quotations',   count: leadQuotes.length },
-                { key: 'documents',    label: 'Documents',    count: leadDocs.length },
+                { key: 'overview',     label: 'Overview',      count: 0 },
+                { key: 'followups',    label: 'Follow-ups',    count: followUps.length },
+                { key: 'sitevisits',   label: 'Site Visits',   count: siteVisitsData.length },
+                { key: 'measurements', label: 'Measurements',  count: measurementsData.length },
+                { key: 'design',       label: 'Design Studio', count: 0 },
+                { key: 'quotations',   label: 'Quotations',    count: leadQuotes.length },
+                { key: 'documents',    label: 'Documents',     count: leadDocs.length },
+                { key: 'activity',     label: 'Activity',      count: activities.length },
               ] as { key: TabKey; label: string; count: number }[]
             ).map(tab => (
               <button key={tab.key} type="button"
@@ -1458,6 +1557,75 @@ export default function LeadDetailPage() {
             </div>
           )}
 
+          {/* ── FOLLOW-UPS ───────────────────────────────────────── */}
+          {activeTab === 'followups' && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  {followUps.length} Follow-up{followUps.length !== 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {!followUpsLoaded ? (
+                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p>
+                </div>
+              ) : followUps.length === 0 ? (
+                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <Calendar className="h-9 w-9 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No follow-ups logged yet</p>
+                  <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Use the Overview tab to schedule a follow-up</p>
+                </div>
+              ) : (
+                followUps.map(fu => {
+                  const urgency = fu.followUpDate ? followUpUrgency(fu.followUpDate) : null;
+                  const badgeBg =
+                    urgency === 'overdue' ? { bg: 'var(--danger-soft)', color: 'var(--danger)' } :
+                    urgency === 'today'   ? { bg: 'var(--warning-soft)', color: 'var(--warning)' } :
+                    urgency === 'upcoming' ? { bg: 'var(--success-soft)', color: 'var(--success-text)' } :
+                    { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
+
+                  const statusLabel =
+                    urgency === 'overdue'  ? 'Overdue' :
+                    urgency === 'today'    ? 'Today' :
+                    urgency === 'upcoming' ? 'Pending' :
+                    'Completed';
+
+                  const clientStatusLabel = fu.clientStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+                  return (
+                    <div key={fu.id} className="rounded-xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex items-start gap-3">
+                        <Calendar className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: urgency === 'overdue' ? 'var(--danger)' : 'var(--accent-base)' }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                              {fu.followUpDate ? fmtFollowUpDate(fu.followUpDate.split('T')[0]) : fmtDate(fu.createdAt)}
+                            </span>
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: badgeBg.bg, color: badgeBg.color }}>
+                              {statusLabel}
+                            </span>
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                              {clientStatusLabel}
+                            </span>
+                          </div>
+                          {fu.comments && (
+                            <p className="text-sm mt-1.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
+                          )}
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                            {fu.createdByName ? `by ${fu.createdByName} · ` : ''}{fmtDate(fu.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}{/* end followups tab */}
+
           {/* ── SITE VISITS ───────────────────────────────────────── */}
           {activeTab === 'sitevisits' && (
             <div className="space-y-3">
@@ -1526,10 +1694,18 @@ export default function LeadDetailPage() {
               <MeasurementsTabContent
                 leadId={id}
                 initialRounds={measurementsData}
+                draftQuotes={leadQuotes.filter(q => q.status === 'draft')}
                 onRoundAdded={round => setMeasurementsData(prev => [...prev, round])}
               />
             </div>
           )}{/* end measurements tab */}
+
+          {/* ── DESIGN STUDIO ─────────────────────────────────────── */}
+          {activeTab === 'design' && (
+            <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              <DesignDeliverablesTab leadId={id} />
+            </div>
+          )}{/* end design tab */}
 
           {/* ── QUOTATIONS ────────────────────────────────────────── */}
           {activeTab === 'quotations' && (
@@ -1639,6 +1815,43 @@ export default function LeadDetailPage() {
               )}
             </div>
           )}{/* end documents tab */}
+
+          {/* ── ACTIVITY ──────────────────────────────────────────── */}
+          {activeTab === 'activity' && (
+            <div className="space-y-0">
+              {activities.length === 0 ? (
+                <div className="rounded-2xl p-8 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <Users className="h-9 w-9 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No activity yet</p>
+                </div>
+              ) : (
+                <div className="relative rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  {/* Vertical timeline line */}
+                  <div className="absolute left-[29px] top-0 bottom-0 w-px" style={{ background: 'var(--border-subtle)' }} />
+                  <div className="py-2">
+                    {activities.map((act, idx) => (
+                      <div key={act.id} className="flex gap-4 px-4 py-3 relative">
+                        {/* Dot */}
+                        <div className="flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center mt-0.5 z-10"
+                          style={{ background: idx === 0 ? 'var(--violet-primary)' : 'var(--surface-muted)', border: `2px solid ${idx === 0 ? 'var(--violet-primary)' : 'var(--border-subtle)'}` }}>
+                          <div className="h-1.5 w-1.5 rounded-full" style={{ background: idx === 0 ? '#fff' : 'var(--text-tertiary)' }} />
+                        </div>
+                        <div className="flex-1 min-w-0 pb-1">
+                          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{act.title}</p>
+                          {act.description && (
+                            <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{act.description}</p>
+                          )}
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                            {fmtDate(act.createdAt)} · {fmtTime(act.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}{/* end activity tab */}
 
         </div>{/* end space-y-4 */}
       </div>{/* end px-4 */}
