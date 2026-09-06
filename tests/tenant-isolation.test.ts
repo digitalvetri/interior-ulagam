@@ -23,6 +23,8 @@ const ALLOWED = new Map<string, string>([
   ['v1/auth/login/route.ts', 'authenticates; there is no tenant until it succeeds'],
   ['v1/setup/route.ts', 'first-run bootstrap — creates the first tenant, self-disables after'],
   ['v1/client-view/[token]/route.ts', 'public client portal — scoped by an unguessable token'],
+  ['v1/client-view/[token]/deliverables/[id]/route.ts', 'public client portal action — access gated by same unguessable token'],
+  ['v1/client-view/[token]/snags/[id]/route.ts', 'public client portal action — access gated by same unguessable token'],
   ['webhooks/whatsapp/route.ts', 'signature-verified; resolves tenant from the matched lead'],
   ['webhooks/razorpay/route.ts', 'signature-verified; resolves tenant from the payment record'],
 ]);
