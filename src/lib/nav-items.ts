@@ -11,7 +11,6 @@ import {
   Package,
   HardHat,
   Wrench,
-  Receipt,
   Wallet,
   UserCog,
   Settings,
@@ -96,8 +95,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Finance',
     roles: FINANCE_ROLES,
     items: [
-      { href: '/invoices', label: 'Invoices',            icon: Receipt, roles: FINANCE_ROLES },
-      { href: '/accounts', label: 'Accounts & Payments', icon: Wallet,  roles: FINANCE_ROLES },
+      { href: '/finance', label: 'Finance', icon: Wallet, roles: FINANCE_ROLES },
     ],
   },
   {
