@@ -61,7 +61,7 @@ describe('tenant isolation', () => {
     if (ALLOWED.has(rel)) return;
     const source = readFileSync(join(API_ROOT, rel), 'utf8');
     expect(
-      /getAuthContext|requireAuth|requireRole/.test(source),
+      /getAuthContext|requireAuth|requireRole|getEnrichedAuthContext|requireEnrichedAuth|requireEnrichedAdmin/.test(source),
       `${rel} has no authentication check.`,
     ).toBe(true);
   });
