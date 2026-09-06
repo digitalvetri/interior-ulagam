@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, between, eq, isNotNull, isNull } from 'drizzle-orm';
+import { and, between, eq, gte, isNotNull, isNull, lte, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { siteVisits, leadActivities, leads } from '@/lib/db/schema';
+import { siteVisits, leadActivities, leads, workOrders, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const QuerySchema = z.object({
@@ -10,7 +10,7 @@ const QuerySchema = z.object({
   to:   z.string().datetime(),
 });
 
-export type CalendarEventSource = 'site_visit' | 'lead_activity' | 'lead_followup';
+export type CalendarEventSource = 'site_visit' | 'lead_activity' | 'lead_followup' | 'work_order';
 
 export interface CalendarEvent {
   id: string;
@@ -150,6 +150,60 @@ export async function GET(request: NextRequest) {
         end: null,
         href: `/leads/${fu.id}`,
         color,
+      });
+    }
+
+    // Work orders — appear on start date (or due date when only due date is set)
+    const fromDate = from.toISOString().slice(0, 10);
+    const toDate   = to.toISOString().slice(0, 10);
+
+    const workOrderRows = await db
+      .select({
+        id:          workOrders.id,
+        title:       workOrders.title,
+        type:        workOrders.type,
+        status:      workOrders.status,
+        startDate:   workOrders.startDate,
+        dueDate:     workOrders.dueDate,
+        projectId:   workOrders.projectId,
+        projectName: projects.name,
+      })
+      .from(workOrders)
+      .leftJoin(projects, eq(workOrders.projectId, projects.id))
+      .where(
+        and(
+          eq(workOrders.tenantId, ctx.tenantId),
+          or(
+            and(isNotNull(workOrders.startDate), gte(workOrders.startDate, fromDate), lte(workOrders.startDate, toDate)),
+            and(isNotNull(workOrders.dueDate), gte(workOrders.dueDate, fromDate), lte(workOrders.dueDate, toDate)),
+          ),
+        ),
+      );
+
+    const woStatusColor: Record<string, CalendarEvent['color']> = {
+      planned:     'violet',
+      in_progress: 'amber',
+      ready:       'amber',
+      installed:   'slate',
+    };
+
+    for (const wo of workOrderRows) {
+      const anchor = wo.startDate ?? wo.dueDate;
+      if (!anchor) continue;
+      // Anchor at 8:00 AM UTC so it lands in a visible slot
+      const startIso = new Date(`${anchor}T08:00:00Z`).toISOString();
+      const endIso = wo.dueDate && wo.dueDate !== wo.startDate
+        ? new Date(`${wo.dueDate}T18:00:00Z`).toISOString()
+        : null;
+      events.push({
+        id:       `wo_${wo.id}`,
+        source:   'work_order',
+        title:    wo.title,
+        subtitle: wo.projectName ? `${wo.projectName} · ${wo.type.replace(/_/g, ' ')}` : wo.type.replace(/_/g, ' '),
+        start:    startIso,
+        end:      endIso,
+        href:     `/projects/${wo.projectId}/work-orders`,
+        color:    woStatusColor[wo.status] ?? 'violet',
       });
     }
 
