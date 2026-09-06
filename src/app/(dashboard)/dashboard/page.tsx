@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Users, FolderKanban, IndianRupee, TrendingUp,
+  Users, FolderKanban, IndianRupee,
   Plus, Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
   Calendar, MapPin, FileText, Home, PhoneCall,
   CheckSquare, Truck,
@@ -190,11 +190,163 @@ function QuickAction({
   );
 }
 
+/* ── Header strip ───────────────────────────────────────────────────────── */
+function HeaderStrip({ firstName, isAdmin }: { firstName: string; isAdmin: boolean }) {
+  return (
+    <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
+      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+      <div className="flex items-center gap-4">
+        <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-lg font-bold"
+          style={{ background: 'linear-gradient(135deg, var(--violet-primary), #a855f7)' }}>
+          {firstName ? firstName.slice(0, 2).toUpperCase() : 'KD'}
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5"
+            style={{ color: 'var(--text-tertiary)' }} suppressHydrationWarning>
+            {todayLabel()}
+          </p>
+          <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}
+            suppressHydrationWarning>
+            {greeting()}{firstName ? `, ${firstName}` : ''} 👋
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Konst Design · {isAdmin ? 'Admin Dashboard' : 'My Workspace'}
+          </p>
+        </div>
+      </div>
+      {isAdmin && (
+        <Link
+          href="/leads?new=1"
+          className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2 text-sm rounded-lg"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> New Lead
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/* ── Today visits widget ────────────────────────────────────────────────── */
+function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[]; loading: boolean }) {
+  return (
+    <div className="premium-card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Home className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+          <h3 className="section-title">Today&apos;s Site Visits</h3>
+          {todayVisits.length > 0 && (
+            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+              {todayVisits.length}
+            </span>
+          )}
+        </div>
+        <Link href="/site-visits" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+          All →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+        </div>
+      ) : todayVisits.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
+          style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
+          <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {todayVisits.map(v => {
+            const time = new Date(v.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const address = v.locationJson?.address;
+            const isDone = !!v.completedAt;
+            return (
+              <Link
+                key={v.id}
+                href={v.leadId ? `/leads/${v.leadId}` : '/site-visits'}
+                className="group flex gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--accent-base)]"
+                style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)', opacity: isDone ? 0.6 : 1 }}
+              >
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: isDone ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
+                  {isDone
+                    ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
+                    : <Clock       className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                  }
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>{time}</p>
+                  {address && (
+                    <div className="flex items-start gap-1 mt-0.5">
+                      <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }} />
+                      <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{address}</p>
+                    </div>
+                  )}
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── My tasks widget ────────────────────────────────────────────────────── */
+function MyTasksWidget({ myTasks, loading }: { myTasks: Task[]; loading: boolean }) {
+  return (
+    <div className="premium-card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CheckSquare className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+          <h3 className="section-title">My Tasks</h3>
+          {myTasks.length > 0 && (
+            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+              {myTasks.length}
+            </span>
+          )}
+        </div>
+        <Link href="/tasks" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+          All →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
+        </div>
+      ) : myTasks.length === 0 ? (
+        <p className="text-sm py-3" style={{ color: 'var(--text-secondary)' }}>No pending tasks assigned to you.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {myTasks.slice(0, 5).map(t => {
+            const overdue = t.dueAt && new Date(t.dueAt) < new Date();
+            return (
+              <div key={t.id} className="flex items-center gap-2.5 rounded-lg px-3 py-2"
+                style={{ backgroundColor: 'var(--surface-muted)' }}>
+                <Clock className="h-3.5 w-3.5 flex-shrink-0"
+                  style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }} />
+                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{t.title}</span>
+                {t.dueAt && (
+                  <span className="text-[10px] flex-shrink-0"
+                    style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+                    {new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────────────────────── */
 export default function DashboardPage() {
   const [firstName,  setFirstName]  = useState('');
   const [isAdmin,    setIsAdmin]    = useState(true);
-  const [myId,       setMyId]       = useState<string | null>(null);
 
   // Admin state
   const [leadStats,    setLeadStats]    = useState<LeadStats | null>(null);
@@ -226,7 +378,6 @@ export default function DashboardPage() {
         const admin = !!(me?.data?.isAdmin || me?.data?.role === 'owner');
         setIsAdmin(admin);
         if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
-        if (me?.data?.id) setMyId(me.data.id);
 
         const allVisits: SiteVisit[] = Array.isArray(sv?.data) ? sv.data : [];
         setTodayVisits(
@@ -318,162 +469,13 @@ export default function DashboardPage() {
   const overdueProjects = new Set(
     receivables.items.filter(r => r.paymentStatus === 'overdue').map(r => r.projectName),
   );
-  const nowMs = new Date().getTime();
-
-  /* ── Header strip ────────────────────────────────────────────────── */
-  const HeaderStrip = () => (
-    <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
-      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-      <div className="flex items-center gap-4">
-        <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-lg font-bold"
-          style={{ background: 'linear-gradient(135deg, var(--violet-primary), #a855f7)' }}>
-          {firstName ? firstName.slice(0, 2).toUpperCase() : 'KD'}
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5"
-            style={{ color: 'var(--text-tertiary)' }} suppressHydrationWarning>
-            {todayLabel()}
-          </p>
-          <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}
-            suppressHydrationWarning>
-            {greeting()}{firstName ? `, ${firstName}` : ''} 👋
-          </h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Konst Design · {isAdmin ? 'Admin Dashboard' : 'My Workspace'}
-          </p>
-        </div>
-      </div>
-      {isAdmin && (
-        <Link
-          href="/leads?new=1"
-          className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2 text-sm rounded-lg"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> New Lead
-        </Link>
-      )}
-    </div>
-  );
-
-  /* ── Today widget (shared) ───────────────────────────────────────── */
-  const TodayVisitsWidget = () => (
-    <div className="premium-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Home className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-          <h3 className="section-title">Today&apos;s Site Visits</h3>
-          {todayVisits.length > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
-              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-              {todayVisits.length}
-            </span>
-          )}
-        </div>
-        <Link href="/site-visits" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-          All →
-        </Link>
-      </div>
-      {loading ? (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map(i => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
-        </div>
-      ) : todayVisits.length === 0 ? (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
-          style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
-          <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {todayVisits.map(v => {
-            const time = new Date(v.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-            const address = v.locationJson?.address;
-            const isDone = !!v.completedAt;
-            return (
-              <Link
-                key={v.id}
-                href={v.leadId ? `/leads/${v.leadId}` : '/site-visits'}
-                className="group flex gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--accent-base)]"
-                style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)', opacity: isDone ? 0.6 : 1 }}
-              >
-                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: isDone ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
-                  {isDone
-                    ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
-                    : <Clock       className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-                  }
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>{time}</p>
-                  {address && (
-                    <div className="flex items-start gap-1 mt-0.5">
-                      <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }} />
-                      <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{address}</p>
-                    </div>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
-  /* ── My Tasks widget (shared) ────────────────────────────────────── */
-  const MyTasksWidget = () => (
-    <div className="premium-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <CheckSquare className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-          <h3 className="section-title">My Tasks</h3>
-          {myTasks.length > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
-              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-              {myTasks.length}
-            </span>
-          )}
-        </div>
-        <Link href="/tasks" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-          All →
-        </Link>
-      </div>
-      {loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
-        </div>
-      ) : myTasks.length === 0 ? (
-        <p className="text-sm py-3" style={{ color: 'var(--text-secondary)' }}>No pending tasks assigned to you.</p>
-      ) : (
-        <div className="space-y-1.5">
-          {myTasks.slice(0, 5).map(t => {
-            const overdue = t.dueAt && new Date(t.dueAt) < new Date();
-            return (
-              <div key={t.id} className="flex items-center gap-2.5 rounded-lg px-3 py-2"
-                style={{ backgroundColor: 'var(--surface-muted)' }}>
-                <Clock className="h-3.5 w-3.5 flex-shrink-0"
-                  style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }} />
-                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{t.title}</span>
-                {t.dueAt && (
-                  <span className="text-[10px] flex-shrink-0"
-                    style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
-                    {new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-
   /* ══════════════════════════════════════════════════════════════════════
      ADMIN VIEW
      ══════════════════════════════════════════════════════════════════════ */
   if (isAdmin) {
     return (
       <div className="space-y-4 animate-fade-in p-4 lg:p-6">
-        <HeaderStrip />
+        <HeaderStrip firstName={firstName} isAdmin={isAdmin} />
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -504,7 +506,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Today's Site Visits */}
-        <TodayVisitsWidget />
+        <TodayVisitsWidget todayVisits={todayVisits} loading={loading} />
 
         {/* Lead Funnel + Active Projects */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -745,12 +747,12 @@ export default function DashboardPage() {
      ══════════════════════════════════════════════════════════════════════ */
   return (
     <div className="space-y-4 animate-fade-in p-4 lg:p-6">
-      <HeaderStrip />
+      <HeaderStrip firstName={firstName} isAdmin={isAdmin} />
 
       {/* My tasks + Today's visits */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <MyTasksWidget />
-        <TodayVisitsWidget />
+        <MyTasksWidget myTasks={myTasks} loading={loading} />
+        <TodayVisitsWidget todayVisits={todayVisits} loading={loading} />
       </div>
 
       {/* My Projects */}

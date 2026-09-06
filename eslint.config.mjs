@@ -14,6 +14,17 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Historical SQL kept for reference against the old hosted database.
     "drizzle/legacy/**",
+    // Scaffold / agent-layer directories — not part of the Next.js app.
+    "frontend/**",
+    "backend/**",
+    "scripts/**",
+    "agents/**",
+    "skills/**",
+    "rules/**",
+    "hooks/**",
+    "resources/**",
+    "PRPs/**",
+    "docs/**",
   ]),
   {
     rules: {
