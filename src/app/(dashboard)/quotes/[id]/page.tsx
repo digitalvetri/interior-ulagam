@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useEffect, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -45,13 +45,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [showImportModal, setShowImportModal] = useState(false);
   const [collapsedRooms, setCollapsedRooms]   = useState<Set<string>>(new Set());
 
-  // Header inline editing (draft only)
-  const [editingTerms, setEditingTerms]         = useState(false);
-  const [discountInput, setDiscountInput]       = useState('');
-  const [gstPctInput, setGstPctInput]           = useState('');
-  const [termsInput, setTermsInput]             = useState('');
-  const [patchError, setPatchError]             = useState<string | null>(null);
-
   // Add Room inline form
   const [showAddRoom, setShowAddRoom]           = useState(false);
   const [newRoomName, setNewRoomName]           = useState('');
@@ -62,10 +55,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [bookProjectName, setBookProjectName]   = useState('');
   const [booking, setBooking]                   = useState(false);
   const [bookError, setBookError]               = useState<string | null>(null);
-
-  const discountInputRef  = useRef<HTMLInputElement>(null);
-  const gstPctInputRef    = useRef<HTMLInputElement>(null);
-  const termsInputRef     = useRef<HTMLTextAreaElement>(null);
 
   const fetchQuote = useCallback(() => {
     setLoading(true);
