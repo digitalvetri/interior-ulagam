@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Home, CheckCircle2 } from 'lucide-react';
+import { X, Home } from 'lucide-react';
 import type { SiteVisit } from '@/types/site-visits';
 
 interface TeamMember { id: string; fullName: string; role: string; }
@@ -14,51 +14,34 @@ interface Props {
   onSuccess: (visit: SiteVisit) => void;
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline gap-3 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-      <span className="text-[11px] w-24 flex-shrink-0 font-medium" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
-      <span className="text-sm" style={{ color: 'var(--text-heading)' }}>{value}</span>
-    </div>
-  );
-}
 
 export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddress = '', onSuccess }: Props) {
-  const [fetchDone, setFetchDone]           = useState(false);
-  const [existingVisit, setExistingVisit]   = useState<SiteVisit | null>(null);
-  const [scheduledAt, setScheduledAt]       = useState('');
-  const [address, setAddress]               = useState('');
-  const [designerId, setDesignerId]         = useState('');
-  const [notes, setNotes]                   = useState('');
-  const [team, setTeam]                     = useState<TeamMember[]>([]);
-  const [submitting, setSubmitting]         = useState(false);
-  const [error, setError]                   = useState<string | null>(null);
+  const [fetchDone, setFetchDone] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [address, setAddress]         = useState('');
+  const [designerId, setDesignerId]   = useState('');
+  const [notes, setNotes]             = useState('');
+  const [team, setTeam]               = useState<TeamMember[]>([]);
+  const [submitting, setSubmitting]   = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setFetchDone(false);
-    setExistingVisit(null);
     setScheduledAt('');
     setAddress(defaultAddress);
     setDesignerId('');
     setNotes('');
     setError(null);
 
-    Promise.all([
-      fetch(`/api/v1/site-visits?leadId=${leadId}`),
-      fetch('/api/v1/employees'),
-    ]).then(async ([svRes, empRes]) => {
-      if (svRes.ok) {
-        const { data } = await svRes.json() as { data: SiteVisit[] };
-        const found = data.find(v => !v.completedAt) ?? data[0] ?? null;
-        setExistingVisit(found);
-      }
-      if (empRes.ok) {
-        const res = await empRes.json() as { data?: TeamMember[] };
+    fetch('/api/v1/employees')
+      .then(r => r.json())
+      .then((res: { data?: TeamMember[] }) => {
         setTeam((res.data ?? []).filter(m => m.role === 'designer' || m.role === 'owner'));
-      }
-    }).catch(() => {}).finally(() => setFetchDone(true));
-  }, [open, leadId, defaultAddress]);
+      })
+      .catch(() => {})
+      .finally(() => setFetchDone(true));
+  }, [open, defaultAddress]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -108,15 +91,10 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
         <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-2.5">
             <Home className="h-4 w-4" style={{ color: 'var(--violet-primary)' }} />
-            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>
-              {existingVisit ? 'Site Visit Details' : 'Schedule Site Visit'}
-            </h2>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Schedule Site Visit</h2>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
-          >
+          <button type="button" onClick={() => onOpenChange(false)}
+            className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]">
             <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
@@ -128,47 +106,8 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
           </div>
         )}
 
-        {/* Existing visit — details view */}
-        {fetchDone && existingVisit && (
-          <div className="px-6 py-5 space-y-3">
-            <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold"
-              style={{
-                background: existingVisit.completedAt ? 'var(--success-soft)' : 'var(--accent-soft)',
-                color: existingVisit.completedAt ? 'var(--success-text)' : 'var(--accent-text)',
-              }}
-            >
-              <CheckCircle2 className="h-3 w-3" />
-              {existingVisit.completedAt ? 'Completed' : 'Scheduled'}
-            </span>
-            <div>
-              <Row
-                label="Date & Time"
-                value={new Date(existingVisit.scheduledAt).toLocaleString('en-IN', {
-                  day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                })}
-              />
-              <Row label="Address" value={existingVisit.locationJson?.address ?? '—'} />
-              {existingVisit.notes && <Row label="Notes" value={existingVisit.notes} />}
-              {existingVisit.completedAt && (
-                <Row label="Completed" value={new Date(existingVisit.completedAt).toLocaleString('en-IN')} />
-              )}
-            </div>
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="px-4 py-2 text-sm font-medium rounded-xl"
-                style={{ background: 'var(--surface-muted)', color: 'var(--text-heading)', border: '1px solid var(--border-subtle)' }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* No visit — schedule form */}
-        {fetchDone && !existingVisit && (
+        {/* Schedule form — always shown once loaded */}
+        {fetchDone && (
           <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>

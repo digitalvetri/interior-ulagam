@@ -5,22 +5,18 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Phone, MessageCircle, Calendar, MapPin, Home, User, Clock,
-  Users, Filter, ChevronDown, BarChart2, ChevronUp, AlertTriangle, TrendingUp,
-  MoreVertical, Trash2, Archive, Edit2, BellRing, LayoutList, Table2,
+  Search, Phone, MessageCircle, MapPin, Clock,
+  Users, AlertTriangle, TrendingUp,
+  MoreVertical, Trash2, Archive, Edit2, BellRing,
 } from 'lucide-react';
-import { Lead, LeadStage, LeadPriority, LeadSource, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
+import { Lead, LeadStage, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 import { LeadViewModal } from '@/components/leads/LeadViewModal';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
-import { DataTable, type Column } from '@/components/ui/DataTable';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { formatRupees } from '@/lib/utils';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 type FilterKey = LeadStage | 'all' | 'follow_up' | 'in_progress';
-type SortKey   = 'latest' | 'followup' | 'budget' | 'name' | 'score';
 type RottingStatus = 'fresh' | 'stale' | 'rotting';
 
 const IN_PROGRESS_STAGES: LeadStage[] = ['contacted', 'qualified', 'site_visit', 'measurement', 'quotation', 'negotiation'];
@@ -369,96 +365,6 @@ function KpiBar({ leads }: { leads: Lead[] }) {
   );
 }
 
-/* ── Pipeline Intelligence Panel ────────────────────────────────────────────── */
-interface StageStats { count: number; valuePaise: number }
-
-const PIPELINE_STAGES: LeadStage[] = [
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'quotation', 'negotiation',
-];
-
-function PipelinePanel({ leads }: { leads: Lead[] }) {
-
-  const stageStats = useMemo(() => {
-    const map: Record<string, StageStats> = {};
-    for (const s of PIPELINE_STAGES) map[s] = { count: 0, valuePaise: 0 };
-    for (const l of leads) {
-      if (map[l.stage]) {
-        map[l.stage].count++;
-        map[l.stage].valuePaise += l.projectValuePaise ?? 0;
-      }
-    }
-    return map;
-  }, [leads]);
-
-  const maxCount = Math.max(1, ...Object.values(stageStats).map(s => s.count));
-  const totalPipeline = leads
-    .filter(l => PIPELINE_STAGES.includes(l.stage as LeadStage))
-    .reduce((sum, l) => sum + (l.projectValuePaise ?? 0), 0);
-  const rottingCount = leads.filter(l => daysSince(l.lastActivityAt) > 14 && !['won','lost'].includes(l.stage)).length;
-  const overdueCount = leads.filter(l => followUpState(l.followUpDate) === 'overdue').length;
-  const wonCount     = leads.filter(l => l.stage === 'won').length;
-  const convRate     = leads.length > 0 ? Math.round((wonCount / leads.length) * 100) : 0;
-
-  return (
-    <div className="rounded-2xl p-5 space-y-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      {/* KPI chips */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="rounded-xl p-3 text-center" style={{ background: 'var(--purple-soft)' }}>
-          <p className="text-[11px] font-medium" style={{ color: 'var(--violet-primary)' }}>Pipeline Value</p>
-          <p className="text-base font-bold mt-0.5" style={{ color: 'var(--violet-primary)' }}>
-            ₹{(totalPipeline / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-          </p>
-        </div>
-        <div className="rounded-xl p-3 text-center" style={{ background: 'var(--success-soft)' }}>
-          <p className="text-[11px] font-medium" style={{ color: 'var(--success)' }}>Win Rate</p>
-          <p className="text-base font-bold mt-0.5" style={{ color: 'var(--success-text)' }}>{convRate}%</p>
-        </div>
-        <div className="rounded-xl p-3 text-center" style={{ background: rottingCount > 0 ? 'var(--danger-soft)' : 'var(--surface-muted)' }}>
-          <p className="text-[11px] font-medium" style={{ color: rottingCount > 0 ? 'var(--danger)' : 'var(--text-secondary)' }}>
-            <span className="flex items-center justify-center gap-1">
-              {rottingCount > 0 && <AlertTriangle className="h-3 w-3" />}
-              Rotting
-            </span>
-          </p>
-          <p className="text-base font-bold mt-0.5" style={{ color: rottingCount > 0 ? 'var(--danger)' : 'var(--text-primary)' }}>{rottingCount}</p>
-        </div>
-        <div className="rounded-xl p-3 text-center" style={{ background: overdueCount > 0 ? 'var(--warning-soft)' : 'var(--surface-muted)' }}>
-          <p className="text-[11px] font-medium" style={{ color: overdueCount > 0 ? 'var(--warning)' : 'var(--text-secondary)' }}>Overdue F/U</p>
-          <p className="text-base font-bold mt-0.5" style={{ color: overdueCount > 0 ? 'var(--warning)' : 'var(--text-primary)' }}>{overdueCount}</p>
-        </div>
-      </div>
-
-      {/* Stage bars */}
-      <div className="space-y-2.5">
-        <p className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)', letterSpacing: '0.06em' }}>STAGE BREAKDOWN</p>
-        {PIPELINE_STAGES.map(stage => {
-          const s = stageStats[stage];
-          const pct = maxCount > 0 ? (s.count / maxCount) * 100 : 0;
-          return (
-            <div key={stage} className="flex items-center gap-3">
-              <span className="text-[11px] w-28 flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>
-                {STAGE_LABELS[stage]}
-              </span>
-              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
-                <div
-                  className="h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%`, background: 'var(--violet-primary)' }}
-                />
-              </div>
-              <span className="text-[11px] font-semibold w-6 text-right" style={{ color: 'var(--text-primary)' }}>{s.count}</span>
-              {s.valuePaise > 0 && (
-                <span className="text-[10px] w-24 text-right flex-shrink-0" style={{ color: 'var(--text-gold)' }}>
-                  ₹{(s.valuePaise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 /* ── Inline confirmation for list-level delete / archive ─────────────────────── */
 function ListConfirmDialog({ open, title, message, confirmLabel, danger, onConfirm, onCancel, loading }: {
   open: boolean; title: string; message: string; confirmLabel: string; danger?: boolean;
@@ -500,12 +406,6 @@ export default function LeadsPage() {
     if (!s || s === 'all') return 'all';
     return s as FilterKey;
   });
-  const [sortBy, setSortBy]         = useState<SortKey>('latest');
-  const [viewMode, setViewMode]         = useState<'cards' | 'table'>('cards');
-  const [showFilters, setShowFilters]   = useState(false);
-  const [showPipeline, setShowPipeline] = useState(false);
-  const [filterPriority, setFilterPriority] = useState<LeadPriority | 'all'>('all');
-  const [filterSource, setFilterSource]     = useState<LeadSource | 'all'>('all');
 
   // List-level delete / archive
   const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'archive'; id: string; name: string } | null>(null);
@@ -601,10 +501,6 @@ export default function LeadsPage() {
       result = result.filter(l => l.stage === activeChip);
     }
 
-    /* Priority + source (behind filter button) */
-    if (filterPriority !== 'all') result = result.filter(l => l.priority === filterPriority);
-    if (filterSource !== 'all')   result = result.filter(l => l.source === filterSource);
-
     /* Text search — uses deferred value so typing stays instant */
     if (deferredSearch.trim()) {
       const q = deferredSearch.toLowerCase();
@@ -616,27 +512,11 @@ export default function LeadsPage() {
       );
     }
 
-    /* Sort */
-    if (sortBy === 'followup') {
-      result = [...result].sort((a, b) => {
-        if (!a.followUpDate) return 1;
-        if (!b.followUpDate) return -1;
-        return new Date(a.followUpDate).getTime() - new Date(b.followUpDate).getTime();
-      });
-    } else if (sortBy === 'budget') {
-      result = [...result].sort((a, b) => (b.projectValuePaise ?? 0) - (a.projectValuePaise ?? 0));
-    } else if (sortBy === 'name') {
-      result = [...result].sort((a, b) => a.contactName.localeCompare(b.contactName));
-    } else if (sortBy === 'score') {
-      result = [...result].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-    } else {
-      result = [...result].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-    }
-
-    return result;
-  }, [leads, activeChip, filterPriority, filterSource, deferredSearch, sortBy]);
+    /* Sort by latest */
+    return [...result].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  }, [leads, activeChip, deferredSearch]);
 
   /* Group filtered leads by customer — one card per customer on the list */
   const grouped = useMemo(() => {
@@ -653,7 +533,7 @@ export default function LeadsPage() {
   }, [filtered]);
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="space-y-6 p-6 lg:p-8">
 
       {/* Follow-up modals */}
       {followUpLead && (
@@ -686,119 +566,39 @@ export default function LeadsPage() {
         onCancel={() => setPendingAction(null)}
       />
 
-      <div className="pb-6 space-y-3">
-
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>Leads</h1>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            <h1 className="text-4xl font-bold leading-none"
+              style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
+              Leads
+            </h1>
+            <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
               {grouped.length} customer{grouped.length !== 1 ? 's' : ''} · {filtered.length} lead{filtered.length !== 1 ? 's' : ''} shown
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/leads/analytics"
-              className="flex items-center gap-1.5 h-[34px] px-3 rounded-[10px] text-[13px] font-medium transition-colors"
-              style={{
-                background: 'var(--surface-card)',
-                color: 'var(--text-primary)',
-                border: '1.5px solid var(--border-subtle)',
-                textDecoration: 'none',
-              }}
-            >
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Analytics</span>
-            </Link>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 h-[34px] px-3 rounded-[10px] text-[13px] font-medium transition-colors"
-              style={{
-                background: showPipeline ? 'var(--purple-soft)' : 'var(--surface-card)',
-                color: showPipeline ? 'var(--violet-primary)' : 'var(--text-primary)',
-                border: showPipeline ? '1.5px solid var(--accent-soft)' : '1.5px solid var(--border-subtle)',
-              }}
-              onClick={() => setShowPipeline(v => !v)}
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Pipeline</span>
-              {showPipeline
-                ? <ChevronUp className="h-3 w-3" />
-                : <ChevronDown className="h-3 w-3" />}
-            </button>
-            {/* Board / Table toggle */}
-            <div className="flex rounded-[10px] overflow-hidden" style={{ border: '1.5px solid var(--border-subtle)' }}>
-              <button
-                type="button"
-                onClick={() => setViewMode('cards')}
-                className="flex items-center gap-1.5 h-[34px] px-3 text-[13px] font-medium transition-colors"
-                style={{
-                  background: viewMode === 'cards' ? 'var(--purple-soft)' : 'var(--surface-card)',
-                  color: viewMode === 'cards' ? 'var(--violet-primary)' : 'var(--text-primary)',
-                }}
-                title="Card view"
-              >
-                <LayoutList className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('table')}
-                className="flex items-center gap-1.5 h-[34px] px-3 text-[13px] font-medium transition-colors"
-                style={{
-                  background: viewMode === 'table' ? 'var(--purple-soft)' : 'var(--surface-card)',
-                  color: viewMode === 'table' ? 'var(--violet-primary)' : 'var(--text-primary)',
-                  borderLeft: '1.5px solid var(--border-subtle)',
-                }}
-                title="Table view"
-              >
-                <Table2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <NewLeadDialog onSuccess={handleLeadCreated} defaultOpen={searchParams.get('new') === '1'} />
-          </div>
+          <NewLeadDialog
+            onSuccess={handleLeadCreated}
+            defaultOpen={searchParams.get('new') === '1'}
+            triggerClassName="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2.5 text-sm rounded-xl"
+          />
         </div>
 
         {/* ── KPI Stats Bar ──────────────────────────────────────────────── */}
         {!loading && <KpiBar leads={leads} />}
 
-        {/* ── Pipeline Intelligence Panel ─────────────────────────────── */}
-        {showPipeline && !loading && (
-          <PipelinePanel leads={leads} />
-        )}
-
-        {/* ── Search + sort ───────────────────────────────────────────────── */}
-        <div className="flex items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[160px] max-w-[400px]">
-            <Search className="studio-search-icon" style={{ width: 14, height: 14 }} />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search name, phone, city…"
-              className="studio-input w-full text-[13px] h-[38px]"
-              style={{ paddingLeft: '2.25rem' }}
-              suppressHydrationWarning
-            />
-          </div>
-
-          {/* Sort */}
-          <div className="relative flex-shrink-0">
-            <select
-              value={sortBy}
-              onChange={e => setSortBy(e.target.value as SortKey)}
-              className="studio-input h-[38px] text-[13px] pl-3 pr-8 cursor-pointer appearance-none min-w-[140px]"
-              style={{ color: 'var(--text-primary)' }}
-              suppressHydrationWarning
-            >
-              <option value="latest">Latest First</option>
-              <option value="score">By Score</option>
-              <option value="followup">By Follow-up</option>
-              <option value="budget">By Budget</option>
-              <option value="name">By Name</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-          </div>
+        {/* ── Search ─────────────────────────────────────────────────────── */}
+        <div className="relative max-w-sm">
+          <Search className="studio-search-icon" style={{ width: 14, height: 14 }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, phone, city…"
+            className="studio-input w-full text-[13px] h-[38px]"
+            style={{ paddingLeft: '2.25rem' }}
+            suppressHydrationWarning
+          />
         </div>
 
 
@@ -873,94 +673,7 @@ export default function LeadsPage() {
               </>
             )}
           </div>
-        ) : viewMode === 'table' ? (() => {
-          const leadColumns: Column<Lead>[] = [
-            {
-              key: 'name',
-              header: 'Name',
-              sortable: true,
-              render: (l) => (
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #9B8AFB 100%)' }}>
-                    {l.contactName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()}
-                  </div>
-                  <span className="font-medium text-sm" style={{ color: 'var(--text-heading)' }}>{l.contactName}</span>
-                </div>
-              ),
-            },
-            {
-              key: 'phone',
-              header: 'Phone',
-              render: (l) => <span className="text-xs tabular-nums" style={{ color: 'var(--text-secondary)' }}>{l.contactPhone}</span>,
-            },
-            {
-              key: 'stage',
-              header: 'Stage',
-              render: (l) => <StatusBadge module="leads" status={l.stage} />,
-            },
-            {
-              key: 'score',
-              header: 'Score',
-              align: 'right',
-              sortable: true,
-              render: (l) => (
-                <span className="font-semibold tabular-nums text-sm" style={{ color: 'var(--text-heading)' }}>{l.score}</span>
-              ),
-            },
-            {
-              key: 'followup',
-              header: 'Follow-up',
-              render: (l) => {
-                if (!l.followUpDate) return <span style={{ color: 'var(--text-tertiary)' }}>—</span>;
-                const state = followUpState(l.followUpDate);
-                const colorMap = { overdue: 'var(--danger)', today: 'var(--warning)', upcoming: 'var(--success-text)' };
-                return (
-                  <span className="text-xs" style={{ color: state ? colorMap[state] : 'var(--text-secondary)' }}>
-                    {new Date(l.followUpDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </span>
-                );
-              },
-            },
-            {
-              key: 'budget',
-              header: 'Budget',
-              align: 'right',
-              render: (l) => l.projectValuePaise
-                ? <span className="text-sm tabular-nums" style={{ color: 'var(--text-primary)' }}>{formatRupees(l.projectValuePaise)}</span>
-                : <span style={{ color: 'var(--text-tertiary)' }}>—</span>,
-            },
-            {
-              key: 'actions',
-              header: '',
-              align: 'right',
-              render: (l) => (
-                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" title="Schedule follow-up"
-                    onClick={(e) => { e.stopPropagation(); handleFollowUp(l); }}
-                    className="rounded-lg p-1.5 hover:opacity-70 transition-opacity"
-                    style={{ color: 'var(--accent-base)' }}>
-                    <BellRing className="h-3.5 w-3.5" />
-                  </button>
-                  <button type="button" title="Delete lead"
-                    onClick={(e) => { e.stopPropagation(); handleDeleteFromList(l.id); }}
-                    className="rounded-lg p-1.5 hover:opacity-70 transition-opacity"
-                    style={{ color: 'var(--danger)' }}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ),
-            },
-          ];
-          return (
-            <DataTable
-              columns={leadColumns}
-              rows={filtered}
-              getRowKey={(l) => l.id}
-              onRowClick={(l) => router.push(`/leads/${l.id}`)}
-            />
-          );
-        })() : (
+        ) : (
           <div className="space-y-2">
             <AnimatePresence initial={false}>
               {grouped.map(({ groupKey, customerId, primaryLead, count }) => {
@@ -991,7 +704,6 @@ export default function LeadsPage() {
             </AnimatePresence>
           </div>
         )}
-      </div>
     </div>
   );
 }

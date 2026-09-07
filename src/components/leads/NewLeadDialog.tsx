@@ -17,6 +17,7 @@ interface NewLeadDialogProps {
   onSuccess: (lead: Lead) => void;
   defaultOpen?: boolean;
   triggerLabel?: string;
+  triggerClassName?: string;
   onClose?: () => void;
   preselectedCustomer?: {
     fullName: string;
@@ -167,7 +168,7 @@ function Field({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function NewLeadDialog({
-  onSuccess, defaultOpen = false, triggerLabel, onClose, preselectedCustomer,
+  onSuccess, defaultOpen = false, triggerLabel, triggerClassName, onClose, preselectedCustomer,
 }: NewLeadDialogProps) {
   const preselectedResult: CustomerResult | null = preselectedCustomer
     ? { id: '', fullName: preselectedCustomer.fullName, phone: preselectedCustomer.phone, email: null, city: preselectedCustomer.city ?? null, company: null }
@@ -197,7 +198,7 @@ export function NewLeadDialog({
     fetch('/api/v1/employees')
       .then(r => r.json())
       .then(({ data }: { data?: Employee[] }) => {
-        setEmployees((data ?? []).filter(e => e.role === 'owner' || e.role === 'designer'));
+        setEmployees((data ?? []).filter(e => ['owner', 'admin', 'designer'].includes(e.role)));
       })
       .catch(() => {});
   }, [open]);
@@ -356,7 +357,13 @@ export function NewLeadDialog({
     <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { reset(); onClose?.(); } }}>
       {!defaultOpen && (
         <DialogTrigger asChild>
-          <Button suppressHydrationWarning>{triggerLabel ?? '+ New Lead'}</Button>
+          {triggerClassName ? (
+            <button type="button" className={triggerClassName} suppressHydrationWarning>
+              {triggerLabel ?? '+ New Lead'}
+            </button>
+          ) : (
+            <Button suppressHydrationWarning>{triggerLabel ?? '+ New Lead'}</Button>
+          )}
         </DialogTrigger>
       )}
 

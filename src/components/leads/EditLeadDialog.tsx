@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Lead, LeadSource, LeadStage } from '@/types/leads';
+import { Lead, LeadSource, LeadPriority, LeadStage } from '@/types/leads';
 
 interface EditLeadDialogProps {
   lead: Lead;
@@ -22,96 +22,129 @@ interface Employee {
   role: string;
 }
 
+// ─── Options (mirrors NewLeadDialog) ─────────────────────────────────────────
+
+const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
+  { value: 'hot',  label: '🔥 Hot'  },
+  { value: 'warm', label: '☀️ Warm' },
+  { value: 'cold', label: '🧊 Cold' },
+];
+
+const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
+  { value: 'new',         label: 'New Inquiry'  },
+  { value: 'contacted',   label: 'Contacted'    },
+  { value: 'site_visit',  label: 'Site Visit'   },
+  { value: 'measured',    label: 'Measured'     },
+  { value: 'quotation',   label: 'Quotation'    },
+  { value: 'negotiation', label: 'Negotiation'  },
+  { value: 'booked',      label: 'Booked'       },
+  { value: 'lost',        label: 'Lost'         },
+];
+
 const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
-  { value: 'whatsapp',  label: 'WhatsApp'  },
   { value: 'instagram', label: 'Instagram' },
+  { value: 'whatsapp',  label: 'WhatsApp'  },
   { value: 'referral',  label: 'Referral'  },
   { value: 'website',   label: 'Website'   },
   { value: 'walk_in',   label: 'Walk-in'   },
   { value: 'other',     label: 'Other'     },
 ];
 
-// Won / Lost are terminal — use the dedicated stage-transition buttons on the lead detail page.
-const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
-  { value: 'new',                  label: 'New'           },
-  { value: 'site_visit_scheduled', label: 'Site Visit'    },
-  { value: 'consultation_done',    label: 'Consultation'  },
-  { value: 'proposal_sent',        label: 'Proposal Sent' },
-  { value: 'negotiation',          label: 'Negotiation'   },
+const PROPERTY_TYPE_OPTIONS = [
+  'Apartment',
+  'Villa',
+  'Independent House',
+  'Row House',
+  'Commercial Space',
+  'Plot / Land',
+  'Other',
 ];
 
-const TERMINAL_STAGES = new Set<LeadStage>(['won', 'lost']);
+const BUDGET_OPTIONS = [
+  { value: 'under_5l',  label: 'Under ₹5 Lakhs'  },
+  { value: '5l_10l',    label: '₹5L – ₹10L'      },
+  { value: '10l_25l',   label: '₹10L – ₹25L'     },
+  { value: '25l_50l',   label: '₹25L – ₹50L'     },
+  { value: '50l_1cr',   label: '₹50L – ₹1 Crore' },
+  { value: 'above_1cr', label: 'Above ₹1 Crore'  },
+];
 
+// ─── Form state ───────────────────────────────────────────────────────────────
 
 interface FormState {
   contactName: string;
   contactPhone: string;
-  alternatePhone: string;
   contactEmail: string;
+  propertyType: string;
   contactCity: string;
   pincode: string;
   projectLocation: string;
   source: LeadSource;
+  priority: LeadPriority | '';
   stage: LeadStage;
   ownerId: string;
+  requirement: string;
+  expectedBudget: string;
   notes: string;
 }
 
+function fromLead(lead: Lead): FormState {
+  return {
+    contactName:     lead.contactName ?? '',
+    contactPhone:    lead.contactPhone ?? '',
+    contactEmail:    lead.contactEmail ?? '',
+    propertyType:    lead.propertyType ?? '',
+    contactCity:     lead.contactCity ?? '',
+    pincode:         lead.pincode ?? '',
+    projectLocation: lead.projectLocation ?? '',
+    source:          lead.source ?? 'whatsapp',
+    priority:        lead.priority ?? '',
+    stage:           lead.stage ?? 'new',
+    ownerId:         lead.ownerId ?? '',
+    requirement:     lead.notes ?? '',
+    expectedBudget:  lead.budgetBand ?? '',
+    notes:           '',
+  };
+}
+
+// ─── Helper components (mirrors NewLeadDialog) ────────────────────────────────
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold uppercase tracking-wider mb-3 mt-1" style={{ color: 'var(--text-secondary)' }}>
+    <p className="text-[11px] font-bold uppercase tracking-widest mb-3"
+      style={{ color: 'var(--text-secondary)' }}>
       {children}
     </p>
   );
 }
 
-function Field({ id, label, required, children }: {
-  id: string; label: string; required?: boolean; children: React.ReactNode;
+function Field({ id, label, required, hint, children }: {
+  id: string; label: string; required?: boolean; hint?: string; children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </Label>
+      <div className="flex items-baseline justify-between gap-2">
+        <Label htmlFor={id} className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
+          {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        </Label>
+        {hint && <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{hint}</span>}
+      </div>
       {children}
     </div>
   );
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLeadDialogProps) {
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [form, setForm] = useState<FormState>({
-    contactName:     lead.contactName ?? '',
-    contactPhone:    lead.contactPhone ?? '',
-    alternatePhone:  lead.alternatePhone ?? '',
-    contactEmail:    lead.contactEmail ?? '',
-    contactCity:     lead.contactCity ?? '',
-    pincode:         lead.pincode ?? '',
-    projectLocation: lead.projectLocation ?? '',
-    source:          lead.source ?? 'whatsapp',
-    stage:           lead.stage ?? 'new',
-    ownerId:         lead.ownerId ?? '',
-    notes:           lead.notes ?? '',
-  });
+  const [error, setError]           = useState<string | null>(null);
+  const [employees, setEmployees]   = useState<Employee[]>([]);
+  const [form, setForm]             = useState<FormState>(() => fromLead(lead));
 
-  // Sync form when lead prop changes
   useEffect(() => {
     if (open) {
-      setForm({
-        contactName:     lead.contactName ?? '',
-        contactPhone:    lead.contactPhone ?? '',
-        alternatePhone:  lead.alternatePhone ?? '',
-        contactEmail:    lead.contactEmail ?? '',
-        contactCity:     lead.contactCity ?? '',
-        pincode:         lead.pincode ?? '',
-        projectLocation: lead.projectLocation ?? '',
-        source:          lead.source ?? 'whatsapp',
-        stage:           lead.stage ?? 'new',
-        ownerId:         lead.ownerId ?? '',
-        notes:           lead.notes ?? '',
-      });
+      setForm(fromLead(lead));
       setError(null);
     }
   }, [open, lead]);
@@ -121,7 +154,7 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
     fetch('/api/v1/employees')
       .then(r => r.json())
       .then(({ data }: { data?: Employee[] }) => {
-        setEmployees((data ?? []).filter(e => e.role === 'owner' || e.role === 'designer'));
+        setEmployees((data ?? []).filter(e => ['owner', 'admin', 'designer'].includes(e.role)));
       })
       .catch(() => {});
   }, [open]);
@@ -132,24 +165,33 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.contactName.trim() || !form.contactPhone.trim()) return;
+    if (!form.contactName.trim()) { setError('Customer name is required.'); return; }
+    if (!form.contactPhone.trim()) { setError('Mobile number is required.'); return; }
+
     setSubmitting(true);
     setError(null);
+
+    // Combine notes the same way NewLeadDialog does
+    const parts: string[] = [];
+    if (form.requirement.trim()) parts.push(form.requirement.trim());
+    if (form.notes.trim()) parts.push(`Notes: ${form.notes.trim()}`);
+    const combinedNotes = parts.join('\n\n');
 
     const payload: Record<string, unknown> = {
       contactName:  form.contactName.trim(),
       contactPhone: form.contactPhone.trim(),
       source:       form.source,
-      // Only include stage for non-terminal leads (terminal changes go through the /stage endpoint)
-      ...(!TERMINAL_STAGES.has(lead.stage) ? { stage: form.stage } : {}),
+      stage:        form.stage,
+      notes:        combinedNotes,
     };
-    if (form.alternatePhone.trim())  payload.alternatePhone  = form.alternatePhone.trim();
     if (form.contactEmail.trim())    payload.contactEmail    = form.contactEmail.trim();
+    if (form.propertyType)           payload.propertyType    = form.propertyType;
     if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();
     if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
     if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
+    if (form.priority)               payload.priority        = form.priority;
     if (form.ownerId)                payload.ownerId         = form.ownerId;
-    if (form.notes.trim())           payload.notes           = form.notes.trim();
+    if (form.expectedBudget)         payload.budgetBand      = form.expectedBudget;
 
     try {
       const res = await fetch(`/api/v1/leads/${lead.id}`, {
@@ -168,120 +210,182 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
     }
   }
 
-  const cls = 'h-9 text-sm';
+  const inputCls = 'h-9 text-sm';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
+      <DialogContent className="max-w-[720px] w-full max-h-[92vh] overflow-y-auto">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
             Edit Lead
           </DialogTitle>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+            Update the lead details below.
+          </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5 mt-1">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
 
-          {/* Contact Information */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+          {/* 1. Contact Information */}
+          <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
             <SectionLabel>Contact Information</SectionLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Field id="e-contactName" label="Customer Name" required>
-                <Input id="e-contactName" className={cls} value={form.contactName}
+                <Input id="e-contactName" className={inputCls}
+                  placeholder="e.g. Priya Sharma"
+                  value={form.contactName}
                   onChange={e => set('contactName', e.target.value)} required />
               </Field>
               <Field id="e-contactPhone" label="Mobile Number" required>
-                <Input id="e-contactPhone" type="tel" className={cls} value={form.contactPhone}
+                <Input id="e-contactPhone" type="tel" className={inputCls}
+                  placeholder="e.g. 9876543210"
+                  value={form.contactPhone}
                   onChange={e => set('contactPhone', e.target.value)} required />
               </Field>
-              <Field id="e-alternatePhone" label="Alternate Mobile">
-                <Input id="e-alternatePhone" type="tel" className={cls} value={form.alternatePhone}
-                  onChange={e => set('alternatePhone', e.target.value)} />
-              </Field>
-              <Field id="e-contactEmail" label="Email Address">
-                <Input id="e-contactEmail" type="email" className={cls} value={form.contactEmail}
+              <Field id="e-contactEmail" label="Email">
+                <Input id="e-contactEmail" type="email" className={inputCls}
+                  placeholder="e.g. priya@email.com"
+                  value={form.contactEmail}
                   onChange={e => set('contactEmail', e.target.value)} />
               </Field>
             </div>
           </div>
 
-          {/* Location */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-            <SectionLabel>Location</SectionLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* 2. Property / Site */}
+          <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+            <SectionLabel>Property / Site</SectionLabel>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field id="e-propertyType" label="Property Type">
+                <Select value={form.propertyType} onValueChange={v => set('propertyType', v)}>
+                  <SelectTrigger id="e-propertyType" className={inputCls}>
+                    <SelectValue placeholder="Select type…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROPERTY_TYPE_OPTIONS.map(pt => (
+                      <SelectItem key={pt} value={pt}>{pt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
               <Field id="e-contactCity" label="City">
-                <Input id="e-contactCity" className={cls} value={form.contactCity}
+                <Input id="e-contactCity" className={inputCls}
+                  placeholder="e.g. Coimbatore"
+                  value={form.contactCity}
                   onChange={e => set('contactCity', e.target.value)} />
               </Field>
               <Field id="e-pincode" label="Pincode">
-                <Input id="e-pincode" className={cls} value={form.pincode}
+                <Input id="e-pincode" className={inputCls}
+                  placeholder="e.g. 641001"
+                  value={form.pincode}
                   onChange={e => set('pincode', e.target.value)} />
               </Field>
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-3">
                 <Field id="e-projectLocation" label="Site Address">
-                  <Input id="e-projectLocation" className={cls} value={form.projectLocation}
+                  <Input id="e-projectLocation" className={inputCls}
+                    placeholder="Full site / property address"
+                    value={form.projectLocation}
                     onChange={e => set('projectLocation', e.target.value)} />
                 </Field>
               </div>
             </div>
           </div>
 
-          {/* Lead Info */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-            <SectionLabel>Lead Info</SectionLabel>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {TERMINAL_STAGES.has(lead.stage) ? (
-                <div className="sm:col-span-2">
-                  <p className="text-xs rounded-lg px-3 py-2" style={{ background: 'var(--surface-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
-                    Stage is <strong>{lead.stage}</strong>. Use the Mark as Won / Mark as Lost buttons on the lead page to change terminal stages.
-                  </p>
-                </div>
-              ) : (
-                <Field id="e-stage" label="Stage">
-                  <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}>
-                    <SelectTrigger id="e-stage" className={cls}><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {STAGE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-              <Field id="e-source" label="Lead Source">
+          {/* 3. Lead Information */}
+          <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+            <SectionLabel>Lead Information</SectionLabel>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field id="e-source" label="Lead Source" required>
                 <Select value={form.source} onValueChange={v => set('source', v as LeadSource)}>
-                  <SelectTrigger id="e-source" className={cls}><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="e-source" className={inputCls}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {SOURCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    {SOURCE_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
-              <div className="sm:col-span-2">
-                <Field id="e-ownerId" label="Assigned Sales Executive">
-                  <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
-                    <SelectTrigger id="e-ownerId" className={cls}>
-                      <SelectValue placeholder="Unassigned" />
+              <Field id="e-priority" label="Lead Priority">
+                <Select value={form.priority} onValueChange={v => set('priority', v as LeadPriority)}>
+                  <SelectTrigger id="e-priority" className={inputCls}>
+                    <SelectValue placeholder="Select priority…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITY_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field id="e-stage" label="Lead Stage">
+                <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}>
+                  <SelectTrigger id="e-stage" className={inputCls}><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STAGE_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field id="e-ownerId" label="Assigned To">
+                <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
+                  <SelectTrigger id="e-ownerId" className={inputCls}>
+                    <SelectValue placeholder="Choose team member…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map(emp => (
+                      <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+          </div>
+
+          {/* 4. Project Requirements */}
+          <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+            <SectionLabel>Project Requirements</SectionLabel>
+            <div className="space-y-4">
+              <Field id="e-requirement" label="Requirement">
+                <Textarea
+                  id="e-requirement"
+                  placeholder="Describe what the client needs…"
+                  rows={3}
+                  value={form.requirement}
+                  onChange={e => set('requirement', e.target.value)}
+                  className="text-sm resize-none"
+                />
+              </Field>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field id="e-expectedBudget" label="Expected Budget">
+                  <Select value={form.expectedBudget} onValueChange={v => set('expectedBudget', v)}>
+                    <SelectTrigger id="e-expectedBudget" className={inputCls}>
+                      <SelectValue placeholder="Select range…" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
-                      {employees.map(emp => (
-                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                      {BUDGET_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </Field>
+                <Field id="e-notes" label="Notes" hint="Optional">
+                  <Input id="e-notes" className={inputCls}
+                    placeholder="Any additional context…"
+                    value={form.notes}
+                    onChange={e => set('notes', e.target.value)} />
                 </Field>
               </div>
             </div>
           </div>
 
-          {/* Notes */}
-          <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-            <SectionLabel>Notes</SectionLabel>
-            <Textarea id="e-notes" rows={3} value={form.notes}
-              onChange={e => set('notes', e.target.value)}
-              className="text-sm resize-none" />
-          </div>
+          {error && (
+            <p className="text-[13px] font-medium rounded-lg px-3 py-2.5"
+              style={{ color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA' }}>
+              {error}
+            </p>
+          )}
 
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="flex justify-end gap-2 pt-1 pb-1">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
@@ -289,6 +393,7 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
               {submitting ? 'Saving…' : 'Save Changes'}
             </Button>
           </div>
+
         </form>
       </DialogContent>
     </Dialog>
