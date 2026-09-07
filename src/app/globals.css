@@ -753,9 +753,9 @@ body {
 /* ── Page header (title + subtitle + action) — from feat branch ─────────── */
 .page-title {
   color: var(--text-heading);
-  font-size: 1.875rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   line-height: 1.15;
 }
 .page-subtitle {

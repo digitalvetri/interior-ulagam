@@ -190,41 +190,6 @@ function QuickAction({
   );
 }
 
-/* ── Header strip ───────────────────────────────────────────────────────── */
-function HeaderStrip({ firstName, isAdmin }: { firstName: string; isAdmin: boolean }) {
-  return (
-    <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
-      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-      <div className="flex items-center gap-4">
-        <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-lg font-bold"
-          style={{ background: 'linear-gradient(135deg, var(--violet-primary), #a855f7)' }}>
-          {firstName ? firstName.slice(0, 2).toUpperCase() : 'KD'}
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest mb-0.5"
-            style={{ color: 'var(--text-tertiary)' }} suppressHydrationWarning>
-            {todayLabel()}
-          </p>
-          <h1 className="text-3xl font-bold leading-tight" style={{ color: 'var(--text-heading)', letterSpacing: '-0.025em' }}
-            suppressHydrationWarning>
-            {greeting()}{firstName ? `, ${firstName}` : ''} 👋
-          </h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Konst Design · {isAdmin ? 'Admin Dashboard' : 'My Workspace'}
-          </p>
-        </div>
-      </div>
-      {isAdmin && (
-        <Link
-          href="/leads?new=1"
-          className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2 text-sm rounded-lg"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> New Lead
-        </Link>
-      )}
-    </div>
-  );
-}
 
 /* ── Today visits widget ────────────────────────────────────────────────── */
 function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[]; loading: boolean }) {
@@ -475,7 +440,75 @@ export default function DashboardPage() {
   if (isAdmin) {
     return (
       <div className="space-y-6 animate-fade-in p-6 lg:p-8">
-        <HeaderStrip firstName={firstName} isAdmin={isAdmin} />
+
+        {/* Page heading */}
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1.5"
+              style={{ color: 'var(--text-tertiary)' }}>
+              Studio at a glance
+            </p>
+            <h1 className="text-4xl font-bold leading-none"
+              style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
+              Dashboard
+            </h1>
+          </div>
+          <Link href="/leads?new=1"
+            className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2.5 text-sm rounded-xl">
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> New Lead
+          </Link>
+        </div>
+
+        {/* Hero banner */}
+        <div className="rounded-2xl p-6 relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#34d399' }} />
+            <span className="text-xs font-medium" style={{ color: '#cbd5e1' }} suppressHydrationWarning>{todayLabel()}</span>
+          </div>
+          <p className="text-sm mb-1" style={{ color: '#94a3b8' }} suppressHydrationWarning>
+            {greeting()}{firstName ? `, ${firstName}` : ''}
+          </p>
+          {loading ? (
+            <div className="h-7 w-72 rounded-lg mb-4" style={{ background: 'rgba(255,255,255,0.08)' }} />
+          ) : (
+            <h2 className="text-2xl font-bold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
+              {activeLeads > 0
+                ? `${activeLeads} active lead${activeLeads !== 1 ? 's' : ''} in your pipeline.`
+                : pendingQs > 0
+                  ? `${pendingQs} quotation${pendingQs !== 1 ? 's' : ''} awaiting acceptance.`
+                  : overdueCount > 0
+                    ? `${overdueCount} overdue payment${overdueCount !== 1 ? 's' : ''} to follow up.`
+                    : 'All caught up. Great work!'}
+            </h2>
+          )}
+          {!loading && (
+            <div className="flex flex-wrap gap-2">
+              {activeLeads > 0 && (
+                <Link href="/leads"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+                  style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
+                  <Users className="h-3 w-3" />{activeLeads} active lead{activeLeads !== 1 ? 's' : ''}
+                </Link>
+              )}
+              {pendingQs > 0 && (
+                <Link href="/quotes"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+                  style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
+                  <FileText className="h-3 w-3" />{pendingQs} pending quote{pendingQs !== 1 ? 's' : ''}
+                </Link>
+              )}
+              {overdueCount > 0 && (
+                <Link href="/finance"
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                  style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.28)', color: '#fca5a5' }}>
+                  <AlertCircle className="h-3 w-3" />{overdueCount} overdue
+                </Link>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -747,7 +780,43 @@ export default function DashboardPage() {
      ══════════════════════════════════════════════════════════════════════ */
   return (
     <div className="space-y-6 animate-fade-in p-6 lg:p-8">
-      <HeaderStrip firstName={firstName} isAdmin={isAdmin} />
+
+      {/* Page heading */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-widest mb-1.5"
+          style={{ color: 'var(--text-tertiary)' }}>
+          My Workspace
+        </p>
+        <h1 className="text-4xl font-bold leading-none"
+          style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
+          Dashboard
+        </h1>
+      </div>
+
+      {/* Hero banner */}
+      <div className="rounded-2xl p-6"
+        style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
+          style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+          <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#34d399' }} />
+          <span className="text-xs font-medium" style={{ color: '#cbd5e1' }} suppressHydrationWarning>{todayLabel()}</span>
+        </div>
+        <p className="text-sm mb-1" style={{ color: '#94a3b8' }} suppressHydrationWarning>
+          {greeting()}{firstName ? `, ${firstName}` : ''}
+        </p>
+        <h2 className="text-2xl font-bold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
+          {myTasks.length > 0
+            ? `${myTasks.length} task${myTasks.length !== 1 ? 's' : ''} pending today.`
+            : 'All caught up. Have a great day!'}
+        </h2>
+        {myTasks.length > 0 && (
+          <Link href="/tasks"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+            style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
+            <CheckSquare className="h-3 w-3" />{myTasks.length} task{myTasks.length !== 1 ? 's' : ''}
+          </Link>
+        )}
+      </div>
 
       {/* My tasks + Today's visits */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

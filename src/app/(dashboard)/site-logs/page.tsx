@@ -136,7 +136,7 @@ export default function SiteLogsPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--text-heading)]" style={{ letterSpacing: '-0.025em' }}>Site Logs</h1>
+          <h1 className="text-4xl font-bold text-[var(--text-heading)]" style={{ letterSpacing: '-0.03em' }}>Site Logs</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             Daily progress feed across all active projects
           </p>

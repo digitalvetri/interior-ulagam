@@ -472,7 +472,7 @@ export default function MaterialsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.025em' }}>Material Library</h2>
+          <h2 className="text-4xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>Material Library</h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             Manage and track all materials across your projects
           </p>

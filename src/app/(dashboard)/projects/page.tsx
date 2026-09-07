@@ -385,7 +385,7 @@ export default function ProjectsPage() {
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.025em' }}>
+          <h1 style={{ fontSize: '2.25rem', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
             Projects
           </h1>
           {!loading && projects.length > 0 && (
