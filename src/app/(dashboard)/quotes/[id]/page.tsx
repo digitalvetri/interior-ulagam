@@ -45,11 +45,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [showImportModal, setShowImportModal] = useState(false);
   const [collapsedRooms, setCollapsedRooms]   = useState<Set<string>>(new Set());
 
-  // Add Room inline form
-  const [showAddRoom, setShowAddRoom]           = useState(false);
-  const [newRoomName, setNewRoomName]           = useState('');
-  const [addingRoom, setAddingRoom]             = useState(false);
-
   // Book Project inline form
   const [showBookForm, setShowBookForm]         = useState(false);
   const [bookProjectName, setBookProjectName]   = useState('');

@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Wrench, AlertCircle, Clock, CheckCircle2, ArrowUpCircle } from 'lucide-react';
+import { Plus, Wrench, AlertCircle, Clock, ArrowUpCircle } from 'lucide-react';
 import { PageHeader }  from '@/components/ui/PageHeader';
 import { EmptyState }  from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { SERVICE_REQUEST_STATUS, SERVICE_REQUEST_PRIORITY } from '@/lib/status-maps';
+import { SERVICE_REQUEST_PRIORITY } from '@/lib/status-maps';
 
 interface ServiceRequest {
   id: string;
