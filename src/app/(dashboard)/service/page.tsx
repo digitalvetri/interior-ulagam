@@ -4,7 +4,6 @@ import { Plus, Wrench, AlertCircle, Clock, ArrowUpCircle } from 'lucide-react';
 import { PageHeader }  from '@/components/ui/PageHeader';
 import { EmptyState }  from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { SERVICE_REQUEST_PRIORITY } from '@/lib/status-maps';
 
 interface ServiceRequest {
   id: string;
@@ -42,9 +41,9 @@ const PRIORITY_COLORS = {
 };
 
 function CreateDialog({
-  users, projects, onClose, onCreated,
+  projects, onClose, onCreated,
 }: {
-  users: UserOption[];
+  users?: UserOption[];
   projects: ProjectOption[];
   onClose: () => void;
   onCreated: (r: ServiceRequest) => void;

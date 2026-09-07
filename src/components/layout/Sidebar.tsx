@@ -163,7 +163,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const [role, setRole]             = useState('');
   const [isAdmin, setIsAdmin]       = useState(false);
-  const [fullName, setFullName]     = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [iconOnly, setIconOnly]     = useState(false);
   const initDone = useRef(false);
@@ -173,7 +172,6 @@ export function Sidebar() {
       .then(res => (res.ok ? res.json() : null))
       .then(body => {
         if (!body?.data) return;
-        setFullName(body.data.fullName ?? '');
         // Treat legacy 'owner' as admin during transition
         const isAdminFlag = body.data.isAdmin === true;
         const normalized = isAdminFlag || body.data.role === 'owner' ? 'admin'

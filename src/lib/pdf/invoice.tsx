@@ -8,7 +8,6 @@ import {
   BankFooter,
   type StudioBranding,
   type PartyInfo,
-  S,
 } from './DocumentLayout';
 import { amountInWords, fmtDate } from './pdf-utils';
 

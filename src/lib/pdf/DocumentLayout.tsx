@@ -198,6 +198,7 @@ export function StudioHeader({
     <View style={S.headerRow}>
       <View>
         {studio.logoUrl ? (
+          // eslint-disable-next-line jsx-a11y/alt-text
           <Image src={studio.logoUrl} style={S.logo} />
         ) : null}
         <Text style={S.studioName}>{studio.name}</Text>

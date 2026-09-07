@@ -644,6 +644,7 @@ export default function SettingsPage() {
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
                 {profile.logoUrl
+                  // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={profile.logoUrl} alt="" className="h-full w-full object-contain" />
                   : <Building2 className="h-5 w-5" style={{ color: 'var(--text-tertiary)' }} />}
               </div>
@@ -681,6 +682,7 @@ export default function SettingsPage() {
               {/* Logo upload */}
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl border-2 border-dashed overflow-hidden" style={{ borderColor: 'var(--border-strong)' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   {dLogo ? <img src={dLogo} alt="" className="h-full w-full object-contain" /> : <Building2 className="h-5 w-5" style={{ color: 'var(--text-tertiary)' }} />}
                 </div>
                 <label className="btn-secondary inline-flex cursor-pointer items-center gap-1 px-2.5 py-1 text-[11px]" style={{ opacity: uploading ? 0.6 : 1 }}>
