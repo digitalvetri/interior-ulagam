@@ -7,7 +7,6 @@ import {
   BankFooter,
   type StudioBranding,
   type PartyInfo,
-  S,
 } from './DocumentLayout';
 import { fmtDate } from './pdf-utils';
 

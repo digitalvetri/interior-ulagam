@@ -9,7 +9,7 @@ import {
   type StudioBranding,
   type PartyInfo,
 } from './DocumentLayout';
-import { amountInWords, fmtDate } from './pdf-utils';
+import { amountInWords } from './pdf-utils';
 
 export interface HsnLine {
   hsnSac?: string | null;

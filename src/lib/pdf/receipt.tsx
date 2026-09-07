@@ -5,7 +5,6 @@ import {
   StudioHeader,
   BankFooter,
   type StudioBranding,
-  S,
 } from './DocumentLayout';
 import { amountInWords, fmtDate } from './pdf-utils';
 

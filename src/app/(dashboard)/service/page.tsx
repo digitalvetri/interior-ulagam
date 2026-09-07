@@ -257,7 +257,6 @@ export default function ServicePage() {
   }
 
   const displayed = requests.filter(r => !statusFilter || r.status === statusFilter);
-  const openCount = requests.filter(r => r.status !== 'resolved').length;
 
   return (
     <div className="space-y-4 p-4 lg:p-6 animate-fade-in">

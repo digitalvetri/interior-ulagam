@@ -76,7 +76,7 @@ const MOCK_PO = {
   totalPaise: 50000_00,
 };
 
-const MOCK_INVOICE = {
+const _MOCK_INVOICE = {
   id: INVOICE_ID,
   projectId: PROJECT_ID,
   invoiceNumber: 'INV-2026-001',
