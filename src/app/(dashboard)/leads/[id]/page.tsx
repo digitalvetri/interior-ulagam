@@ -410,6 +410,24 @@ function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdd
   );
 }
 
+/* ── Shared micro-components ───────────────────────────────── */
+function DetailField({ label, value, full }: { label: string; value: React.ReactNode; full?: boolean }) {
+  return (
+    <div className={full ? 'col-span-2' : ''}>
+      <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+      <p className="text-sm font-medium leading-snug" style={{ color: 'var(--text-heading)' }}>{value}</p>
+    </div>
+  );
+}
+function SidebarRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <span className="text-[12px] flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+      <span className="text-[12px] font-semibold text-right" style={{ color: 'var(--text-heading)' }}>{value}</span>
+    </div>
+  );
+}
+
 /* ── Page ──────────────────────────────────────────────────── */
 export default function LeadDetailPage() {
   const params = useParams();
@@ -753,24 +771,6 @@ export default function LeadDetailPage() {
       const { data: actData } = await actRes.json() as { data: LeadActivity[] };
       setActivities(actData ?? []);
     }
-  }
-
-  /* ── tiny helper components used only in render ── */
-  function DetailField({ label, value, full }: { label: string; value: React.ReactNode; full?: boolean }) {
-    return (
-      <div className={full ? 'col-span-2' : ''}>
-        <p className="text-[11px] font-semibold mb-1" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
-        <p className="text-sm font-medium leading-snug" style={{ color: 'var(--text-heading)' }}>{value}</p>
-      </div>
-    );
-  }
-  function SidebarRow({ label, value }: { label: string; value: React.ReactNode }) {
-    return (
-      <div className="flex items-baseline justify-between gap-4 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <span className="text-[12px] flex-shrink-0" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-        <span className="text-[12px] font-semibold text-right" style={{ color: 'var(--text-heading)' }}>{value}</span>
-      </div>
-    );
   }
 
   return (
