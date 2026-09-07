@@ -42,53 +42,82 @@ interface CustomerResult {
 
 type CustomerType = 'new' | 'existing';
 
+// ─── Options ──────────────────────────────────────────────────────────────────
+
 const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
-  { value: 'hot',  label: 'Hot' },
-  { value: 'warm', label: 'Warm' },
-  { value: 'cold', label: 'Cold' },
+  { value: 'hot',  label: '🔥 Hot'  },
+  { value: 'warm', label: '☀️ Warm' },
+  { value: 'cold', label: '🧊 Cold' },
 ];
 
 const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
-  { value: 'new',         label: 'New' },
-  { value: 'contacted',   label: 'Contacted' },
-  { value: 'qualified',   label: 'Qualified' },
-  { value: 'site_visit',  label: 'Site Visit' },
-  { value: 'measurement', label: 'Measurement' },
-  { value: 'quotation',   label: 'Quotation' },
-  { value: 'negotiation', label: 'Negotiation' },
-  { value: 'won',         label: 'Won' },
-  { value: 'lost',        label: 'Lost' },
+  { value: 'new',         label: 'New Inquiry'  },
+  { value: 'contacted',   label: 'Contacted'    },
+  { value: 'site_visit',  label: 'Site Visit'   },
+  { value: 'measured',    label: 'Measured'     },
+  { value: 'quotation',   label: 'Quotation'    },
+  { value: 'negotiation', label: 'Negotiation'  },
+  { value: 'booked',      label: 'Booked'       },
+  { value: 'lost',        label: 'Lost'         },
 ];
 
 const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
-  { value: 'whatsapp',  label: 'WhatsApp'  },
   { value: 'instagram', label: 'Instagram' },
+  { value: 'whatsapp',  label: 'WhatsApp'  },
   { value: 'referral',  label: 'Referral'  },
   { value: 'website',   label: 'Website'   },
   { value: 'walk_in',   label: 'Walk-in'   },
   { value: 'other',     label: 'Other'     },
 ];
 
+const PROPERTY_TYPE_OPTIONS = [
+  'Apartment',
+  'Villa',
+  'Independent House',
+  'Row House',
+  'Commercial Space',
+  'Plot / Land',
+  'Other',
+];
+
+const BUDGET_OPTIONS = [
+  { value: 'under_5l',   label: 'Under ₹5 Lakhs'    },
+  { value: '5l_10l',     label: '₹5L – ₹10L'        },
+  { value: '10l_25l',    label: '₹10L – ₹25L'       },
+  { value: '25l_50l',    label: '₹25L – ₹50L'       },
+  { value: '50l_1cr',    label: '₹50L – ₹1 Crore'   },
+  { value: 'above_1cr',  label: 'Above ₹1 Crore'    },
+];
+
+// ─── Form state ───────────────────────────────────────────────────────────────
+
 interface FormState {
+  // Contact
   contactName: string;
   contactPhone: string;
-  alternatePhone: string;
   contactEmail: string;
+  // Property / Site
+  propertyType: string;
   contactCity: string;
   pincode: string;
   projectLocation: string;
+  // Lead info
   source: LeadSource;
   priority: LeadPriority | '';
   stage: LeadStage | '';
   ownerId: string;
+  // Project requirements
+  requirement: string;
+  expectedBudget: string;
+  expectedStart: string;
   notes: string;
 }
 
 const INITIAL: FormState = {
   contactName:     '',
   contactPhone:    '',
-  alternatePhone:  '',
   contactEmail:    '',
+  propertyType:    '',
   contactCity:     '',
   pincode:         '',
   projectLocation: '',
@@ -96,12 +125,17 @@ const INITIAL: FormState = {
   priority:        '',
   stage:           'new',
   ownerId:         '',
+  requirement:     '',
+  expectedBudget:  '',
+  expectedStart:   '',
   notes:           '',
 };
 
+// ─── Helper components ────────────────────────────────────────────────────────
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold uppercase tracking-wider mb-3 mt-1"
+    <p className="text-[11px] font-bold uppercase tracking-widest mb-3"
       style={{ color: 'var(--text-secondary)' }}>
       {children}
     </p>
@@ -109,37 +143,45 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Field({
-  id, label, required, children,
+  id, label, required, hint, children,
 }: {
   id: string;
   label: string;
   required?: boolean;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id} className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-      </Label>
+      <div className="flex items-baseline justify-between gap-2">
+        <Label htmlFor={id} className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
+          {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        </Label>
+        {hint && <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{hint}</span>}
+      </div>
       {children}
     </div>
   );
 }
 
-export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, onClose, preselectedCustomer }: NewLeadDialogProps) {
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export function NewLeadDialog({
+  onSuccess, defaultOpen = false, triggerLabel, onClose, preselectedCustomer,
+}: NewLeadDialogProps) {
   const preselectedResult: CustomerResult | null = preselectedCustomer
     ? { id: '', fullName: preselectedCustomer.fullName, phone: preselectedCustomer.phone, email: null, city: preselectedCustomer.city ?? null, company: null }
     : null;
 
-  const [open, setOpen]               = useState(defaultOpen);
-  const [submitting, setSubmitting]   = useState(false);
-  const [error, setError]             = useState<string | null>(null);
-  const [form, setForm]               = useState<FormState>(
+  const [open, setOpen]             = useState(defaultOpen);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [form, setForm]             = useState<FormState>(
     preselectedCustomer
       ? { ...INITIAL, contactName: preselectedCustomer.fullName, contactPhone: preselectedCustomer.phone, contactCity: preselectedCustomer.city ?? '' }
       : INITIAL
   );
-  const [employees, setEmployees]     = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   // Customer type gate
   const [customerType, setCustomerType]         = useState<CustomerType | null>(preselectedCustomer ? 'existing' : null);
@@ -160,7 +202,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
       .catch(() => {});
   }, [open]);
 
-  // Debounced customer search — fires when query ≥ 2 chars
+  // Debounced customer search
   useEffect(() => {
     if (customerType !== 'existing' || customerSearch.trim().length < 2) {
       setCustomerResults([]);
@@ -183,7 +225,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
     return () => clearTimeout(timer);
   }, [customerSearch, customerType]);
 
-  // Close dropdown when clicking outside
+  // Close dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
@@ -245,26 +287,44 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!form.contactName.trim() || !form.contactPhone.trim()) return;
+
+    if (!form.contactName.trim()) { setError('Customer name is required.'); return; }
+    if (!form.contactPhone.trim()) { setError('Mobile number is required.'); return; }
+    if (!form.source) { setError('Lead source is required.'); return; }
+    if (!form.ownerId) { setError('Please assign this lead to a team member.'); return; }
+    if (!form.requirement.trim()) { setError('Project requirement is required.'); return; }
 
     setSubmitting(true);
     setError(null);
+
+    // Build the combined notes string
+    const parts: string[] = [];
+    if (form.expectedStart) {
+      const formatted = new Date(form.expectedStart).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      });
+      parts.push(`Expected Start: ${formatted}`);
+    }
+    parts.push(form.requirement.trim());
+    if (form.notes.trim()) parts.push(`Notes: ${form.notes.trim()}`);
+    const combinedNotes = parts.join('\n\n');
 
     const payload: Record<string, unknown> = {
       contactName:  form.contactName.trim(),
       contactPhone: form.contactPhone.trim(),
       source:       form.source,
+      ownerId:      form.ownerId,
+      notes:        combinedNotes,
     };
 
-    if (form.alternatePhone.trim())  payload.alternatePhone  = form.alternatePhone.trim();
     if (form.contactEmail.trim())    payload.contactEmail    = form.contactEmail.trim();
+    if (form.propertyType)           payload.propertyType    = form.propertyType;
     if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();
     if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
     if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
-    if (form.ownerId)                payload.ownerId         = form.ownerId;
     if (form.priority)               payload.priority        = form.priority;
     if (form.stage)                  payload.stage           = form.stage;
-    if (form.notes.trim())           payload.notes           = form.notes.trim();
+    if (form.expectedBudget)         payload.budgetBand      = form.expectedBudget;
 
     try {
       const res = await fetch('/api/v1/leads', {
@@ -300,42 +360,40 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
         </DialogTrigger>
       )}
 
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>
-            {preselectedCustomer ? 'Add New Enquiry' : 'Add New Lead'}
+      <DialogContent className="max-w-[720px] w-full max-h-[92vh] overflow-y-auto">
+        <DialogHeader className="pb-1">
+          <DialogTitle className="text-xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
+            {preselectedCustomer ? 'Add New Enquiry' : 'New Lead'}
           </DialogTitle>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             {preselectedCustomer
               ? `Adding a new enquiry for ${preselectedCustomer.fullName}.`
-              : 'Capture all enquiry details upfront to avoid repeat data entry later.'}
+              : 'Fill in the details below to capture the enquiry.'}
           </p>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5 mt-1">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
 
-          {/* ── 0. Customer selection — shown only before form is ready ── */}
+          {/* ── Customer selection ── */}
           {preselectedCustomer ? (
-            /* Read-only chip when launched from a customer context */
             <div className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-              style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
+              style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-base)' }}>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
                   {preselectedCustomer.fullName}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                   {preselectedCustomer.phone}{preselectedCustomer.city ? ` · ${preselectedCustomer.city}` : ''}
                 </p>
               </div>
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                Existing Customer
+                style={{ background: 'var(--accent-base)', color: 'white' }}>
+                Existing customer
               </span>
             </div>
           ) : !showForm ? (
-            /* Step 1: choose type (disappears once selection is made) */
             <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-              <SectionLabel>Customer Type</SectionLabel>
+              <SectionLabel>Is this a new or existing customer?</SectionLabel>
               <div className="grid grid-cols-2 gap-3">
                 {(['new', 'existing'] as const).map(type => (
                   <button
@@ -343,15 +401,12 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                     type="button"
                     onClick={() => handleCustomerTypeChange(type)}
                     className="rounded-lg px-4 py-3 text-left transition-all"
-                    style={{
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--surface-base, white)',
-                    }}
+                    style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-card)' }}
                   >
-                    <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                    <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
                       {type === 'new' ? 'New Customer' : 'Existing Customer'}
                     </p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                    <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                       {type === 'new'
                         ? 'First-time enquiry from a new contact'
                         : 'Returning client or known contact'}
@@ -360,10 +415,9 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                 ))}
               </div>
 
-              {/* Existing customer search (inline, same card) */}
               {customerType === 'existing' && !selectedCustomer && (
                 <div className="mt-4 relative" ref={searchRef}>
-                  <Label className="text-sm font-medium mb-1.5 block" style={{ color: 'var(--text-heading)' }}>
+                  <Label className="text-[12px] font-medium mb-1.5 block" style={{ color: 'var(--text-heading)' }}>
                     Search Customer
                   </Label>
                   <Input
@@ -374,21 +428,23 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                     onChange={e => { setCustomerSearch(e.target.value); setShowDropdown(true); }}
                   />
                   {searchLoading && (
-                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>Searching…</p>
+                    <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>Searching…</p>
                   )}
                   {showDropdown && customerResults.length > 0 && (
                     <div className="absolute top-full left-0 right-0 z-50 rounded-lg shadow-lg mt-1 overflow-hidden"
-                      style={{ background: 'var(--surface-base, white)', border: '1px solid var(--border-subtle)', maxHeight: '13rem', overflowY: 'auto' }}>
+                      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', maxHeight: '13rem', overflowY: 'auto' }}>
                       {customerResults.map(c => (
                         <button
                           key={c.id}
                           type="button"
-                          className="w-full px-3 py-2.5 text-left hover:bg-[var(--surface-muted)] transition-colors border-b last:border-b-0"
+                          className="w-full px-3 py-2.5 text-left transition-colors border-b last:border-b-0"
                           style={{ borderColor: 'var(--border-subtle)' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                           onClick={() => selectCustomer(c)}
                         >
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{c.fullName}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                          <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{c.fullName}</p>
+                          <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                             {c.phone}{c.city ? ` · ${c.city}` : ''}{c.company ? ` · ${c.company}` : ''}
                           </p>
                         </button>
@@ -396,7 +452,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                     </div>
                   )}
                   {showDropdown && !searchLoading && customerSearch.trim().length >= 2 && customerResults.length === 0 && (
-                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-secondary)' }}>
+                    <p className="text-[12px] mt-1.5" style={{ color: 'var(--text-secondary)' }}>
                       No customers found. Try a different search or choose &quot;New Customer&quot;.
                     </p>
                   )}
@@ -404,35 +460,34 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
               )}
             </div>
           ) : customerType === 'existing' && selectedCustomer ? (
-            /* Compact chip for existing customer — form is open, type picker is gone */
             <div className="flex items-center gap-3 rounded-lg px-3 py-2.5"
-              style={{ background: 'var(--brand-light, #eef2ff)', border: '1px solid var(--brand, #6366f1)' }}>
+              style={{ background: 'var(--accent-soft)', border: '1px solid var(--accent-base)' }}>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
                   {selectedCustomer.fullName}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                   {selectedCustomer.phone}{selectedCustomer.city ? ` · ${selectedCustomer.city}` : ''}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={clearSelectedCustomer}
-                className="text-xs font-medium shrink-0 hover:underline"
-                style={{ color: 'var(--brand, #6366f1)' }}
+                className="text-[12px] font-medium shrink-0 hover:underline"
+                style={{ color: 'var(--accent-base)' }}
               >
                 Change
               </button>
             </div>
           ) : null}
 
-          {/* ── Remaining form sections (shown only after type + customer selection) ── */}
+          {/* ── Remaining sections ── */}
           {showForm && (
             <>
               {/* ── 1. Contact Information ── */}
-              <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+              <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                 <SectionLabel>Contact Information</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Field id="contactName" label="Customer Name" required>
                     <Input id="contactName" className={inputCls}
                       placeholder="e.g. Priya Sharma"
@@ -449,14 +504,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                       required />
                   </Field>
 
-                  <Field id="alternatePhone" label="Alternate Mobile">
-                    <Input id="alternatePhone" type="tel" className={inputCls}
-                      placeholder="e.g. 9123456789"
-                      value={form.alternatePhone}
-                      onChange={e => set('alternatePhone', e.target.value)} />
-                  </Field>
-
-                  <Field id="contactEmail" label="Email Address">
+                  <Field id="contactEmail" label="Email">
                     <Input id="contactEmail" type="email" className={inputCls}
                       placeholder="e.g. priya@email.com"
                       value={form.contactEmail}
@@ -465,10 +513,23 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                 </div>
               </div>
 
-              {/* ── 2. Location ── */}
-              <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                <SectionLabel>Location</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ── 2. Property / Site ── */}
+              <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                <SectionLabel>Property / Site</SectionLabel>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Field id="propertyType" label="Property Type">
+                    <Select value={form.propertyType} onValueChange={v => set('propertyType', v)}>
+                      <SelectTrigger id="propertyType" className={inputCls}>
+                        <SelectValue placeholder="Select type…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PROPERTY_TYPE_OPTIONS.map(pt => (
+                          <SelectItem key={pt} value={pt}>{pt}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
                   <Field id="contactCity" label="City">
                     <Input id="contactCity" className={inputCls}
                       placeholder="e.g. Coimbatore"
@@ -483,7 +544,7 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                       onChange={e => set('pincode', e.target.value)} />
                   </Field>
 
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-3">
                     <Field id="projectLocation" label="Site Address">
                       <Input id="projectLocation" className={inputCls}
                         placeholder="Full site / property address"
@@ -494,10 +555,10 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                 </div>
               </div>
 
-              {/* ── 3. Lead Info ── */}
-              <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                <SectionLabel>Lead Info</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ── 3. Lead Information ── */}
+              <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                <SectionLabel>Lead Information</SectionLabel>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field id="source" label="Lead Source" required>
                     <Select value={form.source} onValueChange={v => set('source', v as LeadSource)}>
                       <SelectTrigger id="source" className={inputCls}>
@@ -537,17 +598,14 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                     </Select>
                   </Field>
 
-                  <Field id="ownerId" label="Assigned Sales Executive">
+                  <Field id="ownerId" label="Assigned To" required>
                     <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
                       <SelectTrigger id="ownerId" className={inputCls}>
-                        <SelectValue placeholder="Unassigned" />
+                        <SelectValue placeholder="Choose team member…" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
                         {employees.map(emp => (
-                          <SelectItem key={emp.id} value={emp.id}>
-                            {emp.fullName}
-                          </SelectItem>
+                          <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -555,24 +613,64 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
                 </div>
               </div>
 
-              {/* ── 4. Requirements & Notes ── */}
-              <div className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                <SectionLabel>Project Requirements &amp; Notes</SectionLabel>
-                <Textarea
-                  id="notes"
-                  placeholder="Client's requirements, style preferences, referral context, site visit preference, expected start date, or any other relevant details…"
-                  rows={4}
-                  value={form.notes}
-                  onChange={e => set('notes', e.target.value)}
-                  className="text-sm resize-none"
-                />
+              {/* ── 4. Project Requirements ── */}
+              <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                <SectionLabel>Project Requirements</SectionLabel>
+                <div className="space-y-4">
+                  <Field id="requirement" label="Requirement" required>
+                    <Textarea
+                      id="requirement"
+                      placeholder="Describe what the client needs — e.g. Full home interior for 3BHK, modular kitchen, wardrobes for all rooms, false ceiling in living area…"
+                      rows={3}
+                      value={form.requirement}
+                      onChange={e => set('requirement', e.target.value)}
+                      className="text-sm resize-none"
+                    />
+                  </Field>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Field id="expectedBudget" label="Expected Budget">
+                      <Select value={form.expectedBudget} onValueChange={v => set('expectedBudget', v)}>
+                        <SelectTrigger id="expectedBudget" className={inputCls}>
+                          <SelectValue placeholder="Select range…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BUDGET_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    <Field id="expectedStart" label="Expected Start" hint="Optional">
+                      <Input
+                        id="expectedStart"
+                        type="date"
+                        className={inputCls}
+                        value={form.expectedStart}
+                        onChange={e => set('expectedStart', e.target.value)}
+                      />
+                    </Field>
+                  </div>
+
+                  <Field id="notes" label="Notes" hint="Optional">
+                    <Textarea
+                      id="notes"
+                      placeholder="Referral context, style preferences, access instructions, or anything else…"
+                      rows={2}
+                      value={form.notes}
+                      onChange={e => set('notes', e.target.value)}
+                      className="text-sm resize-none"
+                    />
+                  </Field>
+                </div>
               </div>
 
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+                <p className="text-[13px] font-medium rounded-lg px-3 py-2.5" style={{ color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA' }}>{error}</p>
               )}
 
-              <div className="flex justify-end gap-2 pt-1">
+              <div className="flex justify-end gap-2 pt-1 pb-1">
                 <Button type="button" variant="outline"
                   onClick={() => { setOpen(false); reset(); }}
                   disabled={submitting}>
@@ -585,7 +683,6 @@ export function NewLeadDialog({ onSuccess, defaultOpen = false, triggerLabel, on
             </>
           )}
 
-          {/* Cancel button visible before type is selected */}
           {!showForm && (
             <div className="flex justify-end pt-1">
               <Button type="button" variant="outline"
