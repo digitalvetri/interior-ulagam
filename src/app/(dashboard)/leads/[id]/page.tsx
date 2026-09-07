@@ -452,7 +452,6 @@ export default function LeadDetailPage() {
   const [archiving, setArchiving] = useState(false);
 
   // Stage actions
-  const [advancingStage, setAdvancingStage]           = useState(false);
   const [markingWon, setMarkingWon]                   = useState(false);
   const [markingLost, setMarkingLost]                 = useState(false);
   const [reopening, setReopening]                     = useState(false);
@@ -625,28 +624,6 @@ export default function LeadDetailPage() {
     } finally { setArchiving(false); }
   }
 
-  // Mid-pipeline stage advance (new → contacted → … → negotiation).
-  // Uses the regular PATCH endpoint; refetches activities to surface the auto-logged stage_change.
-  async function advanceStage(targetStage: string) {
-    setAdvancingStage(true); setStageError(null);
-    try {
-      const res = await fetch(`/api/v1/leads/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage: targetStage }),
-      });
-      const json = await res.json().catch(() => ({})) as { data?: Lead; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
-      setLead(json.data!);
-      const actRes = await fetch(`/api/v1/leads/${id}/activities`).catch(() => null);
-      if (actRes?.ok) {
-        const { data } = await actRes.json() as { data: LeadActivity[] };
-        setActivities(data ?? []);
-      }
-    } catch (e) {
-      setStageError(e instanceof Error ? e.message : 'Stage change failed');
-    } finally { setAdvancingStage(false); }
-  }
-
   // Terminal transitions (won / lost / reopen). Uses the /stage endpoint.
   async function changeStage(targetStage: string, lostReason?: string) {
     const isWonTarget  = targetStage === 'won';
@@ -759,7 +736,7 @@ export default function LeadDetailPage() {
     setFollowUpDate(d.toISOString().split('T')[0]);
   }
 
-  const stageActionsDisabled = advancingStage || markingWon || markingLost || reopening;
+  const stageActionsDisabled = markingWon || markingLost || reopening;
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   async function handleSiteVisitSuccess() {

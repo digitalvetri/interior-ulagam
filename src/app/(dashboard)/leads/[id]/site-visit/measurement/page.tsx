@@ -107,7 +107,7 @@ export default function MeasurementViewPage({ params }: { params: Promise<{ id: 
         <div className="rounded-xl py-14 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
           <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No measurements recorded yet</p>
           <p className="mt-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Add rounds and items from the lead's Measurements tab
+            Add rounds and items from the lead&apos;s Measurements tab
           </p>
           <Link
             href={`/leads/${id}`}

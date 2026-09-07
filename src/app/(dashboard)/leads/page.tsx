@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, memo, useDeferredValue, useRef } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -51,10 +50,6 @@ const STAGE_STYLE: Record<LeadStage, { bg: string; color: string }> = {
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
-
 function daysSince(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
@@ -101,14 +96,12 @@ const LeadListCard = memo(function LeadListCard({
   lead,
   onDelete,
   onArchive,
-  onFollowUp,
   onViewFollowUps,
   destinationHref,
 }: {
   lead: Lead;
   onDelete: (id: string) => void;
   onArchive: (id: string) => void;
-  onFollowUp: (lead: Lead) => void;
   onViewFollowUps: (lead: Lead) => void;
   destinationHref?: string;
 }) {
@@ -694,7 +687,6 @@ export default function LeadsPage() {
                       lead={primaryLead}
                       onDelete={handleDeleteFromList}
                       onArchive={handleArchiveFromList}
-                      onFollowUp={handleFollowUp}
                       onViewFollowUps={handleViewFollowUps}
                       destinationHref={destination}
                     />
