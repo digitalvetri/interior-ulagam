@@ -795,7 +795,7 @@ export default function FinancePage() {
   return (
     <div className="space-y-0">
       {/* Header */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-8 py-6" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>
           <h1 className="page-title">Finance</h1>
           <p className="page-subtitle">Invoices · Payments · Expenses · Vendor payables</p>
@@ -803,7 +803,7 @@ export default function FinancePage() {
       </header>
 
       {/* Tab bar */}
-      <div className="flex gap-0 overflow-x-auto border-b px-6" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="flex gap-0 overflow-x-auto border-b px-8" style={{ borderColor: 'var(--border-subtle)' }}>
         {TABS.map(({ key, label, icon: Icon }) => {
           const active = activeTab === key;
           return (

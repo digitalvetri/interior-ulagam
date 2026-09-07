@@ -381,11 +381,11 @@ export default function ProjectsPage() {
   const noResults     = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
 
   return (
-    <div className="space-y-5 p-4 lg:p-6">
+    <div className="space-y-6 p-6 lg:p-8">
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
-          <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '-0.025em' }}>
             Projects
           </h1>
           {!loading && projects.length > 0 && (

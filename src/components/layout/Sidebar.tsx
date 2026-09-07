@@ -20,7 +20,7 @@ function NavLink({
       title={iconOnly ? label : undefined}
       className={`nav-item ${active ? 'active' : ''}`}
       style={{
-        padding: iconOnly ? '10px 0' : '8px 10px',
+        padding: iconOnly ? '10px 0' : '9px 12px',
         justifyContent: iconOnly ? 'center' : 'flex-start',
         gap: iconOnly ? 0 : 10,
       }}
@@ -33,7 +33,7 @@ function NavLink({
       )}
       <Icon className="nav-icon flex-shrink-0" style={{ width: 16, height: 16 }} />
       {!iconOnly && (
-        <span className="flex-1 text-[13px] font-medium leading-none tracking-[-0.01em]">{label}</span>
+        <span className="flex-1 text-[14px] font-medium leading-none tracking-[-0.01em]">{label}</span>
       )}
     </Link>
   );

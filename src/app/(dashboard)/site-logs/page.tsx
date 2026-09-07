@@ -131,12 +131,12 @@ export default function SiteLogsPage() {
   const delayCount = logs.filter(l => l.delayFlag).length;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-10 p-6 lg:p-8">
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-[var(--text-heading)]">Site Logs</h1>
+          <h1 className="text-3xl font-bold text-[var(--text-heading)]" style={{ letterSpacing: '-0.025em' }}>Site Logs</h1>
           <p className="text-sm text-[var(--text-secondary)]">
             Daily progress feed across all active projects
           </p>

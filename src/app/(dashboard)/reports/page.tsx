@@ -330,7 +330,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-4 p-4 lg:p-6 animate-fade-in">
+    <div className="space-y-6 p-6 lg:p-8 animate-fade-in">
       <PageHeader
         title="Reports"
         subtitle="Six fixed reports with date range filter and Excel export"

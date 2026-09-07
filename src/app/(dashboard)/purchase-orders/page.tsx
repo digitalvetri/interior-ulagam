@@ -277,7 +277,7 @@ export default function PurchaseOrdersPage() {
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5 p-6">
+    <div className="space-y-6 p-6 lg:p-8">
       {/* Page header */}
       <div
         className="flex items-end justify-between gap-4 pb-4"

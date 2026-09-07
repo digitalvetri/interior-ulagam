@@ -176,11 +176,11 @@ export default function CustomersPage() {
   const isEmpty = !loading && !fetchError && customers.length === 0;
 
   return (
-    <div className="space-y-4 p-4 lg:p-6">
+    <div className="space-y-6 p-6 lg:p-8">
       {/* Page header */}
       <div className="flex items-end justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
         <div>
-          <h1 className="page-title" style={{ fontSize: '1.5rem' }}>Clients</h1>
+          <h1 className="page-title">Clients</h1>
           <p className="page-subtitle">
             {loading ? 'Loading…' : `${customers.length} ${customers.length === 1 ? 'client' : 'clients'} in directory`}
           </p>

@@ -215,11 +215,11 @@ export default function QuotesPage() {
   const deleteIsRisky = deleteTarget?.status === 'sent' || deleteTarget?.status === 'accepted' || deleteTarget?.status === 'approved';
 
   return (
-    <div className="space-y-5 p-4 lg:p-6">
+    <div className="space-y-6 p-6 lg:p-8">
       {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Quotations</h2>
+          <h2 className="text-3xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.025em' }}>Quotations</h2>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
             {quotes.length} quotes · {approvedCount} approved · {draftCount} drafts
           </p>

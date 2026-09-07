@@ -653,7 +653,7 @@ export default function LeadsPage() {
   }, [filtered]);
 
   return (
-    <div className="p-4 lg:p-6">
+    <div className="p-6 lg:p-8">
 
       {/* Follow-up modals */}
       {followUpLead && (
@@ -691,7 +691,7 @@ export default function LeadsPage() {
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>Leads</h1>
+            <h1 className="text-3xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.025em' }}>Leads</h1>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
               {grouped.length} customer{grouped.length !== 1 ? 's' : ''} · {filtered.length} lead{filtered.length !== 1 ? 's' : ''} shown
             </p>

@@ -131,14 +131,14 @@ function KpiCard({
   const a = KPI_ACCENTS[accent];
   const inner = (
     <div
-      className="premium-card p-4 group cursor-default"
+      className="premium-card p-5 group cursor-default"
       style={{ transition: 'transform 0.18s ease, box-shadow 0.18s ease' }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}
     >
       <div
         className="stat-badge mb-3 transition-transform duration-200 group-hover:scale-110"
-        style={{ backgroundColor: a.bg, width: '2.25rem', height: '2.25rem' }}
+        style={{ backgroundColor: a.bg, width: '2.75rem', height: '2.75rem' }}
       >
         <Icon className="h-4 w-4" style={{ color: a.fg }} strokeWidth={2} />
       </div>
@@ -205,7 +205,7 @@ function HeaderStrip({ firstName, isAdmin }: { firstName: string; isAdmin: boole
             style={{ color: 'var(--text-tertiary)' }} suppressHydrationWarning>
             {todayLabel()}
           </p>
-          <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}
+          <h1 className="text-3xl font-bold leading-tight" style={{ color: 'var(--text-heading)', letterSpacing: '-0.025em' }}
             suppressHydrationWarning>
             {greeting()}{firstName ? `, ${firstName}` : ''} 👋
           </h1>
@@ -474,7 +474,7 @@ export default function DashboardPage() {
      ══════════════════════════════════════════════════════════════════════ */
   if (isAdmin) {
     return (
-      <div className="space-y-4 animate-fade-in p-4 lg:p-6">
+      <div className="space-y-6 animate-fade-in p-6 lg:p-8">
         <HeaderStrip firstName={firstName} isAdmin={isAdmin} />
 
         {/* KPI Cards */}
@@ -746,7 +746,7 @@ export default function DashboardPage() {
      EMPLOYEE VIEW
      ══════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="space-y-4 animate-fade-in p-4 lg:p-6">
+    <div className="space-y-6 animate-fade-in p-6 lg:p-8">
       <HeaderStrip firstName={firstName} isAdmin={isAdmin} />
 
       {/* My tasks + Today's visits */}
