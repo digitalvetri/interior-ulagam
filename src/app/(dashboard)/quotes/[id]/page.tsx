@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, ClipboardList, Download, Phone, Tag, Layers, User,
   CheckCircle2, Send, MessageCircle, Mail, FileText, IndianRupee,
-  Upload, FileDown, ChevronDown, ChevronRight, Edit2, FolderKanban, Plus,
+  Upload, FileDown, ChevronDown, ChevronRight, FolderKanban,
 } from 'lucide-react';
 import { LineItemRow } from '@/components/quotes/LineItemRow';
 import { AddLineForm } from '@/components/quotes/AddLineForm';
@@ -46,8 +46,6 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [collapsedRooms, setCollapsedRooms]   = useState<Set<string>>(new Set());
 
   // Header inline editing (draft only)
-  const [editingDiscount, setEditingDiscount]   = useState(false);
-  const [editingGstPct, setEditingGstPct]       = useState(false);
   const [editingTerms, setEditingTerms]         = useState(false);
   const [discountInput, setDiscountInput]       = useState('');
   const [gstPctInput, setGstPctInput]           = useState('');

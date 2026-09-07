@@ -408,7 +408,6 @@ export default function LeadsPage() {
   const [followUpLead, setFollowUpLead]         = useState<Lead | null>(null);
   const [viewFollowUpsLead, setViewFollowUpsLead] = useState<Lead | null>(null);
 
-  const handleFollowUp = useCallback((lead: Lead) => setFollowUpLead(lead), []);
   const handleViewFollowUps = useCallback((lead: Lead) => setViewFollowUpsLead(lead), []);
 
   const refetch = useCallback(() => {

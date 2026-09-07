@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import {
-  Plus, Search, Check, Calendar, Circle, CircleDot, Eye, CheckCircle2,
+  Plus, Search, Calendar, Circle, CircleDot, Eye, CheckCircle2,
   MoreHorizontal, Trash2, Loader2, Edit2, ClipboardList, AlertCircle,
   Folder, User, Users, Flag,
 } from 'lucide-react';

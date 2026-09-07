@@ -138,18 +138,6 @@ export default function PurchaseOrdersPage() {
 
   // ─── Filtering ──────────────────────────────────────────────────────────────
 
-  const projectNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    projects.forEach(p => map.set(p.id, p.name));
-    return map;
-  }, [projects]);
-
-  const vendorNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    vendors.forEach(v => map.set(v.id, v.name));
-    return map;
-  }, [vendors]);
-
   const filteredOrders = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter(o => {
