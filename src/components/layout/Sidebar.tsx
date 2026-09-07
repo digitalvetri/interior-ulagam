@@ -121,7 +121,7 @@ function SidebarBody({
             <p className="truncate text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
               Konst Design
             </p>
-            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Studio OS</p>
+            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Design Studio</p>
           </div>
         )}
       </div>
