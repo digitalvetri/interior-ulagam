@@ -213,19 +213,19 @@ export function Sidebar() {
   return (
     <>
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--surface-card)] px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between px-4" style={{ background: '#0F172A', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded bg-white p-0.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/logo-icon.png" alt="" className="h-full w-full object-contain" width={28} height={28} />
           </div>
-          <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Konst Design</span>
+          <span className="text-sm font-bold" style={{ color: '#E2E8F0' }}>Konst Design</span>
         </div>
         <button
           type="button"
           onClick={() => setMobileOpen(o => !o)}
-          className="rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-secondary)' }}
+          className="rounded-lg p-2 transition-colors"
+          style={{ color: '#94A3B8' }}
           aria-label="Toggle menu"
           suppressHydrationWarning
         >

@@ -3,21 +3,27 @@ import { usePathname } from 'next/navigation';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':           'Dashboard',
-  '/leads':               'Lead Pipeline',
-  '/customers':           'Customers',
+  '/leads':               'Leads',
+  '/customers':           'Clients',
   '/projects':            'Projects',
   '/quotes':              'Quotations',
-  '/design-tasks':        'Design Tasks',
+  '/site-visits':         'Site Visits',
+  '/work-orders':         'Work Orders',
+  '/site-logs':           'Site Logs',
   '/materials':           'Materials',
-  '/vendors':             'Vendors',
   '/purchase-orders':     'Purchase Orders',
-  '/invoices':            'Invoices',
-  '/accounts':            'Accounts & Payments',
-  '/employees':           'Employees',
-  '/calendar':            'Calendar',
-  '/analytics/designers': 'Analytics',
-  '/analytics':           'Analytics',
+  '/finance':             'Accounts',
+  '/reports':             'Reports',
   '/settings':            'Settings',
+  // Direct-access pages (not in sidebar, still navigable)
+  '/design-tasks':        'Design Tasks',
+  '/vendors':             'Vendors',
+  '/employees':           'Employees',
+  '/portfolio':           'Portfolio',
+  '/service':             'Service Requests',
+  '/tasks':               'Tasks',
+  '/invoices':            'Invoices',
+  '/analytics':           'Analytics',
 };
 
 export function PageHeading() {

@@ -6,15 +6,15 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* ── Konstdesign Design System ─────────────────────────────────────────────
-   Refined light: warm-neutral charcoal surfaces, hairline borders, a single
-   gold accent (#C9A24A), and colour reserved for meaning rather than decoration.
+   Nordic slate: cool slate surfaces, hairline borders, a single indigo accent
+   (#3B82F6), and colour reserved for meaning rather than decoration.
 
    ONE accent. Green, amber and red appear only as status, never as chrome.
-   Gold is the accent — never used for status warnings (those stay amber). */
+   Indigo is the accent — never used for status warnings (those stay amber). */
 
 :root {
   /* ── Neutrals — the 95% of the interface ──────────────── */
-  --surface-app:     #FAFAF9;   /* page background — warm near-white         */
+  --surface-app:     #F1F5F9;   /* page background — cool slate canvas       */
   --surface-card:    #FFFFFF;   /* raised surfaces                           */
   --surface-muted:   #F5F5F3;   /* table stripes, inert fills                */
   --surface-hover:   #F0F0ED;   /* row / item hover                          */
@@ -27,11 +27,11 @@
   --text-secondary:  #6B6B66;   /* supporting copy, labels                   */
   --text-tertiary:   #96968F;   /* metadata, placeholders                    */
 
-  /* ── Accent — Konstdesign gold, used sparingly ────────── */
-  --accent-base:     #C9A24A;   /* Konstdesign gold                          */
-  --accent-hover:    #B8912C;   /* deeper gold for hover states              */
-  --accent-soft:     #FBF4E2;   /* tinted background for active states       */
-  --accent-text:     #7A5500;   /* AA-safe dark gold text on white (≈7:1)    */
+  /* ── Accent — Nordic indigo, used sparingly ───────────── */
+  --accent-base:     #3B82F6;   /* Nordic indigo                             */
+  --accent-hover:    #2563EB;   /* deeper indigo for hover states            */
+  --accent-soft:     rgba(59, 130, 246, 0.10); /* tinted bg for active states */
+  --accent-text:     #1D4ED8;   /* AA-safe dark indigo text on white (≈7:1)  */
 
   /* ── Status — meaning only ────────────────────────────── */
   --success:         #0F9D6E;  --success-soft: #E7F7F1;  --success-text: #0A7A55;
@@ -48,12 +48,12 @@
   --sidebar-width-icon:   72px;
   --topbar-height:        64px;
 
-  /* ── Legacy aliases (forest/mint → now resolve to gold accent) ───────────── */
-  --forest:          #C9A24A;   /* aliases to accent for unified palette     */
-  --forest-hover:    #B8912C;
-  --forest-deep:     #7A5500;
-  --mint-mist:       #FBF4E2;
-  --mint-mist-soft:  #FDF9F0;
+  /* ── Legacy aliases (forest/mint → now resolve to indigo accent) ─────────── */
+  --forest:          #3B82F6;   /* aliases to accent for unified palette     */
+  --forest-hover:    #2563EB;
+  --forest-deep:     #1D4ED8;
+  --mint-mist:       rgba(59, 130, 246, 0.10);
+  --mint-mist-soft:  rgba(59, 130, 246, 0.06);
 
   /* ── Legacy aliases ───────────────────────────────────────
      Kept so the many components still referencing the old names resolve to the
@@ -67,7 +67,7 @@
   --purple-soft:     var(--accent-soft);
   --violet-primary:  var(--accent-base);
   --violet-hover:    var(--accent-hover);
-  --violet-soft:     rgba(201, 162, 74, 0.10);
+  --violet-soft:     rgba(59, 130, 246, 0.10);
   --gold:            var(--accent-base);   /* gold IS our accent now           */
   --gold-soft:       var(--accent-soft);
   --text-accent:     var(--accent-text);
@@ -123,11 +123,11 @@
   --text-secondary:  #A1A19A;
   --text-tertiary:   #74746D;
 
-  /* Lighter gold — full-strength #C9A24A is readable but lifted reads better. */
-  --accent-base:     #D4AF6A;
-  --accent-hover:    #DFC07A;
-  --accent-soft:     rgba(201, 162, 74, 0.18);
-  --accent-text:     #E8C97A;
+  /* Lighter indigo — lifted reads better on dark surfaces. */
+  --accent-base:     #60A5FA;
+  --accent-hover:    #3B82F6;
+  --accent-soft:     rgba(59, 130, 246, 0.18);
+  --accent-text:     #93C5FD;
 
   --success:  #2FBE8A;  --success-soft: rgba(47, 190, 138, 0.16);  --success-text: #4FD3A2;
   --warning:  #D9A03C;  --warning-soft: rgba(217, 160, 60, 0.16);  --warning-text: #E8B75C;
@@ -137,22 +137,22 @@
   --shadow-md:  0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  /* Dark-mode forest/mint aliases → gold */
-  --forest:          #D4AF6A;
-  --forest-hover:    #DFC07A;
-  --forest-deep:     #E8C97A;
-  --mint-mist:       rgba(201, 162, 74, 0.18);
-  --mint-mist-soft:  rgba(201, 162, 74, 0.10);
+  /* Dark-mode forest/mint aliases → indigo */
+  --forest:          #60A5FA;
+  --forest-hover:    #3B82F6;
+  --forest-deep:     #93C5FD;
+  --mint-mist:       rgba(59, 130, 246, 0.18);
+  --mint-mist-soft:  rgba(59, 130, 246, 0.10);
 
   /* Per-metric accents in dark mode */
-  --accent-purple-bg: rgba(201, 162, 74, 0.16); --accent-purple: #E8C97A;
-  --accent-blue-bg:   rgba(201, 162, 74, 0.16); --accent-blue:   #E8C97A;
+  --accent-purple-bg: rgba(59, 130, 246, 0.16); --accent-purple: #93C5FD;
+  --accent-blue-bg:   rgba(59, 130, 246, 0.16); --accent-blue:   #93C5FD;
   --accent-orange-bg: rgba(217, 160, 60, 0.16);  --accent-orange: #E8B75C;
   --accent-green-bg:  rgba(47, 190, 138, 0.16);  --accent-green:  #4FD3A2;
 
-  --teal-soft:       rgba(201, 162, 74, 0.15);
-  --purple-soft:     rgba(201, 162, 74, 0.18);
-  --gold-soft:       rgba(201, 162, 74, 0.18);
+  --teal-soft:       rgba(59, 130, 246, 0.15);
+  --purple-soft:     rgba(59, 130, 246, 0.18);
+  --gold-soft:       rgba(59, 130, 246, 0.18);
 
   --background:      var(--surface-app);
   --foreground:      var(--text-primary);
@@ -233,8 +233,16 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background: var(--surface-card);
-  border-right: 1px solid var(--border-subtle);
+  background: #0F172A;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  /* Scoped tokens — resolve for all children inside the dark navy sidebar */
+  --text-heading:   #E2E8F0;
+  --text-primary:   #CBD5E1;
+  --text-secondary: #94A3B8;
+  --text-tertiary:  #64748B;
+  --border-subtle:  rgba(255, 255, 255, 0.08);
+  --surface-hover:  rgba(255, 255, 255, 0.06);
+  --accent-base:    #A5B4FC;   /* light indigo — bar indicator + admin badge */
 }
 
 /* Hover and active states live in CSS so the nav needs no JS event handlers.
@@ -261,6 +269,21 @@ body {
 .nav-item:hover .nav-icon  { color: var(--text-secondary); }
 .nav-item.active .nav-icon { color: var(--accent-base); }
 
+/* Sidebar-scoped nav overrides — dark navy palette */
+.studio-sidebar .nav-item { color: #CBD5E1; }
+.studio-sidebar .nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #E2E8F0;
+}
+.studio-sidebar .nav-item.active {
+  background-color: #4338CA;
+  color: #FFFFFF;
+  font-weight: 550;
+}
+.studio-sidebar .nav-item .nav-icon        { color: #475569; }
+.studio-sidebar .nav-item:hover .nav-icon  { color: #94A3B8; }
+.studio-sidebar .nav-item.active .nav-icon { color: #FFFFFF; }
+
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 /* Flat surface + hairline base border — no shadow */
 .studio-topbar {
@@ -283,7 +306,7 @@ body {
 .topbar-search:focus-within {
   background-color: #FFFFFF;
   border-color: var(--accent-base);
-  box-shadow: 0 0 0 3px rgba(201, 162, 74, 0.14);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
 }
 .topbar-search input {
   background: transparent;
@@ -328,7 +351,7 @@ body {
   background-color: var(--accent-base);
   color: #FFFFFF;
   border-radius: 8px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 1px 1px rgba(201, 162, 74, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 1px 1px rgba(59, 130, 246, 0.20);
   transition: background-color 0.15s ease;
   font-weight: 500;
   letter-spacing: -0.005em;
@@ -338,7 +361,7 @@ body {
 }
 .btn-primary:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 3px rgba(201, 162, 74, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 3px rgba(59, 130, 246, 0.30);
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -377,7 +400,7 @@ body {
 .studio-input::placeholder { color: #9CA3AF; }
 .studio-input:focus {
   border-color: var(--accent-base);
-  box-shadow: 0 0 0 3px rgba(201, 162, 74, 0.15);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
   outline: none;
 }
 
@@ -463,8 +486,8 @@ body {
   overflow: hidden;
   padding: 3rem 3.5rem;
   background:
-    radial-gradient(ellipse at 75% 8%, rgba(201, 162, 74, 0.18) 0%, transparent 55%),
-    linear-gradient(160deg, #1E1E1E 0%, #141414 55%, #0A0A0A 100%);
+    radial-gradient(ellipse at 75% 8%, rgba(67, 56, 202, 0.22) 0%, transparent 55%),
+    linear-gradient(160deg, #0F172A 0%, #0D1526 55%, #080E1A 100%);
 }
 @media (min-width: 1024px) {
   .login-hero { display: flex; }
@@ -474,8 +497,8 @@ body {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(201, 162, 74, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(201, 162, 74, 0.08) 1px, transparent 1px);
+    linear-gradient(rgba(99, 102, 241, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 102, 241, 0.12) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: radial-gradient(ellipse at 60% 30%, black 0%, transparent 75%);
 }
@@ -487,7 +510,7 @@ body {
   right: -160px;
   bottom: -180px;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(201, 162, 74, 0.20) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(67, 56, 202, 0.30) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -546,7 +569,7 @@ body {
   display: flex;
   gap: 2.25rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(201, 162, 74, 0.25);
+  border-top: 1px solid rgba(99, 102, 241, 0.30);
 }
 .login-hero-stats div { display: flex; flex-direction: column; gap: 0.15rem; }
 .login-hero-stats strong {
@@ -570,8 +593,8 @@ body {
   padding: 2.5rem 1.5rem;
   background-color: var(--surface-app);
   background-image:
-    radial-gradient(ellipse at 85% 15%, rgba(201, 162, 74, 0.10) 0%, transparent 50%),
-    radial-gradient(ellipse at 10% 85%, rgba(30, 30, 30, 0.06) 0%, transparent 55%);
+    radial-gradient(ellipse at 85% 15%, rgba(59, 130, 246, 0.10) 0%, transparent 50%),
+    radial-gradient(ellipse at 10% 85%, rgba(67, 56, 202, 0.06) 0%, transparent 55%);
   position: relative;
   overflow: hidden;
 }
@@ -588,17 +611,17 @@ body {
 .login-form-blob--a {
   width: 380px; height: 380px;
   top: 8%; left: 52%;
-  background: radial-gradient(circle, rgba(201, 162, 74, 0.45) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.35) 0%, transparent 70%);
 }
 .login-form-blob--b {
   width: 360px; height: 360px;
   bottom: 4%; left: 22%;
-  background: radial-gradient(circle, rgba(30, 30, 30, 0.40) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(67, 56, 202, 0.25) 0%, transparent 70%);
 }
 .login-form-blob--c {
   width: 300px; height: 300px;
   top: 38%; left: 30%;
-  background: radial-gradient(circle, rgba(201, 162, 74, 0.30) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.20) 0%, transparent 70%);
 }
 
 /* Frosted glass card wrapping the sign-in form */
@@ -746,16 +769,16 @@ body {
 
 /* ── Dark mode overrides for global CSS classes ─────────────────────────── */
 [data-theme="dark"] .studio-sidebar {
-  background: var(--surface-card);
-  border-right-color: var(--border-subtle);
+  background: #0A0F1E;
+  border-right-color: rgba(255, 255, 255, 0.05);
 }
 [data-theme="dark"] .nav-item { color: var(--text-secondary); }
 [data-theme="dark"] .nav-item:hover {
-  background-color: rgba(201, 162, 74, 0.10);
+  background-color: rgba(59, 130, 246, 0.10);
   color: var(--text-primary);
 }
 [data-theme="dark"] .nav-item.active {
-  background-color: rgba(201, 162, 74, 0.16);
+  background-color: rgba(59, 130, 246, 0.16);
   color: var(--accent-base);
 }
 [data-theme="dark"] .nav-item .nav-icon { color: var(--text-secondary); }
