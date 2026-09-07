@@ -12,6 +12,7 @@ import {
   Wallet,
   Settings,
   BarChart3,
+  CalendarCheck,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -91,7 +92,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Insights',
     roles: FINANCE_ROLES,
     items: [
-      { href: '/reports', label: 'Reports', icon: BarChart3, roles: FINANCE_ROLES },
+      { href: '/reports',    label: 'Reports',    icon: BarChart3,    roles: FINANCE_ROLES },
+      { href: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: FINANCE_ROLES },
     ],
   },
   {

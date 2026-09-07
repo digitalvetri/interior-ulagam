@@ -120,6 +120,18 @@ export const customerHealthStatusEnum = pgEnum('customer_health_status', [
   'hot', 'healthy', 'at_risk', 'inactive',
 ]);
 
+export const attendanceStatusEnum = pgEnum('attendance_status', [
+  'present', 'absent', 'leave', 'half_day', 'late', 'holiday',
+]);
+
+export const leaveTypeEnum = pgEnum('leave_type', [
+  'casual', 'sick', 'earned', 'unpaid', 'maternity', 'paternity', 'comp_off',
+]);
+
+export const leaveStatusEnum = pgEnum('leave_status', [
+  'pending', 'approved', 'rejected', 'cancelled',
+]);
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 const timestamps = {
@@ -884,4 +896,41 @@ export const deliverableComments = pgTable('deliverable_comments', {
   ...timestamps,
 }, (t) => [
   index('deliverable_comments_deliverable_idx').on(t.deliverableId),
+]);
+
+// ─── Attendance ───────────────────────────────────────────────────────────────
+
+export const attendanceRecords = pgTable('attendance_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  date: date('date').notNull(),
+  status: attendanceStatusEnum('status').notNull().default('present'),
+  checkInAt: timestamp('check_in_at', { withTimezone: true }),
+  checkOutAt: timestamp('check_out_at', { withTimezone: true }),
+  notes: text('notes'),
+  markedBy: uuid('marked_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('attendance_tenant_date_idx').on(t.tenantId, t.date),
+  index('attendance_user_date_idx').on(t.userId, t.date),
+]);
+
+export const leaveRequests = pgTable('leave_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  leaveType: leaveTypeEnum('leave_type').notNull(),
+  fromDate: date('from_date').notNull(),
+  toDate: date('to_date').notNull(),
+  reason: text('reason').notNull(),
+  status: leaveStatusEnum('status').notNull().default('pending'),
+  reviewedBy: uuid('reviewed_by').references(() => users.id),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  reviewNote: text('review_note'),
+  ...timestamps,
+}, (t) => [
+  index('leave_requests_tenant_idx').on(t.tenantId),
+  index('leave_requests_user_idx').on(t.userId),
+  index('leave_requests_status_idx').on(t.status),
 ]);
