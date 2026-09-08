@@ -53,3 +53,4 @@ pnpm-debug.log*
 
 # Docker local volumes and backups (backups hold full database dumps)
 data/
+tests/e2e/.auth/

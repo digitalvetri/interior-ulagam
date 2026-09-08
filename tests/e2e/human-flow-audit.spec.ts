@@ -69,6 +69,7 @@ async function waitForToast(page: Page, partialText?: string) {
 // ─── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('Human Flow Audit — Lead to Handover', () => {
+  test.describe.configure({ mode: 'serial' }); // shared state; must run in order
   test.setTimeout(300_000); // 5 minutes
 
   // Shared state across steps (stored in test context)
@@ -78,6 +79,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 1: Login ──────────────────────────────────────────────────────────
   test('01 — Login as owner', async ({ page }) => {
+    await page.context().clearCookies(); // start fresh — this test specifically checks login flow
     await page.goto(`${BASE}/login`);
     await expect(page).toHaveTitle(/konst|login|studio/i, { timeout: 15000 });
     await ss(page, '01-login-page');
@@ -97,13 +99,9 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 2: Dashboard check ────────────────────────────────────────────────
   test('02 — Dashboard loads all widgets', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
-    await page.waitForLoadState('networkidle', { timeout: 20000 });
+    await page.waitForLoadState('domcontentloaded', { timeout: 20000 });
     await ss(page, '02-dashboard-full');
 
     // Check KPI cards exist
@@ -125,14 +123,10 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 3: Navigate to Leads + Create Lead ────────────────────────────────
   test('03 — Create new lead (Rajesh Kumar)', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     await page.goto(`${BASE}/leads`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '03-leads-list');
 
     const bodyBefore = await page.innerText('body');
@@ -145,47 +139,63 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     await page.waitForTimeout(600);
     await ss(page, '03-new-lead-dialog');
 
-    // Fill the form — try various input selectors
-    const nameInput = page.locator('input[placeholder*="name" i], input[id*="name" i], input[name*="name" i]').first();
-    if (await nameInput.isVisible()) {
+    // The dialog first asks "New Customer or Existing Customer?" — must select before form shows
+    const newCustomerBtn = page.locator('button', { hasText: /new customer/i }).first();
+    if (await newCustomerBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await newCustomerBtn.click();
+      await page.waitForTimeout(400);
+    }
+    await ss(page, '03-new-lead-form-shown');
+
+    // Fill the form using the input IDs from NewLeadDialog
+    const nameInput = page.locator('#contactName, input[placeholder*="Priya" i]').first();
+    if (await nameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await nameInput.fill(CLIENT.name);
     } else {
-      console.warn('  ⚠️  Name input not found by placeholder/id/name');
+      console.warn('  ⚠️  Name input not found');
     }
 
-    const phoneInput = page.locator('input[placeholder*="phone" i], input[id*="phone" i], input[type="tel"]').first();
-    if (await phoneInput.isVisible()) {
+    const phoneInput = page.locator('#contactPhone, input[type="tel"]').first();
+    if (await phoneInput.isVisible({ timeout: 1000 }).catch(() => false)) {
       await phoneInput.fill(CLIENT.phone);
     }
 
-    // Source select
-    const sourceSelect = page.locator('select[name*="source" i], select').filter({ hasText: /instagram|source/i }).first();
-    if (await sourceSelect.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await sourceSelect.selectOption('instagram');
-    }
-
     // City
-    const cityInput = page.locator('input[placeholder*="city" i], input[id*="city" i]').first();
+    const cityInput = page.locator('#contactCity, input[placeholder*="city" i]').first();
     if (await cityInput.isVisible({ timeout: 1000 }).catch(() => false)) {
       await cityInput.fill(CLIENT.city);
     }
 
-    // Notes / Requirement
-    const notesInput = page.locator('textarea[placeholder*="note" i], textarea[placeholder*="require" i], textarea').first();
-    if (await notesInput.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await notesInput.fill(CLIENT.notes);
+    // Requirement textarea (required field — id="requirement")
+    const reqInput = page.locator('#requirement, textarea').first();
+    if (await reqInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await reqInput.fill(CLIENT.notes);
+    }
+
+    // Assigned To (shadcn Select — required field, must pick first employee)
+    const ownerTrigger = page.locator('#ownerId');
+    if (await ownerTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await ownerTrigger.click();
+      await page.waitForTimeout(300);
+      // Pick the first available option in the dropdown
+      const firstOption = page.locator('[role="option"]').first();
+      if (await firstOption.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await firstOption.click();
+        await page.waitForTimeout(200);
+      }
     }
 
     await ss(page, '03-new-lead-form-filled');
 
-    // Submit
-    const submitBtn = page.locator('button[type=submit], button', { hasText: /create lead|add lead|save/i }).last();
+    // Submit — button text is "Create Lead" (only visible after selecting customer type)
+    const submitBtn = page.locator('button:has-text("Create Lead")');
+    await expect(submitBtn).toBeVisible({ timeout: 5000 });
     await submitBtn.click();
 
     // Should redirect to lead detail page
     await page.waitForURL(/\/leads\/[a-zA-Z0-9-]+/, { timeout: 15000 });
     leadId = page.url().split('/leads/')[1]!.split('?')[0]!;
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '03-lead-detail-created');
 
     const detailText = await page.innerText('body');
@@ -199,11 +209,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 4: Lead detail — verify tabs and stage actions ───────────────────
   test('04 — Lead detail tabs + contact info', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     // Get the most recent lead
     const resp = await page.request.get(`${BASE}/api/v1/leads`);
@@ -216,7 +222,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     leadId = rajesh.id;
 
     await page.goto(`${BASE}/leads/${leadId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '04-lead-detail');
 
     const bodyText = await page.innerText('body');
@@ -256,11 +262,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 5: Schedule Site Visit ────────────────────────────────────────────
   test('05 — Schedule site visit from lead', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const resp = await page.request.get(`${BASE}/api/v1/leads`);
     const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
@@ -269,7 +271,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     leadId = rajesh.id;
 
     await page.goto(`${BASE}/leads/${leadId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click "Site Visit" button in action bar
     const siteVisitBtn = page.locator('button', { hasText: /site visit/i }).first();
@@ -318,11 +320,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 6: Add measurements ───────────────────────────────────────────────
   test('06 — Add measurement round with rooms', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const resp = await page.request.get(`${BASE}/api/v1/leads`);
     const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
@@ -331,7 +329,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     leadId = rajesh.id;
 
     await page.goto(`${BASE}/leads/${leadId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Click Measurements tab
     const measurementsTab = page.locator('button', { hasText: 'Measurements' });
@@ -404,11 +402,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 7: Create Quote + Add Line Items + GST ────────────────────────────
   test('07 — Create quote with line items and verify GST calculation', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const resp = await page.request.get(`${BASE}/api/v1/leads`);
     const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
@@ -417,7 +411,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     leadId = rajesh.id;
 
     await page.goto(`${BASE}/leads/${leadId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Go to Quotations tab or create quote
     const quotesTab = page.locator('button', { hasText: /quotation|quote/i }).first();
@@ -435,7 +429,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       // Should navigate to /quotes/[id]
       await page.waitForURL(/\/quotes\/[a-zA-Z0-9-]+/, { timeout: 15000 });
       quoteId = page.url().split('/quotes/')[1]!.split('?')[0]!;
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       await ss(page, '07-quote-page-empty');
       console.log(`  Quote created, ID: ${quoteId}`);
     } else {
@@ -445,7 +439,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
         const { data } = await createRes.json() as { data: { id: string } };
         quoteId = data.id;
         await page.goto(`${BASE}/quotes/${quoteId}`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         await ss(page, '07-quote-page-direct');
         console.log(`  Quote created via API, ID: ${quoteId}`);
       } else {
@@ -489,7 +483,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       await ss(page, `07-line-${line.room.replace(/\s/g, '-').toLowerCase()}-added`);
     }
 
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '07-quote-all-lines');
 
     // ── Check GST ──
@@ -523,11 +517,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 8: Accept Quote + Book Project ───────────────────────────────────
   test('08 — Accept quote and book project', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     // Find the test lead's quote
     const leadsResp = await page.request.get(`${BASE}/api/v1/leads`);
@@ -542,7 +532,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     quoteId = quotes[0]!.id;
 
     await page.goto(`${BASE}/quotes/${quoteId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '08-quote-before-accept');
 
     const bodyText = await page.innerText('body');
@@ -610,11 +600,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 9: Project Overview — all tiles ──────────────────────────────────
   test('09 — Project overview tiles', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     // Find or use project
     const projResp = await page.request.get(`${BASE}/api/v1/projects`);
@@ -625,7 +611,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     projectId = proj.id;
 
     await page.goto(`${BASE}/projects/${projectId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '09-project-overview');
 
     const bodyText = await page.innerText('body');
@@ -655,14 +641,10 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 10: Finance → Create Invoice + GST breakup ───────────────────────
   test('10 — Finance: create invoice and verify GST breakup', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     await page.goto(`${BASE}/finance`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '10-finance-page');
 
     const bodyText = await page.innerText('body');
@@ -754,14 +736,10 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 11: Record a payment ──────────────────────────────────────────────
   test('11 — Finance: record payment and check receipt', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     await page.goto(`${BASE}/finance`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Go to Payments received tab
     const paymentsTab = page.locator('button', { hasText: /payments received/i });
@@ -799,9 +777,9 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
         await ss(page, '11-payment-form-filled');
 
-        const savePayBtn = page.locator('button[type=submit], button', { hasText: /record|save|confirm/i }).last();
+        const savePayBtn = page.locator('.fixed button:has-text("Record Payment")');
         if (await savePayBtn.isEnabled({ timeout: 2000 }).catch(() => false)) {
-          await savePayBtn.click();
+          await savePayBtn.click({ force: true });
           await page.waitForTimeout(2000);
           await ss(page, '11-payment-recorded');
 
@@ -819,14 +797,10 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 12: Add expense ───────────────────────────────────────────────────
   test('12 — Finance: log expense', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     await page.goto(`${BASE}/finance`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Expenses tab
     const expTab = page.locator('button', { hasText: /expenses/i });
@@ -873,7 +847,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
       await ss(page, '12-expense-form-filled');
 
-      const saveExpBtn = page.locator('button[type=submit], button', { hasText: /save|add|record/i }).last();
+      const saveExpBtn = page.locator('.fixed button:has-text("Log Expense")');
       if (await saveExpBtn.isEnabled({ timeout: 2000 }).catch(() => false)) {
         await saveExpBtn.click();
         await page.waitForTimeout(1500);
@@ -889,14 +863,10 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 13: Vendor payables tab ──────────────────────────────────────────
   test('13 — Finance: vendor payables', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     await page.goto(`${BASE}/finance`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const vpTab = page.locator('button', { hasText: /vendor payables/i });
     const vpVis = await vpTab.isVisible({ timeout: 3000 }).catch(() => false);
@@ -921,11 +891,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 14: Add site execution log ───────────────────────────────────────
   test('14 — Add site execution log entry', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const projResp = await page.request.get(`${BASE}/api/v1/projects`);
     const { data: projects } = await projResp.json() as { data: { id: string; name: string }[] };
@@ -934,7 +900,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     projectId = proj.id;
 
     await page.goto(`${BASE}/projects/${projectId}/site`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '14-site-log-page');
 
     const bodyText = await page.innerText('body');
@@ -970,11 +936,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 15: Work Order ────────────────────────────────────────────────────
   test('15 — Create work order for modular kitchen', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const projResp = await page.request.get(`${BASE}/api/v1/projects`);
     const { data: projects } = await projResp.json() as { data: { id: string; name: string }[] };
@@ -983,7 +945,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     projectId = proj.id;
 
     await page.goto(`${BASE}/projects/${projectId}/work-orders`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '15-work-orders-page');
 
     const bodyText = await page.innerText('body');
@@ -1030,11 +992,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 16: Client Portal ─────────────────────────────────────────────────
   test('16 — Client portal magic link and portal content', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const projResp = await page.request.get(`${BASE}/api/v1/projects`);
     const { data: projects } = await projResp.json() as { data: { id: string; name: string; clientToken?: string }[] };
@@ -1044,7 +1002,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
     // Check project overview for a portal/token link
     await page.goto(`${BASE}/projects/${projectId}`);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     await ss(page, '16-project-for-portal-check');
 
     const bodyText = await page.innerText('body');
@@ -1061,7 +1019,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
       if (token) {
         await page.goto(`${BASE}/p/${token}`);
-        await page.waitForLoadState('networkidle', { timeout: 10000 });
+        await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
         await ss(page, '16-client-portal');
 
         const portalText = await page.innerText('body');
@@ -1081,11 +1039,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 17: GST Audit — quote + invoice math ─────────────────────────────
   test('17 — GST audit: verify tax calculations are correct', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const leadsResp = await page.request.get(`${BASE}/api/v1/leads`);
     const { data: leads } = await leadsResp.json() as { data: { id: string; contactName: string }[] };
@@ -1153,11 +1107,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
   // ── STEP 18: Navigation audit — all sidebar links ─────────────────────────
   test('18 — Navigation: all sidebar links load without errors', async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
+    // storageState provides auth cookies — no login needed
 
     const routes = [
       { path: '/dashboard',       name: 'Dashboard'       },
