@@ -2,15 +2,17 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Plus, FolderKanban, ChevronDown, AlertTriangle, MapPin, User, IndianRupee } from 'lucide-react';
+import { Search, Plus, FolderKanban, ChevronDown, AlertTriangle, MapPin, User, Clock } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Project } from '@/types/quotes';
 import { Lead } from '@/types/leads';
 import { formatRupees } from '@/lib/utils';
+import { STAGE_STYLE_MAP, LIFECYCLE_STAGE_ORDER as STAGE_ORDER } from '@/types/deliverables';
+import type { ProjectStage } from '@/types/deliverables';
 
-type LifecycleStage = Project['lifecycleStage'];
+type LifecycleStage = ProjectStage;
 
 interface ProjectRow extends Project {
   customerFullName?:  string | null;
@@ -20,21 +22,13 @@ interface ProjectRow extends Project {
   nextMilestoneLabel: string | null;
 }
 
-const STAGE_STYLE: Record<LifecycleStage, { bg: string; fg: string; border: string; label: string }> = {
-  design_pending:     { bg: '#EFF6FF', fg: '#1E40AF', border: 'rgba(30,64,175,0.20)',   label: 'Design pending'   },
-  design_in_progress: { bg: '#FFF7ED', fg: '#9A3412', border: 'rgba(154,52,18,0.20)',   label: 'In progress'      },
-  design_approved:    { bg: '#ECFDF5', fg: '#065F46', border: 'rgba(6,95,70,0.20)',      label: 'Design approved'  },
-  procurement:        { bg: '#FEF3C7', fg: '#92400E', border: 'rgba(146,64,14,0.20)',   label: 'Procurement'      },
-  execution:          { bg: '#F5F3FF', fg: '#6B21A8', border: 'rgba(107,33,168,0.20)',  label: 'Execution'        },
-  snagging:           { bg: '#FDF2F8', fg: '#BE185D', border: 'rgba(190,24,93,0.20)',   label: 'Snagging'         },
-  handover:           { bg: '#FEF2F2', fg: '#991B1B', border: 'rgba(153,27,27,0.20)',   label: 'Handover'         },
-  complete:           { bg: 'var(--success-soft)', fg: 'var(--success-text)', border: 'rgba(15,157,110,0.24)', label: 'Complete' },
-};
-
-const STAGE_ORDER: LifecycleStage[] = [
-  'design_pending', 'design_in_progress', 'design_approved',
-  'procurement', 'execution', 'snagging', 'handover', 'complete',
-];
+function daysDiff(dateStr: string): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  return Math.round((now.getTime() - d.getTime()) / 86_400_000);
+}
 
 interface NewProjectForm {
   noLead: boolean;
@@ -178,87 +172,134 @@ function LeadSelector({
 // ─── Project Card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({ project, onClick }: { project: ProjectRow; onClick: () => void }) {
-  const stage = STAGE_STYLE[project.lifecycleStage];
+  const stage = STAGE_STYLE_MAP[project.lifecycleStage];
   const clientName = project.customerFullName ?? project.leadContactName;
   const hasMoney = !!project.totalContractPaise && project.totalContractPaise > 0;
   const progress = hasMoney
     ? Math.min(100, Math.round((project.collectedPaise / project.totalContractPaise!) * 100))
     : null;
 
+  const isComplete = project.lifecycleStage === 'complete';
+  const overdueDays = !isComplete && project.expectedEndAt
+    ? daysDiff(project.expectedEndAt)
+    : null;
+  const isOverdue = overdueDays !== null && overdueDays > 0;
+
+  let dateLabel: { text: string; color: string } | null = null;
+  if (!isComplete) {
+    if (project.expectedEndAt) {
+      if (isOverdue) {
+        dateLabel = { text: `Overdue by ${overdueDays}d`, color: 'var(--danger, #DC2626)' };
+      } else {
+        const due = new Date(project.expectedEndAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+        dateLabel = { text: `Due ${due}`, color: 'var(--text-secondary)' };
+      }
+    } else if (project.startedAt) {
+      const started = new Date(project.startedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
+      dateLabel = { text: `Started ${started}`, color: 'var(--text-tertiary)' };
+    }
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-2xl p-4 text-left"
-      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', transition: 'box-shadow 0.15s, border-color 0.15s' }}
+      className="w-full rounded-2xl text-left overflow-hidden"
+      style={{
+        background: 'var(--surface-card)',
+        border: '1px solid var(--border-subtle)',
+        borderLeft: `4px solid ${stage.border}`,
+        transition: 'box-shadow 0.15s, border-color 0.15s',
+      }}
       onMouseEnter={e => {
         e.currentTarget.style.boxShadow = '0 4px 16px rgba(22,20,15,0.07)';
-        e.currentTarget.style.borderColor = 'rgba(22,20,15,0.15)';
+        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(22,20,15,0.15)';
+        (e.currentTarget as HTMLElement).style.borderLeftColor = stage.border;
       }}
       onMouseLeave={e => {
         e.currentTarget.style.boxShadow = 'none';
-        e.currentTarget.style.borderColor = 'var(--border-subtle)';
+        (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)';
+        (e.currentTarget as HTMLElement).style.borderLeftColor = stage.border;
       }}
     >
-      {/* Stage badge */}
-      <div className="mb-3">
-        <span
-          className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-          style={{ background: stage.bg, color: stage.fg }}
-        >
-          {stage.label}
-        </span>
-      </div>
-
-      {/* Project name */}
-      <p className="text-[14px] font-semibold leading-tight truncate"
-         style={{ color: 'var(--text-heading)' }}>
-        {project.name}
-      </p>
-
-      {/* Client + location */}
-      <div className="mt-1 space-y-0.5">
-        {clientName && (
-          <p className="flex items-center gap-1 text-[12px] truncate"
-             style={{ color: 'var(--text-secondary)' }}>
-            <User className="h-3 w-3 flex-shrink-0" />
-            {clientName}
-          </p>
-        )}
-        {project.projectLocation && (
-          <p className="flex items-center gap-1 text-[12px] truncate"
-             style={{ color: 'var(--text-secondary)' }}>
-            <MapPin className="h-3 w-3 flex-shrink-0" />
-            {project.projectLocation}
-          </p>
-        )}
-      </div>
-
-      {/* Money + progress + next milestone */}
-      {(hasMoney || project.nextMilestoneLabel) && (
-        <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          {hasMoney && (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[13px] font-semibold tnum" style={{ color: 'var(--text-heading)' }}>
-                {formatRupees(project.totalContractPaise!)}
-              </span>
-              {progress !== null && (
-                <div className="flex items-center gap-1.5">
-                  <div className="h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${progress}%`, background: 'var(--accent-base)' }} />
-                  </div>
-                  <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>{progress}%</span>
-                </div>
-              )}
-            </div>
+      <div className="p-4">
+        {/* Stage badge + date row */}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <span
+            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+            style={{ background: stage.bg, color: stage.fg }}
+          >
+            {stage.label}
+          </span>
+          {dateLabel && (
+            <span className="flex items-center gap-1 text-[11px] font-medium flex-shrink-0" style={{ color: dateLabel.color }}>
+              {isOverdue && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
+              {!isOverdue && dateLabel.text.startsWith('Due') && <Clock className="h-3 w-3 flex-shrink-0" />}
+              {dateLabel.text}
+            </span>
           )}
-          {project.nextMilestoneLabel && (
-            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
-              → {project.nextMilestoneLabel}
+        </div>
+
+        {/* Project name */}
+        <p className="text-[14px] font-semibold leading-tight truncate"
+           style={{ color: 'var(--text-heading)' }}>
+          {project.name}
+        </p>
+
+        {/* Client + location */}
+        <div className="mt-1 space-y-0.5">
+          {clientName && (
+            <p className="flex items-center gap-1 text-[12px] truncate"
+               style={{ color: 'var(--text-secondary)' }}>
+              <User className="h-3 w-3 flex-shrink-0" />
+              {clientName}
+            </p>
+          )}
+          {project.projectLocation && (
+            <p className="flex items-center gap-1 text-[12px] truncate"
+               style={{ color: 'var(--text-secondary)' }}>
+              <MapPin className="h-3 w-3 flex-shrink-0" />
+              {project.projectLocation}
             </p>
           )}
         </div>
-      )}
+
+        {/* Money + progress + next milestone */}
+        {(hasMoney || project.nextMilestoneLabel) && (
+          <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            {hasMoney && (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[13px] font-semibold tnum" style={{ color: 'var(--text-heading)' }}>
+                    {formatRupees(project.totalContractPaise!)}
+                  </span>
+                  {progress !== null && (
+                    <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>
+                      {progress}% collected
+                    </span>
+                  )}
+                </div>
+                {progress !== null && (
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${progress}%`,
+                        background: progress === 100 ? 'var(--success)' : 'var(--accent-base)',
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            {project.nextMilestoneLabel && (
+              <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                → {project.nextMilestoneLabel}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </button>
   );
 }
@@ -375,10 +416,14 @@ export default function ProjectsPage() {
     }
   }
 
-  const activeCount   = projects.filter(p => p.lifecycleStage !== 'complete').length;
-  const totalContract = projects.reduce((s, p) => s + (p.totalContractPaise ?? 0), 0);
-  const isEmpty       = !loading && !fetchError && projects.length === 0;
-  const noResults     = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
+  const activeCount    = projects.filter(p => p.lifecycleStage !== 'complete').length;
+  const completedCount = projects.filter(p => p.lifecycleStage === 'complete').length;
+  const totalContract  = projects.reduce((s, p) => s + (p.totalContractPaise ?? 0), 0);
+  const overdueCount   = projects.filter(p =>
+    p.lifecycleStage !== 'complete' && !!p.expectedEndAt && daysDiff(p.expectedEndAt) > 0
+  ).length;
+  const isEmpty        = !loading && !fetchError && projects.length === 0;
+  const noResults      = !loading && !fetchError && projects.length > 0 && filteredProjects.length === 0;
 
   return (
     <div className="space-y-6 p-6 lg:p-8">
@@ -429,7 +474,7 @@ export default function ProjectsPage() {
                 key={stage}
                 active={filterStage === stage}
                 onClick={() => setFilterStage(stage)}
-                label={STAGE_STYLE[stage].label}
+                label={STAGE_STYLE_MAP[stage].label}
                 count={cnt}
               />
             );
@@ -437,24 +482,32 @@ export default function ProjectsPage() {
         </div>
       </div>
 
-      {/* Summary stats */}
+      {/* KPI summary */}
       {!loading && !fetchError && projects.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <span
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium"
-            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
-          >
-            <FolderKanban className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-            {activeCount} active
-          </span>
-          {totalContract > 0 && (
-            <span
-              className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium"
-              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}
-            >
-              <IndianRupee className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-              {formatRupees(totalContract)} total contract
-            </span>
+        <div className={`grid gap-3 ${overdueCount > 0 ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'}`}>
+          <div className="rounded-xl p-3.5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Total</p>
+            <p className="text-[22px] font-bold tnum" style={{ color: 'var(--text-heading)' }}>{projects.length}</p>
+          </div>
+          <div className="rounded-xl p-3.5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Active</p>
+            <p className="text-[22px] font-bold tnum" style={{ color: 'var(--accent-base)' }}>{activeCount}</p>
+          </div>
+          <div className="rounded-xl p-3.5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Completed</p>
+            <p className="text-[22px] font-bold tnum" style={{ color: 'var(--success)' }}>{completedCount}</p>
+          </div>
+          <div className="rounded-xl p-3.5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Contract Value</p>
+            <p className="text-[18px] font-bold tnum leading-tight" style={{ color: 'var(--text-heading)' }}>
+              {totalContract > 0 ? formatRupees(totalContract) : '—'}
+            </p>
+          </div>
+          {overdueCount > 0 && (
+            <div className="rounded-xl p-3.5" style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.20)' }}>
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide" style={{ color: '#DC2626' }}>Overdue</p>
+              <p className="text-[22px] font-bold tnum" style={{ color: '#DC2626' }}>{overdueCount}</p>
+            </div>
           )}
         </div>
       )}

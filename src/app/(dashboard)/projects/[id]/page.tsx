@@ -78,15 +78,6 @@ function customerPalette(name: string) {
   return CUSTOMER_PALETTES[h % CUSTOMER_PALETTES.length];
 }
 
-function customerInitials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0].toUpperCase())
-    .join('');
-}
-
 // ─── Stage-based progress bar ─────────────────────────────────────────────────
 
 function StageProgressBar({ currentIdx, total }: { currentIdx: number; total: number }) {
@@ -332,7 +323,7 @@ interface SectionTile {
   label: string;
   description: string;
   badge: string | null;
-  Icon: ComponentType<{ className?: string }>;
+  Icon: ComponentType<{ style?: CSSProperties }>;
   iconBg: string;
   iconColor: string;
   actionLabel: string;
@@ -347,8 +338,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: '2D plans, renders, working drawings',
       badge: s && s.deliverableCount > 0 ? String(s.deliverableCount) : null,
       Icon: FolderOpen,
-      iconBg: 'bg-blue-50',
-      iconColor: 'text-blue-600',
+      iconBg: 'rgba(59,130,246,0.10)',
+      iconColor: '#2563EB',
       actionLabel: 'Browse',
     },
     {
@@ -357,8 +348,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: 'Milestones, links & receipts',
       badge: null,
       Icon: CreditCard,
-      iconBg: 'bg-green-50',
-      iconColor: 'text-green-600',
+      iconBg: 'rgba(22,163,74,0.10)',
+      iconColor: '#16A34A',
       actionLabel: 'Collect',
     },
     {
@@ -367,18 +358,18 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: 'Daily progress updates',
       badge: s && s.siteLogCount > 0 ? String(s.siteLogCount) : null,
       Icon: ClipboardList,
-      iconBg: 'bg-amber-50',
-      iconColor: 'text-amber-600',
+      iconBg: 'rgba(245,158,11,0.10)',
+      iconColor: '#D97706',
       actionLabel: 'Log',
     },
     {
       href: `/projects/${id}/boq`,
-      label: 'Procurement Status',
+      label: 'Procurement',
       description: 'BOQ vs. delivered reconciliation',
       badge: null,
       Icon: Package,
-      iconBg: 'bg-purple-50',
-      iconColor: 'text-purple-600',
+      iconBg: 'rgba(139,92,246,0.10)',
+      iconColor: '#7C3AED',
       actionLabel: 'View',
     },
     {
@@ -387,8 +378,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: 'Petty cash, transport, materials',
       badge: s && s.expenseTotalPaise > 0 ? formatRupees(s.expenseTotalPaise) : null,
       Icon: Receipt,
-      iconBg: 'bg-rose-50',
-      iconColor: 'text-rose-600',
+      iconBg: 'rgba(225,29,72,0.10)',
+      iconColor: '#E11D48',
       actionLabel: 'Add',
     },
     {
@@ -397,8 +388,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: 'Open items & client sign-off',
       badge: s && s.openSnagCount > 0 ? `${s.openSnagCount} open` : null,
       Icon: Bug,
-      iconBg: 'bg-orange-50',
-      iconColor: 'text-orange-600',
+      iconBg: 'rgba(234,88,12,0.10)',
+      iconColor: '#EA580C',
       actionLabel: 'Manage',
     },
     {
@@ -407,8 +398,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: 'Carpentry, factory & vendor jobs',
       badge: null,
       Icon: HardHat,
-      iconBg: 'bg-stone-50',
-      iconColor: 'text-stone-600',
+      iconBg: 'rgba(120,113,108,0.10)',
+      iconColor: '#57534E',
       actionLabel: 'Manage',
     },
     {
@@ -417,8 +408,8 @@ function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
       description: 'Quotations, invoices & PDFs',
       badge: null,
       Icon: FileText,
-      iconBg: 'bg-violet-50',
-      iconColor: 'text-violet-600',
+      iconBg: 'rgba(109,40,217,0.10)',
+      iconColor: '#6D28D9',
       actionLabel: 'View',
     },
   ];
@@ -627,42 +618,35 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const paidCount     = milestones.filter(m => m.paymentStatus === 'paid').length;
   const customerName  = project.customerFullName ?? project.leadContactName ?? 'Unknown Customer';
   const palette       = customerPalette(customerName);
-  const initials      = customerInitials(customerName);
 
 
   return (
-    <div className="space-y-4 pb-10">
+    <div className="space-y-4 px-6 py-6 pb-10">
 
-      {/* ── Breadcrumb ────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <Link href="/projects" className="font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-          ← All Projects
-        </Link>
-        {project.leadId && (
-          <>
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+      {/* ── Linked to (lead / customer quick nav) ─────────────────────────── */}
+      {(project.leadId || project.customerId) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Linked to:</span>
+          {project.leadId && (
             <Link
               href={`/leads/${project.leadId}`}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
               style={{ background: 'rgba(245,158,11,0.12)', color: 'var(--warning-text)', border: '1px solid rgba(245,158,11,0.3)' }}
             >
               Lead{project.leadContactName ? ` · ${project.leadContactName}` : ''}
             </Link>
-          </>
-        )}
-        {project.customerId && (
-          <>
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+          )}
+          {project.customerId && (
             <Link
               href={`/customers/${project.customerId}`}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-opacity hover:opacity-80"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
               style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--success-text)', border: '1px solid rgba(16,185,129,0.3)' }}
             >
               Customer{project.customerFullName ? ` · ${project.customerFullName}` : ''}
             </Link>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* ── Hero Card ─────────────────────────────────────────────────────── */}
       <div
@@ -670,19 +654,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         style={{ borderTop: `4px solid ${palette.ring}` }}
       >
         <div className="p-5 sm:p-6">
-          {/* Customer chip + edit */}
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold"
-                style={{ background: palette.bg, color: palette.color }}
-              >
-                {initials}
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)] mb-0.5">Customer</p>
-                <p className="text-sm font-semibold text-[var(--text-heading)]">{customerName}</p>
-              </div>
+          {/* Actions + meta row */}
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {project.createdAt && (
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Started {new Date(project.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+              {project.expectedEndAt && (() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const due = new Date(project.expectedEndAt);
+                due.setHours(0, 0, 0, 0);
+                const overdue = project.lifecycleStage !== 'complete' && due < today;
+                const dueStr = due.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                return (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold"
+                    style={overdue
+                      ? { background: 'rgba(220,38,38,0.08)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.20)' }
+                      : { color: 'var(--text-secondary)' }}
+                  >
+                    {overdue && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
+                    {overdue ? `Overdue · due ${dueStr}` : `Due ${dueStr}`}
+                  </span>
+                );
+              })()}
+              {project.siteAddress && (
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {project.siteAddress}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
@@ -705,33 +710,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                 Edit
               </button>
             </div>
-          </div>
-
-          {/* Project name */}
-          <h1 className="mb-2 text-2xl font-bold text-[var(--text-heading)] leading-tight">
-            {project.name}
-          </h1>
-
-          {/* Meta row */}
-          <div className="mb-5 flex flex-wrap items-center gap-2.5 text-xs text-[var(--text-secondary)]">
-            <span
-              className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-              style={{ backgroundColor: `${palette.bg}`, color: palette.color, border: `1px solid ${palette.ring}40` }}
-            >
-              {LIFECYCLE_STAGE_LABELS[project.lifecycleStage]}
-            </span>
-            {project.expectedEndAt && (
-              <span className="inline-flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                Due {new Date(project.expectedEndAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-            )}
-            {project.siteAddress && (
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {project.siteAddress}
-              </span>
-            )}
           </div>
 
           {/* Finance strip */}
@@ -979,8 +957,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             <Link key={tile.href} href={tile.href}>
               <div className="premium-card group h-full cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md">
                 <div className="mb-3 flex items-start justify-between gap-2">
-                  <div className={['rounded-xl p-2.5', tile.iconBg].join(' ')}>
-                    <tile.Icon className={['h-5 w-5', tile.iconColor].join(' ')} />
+                  <div style={{ background: tile.iconBg, borderRadius: '0.75rem', padding: '10px', flexShrink: 0 }}>
+                    <tile.Icon style={{ color: tile.iconColor, width: 20, height: 20 }} />
                   </div>
                   {tile.badge && (
                     <span
@@ -991,11 +969,11 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-semibold text-[var(--text-heading)] transition-colors group-hover:text-violet-700">
+                <p className="text-sm font-semibold transition-colors" style={{ color: 'var(--text-heading)' }}>
                   {tile.label}
                 </p>
-                <p className="mt-0.5 text-xs leading-snug text-[var(--text-secondary)]">{tile.description}</p>
-                <div className="mt-2.5 flex items-center gap-0.5 text-xs font-medium text-[var(--text-tertiary)] transition-colors group-hover:text-violet-600">
+                <p className="mt-0.5 text-xs leading-snug" style={{ color: 'var(--text-secondary)' }}>{tile.description}</p>
+                <div className="mt-2.5 flex items-center gap-0.5 text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
                   {tile.actionLabel}
                   <ChevronRight className="h-3 w-3" />
                 </div>
@@ -1005,78 +983,47 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </section>
 
-      {/* ── Recent Activities + Recent Documents ───────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-        <div className="premium-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text-heading)]">Recent Activities</h2>
-            <Link
-              href={`/projects/${id}/site`}
-              className="text-xs font-medium text-violet-600 hover:text-violet-700"
-            >
-              View All →
-            </Link>
-          </div>
-
-          {siteLogs.length === 0 ? (
-            <div className="flex flex-col items-center py-6 text-center">
-              <Activity className="mb-2 h-8 w-8 text-[var(--text-tertiary)]" />
-              <p className="text-sm text-[var(--text-secondary)]">No activities logged yet.</p>
-              <p className="mt-1 text-xs text-[var(--text-tertiary)]">Site logs will appear here as work progresses.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {siteLogs.map(log => (
-                <div key={log.id} className="flex items-start gap-3 rounded-xl bg-[var(--surface-muted)] p-3">
-                  <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-amber-100">
-                    <ClipboardList className="h-4 w-4 text-amber-600" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-[var(--text-heading)]">
-                      Site Log —{' '}
-                      {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', {
-                        day: 'numeric', month: 'short',
-                      })}
-                    </p>
-                    {log.transcript && (
-                      <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">{log.transcript}</p>
-                    )}
-                    {log.progressPct !== null && (
-                      <p className="mt-0.5 text-xs text-[var(--text-tertiary)]">{log.progressPct}% progress reported</p>
-                    )}
-                  </div>
-                  <span className="flex-shrink-0 text-xs text-[var(--text-tertiary)]">
-                    {new Date(log.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+      {/* ── Recent Activities ──────────────────────────────────────────────── */}
+      <div className="premium-card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Recent Site Activity</h2>
+          <Link
+            href={`/projects/${id}/site`}
+            className="text-xs font-medium"
+            style={{ color: 'var(--accent-base)' }}
+          >
+            View All →
+          </Link>
         </div>
 
-        <div className="premium-card p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--text-heading)]">Recent Documents</h2>
-            <Link
-              href={`/projects/${id}/documents`}
-              className="text-xs font-medium text-violet-600 hover:text-violet-700"
-            >
-              View All →
-            </Link>
-          </div>
+        {siteLogs.length === 0 ? (
           <div className="flex flex-col items-center py-6 text-center">
-            <FileText className="mb-2 h-8 w-8 text-[var(--text-tertiary)]" />
-            <p className="text-sm text-[var(--text-secondary)]">No documents generated yet.</p>
-            <Link
-              href={`/projects/${id}/documents`}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100"
-            >
-              <ArrowRight className="h-3 w-3" />
-              View Documents
-            </Link>
+            <Activity className="mb-2 h-8 w-8" style={{ color: 'var(--text-tertiary)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No site logs yet.</p>
+            <p className="mt-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>Daily progress entries will appear here as work progresses.</p>
           </div>
-        </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-3">
+            {siteLogs.map(log => (
+              <div key={log.id} className="flex items-start gap-3 rounded-xl p-3" style={{ background: 'var(--surface-muted)' }}>
+                <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(245,158,11,0.12)' }}>
+                  <ClipboardList className="h-4 w-4" style={{ color: '#D97706' }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                    {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </p>
+                  {log.transcript && (
+                    <p className="mt-0.5 line-clamp-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{log.transcript}</p>
+                  )}
+                  {log.progressPct !== null && (
+                    <p className="mt-1 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>{log.progressPct}% complete</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Dialogs ───────────────────────────────────────────────────────── */}
