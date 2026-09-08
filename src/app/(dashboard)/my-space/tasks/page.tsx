@@ -241,6 +241,27 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (id: string, done: 
   );
 }
 
+/* ── Section ────────────────────────────────────────────────────────────── */
+function Section({ title, items, color, onToggle }: {
+  title: string; items: Task[]; color?: string;
+  onToggle: (id: string, done: boolean) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-2"
+        style={{ color: color ?? undefined }}>
+        {title} · {items.length}
+      </p>
+      <div className="space-y-2">
+        {items.map(t => (
+          <TaskRow key={t.id} task={t} onToggle={onToggle} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main page ─────────────────────────────────────────────────────────── */
 export default function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -270,28 +291,11 @@ export default function MyTasksPage() {
     }
   }
 
-  const overdueTasks = tasks.filter(t => !t.completedAt && isOverdue(t.dueAt));
-  const todayTasks   = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && t.dueAt?.slice(0, 10) === new Date().toISOString().slice(0, 10));
-  const upcomingTasks= tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && t.dueAt?.slice(0, 10) !== new Date().toISOString().slice(0, 10));
-  const noDueTasks   = tasks.filter(t => !t.completedAt && !t.dueAt);
-  const doneTasks    = tasks.filter(t => !!t.completedAt);
-
-  function Section({ title, items, color }: { title: string; items: Task[]; color?: string }) {
-    if (items.length === 0) return null;
-    return (
-      <div>
-        <p className="text-[12px] font-semibold text-gray-400 uppercase tracking-wider mb-2"
-          style={{ color: color ?? undefined }}>
-          {title} · {items.length}
-        </p>
-        <div className="space-y-2">
-          {items.map(t => (
-            <TaskRow key={t.id} task={t} onToggle={handleToggle} />
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const overdueTasks  = tasks.filter(t => !t.completedAt && isOverdue(t.dueAt));
+  const todayTasks    = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && t.dueAt?.slice(0, 10) === new Date().toISOString().slice(0, 10));
+  const upcomingTasks = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && t.dueAt?.slice(0, 10) !== new Date().toISOString().slice(0, 10));
+  const noDueTasks    = tasks.filter(t => !t.completedAt && !t.dueAt);
+  const doneTasks     = tasks.filter(t => !!t.completedAt);
 
   return (
     <main className="px-4 sm:px-6 py-6">
@@ -334,22 +338,22 @@ export default function MyTasksPage() {
         </div>
       ) : filter === 'pending' ? (
         <div className="space-y-6">
-          <Section title="Overdue" items={overdueTasks} color="#dc2626" />
-          <Section title="Due Today" items={todayTasks} color="#d97706" />
-          <Section title="Upcoming" items={upcomingTasks} />
-          <Section title="No Due Date" items={noDueTasks} />
+          <Section title="Overdue"     items={overdueTasks}  color="#dc2626" onToggle={handleToggle} />
+          <Section title="Due Today"   items={todayTasks}    color="#d97706" onToggle={handleToggle} />
+          <Section title="Upcoming"    items={upcomingTasks}                 onToggle={handleToggle} />
+          <Section title="No Due Date" items={noDueTasks}                    onToggle={handleToggle} />
         </div>
       ) : (
         <div className="space-y-6">
           {filter === 'all' && (
             <>
-              <Section title="Overdue" items={overdueTasks} color="#dc2626" />
-              <Section title="Due Today" items={todayTasks} color="#d97706" />
-              <Section title="Upcoming" items={upcomingTasks} />
-              <Section title="No Due Date" items={noDueTasks} />
+              <Section title="Overdue"     items={overdueTasks}  color="#dc2626" onToggle={handleToggle} />
+              <Section title="Due Today"   items={todayTasks}    color="#d97706" onToggle={handleToggle} />
+              <Section title="Upcoming"    items={upcomingTasks}                 onToggle={handleToggle} />
+              <Section title="No Due Date" items={noDueTasks}                    onToggle={handleToggle} />
             </>
           )}
-          <Section title="Completed" items={doneTasks} />
+          <Section title="Completed" items={doneTasks} onToggle={handleToggle} />
         </div>
       )}
     </main>

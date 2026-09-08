@@ -715,7 +715,7 @@ function LeaveTab() {
         <div className="py-12 text-center rounded-xl border" style={{ borderColor: 'var(--border)' }}>
           <CalendarCheck size={40} className="mx-auto mb-3 text-gray-200" />
           <p className="text-gray-500 font-medium">No leave requests</p>
-          <p className="text-[13px] text-gray-400 mt-1">Click "Apply for Leave" to submit a request.</p>
+          <p className="text-[13px] text-gray-400 mt-1">Click &ldquo;Apply for Leave&rdquo; to submit a request.</p>
         </div>
       ) : (
         <div className="space-y-3">
