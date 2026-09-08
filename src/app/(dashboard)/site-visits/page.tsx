@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Ruler, Plus, Search, Calendar, MapPin, CheckCircle2,
@@ -53,6 +54,12 @@ interface ScheduleForm {
   scheduledAt: string;
   address: string;
   notes: string;
+}
+
+interface NewRoundForm {
+  leadId: string;
+  roundName: string;
+  scheduledAt: string;
 }
 
 // ─── Status config ────────────────────────────────────────────────────────────
@@ -119,6 +126,7 @@ function FilterChip({ active, onClick, label, count }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SiteVisitsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('visits');
 
   // ── Visit state ──
@@ -134,6 +142,12 @@ export default function SiteVisitsPage() {
   const [form,        setForm]        = useState<ScheduleForm>({ leadId: '', scheduledAt: '', address: '', notes: '' });
   const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // ── New round state ──
+  const [roundOpen,      setRoundOpen]      = useState(false);
+  const [roundForm,      setRoundForm]      = useState<NewRoundForm>({ leadId: '', roundName: 'Round 1', scheduledAt: '' });
+  const [roundSub,       setRoundSub]       = useState(false);
+  const [roundError,     setRoundError]     = useState<string | null>(null);
 
   // ── Measurements state ──
   const [measurements, setMeasurements]     = useState<MeasurementRow[]>([]);
@@ -248,6 +262,33 @@ export default function SiteVisitsPage() {
     }
   }
 
+  async function handleNewRound() {
+    if (!roundForm.leadId)           { setRoundError('Select a lead'); return; }
+    if (!roundForm.roundName.trim()) { setRoundError('Round name is required'); return; }
+    setRoundSub(true);
+    setRoundError(null);
+    try {
+      const body: Record<string, string> = { roundName: roundForm.roundName.trim() };
+      if (roundForm.scheduledAt) body.scheduledAt = new Date(roundForm.scheduledAt).toISOString();
+      const res = await fetch(`/api/v1/leads/${roundForm.leadId}/measurements`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const b = (await res.json()) as { error?: string };
+        setRoundError(typeof b.error === 'string' ? b.error : 'Failed to create round');
+        return;
+      }
+      setRoundOpen(false);
+      setRoundForm({ leadId: '', roundName: 'Round 1', scheduledAt: '' });
+      // Navigate to the lead's measurement page so user can add items immediately
+      router.push(`/leads/${roundForm.leadId}/site-visit`);
+    } catch {
+      setRoundError('Network error — try again');
+    } finally {
+      setRoundSub(false);
+    }
+  }
+
   return (
     <div className="space-y-6 p-6 lg:p-8">
 
@@ -259,13 +300,23 @@ export default function SiteVisitsPage() {
             {loading ? 'Loading…' : `${visits.length} ${visits.length === 1 ? 'visit' : 'visits'} scheduled`}
           </p>
         </div>
-        <button
-          onClick={() => { setSubmitError(null); setDialogOpen(true); }}
-          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-          Schedule visit
-        </button>
+        {activeTab === 'visits' ? (
+          <button
+            onClick={() => { setSubmitError(null); setDialogOpen(true); }}
+            className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+            Schedule visit
+          </button>
+        ) : (
+          <button
+            onClick={() => { setRoundError(null); setRoundOpen(true); }}
+            className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+            New Round
+          </button>
+        )}
       </div>
 
       {/* Tab bar */}
@@ -582,6 +633,72 @@ export default function SiteVisitsPage() {
           )}
         </>
       )}
+
+      {/* New measurement round dialog */}
+      <Dialog open={roundOpen} onOpenChange={setRoundOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>New Measurement Round</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Lead *</label>
+              <select
+                value={roundForm.leadId}
+                onChange={e => setRoundForm(f => ({ ...f, leadId: e.target.value }))}
+                className="studio-input h-9 w-full"
+              >
+                <option value="">Choose a lead…</option>
+                {leads.map(l => (
+                  <option key={l.id} value={l.id}>
+                    {l.contactName || l.id.slice(0, 8)}{l.city ? ` — ${l.city}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Round Name *</label>
+              <input
+                type="text"
+                value={roundForm.roundName}
+                onChange={e => setRoundForm(f => ({ ...f, roundName: e.target.value }))}
+                placeholder="e.g. Round 1, Re-measurement"
+                className="studio-input h-9 w-full"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
+                Scheduled Date <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={roundForm.scheduledAt}
+                onChange={e => setRoundForm(f => ({ ...f, scheduledAt: e.target.value }))}
+                className="studio-input h-9 w-full"
+              />
+            </div>
+            {roundError && <p className="text-[12px] font-medium" style={{ color: '#DC2626' }}>{roundError}</p>}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setRoundOpen(false)}
+              disabled={roundSub}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleNewRound}
+              disabled={roundSub}
+              className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50"
+            >
+              <Ruler className="h-3.5 w-3.5" strokeWidth={2.25} />
+              {roundSub ? 'Creating…' : 'Create & Open'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Schedule visit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
