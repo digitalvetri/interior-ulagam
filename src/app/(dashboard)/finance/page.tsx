@@ -54,6 +54,7 @@ interface VendorPayable {
 
 interface ProjOption { id: string; name: string; customerFullName?: string | null; leadContactName?: string | null }
 interface MilestoneOption { id: string; label: string; amountPaise: number; paymentStatus: string; invoiceId?: string | null }
+interface InvoiceOption { id: string; invoiceNumber: string; subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; paymentStatus: string; }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -421,11 +422,77 @@ function PaymentsTab() {
   const [tallyFrom, setTFrom]   = useState(isoDate(startOfMonth(today)));
   const [tallyTo, setTTo]       = useState(isoDate(today));
 
-  useEffect(() => {
+  // Record Payment modal
+  const [recOpen, setRecOpen]         = useState(false);
+  const [recProjList, setRecProjList] = useState<ProjOption[]>([]);
+  const [recProjLd, setRecProjLd]     = useState(false);
+  const [recProjId, setRecProjId]     = useState('');
+  const [recInvList, setRecInvList]   = useState<InvoiceOption[]>([]);
+  const [recInvLd, setRecInvLd]       = useState(false);
+  const [recInvId, setRecInvId]       = useState('');
+  const [recAmount, setRecAmount]     = useState('');
+  const [recNote, setRecNote]         = useState('');
+  const [recSaving, setRecSaving]     = useState(false);
+  const [recError, setRecError]       = useState<string | null>(null);
+
+  const fetchData = useCallback(() => {
+    setLoading(true);
     fetch('/api/v1/accounts/overview').then(r => r.json())
       .then(res => { setData(res.data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  function openRecPay() {
+    setRecOpen(true); setRecProjId(''); setRecInvList([]); setRecInvId('');
+    setRecAmount(''); setRecNote(''); setRecError(null); setRecProjLd(true);
+    fetch('/api/v1/projects').then(r => r.json())
+      .then(b => setRecProjList(Array.isArray(b.data) ? b.data : (b.data?.rows ?? [])))
+      .catch(() => {})
+      .finally(() => setRecProjLd(false));
+  }
+
+  function handleRecProj(id: string) {
+    setRecProjId(id); setRecInvList([]); setRecInvId(''); setRecAmount('');
+    if (!id) return;
+    setRecInvLd(true);
+    fetch(`/api/v1/invoices?projectId=${id}`).then(r => r.json())
+      .then(b => setRecInvList(
+        ((b.data ?? []) as InvoiceOption[]).filter(inv => inv.paymentStatus !== 'paid')
+      ))
+      .catch(() => {})
+      .finally(() => setRecInvLd(false));
+  }
+
+  function handleRecInv(id: string) {
+    setRecInvId(id);
+    const inv = recInvList.find(x => x.id === id);
+    if (inv) {
+      const total = inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
+      setRecAmount(String(total / 100));
+    } else { setRecAmount(''); }
+  }
+
+  async function submitRecPay() {
+    setRecError(null);
+    if (!recInvId) { setRecError('Please select an invoice'); return; }
+    const amtPaise = Math.round(parseFloat(recAmount || '0') * 100);
+    if (amtPaise <= 0) { setRecError('Enter a valid amount'); return; }
+    if (!recNote.trim()) { setRecError('Reference / note is required'); return; }
+    setRecSaving(true);
+    try {
+      const res = await fetch(`/api/v1/invoices/${recInvId}/payments`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ amountPaise: amtPaise, note: recNote.trim() }),
+      });
+      const body = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? 'Failed');
+      setRecOpen(false); fetchData();
+    } catch (e) {
+      setRecError(e instanceof Error ? e.message : 'Failed');
+    } finally { setRecSaving(false); }
+  }
 
   async function dlExport(url: string, filename: string) {
     setExErr(null);
@@ -479,6 +546,79 @@ function PaymentsTab() {
   const k = data.kpis;
   return (
     <div className="space-y-5">
+      {/* Record Payment modal */}
+      {recOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !recSaving && setRecOpen(false)} />
+          <div className="relative mx-4 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Payment</h2>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>Log a manual payment received outside Razorpay</p>
+              </div>
+              <button onClick={() => !recSaving && setRecOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--surface-muted)]"
+                style={{ color: 'var(--text-secondary)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 p-6">
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Project *</label>
+                {recProjLd ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : (
+                  <select value={recProjId} onChange={e => handleRecProj(e.target.value)} className={inputCls}>
+                    <option value="">Select a project…</option>
+                    {recProjList.map(p => {
+                      const c = p.customerFullName ?? p.leadContactName ?? null;
+                      return <option key={p.id} value={p.id}>{p.name}{c ? ` — ${c}` : ''}</option>;
+                    })}
+                  </select>
+                )}
+              </div>
+              {recProjId && (
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Invoice *</label>
+                  {recInvLd ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : recInvList.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No unpaid invoices for this project.</p>
+                  ) : (
+                    <select value={recInvId} onChange={e => handleRecInv(e.target.value)} className={inputCls}>
+                      <option value="">Select an invoice…</option>
+                      {recInvList.map(inv => {
+                        const total = inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
+                        return <option key={inv.id} value={inv.id}>{inv.invoiceNumber} — {formatRupees(total)}</option>;
+                      })}
+                    </select>
+                  )}
+                </div>
+              )}
+              {recInvId && (
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount received (₹) *</label>
+                  <input type="number" min="0.01" step="0.01" value={recAmount}
+                    onChange={e => setRecAmount(e.target.value)} className={inputCls} placeholder="e.g. 57330" />
+                </div>
+              )}
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Reference / note *</label>
+                <input type="text" value={recNote} onChange={e => setRecNote(e.target.value)}
+                  className={inputCls} placeholder="UTR / cheque no. / cash receipt details" />
+              </div>
+              {recError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{recError}</p>}
+            </div>
+            <div className="flex items-center justify-between border-t px-6 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
+              <button onClick={() => !recSaving && setRecOpen(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)]"
+                style={{ color: 'var(--text-secondary)' }}>Cancel</button>
+              <button onClick={submitRecPay} disabled={recSaving || !recInvId}
+                className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
+                {recSaving ? 'Saving…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Record Payment</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard label="Outstanding"      value={formatRupees(k.outstandingPaise)}      icon={Wallet}     iconBg="#FEF3CD" iconColor="#D97706" sub={`${k.openReceivableCount} to collect`} />
@@ -487,12 +627,17 @@ function PaymentsTab() {
         <StatCard label="Collected · Total" value={formatRupees(k.collectedAllTimePaise)} icon={HandCoins} iconBg="#DBEAFE" iconColor="#2563EB" sub={`${k.collectedAllTimeCount} transactions`} />
       </div>
 
-      {/* Search */}
-      <div className="relative w-full max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-        <input type="text" placeholder="Search project, client…" value={search} onChange={e => setSearch(e.target.value)}
-          className="h-9 w-full rounded-xl border bg-[var(--surface-card)] pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
-          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
+      {/* Search + action */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
+          <input type="text" placeholder="Search project, client…" value={search} onChange={e => setSearch(e.target.value)}
+            className="h-9 w-full rounded-xl border bg-[var(--surface-card)] pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
+        </div>
+        <button onClick={openRecPay} className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px] shrink-0">
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />Record Payment
+        </button>
       </div>
 
       {/* Receivables */}
@@ -635,29 +780,168 @@ function ExpensesTab() {
   const [loading, setLoading] = useState(true);
   const [catFilter, setCat]   = useState('');
 
-  useEffect(() => {
+  // Log Expense modal
+  const [logOpen, setLogOpen]         = useState(false);
+  const [logProjList, setLogProjList] = useState<ProjOption[]>([]);
+  const [logProjLd, setLogProjLd]     = useState(false);
+  const [logProjId, setLogProjId]     = useState('');
+  const [logCat, setLogCat]           = useState<(typeof EXP_CATEGORIES)[number]>('other');
+  const [logVendor, setLogVendor]     = useState('');
+  const [logAmount, setLogAmount]     = useState('');
+  const [logGstPct, setLogGstPct]     = useState(0);
+  const [logDesc, setLogDesc]         = useState('');
+  const [logSaving, setLogSaving]     = useState(false);
+  const [logError, setLogError]       = useState<string | null>(null);
+
+  const fetchExpenses = useCallback(() => {
+    setLoading(true);
     fetch('/api/v1/expenses').then(r => r.json())
       .then(b => setRows((b.data ?? []) as ExpenseRow[]))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+
+  function openLogExp() {
+    setLogOpen(true); setLogProjId(''); setLogCat('other'); setLogVendor('');
+    setLogAmount(''); setLogGstPct(0); setLogDesc(''); setLogError(null); setLogProjLd(true);
+    fetch('/api/v1/projects').then(r => r.json())
+      .then(b => setLogProjList(Array.isArray(b.data) ? b.data : (b.data?.rows ?? [])))
+      .catch(() => {})
+      .finally(() => setLogProjLd(false));
+  }
+
+  async function submitLogExp() {
+    setLogError(null);
+    if (!logProjId) { setLogError('Please select a project'); return; }
+    const amtPaise = Math.round(parseFloat(logAmount || '0') * 100);
+    if (amtPaise <= 0) { setLogError('Enter a valid amount'); return; }
+    const gstAmtPaise = logGstPct > 0 ? Math.round(amtPaise * logGstPct / (100 + logGstPct)) : 0;
+    setLogSaving(true);
+    try {
+      const res = await fetch('/api/v1/expenses', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          projectId: logProjId, category: logCat,
+          amountPaise: amtPaise, gstPct: logGstPct, gstAmountPaise: gstAmtPaise,
+          description: logDesc.trim() || undefined,
+          vendorName: logVendor.trim() || undefined,
+        }),
+      });
+      const body = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(body.error ?? 'Failed');
+      setLogOpen(false); fetchExpenses();
+    } catch (e) {
+      setLogError(e instanceof Error ? e.message : 'Failed');
+    } finally { setLogSaving(false); }
+  }
+
   const filtered = catFilter ? rows.filter(r => r.category === catFilter) : rows;
   const totalPaise = filtered.reduce((s, r) => s + r.amountPaise, 0);
 
   return (
     <div className="space-y-5">
+      {/* Log Expense modal */}
+      {logOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !logSaving && setLogOpen(false)} />
+          <div className="relative mx-4 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div>
+                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Log Expense</h2>
+                <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>Record a project expense or overhead</p>
+              </div>
+              <button onClick={() => !logSaving && setLogOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--surface-muted)]"
+                style={{ color: 'var(--text-secondary)' }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4 p-6">
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Project *</label>
+                {logProjLd ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : (
+                  <select value={logProjId} onChange={e => setLogProjId(e.target.value)} className={inputCls}>
+                    <option value="">Select a project…</option>
+                    {logProjList.map(p => {
+                      const c = p.customerFullName ?? p.leadContactName ?? null;
+                      return <option key={p.id} value={p.id}>{p.name}{c ? ` — ${c}` : ''}</option>;
+                    })}
+                  </select>
+                )}
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Category *</label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {EXP_CATEGORIES.map(c => (
+                    <button key={c} type="button" onClick={() => setLogCat(c)}
+                      className="rounded-full border px-3 py-1 text-xs font-semibold transition-all"
+                      style={{
+                        borderColor: logCat === c ? 'var(--accent-base)' : 'var(--border-subtle)',
+                        background:  logCat === c ? 'var(--accent-soft)' : 'var(--surface-card)',
+                        color:       logCat === c ? 'var(--accent-base)' : 'var(--text-secondary)',
+                      }}>
+                      {EXP_LABEL[c]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount incl. GST (₹) *</label>
+                  <input type="number" min="0.01" step="0.01" value={logAmount}
+                    onChange={e => setLogAmount(e.target.value)} className={inputCls} placeholder="e.g. 5000" />
+                </div>
+                <div>
+                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>GST rate</label>
+                  <select value={logGstPct} onChange={e => setLogGstPct(Number(e.target.value))} className={inputCls}>
+                    {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Vendor / paid to</label>
+                <input type="text" value={logVendor} onChange={e => setLogVendor(e.target.value)}
+                  className={inputCls} placeholder="Vendor name or payee" />
+              </div>
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Description</label>
+                <input type="text" value={logDesc} onChange={e => setLogDesc(e.target.value)}
+                  className={inputCls} placeholder="Brief description of the expense" />
+              </div>
+              {logError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{logError}</p>}
+            </div>
+            <div className="flex items-center justify-between border-t px-6 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
+              <button onClick={() => !logSaving && setLogOpen(false)}
+                className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)]"
+                style={{ color: 'var(--text-secondary)' }}>Cancel</button>
+              <button onClick={submitLogExp} disabled={logSaving || !logProjId}
+                className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
+                {logSaving ? 'Saving…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Log Expense</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="grid grid-cols-2 gap-4">
           <StatCard label="Total expenses" value={formatRupees(totalPaise)} icon={Receipt} iconBg="#FEF3CD" iconColor="#D97706" />
           <StatCard label="Entries" value={String(filtered.length)} icon={FileText} iconBg="var(--surface-muted)" iconColor="var(--text-tertiary)" />
         </div>
-        <select value={catFilter} onChange={e => setCat(e.target.value)}
-          className="h-9 rounded-xl border px-3 text-sm outline-none"
-          style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)' }}>
-          <option value="">All categories</option>
-          {EXP_CATEGORIES.map(c => <option key={c} value={c}>{EXP_LABEL[c]}</option>)}
-        </select>
+        <div className="flex items-center gap-3">
+          <select value={catFilter} onChange={e => setCat(e.target.value)}
+            className="h-9 rounded-xl border px-3 text-sm outline-none"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)' }}>
+            <option value="">All categories</option>
+            {EXP_CATEGORIES.map(c => <option key={c} value={c}>{EXP_LABEL[c]}</option>)}
+          </select>
+          <button onClick={openLogExp} className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px] shrink-0">
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />Add Expense
+          </button>
+        </div>
       </div>
 
       {loading ? (
