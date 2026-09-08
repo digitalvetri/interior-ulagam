@@ -575,8 +575,40 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-[var(--text-secondary)]">Loading project…</p>
+      <div className="animate-pulse space-y-4 px-6 py-6 pb-10">
+        <div className="premium-card overflow-hidden" style={{ borderTop: '4px solid var(--border-subtle)' }}>
+          <div className="space-y-4 p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex gap-2">
+                <div className="h-4 w-28 rounded bg-[var(--surface-muted)]" />
+                <div className="h-4 w-20 rounded bg-[var(--surface-muted)]" />
+              </div>
+              <div className="flex gap-2">
+                <div className="h-7 w-24 rounded-lg bg-[var(--surface-muted)]" />
+                <div className="h-7 w-16 rounded-lg bg-[var(--surface-muted)]" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[0, 1, 2, 3].map(i => <div key={i} className="h-16 rounded-xl bg-[var(--surface-muted)]" />)}
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-[var(--surface-muted)]" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {[0, 1, 2, 3].map(i => <div key={i} className="h-8 w-28 rounded-lg bg-[var(--surface-muted)]" />)}
+        </div>
+        <div className="premium-card space-y-3 p-5">
+          <div className="h-4 w-36 rounded bg-[var(--surface-muted)]" />
+          <div className="h-10 w-full rounded bg-[var(--surface-muted)]" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="premium-card p-5 lg:col-span-3" style={{ minHeight: 180 }}>
+            <div className="h-4 w-28 rounded bg-[var(--surface-muted)]" />
+          </div>
+          <div className="premium-card p-5 lg:col-span-2" style={{ minHeight: 180 }}>
+            <div className="h-4 w-36 rounded bg-[var(--surface-muted)]" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -617,36 +649,14 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
   const burnPct       = costData?.burnPct ?? 0;
   const paidCount     = milestones.filter(m => m.paymentStatus === 'paid').length;
   const customerName  = project.customerFullName ?? project.leadContactName ?? 'Unknown Customer';
-  const palette       = customerPalette(customerName);
-
+  const palette        = customerPalette(customerName);
+  const collectedPaise = milestones.filter(m => m.paymentStatus === 'paid').reduce((s, m) => s + m.amountPaise, 0);
+  const collectionPct  = project.totalContractPaise && project.totalContractPaise > 0
+    ? Math.min(100, Math.round((collectedPaise / project.totalContractPaise) * 100))
+    : null;
 
   return (
     <div className="space-y-4 px-6 py-6 pb-10">
-
-      {/* ── Linked to (lead / customer quick nav) ─────────────────────────── */}
-      {(project.leadId || project.customerId) && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Linked to:</span>
-          {project.leadId && (
-            <Link
-              href={`/leads/${project.leadId}`}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
-              style={{ background: 'rgba(245,158,11,0.12)', color: 'var(--warning-text)', border: '1px solid rgba(245,158,11,0.3)' }}
-            >
-              Lead{project.leadContactName ? ` · ${project.leadContactName}` : ''}
-            </Link>
-          )}
-          {project.customerId && (
-            <Link
-              href={`/customers/${project.customerId}`}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
-              style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--success-text)', border: '1px solid rgba(16,185,129,0.3)' }}
-            >
-              Customer{project.customerFullName ? ` · ${project.customerFullName}` : ''}
-            </Link>
-          )}
-        </div>
-      )}
 
       {/* ── Hero Card ─────────────────────────────────────────────────────── */}
       <div
@@ -712,6 +722,30 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
+          {/* Linked records */}
+          {(project.leadId || project.customerId) && (
+            <div className="mb-4 flex flex-wrap items-center gap-1.5">
+              {project.leadId && (
+                <Link
+                  href={`/leads/${project.leadId}`}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                  style={{ background: 'rgba(245,158,11,0.10)', color: 'var(--warning-text)', border: '1px solid rgba(245,158,11,0.25)' }}
+                >
+                  Lead{project.leadContactName ? ` · ${project.leadContactName}` : ''}
+                </Link>
+              )}
+              {project.customerId && (
+                <Link
+                  href={`/customers/${project.customerId}`}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                  style={{ background: 'rgba(16,185,129,0.10)', color: 'var(--success-text)', border: '1px solid rgba(16,185,129,0.25)' }}
+                >
+                  Client{project.customerFullName ? ` · ${project.customerFullName}` : ''}
+                </Link>
+              )}
+            </div>
+          )}
+
           {/* Finance strip */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl bg-[var(--surface-muted)] p-3">
@@ -769,6 +803,42 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
             );
           })()}
         </div>
+      </div>
+
+      {/* ── Quick Actions ─────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/projects/${id}/site`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <ClipboardList className="h-3.5 w-3.5" style={{ color: '#D97706' }} />
+          Log Site Visit
+        </Link>
+        <Link
+          href={`/projects/${id}/expenses`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <Receipt className="h-3.5 w-3.5" style={{ color: '#E11D48' }} />
+          Add Expense
+        </Link>
+        <Link
+          href={`/projects/${id}/payments`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <CreditCard className="h-3.5 w-3.5" style={{ color: '#16A34A' }} />
+          Payments
+        </Link>
+        <Link
+          href={`/projects/${id}/snag`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <Bug className="h-3.5 w-3.5" style={{ color: '#EA580C' }} />
+          Snag List
+        </Link>
       </div>
 
       {/* ── Project Journey ────────────────────────────────────────────────── */}
@@ -832,6 +902,27 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               View All →
             </Link>
           </div>
+
+          {milestones.length > 0 && project.totalContractPaise && project.totalContractPaise > 0 && (
+            <div className="mb-3 rounded-xl px-3 py-2.5" style={{ background: 'var(--surface-muted)' }}>
+              <div className="mb-1.5 flex items-center justify-between text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                <span>Payment collected</span>
+                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {formatRupees(collectedPaise)} / {formatRupees(project.totalContractPaise)}
+                  {collectionPct !== null && ` (${collectionPct}%)`}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--surface-hover)' }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${collectionPct ?? 0}%`,
+                    background: collectionPct === 100 ? 'var(--success)' : 'var(--accent-base)',
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           {milestones.length === 0 ? (
             <div className="flex flex-col items-center py-8 text-center">
@@ -999,25 +1090,35 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         {siteLogs.length === 0 ? (
           <div className="flex flex-col items-center py-6 text-center">
             <Activity className="mb-2 h-8 w-8" style={{ color: 'var(--text-tertiary)' }} />
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No site logs yet.</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No site logs yet.</p>
             <p className="mt-1 text-xs" style={{ color: 'var(--text-tertiary)' }}>Daily progress entries will appear here as work progresses.</p>
+            <Link
+              href={`/projects/${id}/site`}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              Log Today&apos;s Progress
+            </Link>
           </div>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="divide-y divide-[var(--border-subtle)]">
             {siteLogs.map(log => (
-              <div key={log.id} className="flex items-start gap-3 rounded-xl p-3" style={{ background: 'var(--surface-muted)' }}>
+              <div key={log.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(245,158,11,0.12)' }}>
                   <ClipboardList className="h-4 w-4" style={{ color: '#D97706' }} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-                    {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </p>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                      {new Date(log.logDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </p>
+                    {log.progressPct !== null && (
+                      <span className="shrink-0 text-xs font-semibold" style={{ color: 'var(--success-text)' }}>{log.progressPct}%</span>
+                    )}
+                  </div>
                   {log.transcript && (
-                    <p className="mt-0.5 line-clamp-2 text-xs" style={{ color: 'var(--text-secondary)' }}>{log.transcript}</p>
-                  )}
-                  {log.progressPct !== null && (
-                    <p className="mt-1 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>{log.progressPct}% complete</p>
+                    <p className="mt-0.5 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{log.transcript}</p>
                   )}
                 </div>
               </div>
