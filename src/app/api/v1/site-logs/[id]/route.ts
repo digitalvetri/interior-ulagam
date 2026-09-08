@@ -6,11 +6,13 @@ import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
 const PatchSiteLogSchema = z.object({
-  progressPct: z.number().int().min(0).max(100).optional(),
-  delayFlag: z.boolean().optional(),
-  transcript: z.string().optional(),
+  logDate:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  stage:       z.string().nullable().optional(),
+  progressPct: z.number().int().min(0).max(100).nullable().optional(),
+  delayFlag:   z.boolean().optional(),
+  transcript:  z.string().nullable().optional(),
   aiParsedJson: z.unknown().optional(),
-  labourCount: z.number().int().nonnegative().optional(),
+  labourCount: z.number().int().nonnegative().nullable().optional(),
   blockersJson: z.unknown().optional(),
 }).strict();
 
@@ -113,11 +115,13 @@ export async function PATCH(
 
     // Build update payload — only include fields that were provided
     const updatePayload: Record<string, unknown> = {};
-    if (input.progressPct !== undefined) updatePayload.progressPct = input.progressPct;
-    if (input.delayFlag !== undefined) updatePayload.delayFlag = input.delayFlag;
-    if (input.transcript !== undefined) updatePayload.transcript = input.transcript;
+    if (input.logDate      !== undefined) updatePayload.logDate      = input.logDate;
+    if (input.stage        !== undefined) updatePayload.stage        = input.stage;
+    if (input.progressPct  !== undefined) updatePayload.progressPct  = input.progressPct;
+    if (input.delayFlag    !== undefined) updatePayload.delayFlag    = input.delayFlag;
+    if (input.transcript   !== undefined) updatePayload.transcript   = input.transcript;
     if (input.aiParsedJson !== undefined) updatePayload.aiParsedJson = input.aiParsedJson;
-    if (input.labourCount !== undefined) updatePayload.labourCount = input.labourCount;
+    if (input.labourCount  !== undefined) updatePayload.labourCount  = input.labourCount;
     if (input.blockersJson !== undefined) updatePayload.blockersJson = input.blockersJson;
 
     const [updated] = await db
@@ -134,6 +138,38 @@ export async function PATCH(
     return NextResponse.json({ data: updated });
   } catch (err) {
     console.error('[site-logs/:id PATCH]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext();
+  if (!ctx) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    // Verify tenant ownership via JOIN before deleting
+    const [existing] = await db
+      .select({ id: siteLogs.id })
+      .from(siteLogs)
+      .innerJoin(projects, eq(siteLogs.projectId, projects.id))
+      .where(and(eq(siteLogs.id, id), eq(projects.tenantId, ctx.tenantId)));
+
+    if (!existing) {
+      return NextResponse.json({ error: 'Site log not found' }, { status: 404 });
+    }
+
+    await db.delete(siteLogs).where(eq(siteLogs.id, id));
+
+    return NextResponse.json({ message: 'Deleted' });
+  } catch (err) {
+    console.error('[site-logs/:id DELETE]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
