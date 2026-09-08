@@ -10,6 +10,7 @@ import {
   jsonb,
   pgEnum,
   date,
+  decimal,
   index,
 } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
@@ -911,6 +912,9 @@ export const attendanceRecords = pgTable('attendance_records', {
   status: attendanceStatusEnum('status').notNull().default('present'),
   checkInAt: timestamp('check_in_at', { withTimezone: true }),
   checkOutAt: timestamp('check_out_at', { withTimezone: true }),
+  checkInLatitude: decimal('check_in_latitude', { precision: 10, scale: 7 }),
+  checkInLongitude: decimal('check_in_longitude', { precision: 10, scale: 7 }),
+  checkInAddress: text('check_in_address'),
   notes: text('notes'),
   markedBy: uuid('marked_by').references(() => users.id),
   ...timestamps,

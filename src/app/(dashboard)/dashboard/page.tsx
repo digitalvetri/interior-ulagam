@@ -5,7 +5,7 @@ import {
   Users, FolderKanban, IndianRupee,
   Plus, Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
   Calendar, MapPin, FileText, Home, PhoneCall,
-  CheckSquare, Truck,
+  CheckSquare, Truck, CalendarCheck,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -252,6 +252,136 @@ function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[];
               </Link>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Team check-ins widget (owner only) ─────────────────────────────────── */
+interface TeamCheckIn {
+  id: string;
+  userId: string;
+  status: string;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  checkInLatitude: string | null;
+  checkInLongitude: string | null;
+  checkInAddress: string | null;
+  user: { fullName: string; role: string; jobTitle: string | null; photoUrl: string | null } | null;
+}
+function TeamCheckInsWidget() {
+  const [checkIns, setCheckIns] = useState<TeamCheckIn[]>([]);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    fetch('/api/v1/me/team-checkins')
+      .then(r => r.json())
+      .then(j => setCheckIns(j.data ?? []))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const checkedIn  = checkIns.filter(r => r.checkInAt && !r.checkOutAt);
+  const checkedOut = checkIns.filter(r => r.checkInAt && r.checkOutAt);
+  const absent     = checkIns.filter(r => r.status === 'absent');
+
+  function Avatar({ user, size = 32 }: { user: TeamCheckIn['user']; size?: number }) {
+    const initials = (user?.fullName ?? '??').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+    if (user?.photoUrl) {
+      return <img src={user.photoUrl} alt={user.fullName} className="rounded-full object-cover flex-shrink-0"
+        style={{ width: size, height: size }} />;
+    }
+    return (
+      <div className="rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold"
+        style={{ width: size, height: size, fontSize: size * 0.35, background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 100%)' }}>
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <div className="premium-card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CalendarCheck className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+          <h3 className="section-title">Team Check-ins Today</h3>
+          {checkedIn.length > 0 && (
+            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
+              style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
+              {checkedIn.length} in
+            </span>
+          )}
+        </div>
+        <Link href="/attendance" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+          Full view →
+        </Link>
+      </div>
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-12 rounded-xl" />)}
+        </div>
+      ) : checkIns.length === 0 ? (
+        <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
+          style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
+          <CalendarCheck className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No one has checked in yet</p>
+        </div>
+      ) : (
+        <div>
+          {checkedIn.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--success-text)' }}>
+                Active · {checkedIn.length}
+              </p>
+              <div className="space-y-1.5">
+                {checkedIn.map(r => (
+                  <div key={r.id} className="flex items-center gap-3 rounded-xl px-3 py-2"
+                    style={{ background: 'var(--success-soft)' }}>
+                    <Avatar user={r.user} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                        {r.user?.fullName ?? 'Unknown'}
+                      </p>
+                      <p className="text-[11px]" style={{ color: 'var(--success-text)' }}>
+                        In at {new Date(r.checkInAt!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        {r.checkInAddress && ` · ${r.checkInAddress.slice(0, 30)}`}
+                        {r.checkInLatitude && !r.checkInAddress && ' · GPS captured'}
+                      </p>
+                    </div>
+                    <span className="h-2 w-2 rounded-full bg-green-400 flex-shrink-0" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {checkedOut.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                Checked Out · {checkedOut.length}
+              </p>
+              <div className="space-y-1.5">
+                {checkedOut.map(r => {
+                  const ms = new Date(r.checkOutAt!).getTime() - new Date(r.checkInAt!).getTime();
+                  const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000);
+                  return (
+                    <div key={r.id} className="flex items-center gap-3 rounded-xl px-3 py-2"
+                      style={{ backgroundColor: 'var(--surface-muted)' }}>
+                      <Avatar user={r.user} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                          {r.user?.fullName ?? 'Unknown'}
+                        </p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          {h}h {m}m worked
+                        </p>
+                      </div>
+                      <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -537,6 +667,9 @@ export default function DashboardPage() {
             icon={IndianRupee} accent="green" loading={loading} sparkline={trendData} href="/finance"
           />
         </div>
+
+        {/* Team Check-ins */}
+        <TeamCheckInsWidget />
 
         {/* Today's Site Visits */}
         <TodayVisitsWidget todayVisits={todayVisits} loading={loading} />

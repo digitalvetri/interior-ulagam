@@ -13,6 +13,9 @@ import {
   Settings,
   BarChart3,
   CalendarCheck,
+  Home,
+  CheckSquare,
+  UserCircle,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -30,14 +33,16 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-const ALL_ROLES     = ['admin', 'employee', 'owner', 'designer', 'supervisor', 'accountant'];
-const ADMIN_ROLES   = ['admin', 'owner'];
-const FINANCE_ROLES = ['admin', 'owner', 'accountant'];
-const DESIGN_ROLES  = ['admin', 'owner', 'designer', 'employee'];
-const FIELD_ROLES   = ['admin', 'owner', 'designer', 'employee', 'supervisor'];
-const SITE_ROLES    = ['admin', 'owner', 'designer', 'supervisor'];
+const ALL_ROLES      = ['admin', 'employee', 'owner', 'designer', 'supervisor', 'accountant'];
+const ADMIN_ROLES    = ['admin', 'owner'];
+const FINANCE_ROLES  = ['admin', 'owner', 'accountant'];
+const DESIGN_ROLES   = ['admin', 'owner', 'designer', 'employee'];
+const FIELD_ROLES    = ['admin', 'owner', 'designer', 'employee', 'supervisor'];
+const SITE_ROLES     = ['admin', 'owner', 'designer', 'supervisor'];
 // Procurement: designers track material costs; accountants track payments
-const PROC_ROLES    = ['admin', 'owner', 'designer', 'accountant'];
+const PROC_ROLES     = ['admin', 'owner', 'designer', 'accountant'];
+// My Space: self-service for all non-owner staff
+const MY_SPACE_ROLES = ['employee', 'designer', 'supervisor', 'accountant'];
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -46,6 +51,17 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ALL_ROLES,
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
+    ],
+  },
+  {
+    key: 'my-space',
+    label: 'My Space',
+    roles: MY_SPACE_ROLES,
+    items: [
+      { href: '/my-space',            label: 'My Dashboard',     icon: Home,         roles: MY_SPACE_ROLES },
+      { href: '/my-space/tasks',      label: 'My Tasks',         icon: CheckSquare,  roles: MY_SPACE_ROLES },
+      { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: MY_SPACE_ROLES },
+      { href: '/my-space/profile',    label: 'My Profile',       icon: UserCircle,   roles: MY_SPACE_ROLES },
     ],
   },
   {
