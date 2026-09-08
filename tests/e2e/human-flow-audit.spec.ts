@@ -101,7 +101,9 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('02 — Dashboard loads all widgets', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
-    await page.waitForLoadState('domcontentloaded', { timeout: 20000 });
+    await page.goto(`${BASE}/dashboard`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2500);
     await ss(page, '02-dashboard-full');
 
     // Check KPI cards exist
@@ -143,26 +145,28 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     const newCustomerBtn = page.locator('button', { hasText: /new customer/i }).first();
     if (await newCustomerBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await newCustomerBtn.click();
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(600);  // allow dialog animation to complete
     }
     await ss(page, '03-new-lead-form-shown');
 
-    // Fill the form using the input IDs from NewLeadDialog
-    const nameInput = page.locator('#contactName, input[placeholder*="Priya" i]').first();
+    // Fill using getByLabel for reliability — matches the <Label htmlFor=...> associations
+    const nameInput = page.getByLabel(/customer name/i).first();
     if (await nameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
       await nameInput.fill(CLIENT.name);
     } else {
       console.warn('  ⚠️  Name input not found');
     }
 
-    const phoneInput = page.locator('#contactPhone, input[type="tel"]').first();
-    if (await phoneInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+    const phoneInput = page.getByLabel(/mobile number|phone/i).first();
+    if (await phoneInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await phoneInput.fill(CLIENT.phone);
+    } else {
+      console.warn('  ⚠️  Phone input not found');
     }
 
-    // City
-    const cityInput = page.locator('#contactCity, input[placeholder*="city" i]').first();
-    if (await cityInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+    // City — label is "City"
+    const cityInput = page.getByLabel(/^city$/i).first();
+    if (await cityInput.isVisible({ timeout: 2000 }).catch(() => false)) {
       await cityInput.fill(CLIENT.city);
     }
 
@@ -196,6 +200,8 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     await page.waitForURL(/\/leads\/[a-zA-Z0-9-]+/, { timeout: 15000 });
     leadId = page.url().split('/leads/')[1]!.split('?')[0]!;
     await page.waitForLoadState('domcontentloaded');
+    // Wait for React hydration + API response to render the client name
+    await page.waitForTimeout(2500);
     await ss(page, '03-lead-detail-created');
 
     const detailText = await page.innerText('body');
@@ -211,35 +217,44 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('04 — Lead detail tabs + contact info', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
-    // Get the most recent lead
-    const resp = await page.request.get(`${BASE}/api/v1/leads`);
-    const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
-    const rajesh = leads?.find(l => l.contactName === CLIENT.name);
-    if (!rajesh) {
-      test.skip(true, 'Could not find the test lead — run test 03 first');
-      return;
+    // Use leadId captured in test 03 if available; otherwise search by name
+    if (!leadId) {
+      const resp = await page.request.get(`${BASE}/api/v1/leads`);
+      const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
+      const rajesh = leads?.find(l => l.contactName === CLIENT.name);
+      if (!rajesh) {
+        test.skip(true, 'Could not find the test lead — run test 03 first');
+        return;
+      }
+      leadId = rajesh.id;
     }
-    leadId = rajesh.id;
 
     await page.goto(`${BASE}/leads/${leadId}`);
     await page.waitForLoadState('domcontentloaded');
+    // Wait for React to hydrate and API data to render
+    await page.waitForTimeout(2500);
     await ss(page, '04-lead-detail');
 
     const bodyText = await page.innerText('body');
     // Check contact info
+    const apiLeadResp = await page.request.get(`${BASE}/api/v1/leads/${leadId}`);
+    const { data: apiLead } = await apiLeadResp.json() as { data: { stage: string; contactPhone: string } };
+    console.log(`  Lead stage (API): ${apiLead?.stage}`);
+    console.log(`  Phone in DB: ${apiLead?.contactPhone}`);
     console.log(`  Phone visible: ${bodyText.includes(CLIENT.phone)}`);
     console.log(`  Name visible: ${bodyText.includes(CLIENT.name)}`);
 
-    // Check action buttons
-    const siteVisitBtn = page.locator('button', { hasText: /site visit/i });
-    const followUpBtn  = page.locator('button', { hasText: /follow.up/i });
-    const wonBtn       = page.locator('button', { hasText: /^won$/i });
-    const lostBtn      = page.locator('button', { hasText: /^lost$/i });
+    // Check action buttons using getByRole — accessibility tree excludes lg:hidden elements,
+    // preventing false negatives from the mobile footer's duplicate buttons
+    const siteVisitBtn = page.getByRole('button', { name: /^site visit$/i }).first();
+    const followUpBtn  = page.getByRole('button', { name: /^follow.up$/i }).first();
+    const wonBtn       = page.getByRole('button', { name: /^won$/i }).first();
+    const lostBtn      = page.getByRole('button', { name: /^lost$/i }).first();
 
-    const hasSiteVisitBtn = await siteVisitBtn.isVisible().catch(() => false);
-    const hasFollowUpBtn  = await followUpBtn.isVisible().catch(() => false);
-    const hasWonBtn       = await wonBtn.isVisible().catch(() => false);
-    const hasLostBtn      = await lostBtn.isVisible().catch(() => false);
+    const hasSiteVisitBtn = await siteVisitBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasFollowUpBtn  = await followUpBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasWonBtn       = await wonBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasLostBtn      = await lostBtn.isVisible({ timeout: 2000 }).catch(() => false);
 
     console.log(`  "Site Visit" button: ${hasSiteVisitBtn}`);
     console.log(`  "Follow-up" button: ${hasFollowUpBtn}`);
@@ -249,11 +264,11 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     if (!hasSiteVisitBtn) console.warn('  ⚠️ BUG — Site Visit button missing from lead detail action bar');
     if (!hasWonBtn)       console.warn('  ⚠️ BUG — Won button missing from lead detail');
 
-    // Check tabs
+    // Check tabs — use exact text to avoid ambiguity
     const tabs = ['Site Visits', 'Measurements', 'All Quotations'];
     for (const tab of tabs) {
-      const tabEl = page.locator('button', { hasText: tab });
-      const vis = await tabEl.isVisible().catch(() => false);
+      const tabEl = page.locator(`button:has-text("${tab}")`).first();
+      const vis = await tabEl.isVisible({ timeout: 2000 }).catch(() => false);
       console.log(`  Tab "${tab}": ${vis ? '✓' : '✗ MISSING'}`);
     }
 
@@ -264,11 +279,13 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('05 — Schedule site visit from lead', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
-    const resp = await page.request.get(`${BASE}/api/v1/leads`);
-    const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
-    const rajesh = leads?.find(l => l.contactName === CLIENT.name);
-    if (!rajesh) { test.skip(true, 'Test lead not found'); return; }
-    leadId = rajesh.id;
+    if (!leadId) {
+      const resp = await page.request.get(`${BASE}/api/v1/leads`);
+      const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
+      const rajesh = leads?.find(l => l.contactName === CLIENT.name);
+      if (!rajesh) { test.skip(true, 'Test lead not found'); return; }
+      leadId = rajesh.id;
+    }
 
     await page.goto(`${BASE}/leads/${leadId}`);
     await page.waitForLoadState('domcontentloaded');
@@ -322,11 +339,13 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('06 — Add measurement round with rooms', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
-    const resp = await page.request.get(`${BASE}/api/v1/leads`);
-    const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
-    const rajesh = leads?.find(l => l.contactName === CLIENT.name);
-    if (!rajesh) { test.skip(true, 'Test lead not found'); return; }
-    leadId = rajesh.id;
+    if (!leadId) {
+      const resp = await page.request.get(`${BASE}/api/v1/leads`);
+      const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
+      const rajesh = leads?.find(l => l.contactName === CLIENT.name);
+      if (!rajesh) { test.skip(true, 'Test lead not found'); return; }
+      leadId = rajesh.id;
+    }
 
     await page.goto(`${BASE}/leads/${leadId}`);
     await page.waitForLoadState('domcontentloaded');
@@ -404,11 +423,13 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('07 — Create quote with line items and verify GST calculation', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
-    const resp = await page.request.get(`${BASE}/api/v1/leads`);
-    const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
-    const rajesh = leads?.find(l => l.contactName === CLIENT.name);
-    if (!rajesh) { test.skip(true, 'Test lead not found'); return; }
-    leadId = rajesh.id;
+    if (!leadId) {
+      const resp = await page.request.get(`${BASE}/api/v1/leads`);
+      const { data: leads } = await resp.json() as { data: { id: string; contactName: string }[] };
+      const rajesh = leads?.find(l => l.contactName === CLIENT.name);
+      if (!rajesh) { test.skip(true, 'Test lead not found'); return; }
+      leadId = rajesh.id;
+    }
 
     await page.goto(`${BASE}/leads/${leadId}`);
     await page.waitForLoadState('domcontentloaded');
@@ -419,8 +440,8 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     await page.waitForTimeout(400);
     await ss(page, '07-quotations-tab');
 
-    // Create new quote
-    const createQuoteBtn = page.locator('button, a', { hasText: /new quote|create quote|add quote/i }).first();
+    // Create new quote — button says "+ New Quotation"
+    const createQuoteBtn = page.locator('button, a', { hasText: /new quotation|create quotation|new quote|create quote|add quote/i }).first();
     const quoteVisible = await createQuoteBtn.isVisible({ timeout: 3000 }).catch(() => false);
     console.log(`  Create quote button visible: ${quoteVisible}`);
 
@@ -430,6 +451,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       await page.waitForURL(/\/quotes\/[a-zA-Z0-9-]+/, { timeout: 15000 });
       quoteId = page.url().split('/quotes/')[1]!.split('?')[0]!;
       await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(2500);
       await ss(page, '07-quote-page-empty');
       console.log(`  Quote created, ID: ${quoteId}`);
     } else {
@@ -440,6 +462,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
         quoteId = data.id;
         await page.goto(`${BASE}/quotes/${quoteId}`);
         await page.waitForLoadState('domcontentloaded');
+        await page.waitForTimeout(2500);
         await ss(page, '07-quote-page-direct');
         console.log(`  Quote created via API, ID: ${quoteId}`);
       } else {
@@ -484,6 +507,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     }
 
     await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2000);
     await ss(page, '07-quote-all-lines');
 
     // ── Check GST ──
@@ -533,30 +557,52 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
     await page.goto(`${BASE}/quotes/${quoteId}`);
     await page.waitForLoadState('domcontentloaded');
+    // Wait for React hydration + API data before checking content
+    await page.waitForTimeout(3000);
     await ss(page, '08-quote-before-accept');
 
     const bodyText = await page.innerText('body');
     const status = bodyText.match(/draft|sent|accepted|approved/i)?.[0] ?? 'unknown';
     console.log(`  Current quote status: ${status}`);
 
-    // Try Accept button
+    // Quote flow: Draft → "Send Quotation" → Sent → "Mark Accepted" → Accepted
+    // Step 1: if Draft, click "Send Quotation" first
+    const sendBtn = page.locator('button', { hasText: /send quotation|send quote/i }).first();
+    const sendVisible = await sendBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    console.log(`  "Send Quotation" button visible: ${sendVisible}`);
+
+    if (sendVisible) {
+      await sendBtn.click();
+      await page.waitForTimeout(2000);
+      await ss(page, '08-quote-sent');
+      const afterSend = await page.innerText('body');
+      console.log(`  Status after Send: ${afterSend.match(/draft|sent|accepted|approved/i)?.[0] ?? 'unknown'}`);
+    }
+
+    // Step 2: now click "Mark Accepted" (visible once status is "sent")
     const acceptBtn = page.locator('button', { hasText: /mark.*accepted|accept quote|mark accepted/i }).first();
-    const acceptVisible = await acceptBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    const acceptVisible = await acceptBtn.isVisible({ timeout: 5000 }).catch(() => false);
     console.log(`  "Mark Accepted" button visible: ${acceptVisible}`);
 
     if (acceptVisible) {
       await acceptBtn.click();
-      await page.waitForTimeout(1200);
+      // Wait for POST /approve + fetchQuote() re-render
+      await page.waitForTimeout(3000);
+      // Verify via API what status is (distinguishes approve failure vs re-render delay)
+      const checkResp = await page.request.get(`${BASE}/api/v1/leads/${leadId}/quotes`);
+      const { data: checkQuotes } = await checkResp.json() as { data: { id: string; status: string }[] };
+      const checkQ = checkQuotes?.find(q => q.id === quoteId);
+      console.log(`  DB status after accept (API): ${checkQ?.status ?? 'unknown'}`);
       await ss(page, '08-quote-accepted');
       const afterText = await page.innerText('body');
-      console.log(`  Status after accept: ${afterText.match(/draft|sent|accepted|approved/i)?.[0] ?? 'unknown'}`);
+      console.log(`  UI status after accept: ${afterText.match(/draft|sent|accepted|approved/i)?.[0] ?? 'unknown'}`);
     } else {
-      console.warn('  ⚠️ BUG — Accept button not visible on quote page');
+      console.warn('  ⚠️ BUG — Accept button not visible on quote page (even after Send)');
     }
 
-    // Try Book Project button
+    // Try Book Project button — appears when status is "accepted"
     const bookBtn = page.locator('button', { hasText: /book project|create project/i }).first();
-    const bookVisible = await bookBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    const bookVisible = await bookBtn.isVisible({ timeout: 6000 }).catch(() => false);
     console.log(`  "Book Project" button visible: ${bookVisible}`);
 
     if (bookVisible) {
@@ -564,14 +610,14 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       await page.waitForTimeout(600);
       await ss(page, '08-book-project-form');
 
-      // Fill project name
-      const projNameInput = page.locator('input[placeholder*="project name" i], input[placeholder*="name" i]').last();
+      // Fill project name — placeholder is "e.g. Vikram Nair — Full Home"
+      const projNameInput = page.locator('input[placeholder*="Vikram" i], input[placeholder*="Full Home" i], input[placeholder*="project name" i]').first();
       if (await projNameInput.isVisible({ timeout: 2000 }).catch(() => false)) {
         await projNameInput.fill(CLIENT.project);
       }
 
-      // Confirm booking
-      const confirmBookBtn = page.locator('button', { hasText: /confirm|book|create/i }).last();
+      // Confirm booking — button text is "Create Project"
+      const confirmBookBtn = page.locator('button', { hasText: /create project|confirm|book/i }).first();
       if (await confirmBookBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         await confirmBookBtn.click();
         await page.waitForTimeout(2000);
@@ -612,6 +658,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
     await page.goto(`${BASE}/projects/${projectId}`);
     await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(3000);
     await ss(page, '09-project-overview');
 
     const bodyText = await page.innerText('body');
@@ -674,12 +721,13 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     await page.waitForTimeout(600);
     await ss(page, '10-new-invoice-modal');
 
-    const modalVisible = await page.locator('[role="dialog"], .fixed.inset-0').isVisible().catch(() => false);
+    // Check modal opened: header text is most reliable indicator (selector may return multiple elements)
+    const modalVisible = await page.locator('h2:has-text("New Invoice")').isVisible({ timeout: 3000 }).catch(() => false);
     console.log(`  Invoice modal opened: ${modalVisible}`);
 
     if (modalVisible) {
       // Select project
-      const projSelect = page.locator('select', { hasText: /project|select/i }).first();
+      const projSelect = page.locator('select').first();
       const projInput  = page.locator('input[placeholder*="project" i]').first();
 
       if (await projSelect.isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -693,41 +741,77 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
         await projInput.fill(CLIENT.project);
       }
 
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(1000);
       await ss(page, '10-invoice-project-selected');
 
-      // Check if milestone dropdown appeared
+      // Check if milestone dropdown appeared (optional — milestone select is the second select)
       const milestoneSelect = page.locator('select').nth(1);
       const milVis = await milestoneSelect.isVisible({ timeout: 2000 }).catch(() => false);
       console.log(`  Milestone select visible: ${milVis}`);
 
-      // Check for interstate toggle
-      const interstateToggle = page.locator('input[type="checkbox"]').first();
-      const toggleVis = await interstateToggle.isVisible({ timeout: 1000 }).catch(() => false);
-      console.log(`  Interstate GST toggle visible: ${toggleVis}`);
+      // ── Advance to Step 2: click "Next >" button (text includes a ChevronRight icon)
+      // Button is disabled={!selProjectId} — need to wait for React to re-render after select
+      const nextBtn = page.locator('button', { hasText: /next/i }).first();
+      const nextVis = await nextBtn.isEnabled({ timeout: 5000 }).catch(() => false);
+      console.log(`  "Next" button enabled: ${nextVis}`);
 
-      // Check if CGST/SGST is mentioned
-      const modalText = await page.locator('[role="dialog"], .fixed.inset-0').innerText().catch(() => '');
-      const hasCgst = /cgst/i.test(modalText);
-      const hasSgst = /sgst/i.test(modalText);
-      const hasIgst = /igst/i.test(modalText);
-      console.log(`  Invoice modal CGST: ${hasCgst}, SGST: ${hasSgst}, IGST: ${hasIgst}`);
-      if (!hasCgst && !hasSgst) {
-        console.warn('  ⚠️ BUG — CGST/SGST breakdown not shown in invoice creation modal');
-      }
+      if (nextVis) {
+        await nextBtn.click();
+        await page.waitForTimeout(600);
+        await ss(page, '10-invoice-step2');
 
-      // Try to submit
-      const createInvBtn = page.locator('button[type=submit], button', { hasText: /generate|create|save/i }).last();
-      if (await createInvBtn.isEnabled({ timeout: 2000 }).catch(() => false)) {
-        await createInvBtn.click();
-        await page.waitForTimeout(2000);
-        await ss(page, '10-invoice-created');
-        const afterText = await page.innerText('body');
-        const hasInvNumber = /INV-/i.test(afterText);
-        console.log(`  Invoice number (INV-...) visible after creation: ${hasInvNumber}`);
-        if (!hasInvNumber) console.warn('  ⚠️ BUG — Invoice number not shown after creation');
+        // ── Step 2: Invoice details & GST ─────────────────────────────────────
+        // Fill invoice number if empty
+        const invNumInput = page.locator('input[placeholder*="INV-" i]').first();
+        if (await invNumInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+          const currentVal = await invNumInput.inputValue();
+          if (!currentVal) await invNumInput.fill('INV-2026-TEST-001');
+        }
+
+        // Fill date if empty
+        const invDateInput = page.locator('input[type="date"]').first();
+        if (await invDateInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+          const currentDate = await invDateInput.inputValue();
+          if (!currentDate) await invDateInput.fill('2026-09-08');
+        }
+
+        // Fill amount before GST
+        const amtInput = page.locator('input[placeholder*="50000" i]').first();
+        if (await amtInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+          const currentAmt = await amtInput.inputValue();
+          if (!currentAmt) await amtInput.fill('48500');
+        }
+
+        await page.waitForTimeout(500);
+        await ss(page, '10-invoice-step2-filled');
+
+        // Check GST type radio buttons and CGST/SGST breakdown (read body — modal content is part of DOM)
+        const step2Text = await page.innerText('body');
+        const hasCgst = /cgst/i.test(step2Text);
+        const hasSgst = /sgst/i.test(step2Text);
+        const hasIgst = /igst/i.test(step2Text);
+        const hasGstRadio = /intrastate|interstate/i.test(step2Text);
+        console.log(`  Step 2 GST radio buttons: ${hasGstRadio}`);
+        console.log(`  Invoice modal CGST: ${hasCgst}, SGST: ${hasSgst}, IGST: ${hasIgst}`);
+        if (!hasCgst && !hasSgst && !hasIgst) {
+          console.warn('  ⚠️ BUG — No GST breakdown shown in invoice Step 2');
+        }
+
+        // Create invoice — button text is "Create Invoice"
+        const createInvBtn = page.locator('button', { hasText: /create invoice/i }).first();
+        if (await createInvBtn.isEnabled({ timeout: 2000 }).catch(() => false)) {
+          await createInvBtn.click();
+          await page.waitForTimeout(2000);
+          await ss(page, '10-invoice-created');
+          const afterText = await page.innerText('body');
+          const hasInvNumber = /INV-/i.test(afterText);
+          console.log(`  Invoice number (INV-...) visible after creation: ${hasInvNumber}`);
+          if (!hasInvNumber) console.warn('  ⚠️ BUG — Invoice number not shown after creation');
+        } else {
+          console.warn('  ⚠️ Create Invoice button disabled or not found in Step 2');
+        }
       } else {
-        console.warn('  ⚠️ Invoice create button disabled or not found');
+        console.warn('  ⚠️ BUG — "Next" button not enabled — cannot advance invoice wizard');
       }
     }
 
@@ -960,10 +1044,16 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       await page.waitForTimeout(600);
       await ss(page, '15-work-order-form');
 
-      // Title
-      const titleInput = page.locator('input[placeholder*="title" i], input[placeholder*="work" i], input[placeholder*="description" i]').first();
+      // Title — placeholder is "e.g. Master bedroom wardrobe — factory", id="wo-title"
+      const titleInput = page.locator('input#wo-title, input[placeholder*="wardrobe" i], input[placeholder*="e.g." i]').first();
       if (await titleInput.isVisible({ timeout: 2000 }).catch(() => false)) {
         await titleInput.fill('Modular Kitchen Installation');
+      } else {
+        // Fallback: first text input inside the dialog
+        const dialogInput = page.locator('[role="dialog"] input[type="text"], [role="dialog"] input:not([type])').first();
+        if (await dialogInput.isVisible({ timeout: 1000 }).catch(() => false)) {
+          await dialogInput.fill('Modular Kitchen Installation');
+        }
       }
 
       // Assignee / vendor
@@ -1000,37 +1090,62 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     if (!proj) { test.skip(true, 'No projects'); return; }
     projectId = proj.id;
 
-    // Check project overview for a portal/token link
-    await page.goto(`${BASE}/projects/${projectId}`);
+    // The client portal token lives on the Snag tab — "Client View Link" button generates it
+    await page.goto(`${BASE}/projects/${projectId}/snag`);
     await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2500);
     await ss(page, '16-project-for-portal-check');
 
     const bodyText = await page.innerText('body');
-    const hasPortalLink = bodyText.match(/client portal|magic link|portal|trust timeline/i) !== null;
-    console.log(`  Project overview shows client portal/link: ${hasPortalLink}`);
-    if (!hasPortalLink) console.warn('  ⚠️ INFO — Client portal link not prominently visible on project overview');
+    const hasPortalLink = bodyText.match(/client view link|client portal|magic link|portal/i) !== null;
+    console.log(`  Snag tab shows client portal button: ${hasPortalLink}`);
 
-    // Try to get the client token via API
-    const tokenResp = await page.request.get(`${BASE}/api/v1/projects/${projectId}`);
-    if (tokenResp.ok()) {
-      const { data: projDetail } = await tokenResp.json() as { data: { clientToken?: string; clientPortalToken?: string } };
-      const token = projDetail?.clientToken ?? projDetail?.clientPortalToken;
-      console.log(`  Client portal token available: ${!!token}`);
+    // Click "Client View Link" to generate a token
+    const clientLinkBtn = page.locator('button', { hasText: /client view link/i }).first();
+    const clientLinkVis = await clientLinkBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    console.log(`  "Client View Link" button visible: ${clientLinkVis}`);
 
-      if (token) {
+    if (clientLinkVis) {
+      await clientLinkBtn.click();
+      await page.waitForTimeout(1500);
+      await ss(page, '16-client-link-generated');
+
+      // The generated URL should appear in the page
+      const afterText = await page.innerText('body');
+      const hasToken = afterText.match(/\/p\/[a-f0-9]{32,}/) !== null;
+      console.log(`  Client portal URL generated: ${hasToken}`);
+
+      // Extract token from page and visit portal
+      const urlMatch = afterText.match(/\/p\/([a-f0-9]{32,})/);
+      if (urlMatch) {
+        const token = urlMatch[1];
         await page.goto(`${BASE}/p/${token}`);
         await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
         await ss(page, '16-client-portal');
 
         const portalText = await page.innerText('body');
-        const hasDeliverables  = portalText.match(/deliverable|design|approve/i) !== null;
-        const hasMilestones    = portalText.match(/milestone|payment|pay now/i) !== null;
-        const hasSnags         = portalText.match(/snag/i) !== null;
+        const hasDeliverables = portalText.match(/deliverable|design|approve/i) !== null;
+        const hasMilestones   = portalText.match(/milestone|payment|pay now/i) !== null;
+        const hasSnags        = portalText.match(/snag/i) !== null;
         console.log(`  Portal shows deliverables: ${hasDeliverables}`);
         console.log(`  Portal shows milestones/payments: ${hasMilestones}`);
         console.log(`  Portal shows snags: ${hasSnags}`);
+      }
+    } else {
+      // Fallback: call the client-token API directly
+      const tokenResp = await page.request.get(`${BASE}/api/v1/projects/${projectId}/client-token`);
+      if (tokenResp.ok()) {
+        const { data } = await tokenResp.json() as { data: { token: string; url: string } };
+        console.log(`  Client portal token generated via API: ${!!data?.token}`);
+        if (data?.token) {
+          await page.goto(`${BASE}/p/${data.token}`);
+          await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
+          await ss(page, '16-client-portal');
+          const portalText = await page.innerText('body');
+          console.log(`  Portal shows deliverables: ${portalText.match(/deliverable|design|approve/i) !== null}`);
+        }
       } else {
-        console.warn('  ⚠️ BUG — No client portal token on project — portal is inaccessible');
+        console.warn('  ⚠️ BUG — Could not generate client portal token');
       }
     }
 

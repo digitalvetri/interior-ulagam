@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { quotes } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { enqueue } from '@/jobs/queue';
+import { enqueueBestEffort } from '@/jobs/queue';
 import { eq, and } from 'drizzle-orm';
 import { applyStageTransition } from '@/lib/leads/transitions';
 
@@ -39,7 +39,8 @@ export async function POST(
       .set({ status: 'sent', sentAt: new Date() })
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
 
-    await enqueue('quote/pdf.requested', { quoteId: id, tenantId: ctx.tenantId });
+    // PDF generation is a background job — queue unavailability must not block status change
+    enqueueBestEffort('quote/pdf.requested', { quoteId: id, tenantId: ctx.tenantId });
 
     // Advance lead stage: v1 → quotation, v2+ → negotiation
     if (quote.leadId) {
