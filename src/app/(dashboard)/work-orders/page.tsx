@@ -4,8 +4,11 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   HardHat, Search, FolderKanban, User, Calendar,
-  Loader2, AlertTriangle, CheckCircle2, Clock, Truck, Wrench,
+  Loader2, AlertTriangle, CheckCircle2, Clock, Truck, Wrench, Plus, X,
 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,6 +28,20 @@ interface WorkOrder {
   projectName: string | null;
   vendorName: string | null;
   assigneeName: string | null;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
+interface NewWOForm {
+  projectId: string;
+  title: string;
+  type: WOType;
+  startDate: string;
+  dueDate: string;
+  notes: string;
 }
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -51,6 +68,13 @@ const STATUS_ICONS: Record<WOStatus, React.ElementType> = {
 };
 
 const STATUS_ORDER: WOStatus[] = ['planned', 'in_progress', 'ready', 'installed'];
+
+const TYPE_OPTIONS: { value: WOType; label: string }[] = [
+  { value: 'site_work',         label: 'Site Work' },
+  { value: 'inhouse_carpentry', label: 'In-house Carpentry' },
+  { value: 'factory',           label: 'Factory' },
+  { value: 'vendor_job',        label: 'Vendor Job' },
+];
 
 const TYPE_LABELS: Record<WOType, string> = {
   inhouse_carpentry: 'In-house',
@@ -95,6 +119,153 @@ function FilterChip({ active, onClick, label, count }: {
   );
 }
 
+// ─── New Work Order Dialog ─────────────────────────────────────────────────────
+
+const EMPTY_FORM: NewWOForm = {
+  projectId: '', title: '', type: 'site_work', startDate: '', dueDate: '', notes: '',
+};
+
+function NewWorkOrderDialog({ open, onOpenChange, onCreated }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onCreated: (wo: WorkOrder) => void;
+}) {
+  const [projects,    setProjects]    = useState<ProjectOption[]>([]);
+  const [projLoading, setProjLoading] = useState(false);
+  const [form,        setForm]        = useState<NewWOForm>(EMPTY_FORM);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+
+  // Lazy-load projects when dialog first opens
+  useEffect(() => {
+    if (!open || projects.length > 0) return;
+    fetch('/api/v1/projects')
+      .then(r => r.json())
+      .then(({ data }: { data?: ProjectOption[] }) => { setProjects(data ?? []); setProjLoading(false); })
+      .catch(() => setProjLoading(false));
+  }, [open, projects.length]);
+
+  function set<K extends keyof NewWOForm>(k: K, v: NewWOForm[K]) {
+    setForm(f => ({ ...f, [k]: v }));
+  }
+
+  async function handleSubmit() {
+    setError(null);
+    if (!form.projectId)    { setError('Select a project'); return; }
+    if (!form.title.trim()) { setError('Title is required'); return; }
+
+    const body: Record<string, string> = { title: form.title.trim(), type: form.type };
+    if (form.startDate) body.startDate = form.startDate;
+    if (form.dueDate)   body.dueDate   = form.dueDate;
+    if (form.notes.trim()) body.notes  = form.notes.trim();
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/projects/${form.projectId}/work-orders`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const json = (await res.json()) as { data?: WorkOrder; error?: string };
+      if (!res.ok || !json.data) {
+        setError(typeof json.error === 'string' ? json.error : 'Failed to create'); return;
+      }
+      // Attach project name for the table row
+      const proj = projects.find(p => p.id === form.projectId);
+      onCreated({ ...json.data, projectName: proj?.name ?? null, vendorName: null, assigneeName: null });
+      onOpenChange(false);
+      setForm(EMPTY_FORM);
+    } catch {
+      setError('Network error — try again');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!submitting) onOpenChange(v); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Work Order</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          {/* Project */}
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Project *</label>
+            {projLoading ? (
+              <div className="flex items-center gap-2 h-9 text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                <Loader2 className="h-4 w-4 animate-spin" />Loading projects…
+              </div>
+            ) : (
+              <select value={form.projectId} onChange={e => set('projectId', e.target.value)}
+                className="studio-input h-9 w-full">
+                <option value="">Choose a project…</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            )}
+          </div>
+          {/* Title */}
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Title *</label>
+            <input type="text" value={form.title} onChange={e => set('title', e.target.value)}
+              placeholder="e.g. Master bedroom carpentry" className="studio-input h-9 w-full" />
+          </div>
+          {/* Type */}
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Type</label>
+            <select value={form.type} onChange={e => set('type', e.target.value as WOType)}
+              className="studio-input h-9 w-full">
+              {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
+                Start <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input type="date" value={form.startDate} onChange={e => set('startDate', e.target.value)}
+                className="studio-input h-9 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
+                Due <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)}
+                className="studio-input h-9 w-full" />
+            </div>
+          </div>
+          {/* Notes */}
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
+              Notes <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
+              placeholder="Scope, materials, instructions…" rows={2}
+              className="studio-input w-full py-2 resize-none" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-[12px]"
+              style={{ background: 'var(--danger-soft)', color: 'var(--danger-text)' }}>
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <button onClick={() => onOpenChange(false)} disabled={submitting}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}>
+            <X className="h-3.5 w-3.5" />Cancel
+          </button>
+          <button onClick={handleSubmit} disabled={submitting}
+            className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50">
+            <Plus className="h-3.5 w-3.5" />
+            {submitting ? 'Creating…' : 'Create Work Order'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WorkOrdersPage() {
@@ -104,6 +275,7 @@ export default function WorkOrdersPage() {
 
   const [search,       setSearch]       = useState('');
   const [filterStatus, setFilterStatus] = useState<WOStatus | 'all'>('all');
+  const [dialogOpen,   setDialogOpen]   = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -134,8 +306,8 @@ export default function WorkOrdersPage() {
       if (!q) return true;
       return (
         o.title.toLowerCase().includes(q) ||
-        (o.projectName ?? '').toLowerCase().includes(q) ||
-        (o.vendorName  ?? '').toLowerCase().includes(q) ||
+        (o.projectName  ?? '').toLowerCase().includes(q) ||
+        (o.vendorName   ?? '').toLowerCase().includes(q) ||
         (o.assigneeName ?? '').toLowerCase().includes(q)
       );
     });
@@ -162,14 +334,13 @@ export default function WorkOrdersPage() {
               : `${activeCount} active · ${orders.length} total across all projects`}
           </p>
         </div>
-        <Link
-          href="/projects"
-          className="inline-flex items-center gap-2 px-3.5 py-2 text-[13px] rounded-md font-medium border transition-colors"
-          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+        <button
+          onClick={() => setDialogOpen(true)}
+          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
         >
-          <FolderKanban className="h-3.5 w-3.5" />
-          Go to Projects
-        </Link>
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+          New Work Order
+        </button>
       </div>
 
       {/* Filters */}
@@ -213,12 +384,14 @@ export default function WorkOrdersPage() {
             </div>
             <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>No work orders yet</p>
             <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-              Create work orders inside a project to assign carpentry, factory, or site tasks.
+              Assign carpentry, factory, or site tasks to vendors and track them here.
             </p>
-            <Link href="/projects"
-              className="btn-primary mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px]">
-              <FolderKanban className="h-3.5 w-3.5" /> Open Projects
-            </Link>
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="btn-primary mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px]"
+            >
+              <Plus className="h-3.5 w-3.5" /> Create First Work Order
+            </button>
           </div>
         )}
         {!loading && !error && orders.length > 0 && filtered.length === 0 && (
@@ -264,7 +437,7 @@ export default function WorkOrdersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 max-w-[150px]">
-                        <Link href={`/projects/${o.projectId}`}
+                        <Link href={`/projects/${o.projectId}/work-orders`}
                           className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline truncate"
                           style={{ color: 'var(--accent-base)' }}>
                           <FolderKanban className="h-3 w-3 flex-shrink-0" />
@@ -312,6 +485,12 @@ export default function WorkOrdersPage() {
           </div>
         )}
       </div>
+
+      <NewWorkOrderDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onCreated={wo => setOrders(prev => [wo, ...prev])}
+      />
     </div>
   );
 }
