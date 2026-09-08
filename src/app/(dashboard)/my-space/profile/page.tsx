@@ -199,106 +199,124 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="max-w-2xl mx-auto px-4 py-8">
+      <div className="px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-4">
+          {[1, 2].map(i => <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />)}
+        </div>
+        <div className="lg:col-span-2 space-y-4">
           {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />)}
         </div>
-      </main>
+      </div>
     );
   }
 
   if (!profile) return null;
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      {/* Header card */}
-      <div className="rounded-2xl p-6"
-        style={{ background: 'linear-gradient(135deg, var(--accent-base)0c 0%, #7c3aed0c 100%)', border: '1.5px solid var(--accent-base)28' }}>
-        <div className="flex items-start gap-5">
-          <Avatar name={profile.fullName} photoUrl={profile.photoUrl} size={72} />
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">{profile.fullName}</h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="text-[13px] font-semibold px-2.5 py-0.5 rounded-full"
-                style={{ background: 'var(--accent-base)14', color: 'var(--accent-base)' }}>
+    <div className="px-4 sm:px-6 py-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+        {/* ── Left: Profile identity card ── */}
+        <div className="space-y-4">
+          <div
+            className="rounded-2xl p-6 text-center"
+            style={{
+              background: 'linear-gradient(135deg, var(--accent-base)08 0%, #7c3aed08 100%)',
+              border: '1.5px solid var(--accent-base)20',
+            }}
+          >
+            <div className="flex justify-center mb-4">
+              <Avatar name={profile.fullName} photoUrl={profile.photoUrl} size={80} />
+            </div>
+            <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>{profile.fullName}</h1>
+            <div className="flex flex-wrap justify-center gap-2 mt-2">
+              <span
+                className="text-[12px] font-semibold px-2.5 py-0.5 rounded-full"
+                style={{ background: 'var(--accent-base)14', color: 'var(--accent-base)' }}
+              >
                 {roleLabel[profile.role] ?? profile.role}
               </span>
               {profile.jobTitle && (
-                <span className="text-[13px] text-gray-500">{profile.jobTitle}</span>
+                <span className="text-[12px] text-gray-500">{profile.jobTitle}</span>
               )}
             </div>
             {profile.department && (
-              <p className="text-[13px] text-gray-400 mt-1">{profile.department}</p>
+              <p className="text-[12px] text-gray-400 mt-1">{profile.department}</p>
             )}
-            <div className="flex items-center gap-1.5 mt-2">
-              <span
-                className="w-2 h-2 rounded-full"
-                style={{ background: profile.status === 'active' ? '#16a34a' : '#d97706' }}
-              />
+            <div className="flex items-center justify-center gap-1.5 mt-2">
+              <span className="w-2 h-2 rounded-full" style={{ background: profile.status === 'active' ? '#16a34a' : '#d97706' }} />
               <span className="text-[12px] text-gray-500 capitalize">{profile.status}</span>
             </div>
+            <button
+              onClick={() => setEditing(!editing)}
+              className="mt-4 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-medium hover:bg-white/60 transition-colors"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <Edit3 size={13} /> {editing ? 'Cancel Editing' : 'Edit Profile'}
+            </button>
           </div>
-          <button onClick={() => setEditing(!editing)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-medium hover:bg-white/60 transition-colors"
-            style={{ borderColor: 'var(--border)' }}>
-            <Edit3 size={13} /> {editing ? 'Cancel' : 'Edit'}
-          </button>
-        </div>
-      </div>
 
-      {/* Edit form or info view */}
-      {editing ? (
-        <div className="rounded-2xl border p-6" style={{ borderColor: 'var(--border)' }}>
-          <h2 className="font-semibold text-[15px] mb-5">Edit Profile</h2>
-          <EditProfileForm profile={profile} onSave={p => { setProfile(p); setEditing(false); }} />
-        </div>
-      ) : (
-        <div className="rounded-2xl border p-6 space-y-5" style={{ borderColor: 'var(--border)' }}>
-          <h2 className="font-semibold text-[15px]">Personal Information</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <InfoRow icon={User}     label="Full Name"       value={profile.fullName} />
-            <InfoRow icon={Mail}     label="Email"           value={profile.email} />
-            <InfoRow icon={Phone}    label="Mobile"          value={profile.phone} />
-            <InfoRow icon={MapPin}   label="Location"        value={profile.location} />
-            <InfoRow icon={Briefcase} label="Job Title"      value={profile.jobTitle} />
-            <InfoRow icon={Building2} label="Department"     value={profile.department} />
-            {profile.employmentType && (
-              <InfoRow icon={Briefcase} label="Employment"   value={empTypeLabel[profile.employmentType] ?? profile.employmentType} />
-            )}
+          {/* Quick info pills */}
+          <div className="premium-card p-4 space-y-3">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Work Info</p>
             {profile.hireDate && (
-              <InfoRow icon={User}   label="Joined"          value={new Date(profile.hireDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} />
+              <InfoRow icon={User} label="Joined" value={new Date(profile.hireDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} />
+            )}
+            {profile.employmentType && (
+              <InfoRow icon={Briefcase} label="Employment" value={empTypeLabel[profile.employmentType] ?? profile.employmentType} />
+            )}
+            {profile.location && (
+              <InfoRow icon={MapPin} label="Location" value={profile.location} />
             )}
           </div>
+        </div>
 
-          {profile.emergencyContact && (
+        {/* ── Right: Info or edit form ── */}
+        <div className="lg:col-span-2 space-y-5">
+          {editing ? (
+            <div className="premium-card p-6">
+              <h2 className="font-semibold text-[15px] mb-5" style={{ color: 'var(--text-heading)' }}>Edit Profile</h2>
+              <EditProfileForm profile={profile} onSave={p => { setProfile(p); setEditing(false); }} />
+            </div>
+          ) : (
             <>
-              <div className="border-t my-2" style={{ borderColor: 'var(--border)' }} />
-              <div>
-                <h3 className="text-[13px] font-semibold text-gray-500 mb-3 uppercase tracking-wider">Emergency Contact</h3>
-                <div className="rounded-xl p-4 space-y-2" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                  <p className="font-semibold text-sm">{profile.emergencyContact.name}</p>
-                  <p className="text-[13px] text-orange-700">{profile.emergencyContact.relation}</p>
-                  <a href={`tel:${profile.emergencyContact.phone}`}
-                    className="flex items-center gap-1.5 text-[13px] text-orange-600 font-medium hover:underline">
-                    <Phone size={13} /> {profile.emergencyContact.phone}
-                  </a>
+              <div className="premium-card p-6 space-y-5">
+                <h2 className="font-semibold text-[15px]" style={{ color: 'var(--text-heading)' }}>Personal Information</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <InfoRow icon={User}      label="Full Name"   value={profile.fullName} />
+                  <InfoRow icon={Mail}      label="Email"       value={profile.email} />
+                  <InfoRow icon={Phone}     label="Mobile"      value={profile.phone} />
+                  <InfoRow icon={Building2} label="Department"  value={profile.department} />
                 </div>
+              </div>
+
+              <div className="premium-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-[15px]" style={{ color: 'var(--text-heading)' }}>Emergency Contact</h2>
+                  {!profile.emergencyContact && (
+                    <button onClick={() => setEditing(true)} className="text-[13px] font-medium" style={{ color: 'var(--accent-base)' }}>
+                      + Add contact
+                    </button>
+                  )}
+                </div>
+                {profile.emergencyContact ? (
+                  <div className="rounded-xl p-4 space-y-2" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                    <p className="font-semibold text-sm">{profile.emergencyContact.name}</p>
+                    <p className="text-[13px] text-orange-700">{profile.emergencyContact.relation}</p>
+                    <a href={`tel:${profile.emergencyContact.phone}`}
+                      className="flex items-center gap-1.5 text-[13px] text-orange-600 font-medium hover:underline">
+                      <Phone size={13} /> {profile.emergencyContact.phone}
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-[13px] text-gray-400">No emergency contact set. Click Edit Profile to add one.</p>
+                )}
               </div>
             </>
           )}
-
-          {!profile.emergencyContact && (
-            <div className="rounded-xl p-4 border border-dashed border-orange-200 text-center">
-              <p className="text-[13px] text-gray-400">No emergency contact set.</p>
-              <button onClick={() => setEditing(true)}
-                className="text-[13px] font-medium mt-1"
-                style={{ color: 'var(--accent-base)' }}>
-                Add emergency contact →
-              </button>
-            </div>
-          )}
         </div>
-      )}
-    </main>
+
+      </div>
+    </div>
   );
 }

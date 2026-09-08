@@ -66,8 +66,8 @@ function NavGroupSection({
       {iconOnly && <div className="mx-3 my-2 h-px" style={{ background: 'var(--border-subtle)' }} />}
 
       <div className="space-y-0.5 px-2">
-        {visibleItems.map(({ href, label, icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
+        {visibleItems.map(({ href, label, icon, exact }) => {
+          const active = exact ? pathname === href : (pathname === href || pathname.startsWith(href + '/'));
           return (
             <NavLink
               key={href}

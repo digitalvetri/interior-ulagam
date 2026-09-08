@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { CheckCircle2, Circle, Plus, Loader2, AlertCircle, ClipboardList, X } from 'lucide-react';
+import { CheckCircle2, Circle, Plus, Loader2, AlertCircle, ClipboardList, X, Clock } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface Task {
@@ -39,6 +39,56 @@ const RELATED_COLORS: Record<string, string> = {
   quote:   '#d97706',
   invoice: '#16a34a',
 };
+
+/* ── KPI strip ──────────────────────────────────────────────────────────── */
+function TaskKpiRow() {
+  const [kpi, setKpi] = useState<{
+    pending: number; overdue: number; dueToday: number; completed: number;
+  } | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      const [pendRes, compRes] = await Promise.all([
+        fetch('/api/v1/me/tasks?status=pending'),
+        fetch('/api/v1/me/tasks?status=completed'),
+      ]);
+      const [pend, comp] = await Promise.all([pendRes.json(), compRes.json()]);
+      const pendingList = (pend.data ?? []) as Task[];
+      const today = new Date().toISOString().slice(0, 10);
+      setKpi({
+        pending:  pendingList.length,
+        overdue:  pendingList.filter(t => !!t.dueAt && t.dueAt.slice(0, 10) < today).length,
+        dueToday: pendingList.filter(t => !!t.dueAt && t.dueAt.slice(0, 10) === today).length,
+        completed: (comp.data ?? []).length,
+      });
+    }
+    load();
+  }, []);
+
+  const CARDS = [
+    { label: 'Pending',   key: 'pending'   as const, accentBg: 'var(--accent-purple-bg)', accentFg: 'var(--accent-purple)', icon: ClipboardList },
+    { label: 'Overdue',   key: 'overdue'   as const, accentBg: 'var(--accent-orange-bg)', accentFg: 'var(--accent-orange)', icon: AlertCircle  },
+    { label: 'Due Today', key: 'dueToday'  as const, accentBg: 'var(--accent-blue-bg)',   accentFg: 'var(--accent-blue)',   icon: Clock        },
+    { label: 'Completed', key: 'completed' as const, accentBg: 'var(--accent-green-bg)',  accentFg: 'var(--accent-green)',  icon: CheckCircle2 },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      {CARDS.map(c => (
+        <div key={c.key} className="premium-card p-5">
+          <div className="stat-badge mb-3" style={{ backgroundColor: c.accentBg }}>
+            <c.icon className="h-4 w-4" style={{ color: c.accentFg }} />
+          </div>
+          {kpi
+            ? <p className="text-2xl font-bold leading-none mb-1" style={{ color: 'var(--text-heading)' }}>{kpi[c.key]}</p>
+            : <div className="skeleton h-7 w-10 mb-1" />
+          }
+          <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{c.label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ── New task form ──────────────────────────────────────────────────────── */
 function NewTaskForm({ onSuccess }: { onSuccess: () => void }) {
@@ -244,14 +294,16 @@ export default function MyTasksPage() {
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-8">
+    <main className="px-4 sm:px-6 py-6">
       <div className="flex items-start justify-between flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">My Tasks</h1>
-          <p className="text-[14px] text-gray-500 mt-1">Tasks assigned to you across all projects</p>
+          <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-heading)' }}>My Tasks</h1>
+          <p className="text-[14px] mt-1" style={{ color: 'var(--text-secondary)' }}>Tasks assigned to you across all projects</p>
         </div>
         <NewTaskForm onSuccess={load} />
       </div>
+
+      <TaskKpiRow />
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
-  leads, projects, quotes, payments, expenses,
+  leads, projects, quotes, payments, expenses, invoices,
   purchaseOrders, vendors,
 } from '@/lib/db/schema';
 import { getEnrichedAuthContext } from '@/lib/auth/get-context';
@@ -136,10 +136,6 @@ export async function GET(
         if (fromDate) expFilters.push(gte(expenses.createdAt, fromDate));
         if (toDate)   expFilters.push(lte(expenses.createdAt, toDate));
 
-        const poFilters = [eq(purchaseOrders.tenantId, tid)];
-        if (fromDate) poFilters.push(gte(purchaseOrders.createdAt, fromDate));
-        if (toDate)   poFilters.push(lte(purchaseOrders.createdAt, toDate));
-
         const [projectRows, expenseRows, paymentsRows] = await Promise.all([
           db.select({
             id:                 projects.id,
@@ -155,13 +151,12 @@ export async function GET(
             .groupBy(expenses.projectId),
 
           db.select({
-            projectId:   sql<string | null>`inv.project_id`,
-            totalPaise:  sql<number>`coalesce(sum(p.amount_paise) filter (where p.status = 'captured'), 0)::bigint`,
-          }).from(payments).innerJoin(
-            sql`invoices inv`,
-            sql`p.invoice_id = inv.id`,
-          ).where(and(...[eq(payments.tenantId, tid)]))
-            .groupBy(sql`inv.project_id`),
+            projectId:   invoices.projectId,
+            totalPaise:  sql<number>`coalesce(sum(${payments.amountPaise}) filter (where ${payments.status} = 'captured'), 0)::bigint`,
+          }).from(payments)
+            .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
+            .where(eq(payments.tenantId, tid))
+            .groupBy(invoices.projectId),
         ]);
 
         const expByProject = new Map(expenseRows.map(e => [e.projectId, Number(e.totalPaise)]));
