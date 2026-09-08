@@ -10,11 +10,13 @@ import { Quote, QuoteLine } from '@/types/quotes';
 // Until then, update these constants to match your studio's details.
 // ⚠ IMPORTANT: Review and correct COMPANY_GSTIN before sharing with clients —
 //   a wrong GSTIN on a commercial document creates compliance liability.
-const COMPANY_NAME    = 'Konst Design';
-const COMPANY_ADDRESS = 'No.11 Barathi Nagar, Rathinapuri, Coimbatore 641027';
-const COMPANY_PHONE   = '+91 98943 31115';
-const COMPANY_EMAIL   = 'Mohasher11@gmail.com';
-const COMPANY_GSTIN   = '';                        // e.g. '33XXXXX0000X1ZX'
+const COMPANY_NAME     = 'Konst Design';
+const COMPANY_ADDRESS  = 'No.11 Barathi Nagar, Rathinapuri, Coimbatore 641027';
+const COMPANY_PHONE    = '+91 98943 31115';
+const COMPANY_EMAIL    = 'Mohasher11@gmail.com';
+const COMPANY_GSTIN    = '';                       // e.g. '33XXXXX0000X1ZX'
+// Logo from public/brand/ — swap for Supabase Storage URL once uploaded there.
+const COMPANY_LOGO_URL = '/brand/logo-dark.png';
 
 // ── Commercial terms ─────────────────────────────────────────────────────────
 // Phase 2: move these to per-quote editable fields once Drizzle migration lands.
@@ -196,12 +198,20 @@ export default function QuotePreviewPage({ params }: { params: Promise<{ id: str
             {/* Company block */}
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <div
-                  className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-                  style={{ background: '#4F3CC9', letterSpacing: '-0.02em' }}
-                >
-                  TIS
-                </div>
+                {COMPANY_LOGO_URL ? (
+                  <img
+                    src={COMPANY_LOGO_URL}
+                    alt={COMPANY_NAME}
+                    className="h-11 w-11 object-contain flex-shrink-0"
+                  />
+                ) : (
+                  <div
+                    className="h-11 w-11 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
+                    style={{ background: '#4F3CC9', letterSpacing: '-0.02em' }}
+                  >
+                    {COMPANY_NAME.split(' ').map(w => w[0]).slice(0, 2).join('')}
+                  </div>
+                )}
                 <div>
                   <p className="text-lg font-bold leading-tight" style={{ color: '#111827' }}>{COMPANY_NAME}</p>
                   {COMPANY_ADDRESS && (
