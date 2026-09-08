@@ -499,6 +499,9 @@ export const expenses = pgTable('expenses', {
   loggedVia: text('logged_via').notNull().default('manual'),
   approvedBy: uuid('approved_by').references(() => users.id),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
+  vendorName: text('vendor_name'),
+  gstPct: integer('gst_pct').notNull().default(0),
+  gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
   ...timestamps,
 });
 

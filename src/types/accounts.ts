@@ -40,6 +40,9 @@ export interface Expense {
   loggedVia: string;
   approvedBy: string | null;
   approvedAt: string | null;
+  vendorName: string | null;
+  gstPct: number;
+  gstAmountPaise: number;
   createdAt: string;
 }
 

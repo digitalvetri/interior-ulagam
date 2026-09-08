@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { invoices, milestones, projects } from '@/lib/db/schema';
+import { invoices, milestones, projects, payments } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, ne, inArray, sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
         qrCodeUrl: invoices.qrCodeUrl,
         pdfUrl: invoices.pdfUrl,
         createdAt: invoices.createdAt,
-        paymentStatus: milestones.paymentStatus,
+        milestonePaymentStatus: milestones.paymentStatus,
       })
       .from(invoices)
       .innerJoin(projects, eq(invoices.projectId, projects.id))
@@ -46,7 +46,36 @@ export async function GET(request: NextRequest) {
       .where(and(...conditions))
       .orderBy(desc(invoices.createdAt));
 
-    return NextResponse.json({ data: rows });
+    // Derive payment status from payments table for invoices without a milestone link
+    const invoiceIds = rows.map(r => r.id);
+    const paymentSumsMap = new Map<string, number>();
+    if (invoiceIds.length > 0) {
+      const sums = await db
+        .select({
+          invoiceId: payments.invoiceId,
+          total: sql<number>`sum(${payments.amountPaise})`.mapWith(Number),
+        })
+        .from(payments)
+        .where(and(inArray(payments.invoiceId, invoiceIds), ne(payments.status, 'pending')))
+        .groupBy(payments.invoiceId);
+      for (const s of sums) {
+        if (s.invoiceId) paymentSumsMap.set(s.invoiceId, s.total);
+      }
+    }
+
+    const enriched = rows.map(r => {
+      let paymentStatus: string = r.milestonePaymentStatus ?? 'pending';
+      if (!r.milestonePaymentStatus) {
+        const totalInvoicePaise = r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise;
+        const paidPaise = paymentSumsMap.get(r.id) ?? 0;
+        paymentStatus = paidPaise >= totalInvoicePaise && totalInvoicePaise > 0
+          ? 'paid' : paidPaise > 0 ? 'partial' : 'pending';
+      }
+      const { milestonePaymentStatus: _, ...rest } = r;
+      return { ...rest, paymentStatus };
+    });
+
+    return NextResponse.json({ data: enriched });
   } catch (err) {
     console.error('[invoices GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

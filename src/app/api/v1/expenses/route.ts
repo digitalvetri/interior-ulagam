@@ -21,6 +21,9 @@ const CreateExpenseSchema = z.object({
   description: z.string().optional(),
   receiptUrl: z.string().url().optional(),
   loggedVia: z.string().optional(),
+  vendorName: z.string().optional(),
+  gstPct: z.number().int().min(0).max(28).default(0),
+  gstAmountPaise: z.number().int().nonnegative().default(0),
 });
 
 export async function GET(request: NextRequest) {
@@ -99,6 +102,9 @@ export async function POST(request: NextRequest) {
         receiptUrl: input.receiptUrl ?? null,
         loggedBy: ctx.dbUserId,
         loggedVia: input.loggedVia ?? 'manual',
+        vendorName: input.vendorName ?? null,
+        gstPct: input.gstPct,
+        gstAmountPaise: input.gstAmountPaise,
       })
       .returning();
 

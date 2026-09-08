@@ -42,6 +42,8 @@ function LogExpenseModal({
   const [amountRupees, setAmountRupees] = useState('');
   const [description,  setDescription]  = useState('');
   const [receiptUrl,   setReceiptUrl]   = useState('');
+  const [vendorName,   setVendorName]   = useState('');
+  const [gstPct,       setGstPct]       = useState(0);
   const [submitting,   setSub]          = useState(false);
   const [error,        setError]        = useState<string | null>(null);
 
@@ -52,11 +54,16 @@ function LogExpenseModal({
       setError('Please enter a valid amount in rupees'); return;
     }
     const amountPaise = Math.round(parsed * 100);
-    const payload: { projectId: string; category: ExpenseCategory; amountPaise: number; description?: string; receiptUrl?: string } = {
-      projectId, category, amountPaise,
-    };
+    // GST component within total: GST = total × rate / (100 + rate)
+    const gstAmountPaise = gstPct > 0 ? Math.round(amountPaise * gstPct / (100 + gstPct)) : 0;
+    const payload: {
+      projectId: string; category: ExpenseCategory; amountPaise: number;
+      description?: string; receiptUrl?: string; vendorName?: string;
+      gstPct: number; gstAmountPaise: number;
+    } = { projectId, category, amountPaise, gstPct, gstAmountPaise };
     if (description.trim()) payload.description = description.trim();
     if (receiptUrl.trim())  payload.receiptUrl  = receiptUrl.trim();
+    if (vendorName.trim())  payload.vendorName  = vendorName.trim();
 
     setSub(true);
     try {
@@ -114,12 +121,38 @@ function LogExpenseModal({
           </div>
           <div>
             <label className="studio-label block mb-1.5">
-              Amount (₹) <span style={{ color: 'var(--text-tertiary)' }}>— stored as paise</span>
+              Vendor / Paid To <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
             </label>
-            <input type="number" min="0.01" step="0.01" placeholder="e.g. 1500"
-              value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
+            <input type="text" placeholder="e.g. Raj Carpentry Works"
+              value={vendorName} onChange={e => setVendorName(e.target.value)}
               className="studio-input w-full text-sm" />
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">
+                Amount (₹) <span style={{ color: 'var(--text-tertiary)' }}>incl. GST</span>
+              </label>
+              <input type="number" min="0.01" step="0.01" placeholder="e.g. 1500"
+                value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
+                className="studio-input w-full text-sm" />
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">GST Rate</label>
+              <select value={gstPct} onChange={e => setGstPct(Number(e.target.value))}
+                className="studio-input w-full text-sm">
+                <option value={0}>0% (No GST)</option>
+                <option value={5}>5%</option>
+                <option value={12}>12%</option>
+                <option value={18}>18%</option>
+                <option value={28}>28%</option>
+              </select>
+            </div>
+          </div>
+          {gstPct > 0 && amountRupees && !isNaN(parseFloat(amountRupees)) && (
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              GST component (input credit): ₹{(Math.round(parseFloat(amountRupees) * 100 * gstPct / (100 + gstPct)) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </p>
+          )}
           <div>
             <label className="studio-label block mb-1.5">Description</label>
             <input type="text" placeholder="Brief description of the expense"
@@ -280,9 +313,10 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                 <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Category</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Vendor</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Description</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Logged Via</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>GST</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Date</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Receipt</th>
               </tr>
@@ -295,14 +329,19 @@ export default function ProjectExpensesPage({ params }: { params: Promise<{ id: 
                   <td className="px-4 py-3">
                     <CategoryBadge category={expense.category} />
                   </td>
-                  <td className="px-4 py-3" style={{ color: 'var(--text-heading)' }}>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-heading)' }}>
+                    {expense.vendorName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {expense.description ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                   </td>
                   <td className="px-4 py-3 text-right font-semibold" style={{ color: 'var(--text-heading)' }}>
                     {formatRupees(expense.amountPaise)}
                   </td>
-                  <td className="px-4 py-3 capitalize text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    {expense.loggedVia}
+                  <td className="px-4 py-3 text-right text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {expense.gstPct > 0
+                      ? <span title={`${expense.gstPct}% GST input credit`}>{formatRupees(expense.gstAmountPaise)}</span>
+                      : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                     {new Date(expense.createdAt).toLocaleDateString('en-IN', {

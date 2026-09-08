@@ -61,6 +61,22 @@ export async function POST(
 
     const totalPaise = quote.totalPaise;
 
+    // Dedup: if this lead already has a project, link the quote and return early
+    if (quote.leadId) {
+      const [existingProject] = await db
+        .select({ id: projects.id, name: projects.name, lifecycleStage: projects.lifecycleStage })
+        .from(projects)
+        .where(and(eq(projects.leadId, quote.leadId), eq(projects.tenantId, ctx.tenantId)));
+
+      if (existingProject) {
+        await db.update(quotes).set({ projectId: existingProject.id })
+          .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)));
+        const existingMilestones = await db.select().from(milestones)
+          .where(eq(milestones.projectId, existingProject.id));
+        return NextResponse.json({ data: { project: existingProject, milestones: existingMilestones } });
+      }
+    }
+
     // Step 1: Create project
     const [project] = await db
       .insert(projects)

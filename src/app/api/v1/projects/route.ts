@@ -165,6 +165,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
+    // Dedup: return existing project if one already exists for this lead
+    const [existingProject] = await db
+      .select({ id: projects.id, name: projects.name, lifecycleStage: projects.lifecycleStage })
+      .from(projects)
+      .where(and(eq(projects.leadId, input.leadId!), eq(projects.tenantId, ctx.tenantId)));
+    if (existingProject) {
+      return NextResponse.json({ data: existingProject, message: 'Project already exists for this lead' });
+    }
+
     leadId = input.leadId;
     customerId = lead.customerId;
 
