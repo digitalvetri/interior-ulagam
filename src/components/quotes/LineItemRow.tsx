@@ -9,6 +9,7 @@ import { UNIT_PRESETS } from './AddLineForm';
 interface LineItemRowProps {
   line: QuoteLine;
   isDraft: boolean;
+  showCostMargin?: boolean;
   onDelete: (id: string) => void;
   onUpdate: (
     id: string,
@@ -17,7 +18,7 @@ interface LineItemRowProps {
   onDuplicate: (line: QuoteLine) => void;
 }
 
-export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: LineItemRowProps) {
+export function LineItemRow({ line, isDraft, showCostMargin = false, onDelete, onUpdate, onDuplicate }: LineItemRowProps) {
   const [editing,        setEditing]        = useState(false);
   const [saving,         setSaving]         = useState(false);
   const [deleting,       setDeleting]       = useState(false);
@@ -109,7 +110,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   if (confirmDelete) {
     return (
       <tr style={{ background: 'var(--danger-soft)', borderBottom: '1px solid var(--danger-soft)' }}>
-        <td colSpan={6} className="px-4 py-3">
+        <td colSpan={showCostMargin ? 8 : 6} className="px-4 py-3">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-sm font-medium" style={{ color: 'var(--danger)' }}>
               Delete &quot;{line.item}&quot;? This cannot be undone.
@@ -139,7 +140,7 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
   if (editing) {
     return (
       <tr style={{ background: '#F9F8FF', borderBottom: '1px solid var(--accent-soft)' }}>
-        <td colSpan={6} className="px-4 py-3">
+        <td colSpan={showCostMargin ? 8 : 6} className="px-4 py-3">
           <div className="flex flex-wrap items-end gap-3">
             {/* Room */}
             <div>
@@ -296,6 +297,18 @@ export function LineItemRow({ line, isDraft, onDelete, onUpdate, onDuplicate }: 
       <td className="px-4 py-2.5 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>
         {formatRupees(line.clientRatePaise)}
       </td>
+
+      {/* Cost & Margin columns — finance users only */}
+      {showCostMargin && (
+        <>
+          <td className="px-4 py-2.5 text-right tabular-nums text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+            {formatRupees(line.costRatePaise)}
+          </td>
+          <td className="px-4 py-2.5 text-right tabular-nums text-[12px]" style={{ color: line.marginPaise >= 0 ? 'var(--success-text)' : 'var(--danger)' }}>
+            {formatRupees(line.marginPaise)}
+          </td>
+        </>
+      )}
 
       {/* Total = Rate × Qty */}
       <td className="px-4 py-2.5 text-right tabular-nums font-semibold" style={{ color: 'var(--text-heading)' }}>

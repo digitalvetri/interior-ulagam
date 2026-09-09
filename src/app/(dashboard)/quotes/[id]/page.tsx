@@ -16,6 +16,8 @@ import { DocumentActions } from '@/components/ui/DocumentActions';
 import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
 
+const FINANCE_ROLES = ['owner', 'accountant'];
+
 // Extended type for fields returned by the PATCH endpoint that aren't yet in the base Quote type
 interface QuoteExtended extends Quote {
   quoteNumber?: string | null;
@@ -57,6 +59,30 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [validUntil,    setValidUntil]    = useState('');
   const [paymentTerms,  setPaymentTerms]  = useState('');
   const [detailsSaving, setDetailsSaving] = useState(false);
+
+  // Cost/margin toggle — finance roles only
+  const [userRole,       setUserRole]       = useState<string | null>(null);
+  const [showCostMargin, setShowCostMargin] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/v1/me')
+      .then((r) => r.json())
+      .then(({ data }: { data: { role: string } }) => {
+        setUserRole(data?.role ?? null);
+        if (FINANCE_ROLES.includes(data?.role)) {
+          setShowCostMargin(localStorage.getItem('quote-show-cost-margin') === 'true');
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  function toggleCostMargin() {
+    setShowCostMargin((prev) => {
+      const next = !prev;
+      localStorage.setItem('quote-show-cost-margin', String(next));
+      return next;
+    });
+  }
 
   const fetchQuote = useCallback(() => {
     setLoading(true);
@@ -623,6 +649,20 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 )}
               </h2>
               <div className="flex items-center gap-2 flex-wrap justify-end">
+                {FINANCE_ROLES.includes(userRole ?? '') && (
+                  <button
+                    type="button"
+                    onClick={toggleCostMargin}
+                    className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all"
+                    style={{
+                      borderColor:     showCostMargin ? 'var(--accent-soft)' : 'var(--border-subtle)',
+                      color:           showCostMargin ? 'var(--accent-base)' : 'var(--text-secondary)',
+                      backgroundColor: showCostMargin ? 'var(--accent-soft)' : 'transparent',
+                    }}>
+                    <IndianRupee className="h-3.5 w-3.5" />
+                    {showCostMargin ? 'Hide Cost' : 'Show Cost'}
+                  </button>
+                )}
                 {lines.length > 0 && (
                   <button type="button"
                     onClick={handleExportExcel}
@@ -652,7 +692,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
               </div>
             </div>
 
-            {/* Table — 6 columns: Item | Unit | Qty | Rate | Total | (actions) */}
+            {/* Table — 6 or 8 columns (+ Cost / Margin for finance users) */}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -661,6 +701,12 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Unit</th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Qty</th>
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Rate ₹</th>
+                    {showCostMargin && (
+                      <>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Cost ₹</th>
+                        <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Margin ₹</th>
+                      </>
+                    )}
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Total ₹</th>
                     <th className="px-4 py-2.5 w-24" />
                   </tr>
@@ -669,7 +715,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                   {lines.length === 0 ? (
                     showAddForm ? null : (
                       <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center">
+                        <td colSpan={showCostMargin ? 8 : 6} className="px-4 py-12 text-center">
                           <FileText className="h-9 w-9 mx-auto mb-3" style={{ color: '#D1CAC0' }} />
                           <p className="text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>No line items yet</p>
                           <p className="text-xs mt-1" style={{ color: '#C4BCAF' }}>
@@ -691,7 +737,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                             cursor:       'pointer',
                           }}
                           onClick={() => toggleRoom(key)}>
-                          <td colSpan={6} className="px-4 py-2">
+                          <td colSpan={showCostMargin ? 8 : 6} className="px-4 py-2">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 {isCollapsed
@@ -717,6 +763,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                             key={line.id}
                             line={line}
                             isDraft={isDraft}
+                            showCostMargin={showCostMargin}
                             onDelete={handleLineDelete}
                             onUpdate={handleLineUpdate}
                             onDuplicate={handleLineDuplicate}

@@ -434,7 +434,7 @@ function AttendanceTab() {
                 <p className="text-[13px] text-gray-400">No records for this month.</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border" style={{ borderColor: 'var(--border)' }}>
+              <div className="overflow-x-auto rounded-xl border" style={{ borderColor: 'var(--border)' }}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b" style={{ borderColor: 'var(--border)' }}>

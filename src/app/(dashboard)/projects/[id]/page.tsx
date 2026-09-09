@@ -7,7 +7,7 @@ import {
   CheckCircle2, XCircle, Pencil, AlertTriangle, RefreshCw,
   CreditCard, ClipboardList, Receipt, Bug,
   Activity, Plus, Calendar, MapPin,
-  ArrowRight,
+  ArrowRight, Package, Layers,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -703,41 +703,52 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* ── Quick Actions ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-2">
-        <Link
-          href={`/projects/${id}/site`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <ClipboardList className="h-3.5 w-3.5" style={{ color: '#D97706' }} />
-          Log Site Visit
-        </Link>
-        <Link
-          href={`/projects/${id}/expenses`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <Receipt className="h-3.5 w-3.5" style={{ color: '#E11D48' }} />
-          Add Expense
-        </Link>
-        <Link
-          href={`/projects/${id}/payments`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <CreditCard className="h-3.5 w-3.5" style={{ color: '#16A34A' }} />
-          Payments
-        </Link>
-        <Link
-          href={`/projects/${id}/snag`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <Bug className="h-3.5 w-3.5" style={{ color: '#EA580C' }} />
-          Snag List
-        </Link>
-      </div>
+      {/* ── Quick Actions (stage-contextual) ─────────────────────────────── */}
+      {(() => {
+        type QA = { label: string; href: string; icon: React.ReactNode };
+        const stage = project.lifecycleStage;
+        const qa: QA[] = [];
+        if (['design_pending', 'design_in_progress', 'design_approved'].includes(stage)) {
+          qa.push(
+            { label: 'Add Deliverable', href: `/projects/${id}/deliverables`, icon: <Layers className="h-3.5 w-3.5" style={{ color: '#7C3AED' }} /> },
+            { label: 'Site Visit',      href: `/projects/${id}/site`,         icon: <ClipboardList className="h-3.5 w-3.5" style={{ color: '#D97706' }} /> },
+          );
+        } else if (stage === 'procurement') {
+          qa.push(
+            { label: 'Purchase Order', href: `/projects/${id}/boq`,      icon: <Package className="h-3.5 w-3.5" style={{ color: '#0369A1' }} /> },
+            { label: 'Add Expense',    href: `/projects/${id}/expenses`, icon: <Receipt className="h-3.5 w-3.5" style={{ color: '#E11D48' }} /> },
+          );
+        } else if (stage === 'execution') {
+          qa.push(
+            { label: 'Site Log',    href: `/projects/${id}/site`,        icon: <ClipboardList className="h-3.5 w-3.5" style={{ color: '#D97706' }} /> },
+            { label: 'Work Order',  href: `/projects/${id}/work-orders`, icon: <Activity className="h-3.5 w-3.5" style={{ color: '#7C3AED' }} /> },
+            { label: 'Add Expense', href: `/projects/${id}/expenses`,    icon: <Receipt className="h-3.5 w-3.5" style={{ color: '#E11D48' }} /> },
+          );
+        } else if (stage === 'snagging') {
+          qa.push(
+            { label: 'Snag List', href: `/projects/${id}/snag`, icon: <Bug className="h-3.5 w-3.5" style={{ color: '#EA580C' }} /> },
+          );
+        } else if (stage === 'handover' || stage === 'complete') {
+          qa.push(
+            { label: 'Payment', href: `/projects/${id}/payments`, icon: <CreditCard className="h-3.5 w-3.5" style={{ color: '#16A34A' }} /> },
+          );
+        }
+        return (
+          <div className="flex flex-wrap gap-2">
+            {qa.map((a) => (
+              <Link
+                key={a.href}
+                href={a.href}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] px-3.5 py-2 text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {a.icon}
+                {a.label}
+              </Link>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ── Project Journey ────────────────────────────────────────────────── */}
       <div className="premium-card p-5">
