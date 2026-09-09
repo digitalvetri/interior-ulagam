@@ -228,7 +228,7 @@ test.describe('Lead → Handover flow', () => {
     await expect(page.getByText('Vendor Co')).toBeVisible();
   });
 
-  test('Accounts page shows receivables tab', async ({ page }) => {
+  test('Finance page loads (redirected from /accounts)', async ({ page }) => {
     await page.route('**/api/v1/accounts/overview*', route =>
       route.fulfill({
         json: {
@@ -248,8 +248,8 @@ test.describe('Lead → Handover flow', () => {
         },
       }),
     );
-    await page.goto('/accounts');
-    await expect(page.getByRole('heading', { name: /accounts|receivables/i })).toBeVisible();
+    await page.goto('/finance');
+    await expect(page.getByRole('heading', { name: /finance/i })).toBeVisible();
   });
 
   test('Snag page shows handover initiation and cert download after success', async ({ page }) => {
