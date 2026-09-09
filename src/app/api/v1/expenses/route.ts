@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { expenses, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import type { ExpenseCategory } from '@/types/accounts';
 
 const EXPENSE_CATEGORIES = [
@@ -91,6 +91,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
+    const [{ expCount }] = await db
+      .select({ expCount: count() })
+      .from(expenses)
+      .where(eq(expenses.tenantId, ctx.tenantId));
+    const expenseNumber = `EXP-${String(Number(expCount) + 1).padStart(4, '0')}`;
+
     const [expense] = await db
       .insert(expenses)
       .values({
@@ -105,6 +111,7 @@ export async function POST(request: NextRequest) {
         vendorName: input.vendorName ?? null,
         gstPct: input.gstPct,
         gstAmountPaise: input.gstAmountPaise,
+        expenseNumber,
       })
       .returning();
 

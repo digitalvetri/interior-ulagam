@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { siteLogs, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc, gte, lte } from 'drizzle-orm';
+import { eq, and, count, desc, gte, lte } from 'drizzle-orm';
 
 const CreateSiteLogSchema = z.object({
   logDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'logDate must be YYYY-MM-DD'),
@@ -105,6 +105,12 @@ export async function POST(
   const input = parsed.data;
 
   try {
+    const [{ slCount }] = await db
+      .select({ slCount: count() })
+      .from(siteLogs)
+      .where(eq(siteLogs.tenantId, ctx.tenantId));
+    const logNumber = `SL-${String(Number(slCount) + 1).padStart(4, '0')}`;
+
     const [created] = await db
       .insert(siteLogs)
       .values({
@@ -120,6 +126,7 @@ export async function POST(
         labourCount: input.labourCount,
         blockersJson: input.blockersJson ?? null,
         source: input.source ?? 'manual',
+        logNumber,
       })
       .returning();
 

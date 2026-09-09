@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { measurementRounds, measurementItems, leads, users } from '@/lib/db/schema';
@@ -88,16 +88,24 @@ export async function POST(
   if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
 
   const { roundName, scheduledAt, assignedToId, notes } = parsed.data;
+
+  const [{ msCount }] = await db
+    .select({ msCount: count() })
+    .from(measurementRounds)
+    .where(eq(measurementRounds.tenantId, ctx.tenantId));
+  const measurementNumber = `MS-${String(Number(msCount) + 1).padStart(4, '0')}`;
+
   const [round] = await db
     .insert(measurementRounds)
     .values({
-      tenantId:     ctx.tenantId,
-      leadId:       id,
+      tenantId:          ctx.tenantId,
+      leadId:            id,
       roundName,
-      scheduledAt:  scheduledAt ? new Date(scheduledAt) : null,
-      assignedToId: assignedToId ?? null,
-      notes:        notes ?? null,
-      createdBy:    ctx.dbUserId ?? undefined,
+      scheduledAt:       scheduledAt ? new Date(scheduledAt) : null,
+      assignedToId:      assignedToId ?? null,
+      notes:             notes ?? null,
+      createdBy:         ctx.dbUserId ?? undefined,
+      measurementNumber,
     })
     .returning();
 

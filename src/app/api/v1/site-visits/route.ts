@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, count, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteVisits, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -87,6 +87,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
+    const [{ visitCount }] = await db
+      .select({ visitCount: count() })
+      .from(siteVisits)
+      .where(eq(siteVisits.tenantId, ctx.tenantId));
+    const visitNumber = `SV-${String(Number(visitCount) + 1).padStart(4, '0')}`;
+
     const [visit] = await db
       .insert(siteVisits)
       .values({
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest) {
         locationJson: { address },
         designerId: designerId ?? null,
         notes: notes ?? null,
+        visitNumber,
       })
       .returning();
 

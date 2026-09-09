@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { workOrders, vendors, users, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -96,6 +96,12 @@ export async function POST(
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   try {
+    const [{ woCount }] = await db
+      .select({ woCount: count() })
+      .from(workOrders)
+      .where(eq(workOrders.tenantId, ctx.tenantId));
+    const workOrderNumber = `WO-${String(Number(woCount) + 1).padStart(4, '0')}`;
+
     const [wo] = await db
       .insert(workOrders)
       .values({
@@ -110,6 +116,7 @@ export async function POST(
         dueDate:          parsed.data.dueDate ?? null,
         notes:            parsed.data.notes ?? null,
         status:           'draft',
+        workOrderNumber,
       })
       .returning();
 

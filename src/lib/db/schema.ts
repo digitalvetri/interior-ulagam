@@ -474,6 +474,7 @@ export const siteLogs = pgTable('site_logs', {
   blockersJson: jsonb('blockers_json'),
   aiParsedJson: jsonb('ai_parsed_json'),
   source: siteLogSourceEnum('source').notNull().default('manual'),
+  logNumber: text('log_number'),
   followUpActions: text('follow_up_actions'),
   attachments: text('attachments').array().notNull().default(sql`'{}'::text[]`),
   relatedWorkOrderIds: uuid('related_work_order_ids').array().notNull().default(sql`'{}'::uuid[]`),
@@ -524,6 +525,7 @@ export const expenses = pgTable('expenses', {
   vendorName: text('vendor_name'),
   gstPct: integer('gst_pct').notNull().default(0),
   gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
+  expenseNumber: text('expense_number'),
   ...timestamps,
 });
 
@@ -830,6 +832,7 @@ export const workOrders = pgTable('work_orders', {
   materialsJson: jsonb('materials_json').notNull().default(sql`'[]'::jsonb`),
   attachments: text('attachments').array().notNull().default(sql`'{}'::text[]`),
   notes: text('notes'),
+  workOrderNumber: text('work_order_number'),
   ...timestamps,
 }, (t) => [
   index('work_orders_tenant_project_idx').on(t.tenantId, t.projectId),

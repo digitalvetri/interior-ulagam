@@ -11,17 +11,19 @@ export async function GET() {
 
   const rounds = await db
     .select({
-      id:             measurementRounds.id,
-      leadId:         measurementRounds.leadId,
-      roundName:      measurementRounds.roundName,
-      scheduledAt:    measurementRounds.scheduledAt,
-      completedAt:    measurementRounds.completedAt,
-      assignedToId:   measurementRounds.assignedToId,
-      assignedToName: users.fullName,
-      notes:          measurementRounds.notes,
-      createdAt:      measurementRounds.createdAt,
-      contactName:    leads.contactName,
-      contactPhone:   leads.contactPhone,
+      id:                measurementRounds.id,
+      leadId:            measurementRounds.leadId,
+      measurementNumber: measurementRounds.measurementNumber,
+      status:            measurementRounds.status,
+      roundName:         measurementRounds.roundName,
+      scheduledAt:       measurementRounds.scheduledAt,
+      completedAt:       measurementRounds.completedAt,
+      assignedToId:      measurementRounds.assignedToId,
+      assignedToName:    users.fullName,
+      notes:             measurementRounds.notes,
+      createdAt:         measurementRounds.createdAt,
+      contactName:       leads.contactName,
+      contactPhone:      leads.contactPhone,
     })
     .from(measurementRounds)
     .innerJoin(leads, and(
