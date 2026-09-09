@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Loader2, HardHat, Calendar, User,
   ChevronDown,
@@ -14,7 +15,7 @@ import { Label } from '@/components/ui/label';
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type WOType = 'inhouse_carpentry' | 'factory' | 'vendor_job' | 'site_work';
-type WOStatus = 'planned' | 'in_progress' | 'ready' | 'installed';
+type WOStatus = 'draft' | 'assigned' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
 
 interface WorkOrder {
   id: string;
@@ -39,17 +40,21 @@ const TYPE_LABELS: Record<WOType, string> = {
 };
 
 const STATUS_LABELS: Record<WOStatus, string> = {
-  planned:     'Planned',
+  draft:       'Draft',
+  assigned:    'Assigned',
   in_progress: 'In Progress',
-  ready:       'Ready',
-  installed:   'Installed',
+  on_hold:     'On Hold',
+  completed:   'Completed',
+  cancelled:   'Cancelled',
 };
 
 const STATUS_STYLES: Record<WOStatus, { bg: string; color: string }> = {
-  planned:     { bg: 'rgba(107,114,128,0.1)',  color: 'var(--text-secondary)' },
-  in_progress: { bg: 'rgba(59,130,246,0.12)',  color: 'var(--accent-text)' },
-  ready:       { bg: 'rgba(234,179,8,0.15)',   color: '#92400e' },
-  installed:   { bg: 'rgba(22,163,74,0.12)',   color: 'var(--success-text)' },
+  draft:       { bg: 'rgba(107,114,128,0.1)',  color: 'var(--text-secondary)' },
+  assigned:    { bg: 'rgba(59,130,246,0.12)',  color: 'var(--accent-text)' },
+  in_progress: { bg: 'rgba(234,179,8,0.15)',   color: '#92400e' },
+  on_hold:     { bg: 'rgba(249,115,22,0.12)',  color: '#9a3412' },
+  completed:   { bg: 'rgba(22,163,74,0.12)',   color: 'var(--success-text)' },
+  cancelled:   { bg: 'rgba(239,68,68,0.1)',    color: 'var(--danger)' },
 };
 
 // ─── Status dropdown ───────────────────────────────────────────────────────────
@@ -58,7 +63,7 @@ function StatusDropdown({ wo, onUpdated }: { wo: WorkOrder; onUpdated: (updated:
   const [open, setOpen]       = useState(false);
   const [saving, setSaving]   = useState(false);
 
-  const statuses: WOStatus[] = ['planned', 'in_progress', 'ready', 'installed'];
+  const statuses: WOStatus[] = ['draft', 'assigned', 'in_progress', 'on_hold', 'completed', 'cancelled'];
   const style = STATUS_STYLES[wo.status];
 
   async function handleSelect(status: WOStatus) {
@@ -233,6 +238,7 @@ function CreateWorkOrderDialog({ open, onClose, projectId, onCreated }: CreateDi
 
 export default function WorkOrdersPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
 
   const [rows,       setRows]       = useState<WorkOrder[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -305,7 +311,7 @@ export default function WorkOrdersPage({ params }: { params: Promise<{ id: strin
       {/* Filter tabs */}
       {rows.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {(['all', 'planned', 'in_progress', 'ready', 'installed'] as const).map(f => (
+          {(['all', 'draft', 'assigned', 'in_progress', 'on_hold', 'completed', 'cancelled'] as const).map(f => (
             <button
               key={f}
               type="button"
@@ -357,7 +363,11 @@ export default function WorkOrdersPage({ params }: { params: Promise<{ id: strin
           </div>
         ) : (
           displayed.map(wo => (
-            <div key={wo.id} className="flex items-start justify-between gap-4 p-4 first:pt-5 last:pb-5">
+            <div
+              key={wo.id}
+              className="flex items-start justify-between gap-4 p-4 first:pt-5 last:pb-5 cursor-pointer hover:bg-[var(--surface-muted)] transition-colors"
+              onClick={() => router.push(`/work-orders/${wo.id}`)}
+            >
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex items-start gap-2">
                   <p className="text-sm font-semibold text-[var(--text-heading)] leading-snug">{wo.title}</p>
@@ -388,7 +398,9 @@ export default function WorkOrdersPage({ params }: { params: Promise<{ id: strin
                   )}
                 </div>
               </div>
-              <StatusDropdown wo={wo} onUpdated={handleUpdated} />
+              <div onClick={e => e.stopPropagation()}>
+                <StatusDropdown wo={wo} onUpdated={handleUpdated} />
+              </div>
             </div>
           ))
         )}

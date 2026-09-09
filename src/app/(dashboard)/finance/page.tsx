@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   AlertCircle, ArrowUpRight, Check, ChevronDown, ChevronRight,
@@ -412,6 +413,7 @@ function InvoicesTab() {
 // ─── Payments Tab ──────────────────────────────────────────────────────────────
 
 function PaymentsTab() {
+  const router = useRouter();
   const [data, setData]         = useState<OverviewPayload | null>(null);
   const [loading, setLoading]   = useState(true);
   const [search, setSearch]     = useState('');
@@ -656,14 +658,15 @@ function PaymentsTab() {
                   {filteredRcv.map(r => {
                     const cfg = RCV_STATUS[r.paymentStatus] ?? RCV_STATUS.pending;
                     return (
-                      <tr key={r.id} className="hover:bg-[var(--surface-muted)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td className="px-4 py-3"><Link href={`/projects/${r.projectId}/payments`} className="font-medium hover:underline" style={{ color: 'var(--text-heading)' }}>{r.projectName}</Link></td>
+                      <tr key={r.id} className="hover:bg-[var(--surface-muted)] cursor-pointer" style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                        onClick={() => router.push(`/payments/${r.id}`)}>
+                        <td className="px-4 py-3"><span className="font-medium" style={{ color: 'var(--text-heading)' }}>{r.projectName}</span></td>
                         <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{r.clientName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}</td>
                         <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{r.label}</td>
                         <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>{formatRupees(r.amountPaise)}</td>
                         <td className="px-4 py-3"><span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span></td>
                         <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>{r.daysSinceCreation}d</td>
-                        <td className="px-4 py-3 text-right"><Link href={`/projects/${r.projectId}/payments`} className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70" style={{ color: 'var(--accent-base)' }}>Manage <ArrowUpRight className="h-3 w-3" /></Link></td>
+                        <td className="px-4 py-3 text-right"><ArrowUpRight className="h-4 w-4 ml-auto" style={{ color: 'var(--text-tertiary)' }} /></td>
                       </tr>
                     );
                   })}
@@ -776,6 +779,7 @@ function PaymentsTab() {
 // ─── Expenses Tab ──────────────────────────────────────────────────────────────
 
 function ExpensesTab() {
+  const router = useRouter();
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCat]   = useState('');
@@ -962,7 +966,8 @@ function ExpensesTab() {
               </tr></thead>
               <tbody>
                 {filtered.map(e => (
-                  <tr key={e.id} className="hover:bg-[var(--surface-muted)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <tr key={e.id} className="hover:bg-[var(--surface-muted)] cursor-pointer" style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                    onClick={() => router.push(`/expenses/${e.id}`)}>
                     <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
                       {new Date(e.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>

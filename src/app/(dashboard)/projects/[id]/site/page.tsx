@@ -489,6 +489,11 @@ function LogCard({ log, onEdit, onDelete, confirmingDelete, onConfirmDelete, onC
                 {log.stage}
               </span>
             )}
+            <Link href={`/site-logs/${log.id}`}
+              className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-70"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
+              Details
+            </Link>
             <button type="button" onClick={onEdit}
               className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-70"
               style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>

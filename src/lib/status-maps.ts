@@ -77,7 +77,29 @@ export const SERVICE_REQUEST_PRIORITY: StatusMap = {
   urgent: { label: 'Urgent', bg: 'var(--danger)',        color: '#fff'                  },
 };
 
-export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests';
+export const SITE_VISIT_STATUS_MAP: StatusMap = {
+  scheduled:   { label: 'Scheduled',   bg: '#EFF6FF', color: '#1D4ED8', dot: '#3B82F6' },
+  in_progress: { label: 'In Progress', bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
+  completed:   { label: 'Completed',   bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+  cancelled:   { label: 'Cancelled',   bg: 'var(--surface-muted)', color: 'var(--text-secondary)', dot: 'var(--text-tertiary)' },
+};
+
+export const MEASUREMENT_STATUS_MAP: StatusMap = {
+  pending:   { label: 'Pending',   bg: 'var(--surface-muted)', color: 'var(--text-primary)',  dot: 'var(--text-tertiary)' },
+  completed: { label: 'Completed', bg: 'var(--success-soft)',  color: 'var(--success-text)',  dot: 'var(--success)' },
+  cancelled: { label: 'Cancelled', bg: 'var(--danger-soft)',   color: 'var(--danger)',        dot: 'var(--danger)' },
+};
+
+export const WORK_ORDER_STATUS_MAP: StatusMap = {
+  draft:       { label: 'Draft',       bg: 'var(--surface-muted)', color: 'var(--text-secondary)', dot: 'var(--text-tertiary)' },
+  assigned:    { label: 'Assigned',    bg: '#EFF6FF',              color: '#1D4ED8',               dot: '#3B82F6' },
+  in_progress: { label: 'In Progress', bg: 'var(--warning-soft)',  color: 'var(--warning-text)',   dot: 'var(--warning)' },
+  on_hold:     { label: 'On Hold',     bg: '#FFF7ED',              color: '#C2410C',               dot: '#F97316' },
+  completed:   { label: 'Completed',   bg: 'var(--success-soft)',  color: 'var(--success-text)',   dot: 'var(--success)' },
+  cancelled:   { label: 'Cancelled',   bg: 'var(--danger-soft)',   color: 'var(--danger)',         dot: 'var(--danger)' },
+};
+
+export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests' | 'site_visits' | 'measurements' | 'work_orders';
 
 export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
   leads:            LEAD_STATUS_MAP,
@@ -87,4 +109,7 @@ export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
   snags:            SNAG_STATUS_MAP,
   pos:              PO_STATUS_MAP,
   service_requests: SERVICE_REQUEST_STATUS,
+  site_visits:      SITE_VISIT_STATUS_MAP,
+  measurements:     MEASUREMENT_STATUS_MAP,
+  work_orders:      WORK_ORDER_STATUS_MAP,
 };

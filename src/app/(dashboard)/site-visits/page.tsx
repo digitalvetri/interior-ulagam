@@ -435,7 +435,8 @@ export default function SiteVisitsPage() {
                       const s    = STATUS_STYLES[v.status] ?? STATUS_STYLES.scheduled;
                       return (
                         <tr key={v.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                          className="transition-colors"
+                          className="transition-colors cursor-pointer"
+                          onClick={() => router.push(`/site-visits/${v.id}`)}
                           onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
@@ -578,18 +579,18 @@ export default function SiteVisitsPage() {
                       <tr
                         key={m.id}
                         style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                        className="transition-colors"
+                        className="transition-colors cursor-pointer"
+                        onClick={() => router.push(`/measurements/${m.id}`)}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
                         <td className="px-4 py-3">
-                          <Link
-                            href={`/leads/${m.leadId}/site-visit`}
-                            className="font-medium hover:underline"
-                            style={{ color: 'var(--accent-base)' }}
+                          <span
+                            className="font-medium"
+                            style={{ color: 'var(--text-heading)' }}
                           >
                             {m.contactName}
-                          </Link>
+                          </span>
                           <p className="text-[11px] mt-0.5 tnum" style={{ color: 'var(--text-secondary)' }}>{m.contactPhone}</p>
                         </td>
                         <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-heading)' }}>

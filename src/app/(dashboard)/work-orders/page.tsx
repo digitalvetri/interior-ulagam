@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   HardHat, Search, FolderKanban, User, Calendar,
   Loader2, AlertTriangle, CheckCircle2, Clock, Truck, Wrench, Plus, X,
@@ -12,7 +12,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type WOStatus = 'planned' | 'in_progress' | 'ready' | 'installed';
+type WOStatus = 'draft' | 'assigned' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
 type WOType   = 'inhouse_carpentry' | 'factory' | 'vendor_job' | 'site_work';
 
 interface WorkOrder {
@@ -47,27 +47,33 @@ interface NewWOForm {
 // ─── Config ───────────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<WOStatus, string> = {
-  planned:     'Planned',
+  draft:       'Draft',
+  assigned:    'Assigned',
   in_progress: 'In Progress',
-  ready:       'Ready',
-  installed:   'Installed',
+  on_hold:     'On Hold',
+  completed:   'Completed',
+  cancelled:   'Cancelled',
 };
 
 const STATUS_STYLES: Record<WOStatus, { bg: string; fg: string; border: string }> = {
-  planned:     { bg: 'var(--surface-muted)',    fg: 'var(--text-secondary)',  border: 'var(--border-subtle)' },
-  in_progress: { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)',     border: 'rgba(37,99,235,0.22)' },
-  ready:       { bg: 'var(--accent-orange-bg)', fg: 'var(--accent-orange)',   border: 'rgba(194,65,12,0.22)' },
-  installed:   { bg: 'var(--success-soft)',      fg: 'var(--success-text)',    border: 'rgba(15,157,110,0.24)' },
+  draft:       { bg: 'var(--surface-muted)',    fg: 'var(--text-secondary)',  border: 'var(--border-subtle)' },
+  assigned:    { bg: 'var(--accent-blue-bg)',   fg: 'var(--accent-blue)',     border: 'rgba(37,99,235,0.22)' },
+  in_progress: { bg: 'var(--accent-orange-bg)', fg: 'var(--accent-orange)',   border: 'rgba(194,65,12,0.22)' },
+  on_hold:     { bg: '#FEF3C7',                fg: '#92400E',                border: '#FCD34D' },
+  completed:   { bg: 'var(--success-soft)',      fg: 'var(--success-text)',    border: 'rgba(15,157,110,0.24)' },
+  cancelled:   { bg: '#FEE2E2',                fg: '#B91C1C',                border: '#FCA5A5' },
 };
 
 const STATUS_ICONS: Record<WOStatus, React.ElementType> = {
-  planned:     Clock,
+  draft:       Clock,
+  assigned:    User,
   in_progress: Wrench,
-  ready:       CheckCircle2,
-  installed:   CheckCircle2,
+  on_hold:     Clock,
+  completed:   CheckCircle2,
+  cancelled:   X,
 };
 
-const STATUS_ORDER: WOStatus[] = ['planned', 'in_progress', 'ready', 'installed'];
+const STATUS_ORDER: WOStatus[] = ['draft', 'assigned', 'in_progress', 'on_hold', 'completed', 'cancelled'];
 
 const TYPE_OPTIONS: { value: WOType; label: string }[] = [
   { value: 'site_work',         label: 'Site Work' },
@@ -269,6 +275,7 @@ function NewWorkOrderDialog({ open, onOpenChange, onCreated }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function WorkOrdersPage() {
+  const router = useRouter();
   const [orders,  setOrders]  = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
@@ -319,7 +326,7 @@ export default function WorkOrdersPage() {
     return c;
   }, [orders]);
 
-  const activeCount = orders.filter(o => o.status === 'planned' || o.status === 'in_progress').length;
+  const activeCount = orders.filter(o => o.status === 'assigned' || o.status === 'in_progress').length;
 
   return (
     <div className="space-y-6 p-6 lg:p-8">
@@ -417,10 +424,11 @@ export default function WorkOrdersPage() {
                   const ss   = STATUS_STYLES[o.status];
                   const ts   = TYPE_STYLES[o.type] ?? { bg: 'var(--surface-muted)', fg: 'var(--text-secondary)' };
                   const SI   = STATUS_ICONS[o.status];
-                  const past = o.dueDate && new Date(o.dueDate) < new Date() && (o.status === 'planned' || o.status === 'in_progress');
+                  const past = o.dueDate && new Date(o.dueDate) < new Date() && (o.status === 'assigned' || o.status === 'in_progress');
                   return (
                     <tr key={o.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                      className="transition-colors"
+                      className="transition-colors cursor-pointer"
+                      onClick={() => router.push(`/work-orders/${o.id}`)}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
@@ -437,12 +445,14 @@ export default function WorkOrdersPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 max-w-[150px]">
-                        <Link href={`/projects/${o.projectId}/work-orders`}
-                          className="inline-flex items-center gap-1 text-[12px] font-medium hover:underline truncate"
-                          style={{ color: 'var(--accent-base)' }}>
+                        <span
+                          className="inline-flex items-center gap-1 text-[12px] font-medium truncate"
+                          style={{ color: 'var(--text-secondary)' }}
+                          onClick={e => { e.stopPropagation(); router.push(`/projects/${o.projectId}`); }}
+                        >
                           <FolderKanban className="h-3 w-3 flex-shrink-0" />
-                          <span className="truncate">{o.projectName || 'View project'}</span>
-                        </Link>
+                          <span className="truncate hover:underline cursor-pointer">{o.projectName || 'View project'}</span>
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium border"

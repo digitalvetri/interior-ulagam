@@ -109,7 +109,7 @@ export async function POST(
         startDate:        parsed.data.startDate ?? null,
         dueDate:          parsed.data.dueDate ?? null,
         notes:            parsed.data.notes ?? null,
-        status:           'planned',
+        status:           'draft',
       })
       .returning();
 

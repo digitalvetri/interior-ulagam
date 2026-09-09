@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Plus, Palette, Layers, Box, Ruler, Grid2X2 } from 'lucide-react';
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -281,32 +282,37 @@ export function DesignDeliverablesTab({ leadId }: DesignDeliverablesTabProps) {
                 </div>
 
                 {/* Action buttons row */}
-                {(canShare || canApprove) && (
-                  <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    {canShare && (
-                      <button
-                        type="button"
-                        onClick={() => handleShare(d)}
-                        disabled={isActionLoading}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}
-                      >
-                        {isActionLoading ? 'Sharing…' : 'Share'}
-                      </button>
-                    )}
-                    {canApprove && (
-                      <button
-                        type="button"
-                        onClick={() => handleApprove(d)}
-                        disabled={isActionLoading}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                        style={{ background: 'var(--success-soft)', color: 'var(--success-text)', border: '1px solid var(--border-subtle)' }}
-                      >
-                        {isActionLoading ? 'Approving…' : 'Approve'}
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="flex gap-2 mt-3 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                  <Link
+                    href={`/designs/${d.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    Details
+                  </Link>
+                  {canShare && (
+                    <button
+                      type="button"
+                      onClick={() => handleShare(d)}
+                      disabled={isActionLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}
+                    >
+                      {isActionLoading ? 'Sharing…' : 'Share'}
+                    </button>
+                  )}
+                  {canApprove && (
+                    <button
+                      type="button"
+                      onClick={() => handleApprove(d)}
+                      disabled={isActionLoading}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
+                      style={{ background: 'var(--success-soft)', color: 'var(--success-text)', border: '1px solid var(--border-subtle)' }}
+                    >
+                      {isActionLoading ? 'Approving…' : 'Approve'}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

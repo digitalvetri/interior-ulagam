@@ -1104,7 +1104,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">
             {siteLogs.map(log => (
-              <div key={log.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+              <div key={log.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0 cursor-pointer hover:bg-[var(--surface-muted)] rounded-lg px-2 -mx-2 transition-colors" onClick={() => router.push(`/site-logs/${log.id}`)}>
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full" style={{ background: 'rgba(245,158,11,0.12)' }}>
                   <ClipboardList className="h-4 w-4" style={{ color: '#D97706' }} />
                 </div>

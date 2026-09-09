@@ -105,6 +105,17 @@ export const customerStageEnum = pgEnum('customer_stage', [
 
 export const leadPriorityEnum = pgEnum('lead_priority', ['hot', 'warm', 'cold']);
 
+export const siteVisitPurposeEnum = pgEnum('site_visit_purpose', [
+  'initial', 'measurement', 'design_review', 'site_inspection',
+  'material_inspection', 'final_inspection', 'other',
+]);
+export const measurementRoundStatusEnum = pgEnum('measurement_round_status', [
+  'draft', 'completed', 'revised',
+]);
+export const workOrderPriorityEnum = pgEnum('work_order_priority', [
+  'low', 'normal', 'high', 'urgent',
+]);
+
 export const leadActivityTypeEnum = pgEnum('lead_activity_type', [
   'call', 'whatsapp', 'note', 'site_visit', 'meeting', 'stage_change', 'follow_up',
 ]);
@@ -273,8 +284,11 @@ export const siteVisits = pgTable('site_visits', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
   designerId: uuid('designer_id').references(() => users.id),
   status: siteVisitStatusEnum('status').notNull().default('scheduled'),
+  purpose: siteVisitPurposeEnum('purpose'),
+  visitNumber: text('visit_number'),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   locationJson: jsonb('location_json'),
@@ -282,6 +296,7 @@ export const siteVisits = pgTable('site_visits', {
   measurementsJson: jsonb('measurements_json'),
   voiceNotes: text('voice_notes').array().notNull().default(sql`'{}'::text[]`),
   notes: text('notes'),
+  followUpNotes: text('follow_up_notes'),
   ...timestamps,
 });
 
@@ -352,6 +367,8 @@ export const quotes = pgTable('quotes', {
   marginPaise: integer('margin_paise').notNull().default(0),
   pdfUrl: text('pdf_url'),
   termsText: text('terms_text'),
+  validUntil: date('valid_until'),
+  paymentTerms: text('payment_terms'),
   sentAt: timestamp('sent_at', { withTimezone: true }),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
@@ -451,11 +468,15 @@ export const siteLogs = pgTable('site_logs', {
   transcript: text('transcript'),
   progressPct: integer('progress_pct'),
   stage: text('stage'),
+  activityType: text('activity_type'),
   delayFlag: boolean('delay_flag').notNull().default(false),
   labourCount: integer('labour_count'),
   blockersJson: jsonb('blockers_json'),
   aiParsedJson: jsonb('ai_parsed_json'),
   source: siteLogSourceEnum('source').notNull().default('manual'),
+  followUpActions: text('follow_up_actions'),
+  attachments: text('attachments').array().notNull().default(sql`'{}'::text[]`),
+  relatedWorkOrderIds: uuid('related_work_order_ids').array().notNull().default(sql`'{}'::uuid[]`),
   ...timestamps,
 });
 
@@ -730,6 +751,10 @@ export const measurementRounds = pgTable('measurement_rounds', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   leadId: uuid('lead_id').notNull().references(() => leads.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  siteVisitId: uuid('site_visit_id').references(() => siteVisits.id, { onDelete: 'set null' }),
+  status: measurementRoundStatusEnum('status').notNull().default('draft'),
+  measurementNumber: text('measurement_number'),
   roundName: text('round_name').notNull().default('Round 1'),
   scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
@@ -745,6 +770,7 @@ export const measurementRounds = pgTable('measurement_rounds', {
 export const measurementItems = pgTable('measurement_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   roundId: uuid('round_id').notNull().references(() => measurementRounds.id, { onDelete: 'cascade' }),
+  floor: text('floor'),
   room: text('room').notNull(),
   itemName: text('item_name').notNull(),
   // JSONB: { length?: number, width?: number, height?: number, area?: number, unit: 'ft'|'m', notes?: string }
@@ -752,6 +778,7 @@ export const measurementItems = pgTable('measurement_items', {
   dimensionsJson: jsonb('dimensions_json').notNull().default(sql`'{}'::jsonb`),
   qty: integer('qty').notNull().default(1),
   unit: text('unit').notNull().default('sqft'),
+  areaSqft: decimal('area_sqft', { precision: 10, scale: 3 }),
   notes: text('notes'),
   ...timestamps,
 }, (t) => [
@@ -780,7 +807,7 @@ export const workOrderTypeEnum = pgEnum('work_order_type', [
   'inhouse_carpentry', 'factory', 'vendor_job', 'site_work',
 ]);
 export const workOrderStatusEnum = pgEnum('work_order_status', [
-  'planned', 'in_progress', 'ready', 'installed',
+  'draft', 'assigned', 'in_progress', 'on_hold', 'completed', 'cancelled',
 ]);
 
 export const workOrders = pgTable('work_orders', {
@@ -790,16 +817,35 @@ export const workOrders = pgTable('work_orders', {
   quoteLineId: uuid('quote_line_id').references(() => quoteLines.id, { onDelete: 'set null' }),
   title: text('title').notNull(),
   type: workOrderTypeEnum('type').notNull().default('site_work'),
+  priority: workOrderPriorityEnum('priority').notNull().default('normal'),
+  description: text('description'),
+  room: text('room'),
   assignedUserId: uuid('assigned_user_id').references(() => users.id),
   assignedVendorId: uuid('assigned_vendor_id').references(() => vendors.id),
   startDate: date('start_date'),
   dueDate: date('due_date'),
-  status: workOrderStatusEnum('status').notNull().default('planned'),
+  status: workOrderStatusEnum('status').notNull().default('draft'),
+  estimatedCostPaise: bigint('estimated_cost_paise', { mode: 'number' }).notNull().default(0),
+  actualCostPaise: bigint('actual_cost_paise', { mode: 'number' }).notNull().default(0),
+  materialsJson: jsonb('materials_json').notNull().default(sql`'[]'::jsonb`),
+  attachments: text('attachments').array().notNull().default(sql`'{}'::text[]`),
   notes: text('notes'),
   ...timestamps,
 }, (t) => [
   index('work_orders_tenant_project_idx').on(t.tenantId, t.projectId),
   index('work_orders_status_idx').on(t.status),
+]);
+
+export const workOrderUpdates = pgTable('work_order_updates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workOrderId: uuid('work_order_id').notNull().references(() => workOrders.id, { onDelete: 'cascade' }),
+  progressPct: integer('progress_pct'),
+  note: text('note'),
+  photos: text('photos').array().notNull().default(sql`'{}'::text[]`),
+  createdBy: uuid('created_by').references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('work_order_updates_wo_idx').on(t.workOrderId),
 ]);
 
 // ─── Service Requests ─────────────────────────────────────────────────────────
@@ -940,4 +986,20 @@ export const leaveRequests = pgTable('leave_requests', {
   index('leave_requests_tenant_idx').on(t.tenantId),
   index('leave_requests_user_idx').on(t.userId),
   index('leave_requests_status_idx').on(t.status),
+]);
+
+export const vendorPayments = pgTable('vendor_payments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
+  purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+  paidAt: timestamp('paid_at', { withTimezone: true }).notNull().defaultNow(),
+  method: text('method'),
+  reference: text('reference'),
+  note: text('note'),
+  ...timestamps,
+}, (t) => [
+  index('vendor_payments_tenant_idx').on(t.tenantId),
+  index('vendor_payments_vendor_idx').on(t.vendorId),
 ]);

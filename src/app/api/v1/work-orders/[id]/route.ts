@@ -8,7 +8,7 @@ import { getAuthContext } from '@/lib/auth';
 const UpdateWorkOrderSchema = z.object({
   title:            z.string().min(1).max(200).optional(),
   type:             z.enum(['inhouse_carpentry', 'factory', 'vendor_job', 'site_work']).optional(),
-  status:           z.enum(['planned', 'in_progress', 'ready', 'installed']).optional(),
+  status:           z.enum(['draft', 'assigned', 'in_progress', 'on_hold', 'completed', 'cancelled']).optional(),
   assignedUserId:   z.string().uuid().nullable().optional(),
   assignedVendorId: z.string().uuid().nullable().optional(),
   startDate:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),

@@ -10,7 +10,7 @@ const DimensionsSchema = z.object({
   width:  z.number().positive().optional(),
   height: z.number().positive().optional(),
   area:   z.number().positive().optional(),
-  unit:   z.enum(['ft', 'm', 'sqft', 'sqm']).default('sqft'),
+  unit:   z.enum(['sqft', 'sqm', 'rft', 'ft', 'm', 'nos', 'lot', 'each']).default('sqft'),
   notes:  z.string().max(500).optional(),
 });
 

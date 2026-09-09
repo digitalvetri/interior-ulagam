@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ClipboardList, Loader2, AlertTriangle, TrendingUp, Users } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -30,20 +31,21 @@ function fmtDate(iso: string) {
 
 // ─── Log Card ─────────────────────────────────────────────────────────────────
 
-function LogCard({ log }: { log: SiteLog }) {
+function LogCard({ log, onOpen }: { log: SiteLog; onOpen: (id: string) => void }) {
   return (
     <div
-      className="premium-card p-4 space-y-2"
+      className="premium-card p-4 space-y-2 cursor-pointer transition-shadow hover:shadow-md"
       style={log.delayFlag ? { borderLeft: '3px solid var(--danger)' } : undefined}
+      onClick={() => onOpen(log.id)}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <Link
-            href={`/projects/${log.projectId}/site`}
-            className="text-sm font-semibold text-[var(--text-heading)] hover:text-violet-600 transition-colors"
+          <span
+            className="text-sm font-semibold"
+            style={{ color: 'var(--text-heading)' }}
           >
             {log.projectName}
-          </Link>
+          </span>
           <p className="mt-0.5 text-xs text-[var(--text-secondary)]">{fmtDate(log.logDate)}</p>
         </div>
         <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
@@ -93,6 +95,7 @@ function LogCard({ log }: { log: SiteLog }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SiteLogsPage() {
+  const router = useRouter();
   const [logs,       setLogs]       = useState<SiteLog[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -223,7 +226,7 @@ export default function SiteLogsPage() {
               </p>
               <div className="space-y-3">
                 {grouped[date].map(log => (
-                  <LogCard key={log.id} log={log} />
+                  <LogCard key={log.id} log={log} onOpen={id => router.push(`/site-logs/${id}`)} />
                 ))}
               </div>
             </div>
