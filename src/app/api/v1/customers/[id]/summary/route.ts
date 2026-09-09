@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq, or, inArray } from 'drizzle-orm';
+import { and, eq, or, inArray, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers, projects, leads } from '@/lib/db/schema';
+import { customers, projects, leads, quotes, siteVisits } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 export async function GET(
@@ -73,10 +73,32 @@ export async function GET(
       l => l.stage !== 'won' && l.stage !== 'lost',
     );
 
+    // Quote count across all linked leads
+    let quoteCount = 0;
+    if (allLeadIds.length > 0) {
+      const [qRow] = await db
+        .select({ c: count() })
+        .from(quotes)
+        .where(and(eq(quotes.tenantId, ctx.tenantId), inArray(quotes.leadId, allLeadIds)));
+      quoteCount = qRow?.c ?? 0;
+    }
+
+    // Site visit count across all linked leads
+    let siteVisitCount = 0;
+    if (allLeadIds.length > 0) {
+      const [svRow] = await db
+        .select({ c: count() })
+        .from(siteVisits)
+        .where(and(eq(siteVisits.tenantId, ctx.tenantId), inArray(siteVisits.leadId, allLeadIds)));
+      siteVisitCount = svRow?.c ?? 0;
+    }
+
     return NextResponse.json({
       data: {
         projectCount: linkedProjects.length,
         totalContractPaise,
+        quoteCount,
+        siteVisitCount,
         projects: linkedProjects,
         leads: activeLeads,
       },

@@ -5,8 +5,8 @@ import Link from 'next/link';
 import {
   ArrowLeft, Mail, Phone, Building2, MapPin, Tag, User, Calendar,
   Trash2, Save, Loader2, MessageCircle, StickyNote, Users,
-  FolderOpen, Bell, Plus, Send, CreditCard, X,
-  ChevronRight, IndianRupee, Clock, ArrowRightCircle,
+  FolderOpen, Bell, Plus, Send, CreditCard, X, FileText,
+  ChevronRight, ArrowRightCircle,
   Pencil, Activity, LayoutGrid, Heart,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -111,10 +111,6 @@ function relativeTime(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function daysSince(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
-}
 
 function formatRupees(paise: number): string {
   return `₹${(paise / 100).toLocaleString('en-IN')}`;
@@ -333,7 +329,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   const displayed: Customer = { ...customer, ...(draft as Customer) };
   const stageSt = STAGE_STYLE[displayed.stage];
-  const daysSinceContact = daysSince(customer.lastContactedAt);
   const avatarBg = avatarColor(displayed.fullName);
   const healthSt = customer.healthStatus ? HEALTH_STYLE[customer.healthStatus] : null;
 
@@ -483,15 +478,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <ViewField label="Company" icon={Building2}>
                       <span style={{ color: displayed.company ? 'var(--text-heading)' : 'var(--text-tertiary)' }}>
                         {displayed.company ?? '—'}
-                      </span>
-                    </ViewField>
-                    <ViewField label="Stage" icon={Tag}>
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                        style={{ background: stageSt.bg, color: stageSt.color }}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: stageSt.dot }} />
-                        {STAGE_LABEL[displayed.stage]}
                       </span>
                     </ViewField>
                     <ViewField label="Source" icon={Tag}>
@@ -888,21 +874,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     </a>
                   )}
                 </div>
-                {/* Contact details */}
-                <div className="pt-2 space-y-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  {[
-                    { icon: <Phone className="h-3.5 w-3.5" />, value: displayed.phone, href: `tel:${displayed.phone}` },
-                    { icon: <Mail  className="h-3.5 w-3.5" />, value: displayed.email,  href: `mailto:${displayed.email}` },
-                    { icon: <MapPin className="h-3.5 w-3.5" />, value: displayed.city,  href: null },
-                  ].filter(r => r.value).map((row, i) => (
-                    <div key={i} className="flex items-center gap-2.5 text-[12px]">
-                      <span className="flex-shrink-0" style={{ color: 'var(--text-tertiary)' }}>{row.icon}</span>
-                      {row.href
-                        ? <a href={row.href} className="truncate hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>{row.value}</a>
-                        : <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{row.value}</span>}
-                    </div>
-                  ))}
-                </div>
               </div>
             </section>
 
@@ -923,17 +894,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     color: '#6366f1', bg: 'rgba(99,102,241,0.08)',
                   },
                   {
-                    label: 'Contracted',
-                    value: summaryLoading && !summary ? '…' : (summary && summary.totalContractPaise > 0 ? formatRupeesShort(summary.totalContractPaise) : '—'),
-                    icon: <IndianRupee className="h-4 w-4" />,
+                    label: 'Quotations',
+                    value: summaryLoading && !summary ? '…' : String(summary?.quoteCount ?? 0),
+                    icon: <FileText className="h-4 w-4" />,
                     color: '#059669', bg: 'rgba(16,185,129,0.08)',
                   },
                   {
-                    label: 'Last contact',
-                    value: daysSinceContact === null ? 'Never' : daysSinceContact === 0 ? 'Today' : `${daysSinceContact}d`,
-                    icon: <Clock className="h-4 w-4" />,
-                    color: daysSinceContact !== null && daysSinceContact > 21 ? '#dc2626' : '#475569',
-                    bg:    daysSinceContact !== null && daysSinceContact > 21 ? 'rgba(239,68,68,0.08)' : 'rgba(100,116,139,0.08)',
+                    label: 'Site visits',
+                    value: summaryLoading && !summary ? '…' : String(summary?.siteVisitCount ?? 0),
+                    icon: <MapPin className="h-4 w-4" />,
+                    color: '#475569', bg: 'rgba(100,116,139,0.08)',
                   },
                   {
                     label: 'Activities',

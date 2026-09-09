@@ -5,7 +5,7 @@ import {
   Users, FolderKanban, IndianRupee,
   Plus, Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
   Calendar, MapPin, FileText, Home, PhoneCall,
-  CheckSquare, Truck, CalendarCheck,
+  CheckSquare, Truck,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -258,132 +258,50 @@ function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[];
   );
 }
 
-/* ── Team check-ins widget (owner only) ─────────────────────────────────── */
-interface TeamCheckIn {
-  id: string;
-  userId: string;
-  status: string;
-  checkInAt: string | null;
-  checkOutAt: string | null;
-  checkInLatitude: string | null;
-  checkInLongitude: string | null;
-  checkInAddress: string | null;
-  user: { fullName: string; role: string; jobTitle: string | null; photoUrl: string | null } | null;
-}
-function TeamCheckInsWidget() {
-  const [checkIns, setCheckIns] = useState<TeamCheckIn[]>([]);
-  const [loading, setLoading]   = useState(true);
-
-  useEffect(() => {
-    fetch('/api/v1/me/team-checkins')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
-      .then(j => setCheckIns(j.data ?? []))
-      .catch(() => setCheckIns([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const checkedIn  = checkIns.filter(r => r.checkInAt && !r.checkOutAt);
-  const checkedOut = checkIns.filter(r => r.checkInAt && r.checkOutAt);
-  const absent     = checkIns.filter(r => r.status === 'absent');
-
-  function Avatar({ user, size = 32 }: { user: TeamCheckIn['user']; size?: number }) {
-    const initials = (user?.fullName ?? '??').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-    if (user?.photoUrl) {
-      return <img src={user.photoUrl} alt={user.fullName} className="rounded-full object-cover flex-shrink-0"
-        style={{ width: size, height: size }} />;
-    }
-    return (
-      <div className="rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold"
-        style={{ width: size, height: size, fontSize: size * 0.35, background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 100%)' }}>
-        {initials}
-      </div>
-    );
-  }
-
+/* ── Follow-ups widget ──────────────────────────────────────────────────── */
+interface FollowUpCounts { overdue: number; dueToday: number; upcoming: number; total: number; }
+function FollowUpsWidget({ counts, loading }: { counts: FollowUpCounts | null; loading: boolean }) {
+  const rows = [
+    { label: 'Overdue',   value: counts?.overdue  ?? 0, color: 'var(--danger)',  href: '/leads?followup=overdue'  },
+    { label: 'Due today', value: counts?.dueToday ?? 0, color: 'var(--warning)', href: '/leads?followup=today'    },
+    { label: 'Upcoming',  value: counts?.upcoming  ?? 0, color: 'var(--accent-base)', href: '/leads?followup=upcoming' },
+  ];
   return (
     <div className="premium-card p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <CalendarCheck className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-          <h3 className="section-title">Team Check-ins Today</h3>
-          {checkedIn.length > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
-              style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-              {checkedIn.length} in
-            </span>
-          )}
+          <Clock className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+          <h3 className="section-title">Today&apos;s Follow-ups</h3>
         </div>
-        <Link href="/attendance" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-          Full view →
+        <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+          All leads →
         </Link>
       </div>
       {loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => <div key={i} className="skeleton h-12 rounded-xl" />)}
-        </div>
-      ) : checkIns.length === 0 ? (
-        <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
-          style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
-          <CalendarCheck className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No one has checked in yet</p>
-        </div>
+        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="skeleton h-8 rounded-lg" />)}</div>
       ) : (
-        <div>
-          {checkedIn.length > 0 && (
-            <div className="mb-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--success-text)' }}>
-                Active · {checkedIn.length}
-              </p>
-              <div className="space-y-1.5">
-                {checkedIn.map(r => (
-                  <div key={r.id} className="flex items-center gap-3 rounded-xl px-3 py-2"
-                    style={{ background: 'var(--success-soft)' }}>
-                    <Avatar user={r.user} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
-                        {r.user?.fullName ?? 'Unknown'}
-                      </p>
-                      <p className="text-[11px]" style={{ color: 'var(--success-text)' }}>
-                        In at {new Date(r.checkInAt!).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                        {r.checkInAddress && ` · ${r.checkInAddress.slice(0, 30)}`}
-                        {r.checkInLatitude && !r.checkInAddress && ' · GPS captured'}
-                      </p>
-                    </div>
-                    <span className="h-2 w-2 rounded-full bg-green-400 flex-shrink-0" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {checkedOut.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
-                Checked Out · {checkedOut.length}
-              </p>
-              <div className="space-y-1.5">
-                {checkedOut.map(r => {
-                  const ms = new Date(r.checkOutAt!).getTime() - new Date(r.checkInAt!).getTime();
-                  const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000);
-                  return (
-                    <div key={r.id} className="flex items-center gap-3 rounded-xl px-3 py-2"
-                      style={{ backgroundColor: 'var(--surface-muted)' }}>
-                      <Avatar user={r.user} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
-                          {r.user?.fullName ?? 'Unknown'}
-                        </p>
-                        <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                          {h}h {m}m worked
-                        </p>
-                      </div>
-                      <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        <>
+          <div className="space-y-2">
+            {rows.map(r => (
+              <Link key={r.label} href={r.href}
+                className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-muted)]">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
+                </div>
+                <span className="text-sm font-bold" style={{ color: r.value > 0 ? r.color : 'var(--text-tertiary)' }}>
+                  {r.value}
+                </span>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-3 pt-3 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+            <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Total open</span>
+            <Link href="/leads" className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
+              {counts?.total ?? 0} →
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );
@@ -461,6 +379,7 @@ export default function DashboardPage() {
   const [myProjects,   setMyProjects]   = useState<Project[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [followUps, setFollowUps] = useState<FollowUpCounts | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -482,6 +401,12 @@ export default function DashboardPage() {
             .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
         );
         if (Array.isArray(ts?.data)) setMyTasks(ts.data);
+
+        // Follow-ups (both admin and employee)
+        fetch('/api/v1/dashboard/follow-ups')
+          .then(r => r.ok ? r.json() : null)
+          .then(j => j?.data && setFollowUps(j.data))
+          .catch(() => {});
 
         if (admin) {
           // Admin-specific data
@@ -669,14 +594,60 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Team Check-ins */}
-        <TeamCheckInsWidget />
+        {/* Follow-ups + Payment alerts */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 items-start">
+          <FollowUpsWidget counts={followUps} loading={loading} />
+          {/* Payment alerts */}
+          <div className="premium-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <IndianRupee className="h-4 w-4" style={{ color: 'var(--danger)' }} />
+                <h3 className="section-title">Payment Alerts</h3>
+              </div>
+              <Link href="/finance" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                Finance →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="skeleton h-8 rounded-lg" />)}</div>
+            ) : (
+              <div className="space-y-2">
+                <Link href="/finance"
+                  className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-muted)]">
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Overdue</span>
+                  <span className="text-sm font-bold" style={{ color: overdueCount > 0 ? 'var(--danger)' : 'var(--text-tertiary)' }}>
+                    {overdueCount > 0 ? fmt(receivables.totalOverduePaise) : '—'}
+                  </span>
+                </Link>
+                <Link href="/quotes"
+                  className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-muted)]">
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Quotes pending</span>
+                  <span className="text-sm font-bold" style={{ color: pendingQs > 0 ? 'var(--warning)' : 'var(--text-tertiary)' }}>
+                    {pendingQs > 0 ? `${pendingQs}` : '—'}
+                  </span>
+                </Link>
+                <Link href="/finance"
+                  className="flex items-center justify-between rounded-lg px-3 py-2 transition-colors hover:bg-[var(--surface-muted)]">
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Due this week</span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
+                    {(() => {
+                      const dueThisWeek = receivables.items
+                        .filter(r => (r.paymentStatus === 'pending' || r.paymentStatus === 'link_sent') && r.daysSinceCreation <= 7)
+                        .reduce((s, r) => s + r.amountPaise, 0);
+                      return dueThisWeek > 0 ? fmt(dueThisWeek) : '—';
+                    })()}
+                  </span>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Today's Site Visits */}
         <TodayVisitsWidget todayVisits={todayVisits} loading={loading} />
 
         {/* Lead Funnel + Active Projects */}
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 items-start">
           {/* Lead Funnel */}
           <div className="premium-card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -768,7 +739,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-1.5">
-                {activeProjects.slice(0, 5).map(p => {
+                {activeProjects.slice(0, 4).map(p => {
                   const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
                   const s   = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
                   const client = p.customerFullName || p.leadContactName;

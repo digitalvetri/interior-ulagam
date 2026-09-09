@@ -1059,19 +1059,26 @@ export default function LeadDetailPage() {
                       {[lead.propertyType, lead.contactCity, lead.source ? `via ${SOURCE_LABELS[lead.source] ?? lead.source}` : null]
                         .filter(Boolean).join(' · ')}
                     </p>
-                    <div className="flex items-center gap-4 mt-2 flex-wrap">
-                      <a href={`tel:${lead.contactPhone}`} className="flex items-center gap-1.5 text-sm hover:underline" style={{ color: 'var(--text-secondary)' }}>
-                        <Phone className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />{lead.contactPhone}
-                      </a>
-                      {lead.contactEmail && (
-                        <a href={`mailto:${lead.contactEmail}`} className="flex items-center gap-1.5 text-sm hover:underline" style={{ color: 'var(--text-secondary)' }}>
-                          <Mail className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />{lead.contactEmail}
-                        </a>
-                      )}
-                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <a href={`tel:${lead.contactPhone}`}
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[var(--surface-muted)]"
+                    style={{ borderColor: 'var(--border-subtle)' }} title={lead.contactPhone}>
+                    <Phone className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+                  </a>
+                  <a href={`https://wa.me/${lead.contactPhone?.replace(/\D/g, '')}`} target="_blank" rel="noreferrer"
+                    className="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[var(--surface-muted)]"
+                    style={{ borderColor: 'var(--border-subtle)' }} title="WhatsApp">
+                    <MessageCircle className="h-3.5 w-3.5" style={{ color: '#25D366' }} />
+                  </a>
+                  {lead.contactEmail && (
+                    <a href={`mailto:${lead.contactEmail}`}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-[var(--surface-muted)]"
+                      style={{ borderColor: 'var(--border-subtle)' }} title={lead.contactEmail}>
+                      <Mail className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+                    </a>
+                  )}
                   <button type="button" onClick={() => setShowEditDialog(true)}
                     className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium border transition-colors hover:bg-[var(--surface-muted)]"
                     style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>

@@ -67,6 +67,8 @@ export interface CustomerActivity {
 export interface CustomerSummary {
   projectCount: number;
   totalContractPaise: number;
+  quoteCount?: number;
+  siteVisitCount?: number;
   projects: Array<{
     id: string;
     name: string;

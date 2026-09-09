@@ -1,13 +1,13 @@
 'use client';
 
-import { use, useEffect, useState, type CSSProperties, type ComponentType } from 'react';
+import { use, useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CheckCircle2, XCircle, Pencil, AlertTriangle, RefreshCw,
-  FolderOpen, CreditCard, ClipboardList, Package, Receipt, Bug,
-  FileText, Activity, Plus, ChevronRight, Calendar, MapPin,
-  ArrowRight, HardHat,
+  CreditCard, ClipboardList, Receipt, Bug,
+  Activity, Plus, Calendar, MapPin,
+  ArrowRight,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -316,104 +316,6 @@ const PAYMENT_STATUS_LABELS: Record<MilestonePaymentStatus, string> = {
   overdue:   'Overdue',
 };
 
-// ─── Section tile definitions ─────────────────────────────────────────────────
-
-interface SectionTile {
-  href: string;
-  label: string;
-  description: string;
-  badge: string | null;
-  Icon: ComponentType<{ style?: CSSProperties }>;
-  iconBg: string;
-  iconColor: string;
-  actionLabel: string;
-}
-
-function buildTiles(id: string, summary: ProjectSummary | null): SectionTile[] {
-  const s = summary;
-  return [
-    {
-      href: `/projects/${id}/deliverables`,
-      label: 'Deliverables',
-      description: '2D plans, renders, working drawings',
-      badge: s && s.deliverableCount > 0 ? String(s.deliverableCount) : null,
-      Icon: FolderOpen,
-      iconBg: 'rgba(59,130,246,0.10)',
-      iconColor: '#2563EB',
-      actionLabel: 'Browse',
-    },
-    {
-      href: `/projects/${id}/payments`,
-      label: 'Payments',
-      description: 'Milestones, links & receipts',
-      badge: null,
-      Icon: CreditCard,
-      iconBg: 'rgba(22,163,74,0.10)',
-      iconColor: '#16A34A',
-      actionLabel: 'Collect',
-    },
-    {
-      href: `/projects/${id}/site`,
-      label: 'Site Logs',
-      description: 'Daily progress updates',
-      badge: s && s.siteLogCount > 0 ? String(s.siteLogCount) : null,
-      Icon: ClipboardList,
-      iconBg: 'rgba(245,158,11,0.10)',
-      iconColor: '#D97706',
-      actionLabel: 'Log',
-    },
-    {
-      href: `/projects/${id}/boq`,
-      label: 'Procurement',
-      description: 'BOQ vs. delivered reconciliation',
-      badge: null,
-      Icon: Package,
-      iconBg: 'rgba(139,92,246,0.10)',
-      iconColor: '#7C3AED',
-      actionLabel: 'View',
-    },
-    {
-      href: `/projects/${id}/expenses`,
-      label: 'Expenses',
-      description: 'Petty cash, transport, materials',
-      badge: s && s.expenseTotalPaise > 0 ? formatRupees(s.expenseTotalPaise) : null,
-      Icon: Receipt,
-      iconBg: 'rgba(225,29,72,0.10)',
-      iconColor: '#E11D48',
-      actionLabel: 'Add',
-    },
-    {
-      href: `/projects/${id}/snag`,
-      label: 'Snag List',
-      description: 'Open items & client sign-off',
-      badge: s && s.openSnagCount > 0 ? `${s.openSnagCount} open` : null,
-      Icon: Bug,
-      iconBg: 'rgba(234,88,12,0.10)',
-      iconColor: '#EA580C',
-      actionLabel: 'Manage',
-    },
-    {
-      href: `/projects/${id}/work-orders`,
-      label: 'Work Orders',
-      description: 'Carpentry, factory & vendor jobs',
-      badge: null,
-      Icon: HardHat,
-      iconBg: 'rgba(120,113,108,0.10)',
-      iconColor: '#57534E',
-      actionLabel: 'Manage',
-    },
-    {
-      href: `/projects/${id}/documents`,
-      label: 'Documents',
-      description: 'Quotations, invoices & PDFs',
-      badge: null,
-      Icon: FileText,
-      iconBg: 'rgba(109,40,217,0.10)',
-      iconColor: '#6D28D9',
-      actionLabel: 'View',
-    },
-  ];
-}
 
 // ─── Lifecycle Stepper ────────────────────────────────────────────────────────
 
@@ -511,7 +413,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
         setMilestones(milestonesRes.data ?? []);
         setCostData(costRes.data ?? null);
         setSummary(summaryRes.data ?? null);
-        setSiteLogs((logsRes.data ?? []).slice(0, 3));
+        setSiteLogs((logsRes.data ?? []).slice(0, 5));
       })
       .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
@@ -645,7 +547,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
 
   const currentIdx    = LIFECYCLE_STAGE_ORDER.indexOf(project.lifecycleStage);
   const nextStage     = LIFECYCLE_STAGE_ORDER[currentIdx + 1] ?? null;
-  const tiles         = buildTiles(id, summary);
   const burnPct       = costData?.burnPct ?? 0;
   const paidCount     = milestones.filter(m => m.paymentStatus === 'paid').length;
   const customerName  = project.customerFullName ?? project.leadContactName ?? 'Unknown Customer';
@@ -755,25 +656,22 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
               </p>
             </div>
             <div className="rounded-xl bg-[var(--surface-muted)] p-3">
-              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Amount Spent</p>
+              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Amount Paid</p>
               <p className="text-base font-bold text-[var(--text-heading)]">
-                {costData && costData.actualExpensesPaise > 0
-                  ? formatRupees(costData.actualExpensesPaise)
-                  : summary && summary.expenseTotalPaise > 0
-                  ? formatRupees(summary.expenseTotalPaise)
-                  : '₹0'}
+                {formatRupees(milestones.filter(m => m.paymentStatus === 'paid').reduce((s, m) => s + m.amountPaise, 0))}
               </p>
             </div>
             <div className="rounded-xl bg-[var(--surface-muted)] p-3">
-              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Remaining</p>
-              <p className={['text-base font-bold', costData && costData.remainingPaise < 0 ? 'text-red-600' : 'text-[var(--text-heading)]'].join(' ')}>
-                {costData && costData.quotedCostPaise > 0
-                  ? formatRupees(Math.abs(costData.remainingPaise))
-                  : '—'}
-              </p>
-              {costData && costData.remainingPaise < 0 && (
-                <p className="text-[10px] text-red-600 mt-0.5">Over budget</p>
-              )}
+              <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide mb-1">Outstanding Amount</p>
+              {(() => {
+                const paidPaise = milestones.filter(m => m.paymentStatus === 'paid').reduce((s, m) => s + m.amountPaise, 0);
+                const outstanding = (project.totalContractPaise ?? 0) - paidPaise;
+                return (
+                  <p className={['text-base font-bold', outstanding < 0 ? 'text-red-600' : 'text-[var(--text-heading)]'].join(' ')}>
+                    {project.totalContractPaise ? formatRupees(Math.max(0, outstanding)) : '—'}
+                  </p>
+                );
+              })()}
             </div>
             <div className="rounded-xl bg-[var(--surface-muted)] p-3">
               <StageProgressBar
@@ -1039,40 +937,6 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
       </div>
-
-      {/* ── Project Sections ───────────────────────────────────────────────── */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold text-[var(--text-heading)]">Project Sections</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {tiles.map(tile => (
-            <Link key={tile.href} href={tile.href}>
-              <div className="premium-card group h-full cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md">
-                <div className="mb-3 flex items-start justify-between gap-2">
-                  <div style={{ background: tile.iconBg, borderRadius: '0.75rem', padding: '10px', flexShrink: 0 }}>
-                    <tile.Icon style={{ color: tile.iconColor, width: 20, height: 20 }} />
-                  </div>
-                  {tile.badge && (
-                    <span
-                      className="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold"
-                      style={{ backgroundColor: 'rgba(107,114,128,0.12)', color: 'var(--text-primary)' }}
-                    >
-                      {tile.badge}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm font-semibold transition-colors" style={{ color: 'var(--text-heading)' }}>
-                  {tile.label}
-                </p>
-                <p className="mt-0.5 text-xs leading-snug" style={{ color: 'var(--text-secondary)' }}>{tile.description}</p>
-                <div className="mt-2.5 flex items-center gap-0.5 text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>
-                  {tile.actionLabel}
-                  <ChevronRight className="h-3 w-3" />
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {/* ── Recent Activities ──────────────────────────────────────────────── */}
       <div className="premium-card p-5">
