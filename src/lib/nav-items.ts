@@ -15,6 +15,7 @@ import {
   CalendarCheck,
   CheckSquare,
   UserCircle,
+  Store,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -90,6 +91,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/finance',         label: 'Accounts',        icon: Wallet,       roles: FINANCE_ROLES },
       { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: PROC_ROLES },
+      { href: '/vendors',         label: 'Vendors',         icon: Store,        roles: PROC_ROLES },
     ],
   },
   {

@@ -2,9 +2,18 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import type { PurchaseOrder, POLine } from '@/types/purchase-orders';
+
+interface VendorPayment {
+  id: string;
+  amountPaise: number;
+  method: string | null;
+  reference: string | null;
+  note: string | null;
+  paidAt: string;
+}
 
 // ─── Status config ─────────────────────────────────────────────────────────────
 
@@ -78,6 +87,23 @@ export default function VendorPayableDetailPage({
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  const [vendorPays, setVendorPays]   = useState<VendorPayment[]>([]);
+  const [payModalOpen, setPayModal]   = useState(false);
+  const [payAmount,    setPayAmount]  = useState('');
+  const [payMethod,    setPayMethod]  = useState('');
+  const [payRef,       setPayRef]     = useState('');
+  const [payNote,      setPayNote]    = useState('');
+  const [paySubmitting, setPaySubmit] = useState(false);
+  const [payError,     setPayError]   = useState<string | null>(null);
+
+  const fetchVendorPays = useCallback(async () => {
+    const r = await fetch(`/api/v1/purchase-orders/${id}/vendor-payments`).catch(() => null);
+    if (r?.ok) {
+      const b = await r.json() as { data: VendorPayment[] };
+      setVendorPays(b.data ?? []);
+    }
+  }, [id]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -93,16 +119,52 @@ export default function VendorPayableDetailPage({
       }
       const body = (await res.json()) as { data: PurchaseOrder };
       setPo(body.data ?? null);
+      void fetchVendorPays();
     } catch {
       setFetchError('Network error — please try again');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, fetchVendorPays]);
 
   useEffect(() => {
     void fetchData();
   }, [fetchData]);
+
+  async function submitVendorPayment() {
+    setPayError(null);
+    const amtPaise = Math.round(parseFloat(payAmount || '0') * 100);
+    if (amtPaise <= 0) { setPayError('Enter a valid amount'); return; }
+    setPaySubmit(true);
+    try {
+      const res = await fetch(`/api/v1/purchase-orders/${id}/vendor-payments`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          amountPaise: amtPaise,
+          method:    payMethod.trim() || undefined,
+          reference: payRef.trim() || undefined,
+          note:      payNote.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        setPayError((b as { error?: string }).error ?? 'Failed');
+        return;
+      }
+      setPayModal(false);
+      void fetchVendorPays();
+    } catch {
+      setPayError('Network error');
+    } finally {
+      setPaySubmit(false);
+    }
+  }
+
+  function openPayModal() {
+    setPayAmount(''); setPayMethod(''); setPayRef(''); setPayNote('');
+    setPayError(null); setPayModal(true);
+  }
 
   // ── Loading ──────────────────────────────────────────────────────────────────
 
@@ -165,7 +227,97 @@ export default function VendorPayableDetailPage({
   const totalPaise  = parsedLines?.reduce((s, l) => s + l.totalPaise, 0) ?? 0;
   const statusStyle = STATUS_STYLES[po.status] ?? STATUS_STYLES.draft;
 
+  const totalVendorPaid = vendorPays.reduce((s, p) => s + p.amountPaise, 0);
+
   return (
+    <>
+    {payModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !paySubmitting && setPayModal(false)} />
+        <div
+          className="relative mx-4 w-full max-w-md overflow-hidden rounded-2xl border shadow-2xl"
+          style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}
+        >
+          <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record vendor payment</h2>
+            <button
+              onClick={() => !paySubmitting && setPayModal(false)}
+              className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--surface-muted)]"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="space-y-4 p-6">
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                Amount paid (₹) *
+              </label>
+              <input
+                type="number" min="0.01" step="0.01"
+                value={payAmount} onChange={e => setPayAmount(e.target.value)}
+                className="studio-input w-full h-10" placeholder="e.g. 25000"
+                disabled={paySubmitting}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                  Method
+                </label>
+                <select
+                  value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                  className="studio-input w-full h-10" disabled={paySubmitting}
+                >
+                  <option value="">Select…</option>
+                  {['Cash', 'UPI', 'NEFT', 'RTGS', 'Cheque', 'Other'].map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                  Reference
+                </label>
+                <input
+                  type="text" value={payRef} onChange={e => setPayRef(e.target.value)}
+                  className="studio-input w-full h-10" placeholder="UTR / cheque no."
+                  disabled={paySubmitting}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-[12px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                Note
+              </label>
+              <input
+                type="text" value={payNote} onChange={e => setPayNote(e.target.value)}
+                className="studio-input w-full h-10" placeholder="e.g. advance, final settlement"
+                disabled={paySubmitting}
+              />
+            </div>
+            {payError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{payError}</p>}
+          </div>
+          <div className="flex items-center justify-between border-t px-6 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
+            <button
+              onClick={() => !paySubmitting && setPayModal(false)}
+              className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)]"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void submitVendorPayment()}
+              disabled={paySubmitting}
+              className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40"
+            >
+              {paySubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" strokeWidth={2.25} />}
+              {paySubmitting ? 'Saving…' : 'Record payment'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="space-y-6 p-6 lg:p-8">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
@@ -361,18 +513,65 @@ export default function VendorPayableDetailPage({
             style={{ border: '1px solid var(--border-subtle)' }}
           >
             <div
-              className="px-5 py-3.5"
+              className="flex items-center justify-between px-5 py-3.5"
               style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}
             >
               <SectionHeading>Vendor Payments</SectionHeading>
+              <button
+                onClick={openPayModal}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
+                style={{ background: 'var(--accent-base)' }}
+              >
+                <Plus className="h-3.5 w-3.5" /> Record
+              </button>
             </div>
-            <div
-              className="flex items-center justify-center py-12"
-              style={{ background: 'var(--surface-card)' }}
-            >
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                No vendor payments recorded yet.
-              </p>
+            <div style={{ background: 'var(--surface-card)' }}>
+              {vendorPays.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    No vendor payments recorded yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                        {['Date', 'Amount', 'Method', 'Reference', 'Note'].map((h, i) => (
+                          <th
+                            key={h}
+                            className={`px-4 py-3 text-[11px] font-bold uppercase tracking-[0.06em]${i === 1 ? ' text-right' : ''}`}
+                            style={{ color: 'var(--text-tertiary)' }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vendorPays.map((p) => (
+                        <tr key={p.id} className="border-b last:border-0" style={{ borderColor: 'var(--border-subtle)' }}>
+                          <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
+                            {new Date(p.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: 'var(--text-heading)' }}>
+                            {formatRupees(p.amountPaise)}
+                          </td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                            {p.method ?? '—'}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs truncate max-w-[160px]" style={{ color: 'var(--text-secondary)' }}>
+                            {p.reference ?? '—'}
+                          </td>
+                          <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                            {p.note ?? '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -458,13 +657,13 @@ export default function VendorPayableDetailPage({
               </div>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                  Advance paid
+                  Payments recorded
                 </span>
                 <span
                   className="tabular-nums text-[13px]"
                   style={{ color: 'var(--success-text)' }}
                 >
-                  {formatRupees(po.advancePaidPaise)}
+                  {formatRupees(totalVendorPaid)}
                 </span>
               </div>
               <div
@@ -478,12 +677,12 @@ export default function VendorPayableDetailPage({
                   className="tabular-nums text-[14px] font-bold"
                   style={{
                     color:
-                      totalPaise - po.advancePaidPaise > 0
+                      totalPaise - totalVendorPaid > 0
                         ? '#D97706'
                         : 'var(--text-secondary)',
                   }}
                 >
-                  {formatRupees(Math.max(0, totalPaise - po.advancePaidPaise))}
+                  {formatRupees(Math.max(0, totalPaise - totalVendorPaid))}
                 </span>
               </div>
             </div>
@@ -491,5 +690,6 @@ export default function VendorPayableDetailPage({
         </div>
       </div>
     </div>
+    </>
   );
 }

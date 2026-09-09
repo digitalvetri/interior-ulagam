@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ArrowLeft, Download, ExternalLink, IndianRupee, Plus, Zap, HandCoins,
+  ArrowLeft, Download, ExternalLink, IndianRupee, Loader2, Plus, Printer, Zap, HandCoins,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,6 +27,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [note,         setNote]         = useState('');
   const [submitting,   setSubmitting]   = useState(false);
   const [submitError,  setSubmitError]  = useState<string | null>(null);
+
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfError,      setPdfError]      = useState<string | null>(null);
+  const [lastPaymentId, setLastPaymentId] = useState<string | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
 
   const loadInvoice = useCallback(() => {
     setLoading(true);
@@ -74,6 +79,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         setSubmitError(body?.error ?? 'Failed to record payment.');
         return;
       }
+      const body = await res.json().catch(() => ({}));
+      const pid = body?.data?.id as string | undefined;
+      setLastPaymentId(pid ?? null);
       setDialogOpen(false);
       loadInvoice();
     } catch {
@@ -164,17 +172,73 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {lastPaymentId && (
+              <button
+                onClick={async () => {
+                  setReceiptLoading(true);
+                  try {
+                    const r = await fetch(`/api/v1/payments/${lastPaymentId}/receipt`, { method: 'POST' });
+                    const b = await r.json();
+                    if (r.ok && b?.data?.pdfUrl) {
+                      window.open(b.data.pdfUrl as string, '_blank');
+                    }
+                  } finally {
+                    setReceiptLoading(false);
+                  }
+                }}
+                disabled={receiptLoading}
+                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)] disabled:opacity-60"
+                style={{ borderColor: 'var(--border-subtle)', color: '#059669' }}
+              >
+                {receiptLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Receipt
+              </button>
+            )}
+            <button
+              onClick={async () => {
+                setPdfError(null);
+                setPdfGenerating(true);
+                try {
+                  if (invoice.pdfUrl) {
+                    const r = await fetch(`/api/v1/invoices/${id}/pdf`);
+                    const b = await r.json();
+                    if (r.ok && b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
+                  } else {
+                    const r = await fetch(`/api/v1/invoices/${id}/pdf`, { method: 'POST' });
+                    const b = await r.json();
+                    if (r.ok && b?.data?.pdfUrl) {
+                      window.open(b.data.pdfUrl as string, '_blank');
+                      loadInvoice();
+                    } else {
+                      setPdfError('PDF generation failed');
+                    }
+                  }
+                } catch {
+                  setPdfError('Network error');
+                } finally {
+                  setPdfGenerating(false);
+                }
+              }}
+              disabled={pdfGenerating}
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)] disabled:opacity-60"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+            >
+              {pdfGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {invoice.pdfUrl ? 'PDF' : 'Generate PDF'}
+            </button>
             {invoice.pdfUrl && (
-              <a
-                href={invoice.pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={async () => {
+                  const r = await fetch(`/api/v1/invoices/${id}/pdf`);
+                  const b = await r.json();
+                  if (r.ok && b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
+                }}
                 className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)]"
                 style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
               >
-                <Download className="h-4 w-4" /> PDF
-              </a>
+                <Printer className="h-4 w-4" /> Print
+              </button>
             )}
             {!isFullyPaid && (
               <button
@@ -185,6 +249,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <Plus className="h-4 w-4" /> Record payment
               </button>
             )}
+            {pdfError && <span className="text-xs" style={{ color: 'var(--danger)' }}>{pdfError}</span>}
           </div>
         </div>
 
