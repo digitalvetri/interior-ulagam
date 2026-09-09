@@ -575,9 +575,9 @@ function LogCard({ log, onEdit, onDelete, confirmingDelete, onConfirmDelete, onC
         )}
 
         {/* Photos */}
-        {log.photos.length > 0 && (
+        {(log.photos ?? []).length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
-            {log.photos.slice(0, 4).map((url, i) => (
+            {(log.photos ?? []).slice(0, 4).map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                 className="group relative h-16 w-16 rounded-xl overflow-hidden border"
                 style={{ borderColor: 'var(--border-strong)' }}>
@@ -588,10 +588,10 @@ function LogCard({ log, onEdit, onDelete, confirmingDelete, onConfirmDelete, onC
                 </div>
               </a>
             ))}
-            {log.photos.length > 4 && (
+            {(log.photos ?? []).length > 4 && (
               <div className="h-16 w-16 rounded-xl flex flex-col items-center justify-center text-xs font-medium"
                 style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                <ImageIcon className="h-4 w-4 mb-0.5" />+{log.photos.length - 4}
+                <ImageIcon className="h-4 w-4 mb-0.5" />+{(log.photos ?? []).length - 4}
               </div>
             )}
           </div>

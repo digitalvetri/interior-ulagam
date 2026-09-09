@@ -257,9 +257,9 @@ export default function SiteLogDetailPage() {
 
           {/* Photos card */}
           <Card title="Photos" icon={ImageIcon}>
-            {log.photos.length > 0 ? (
+            {(log.photos ?? []).length > 0 ? (
               <p className="text-sm text-[var(--text-primary)]">
-                {log.photos.length} photo{log.photos.length !== 1 ? 's' : ''} attached
+                {(log.photos ?? []).length} photo{(log.photos ?? []).length !== 1 ? 's' : ''} attached
               </p>
             ) : (
               <p className="text-sm text-[var(--text-tertiary)]">No photos</p>
@@ -285,9 +285,9 @@ export default function SiteLogDetailPage() {
 
           {/* Work orders card */}
           <Card title="Work Orders" icon={Wrench}>
-            {log.relatedWorkOrderIds.length > 0 ? (
+            {(log.relatedWorkOrderIds ?? []).length > 0 ? (
               <ul className="space-y-1.5">
-                {log.relatedWorkOrderIds.map((woId) => (
+                {(log.relatedWorkOrderIds ?? []).map((woId) => (
                   <li key={woId}>
                     <Link
                       href={`/work-orders/${woId}`}

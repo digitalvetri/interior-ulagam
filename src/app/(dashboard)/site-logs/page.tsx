@@ -83,9 +83,9 @@ function LogCard({ log, onOpen }: { log: SiteLog; onOpen: (id: string) => void }
         </p>
       )}
 
-      {log.photos.length > 0 && (
+      {(log.photos ?? []).length > 0 && (
         <p className="text-xs text-[var(--text-tertiary)]">
-          📷 {log.photos.length} photo{log.photos.length !== 1 ? 's' : ''}
+          📷 {(log.photos ?? []).length} photo{(log.photos ?? []).length !== 1 ? 's' : ''}
         </p>
       )}
     </div>
