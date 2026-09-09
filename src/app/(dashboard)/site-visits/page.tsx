@@ -49,11 +49,24 @@ interface MeasurementRow {
   itemCount: number;
 }
 
+type VisitPurpose = 'initial' | 'measurement' | 'design_review' | 'site_inspection' | 'material_inspection' | 'final_inspection' | 'other';
+
+const PURPOSE_LABELS: Record<VisitPurpose, string> = {
+  initial:             'Initial visit',
+  measurement:         'Measurement',
+  design_review:       'Design review',
+  site_inspection:     'Site inspection',
+  material_inspection: 'Material inspection',
+  final_inspection:    'Final inspection',
+  other:               'Other',
+};
+
 interface ScheduleForm {
-  leadId: string;
+  leadId:     string;
   scheduledAt: string;
-  address: string;
-  notes: string;
+  address:    string;
+  purpose:    VisitPurpose | '';
+  notes:      string;
 }
 
 interface NewRoundForm {
@@ -139,7 +152,7 @@ export default function SiteVisitsPage() {
   const [filterStatus, setFilterStatus] = useState<VisitStatus | 'all'>('all');
 
   const [dialogOpen,  setDialogOpen]  = useState(false);
-  const [form,        setForm]        = useState<ScheduleForm>({ leadId: '', scheduledAt: '', address: '', notes: '' });
+  const [form,        setForm]        = useState<ScheduleForm>({ leadId: '', scheduledAt: '', address: '', purpose: '', notes: '' });
   const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -240,10 +253,11 @@ export default function SiteVisitsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          leadId: form.leadId,
+          leadId:      form.leadId,
           scheduledAt: new Date(form.scheduledAt).toISOString(),
-          address: form.address.trim(),
-          notes: form.notes.trim() || undefined,
+          address:     form.address.trim(),
+          purpose:     form.purpose || undefined,
+          notes:       form.notes.trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -254,7 +268,7 @@ export default function SiteVisitsPage() {
       const { data } = (await res.json()) as { data: SiteVisit };
       setVisits(prev => [data, ...prev]);
       setDialogOpen(false);
-      setForm({ leadId: '', scheduledAt: '', address: '', notes: '' });
+      setForm({ leadId: '', scheduledAt: '', address: '', purpose: '', notes: '' });
     } catch {
       setSubmitError('Network error — try again');
     } finally {
@@ -741,6 +755,19 @@ export default function SiteVisitsPage() {
                 placeholder="Site address"
                 className="studio-input h-9 w-full"
               />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Purpose <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span></label>
+              <select
+                value={form.purpose}
+                onChange={e => setForm(f => ({ ...f, purpose: e.target.value as VisitPurpose | '' }))}
+                className="studio-input h-9 w-full"
+              >
+                <option value="">Select purpose…</option>
+                {(Object.keys(PURPOSE_LABELS) as VisitPurpose[]).map(p => (
+                  <option key={p} value={p}>{PURPOSE_LABELS[p]}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Notes <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span></label>

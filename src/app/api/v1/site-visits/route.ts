@@ -7,13 +7,18 @@ import { getAuthContext } from '@/lib/auth';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
+const VISIT_PURPOSE_VALUES = [
+  'initial', 'measurement', 'design_review',
+  'site_inspection', 'material_inspection', 'final_inspection', 'other',
+] as const;
+
 const CreateSiteVisitSchema = z.object({
-  leadId: z.string().uuid(),
-  scheduledAt: z.string().datetime(), // ISO string
-  // address is stored in locationJson as { address: string }
-  address: z.string().min(1),
+  leadId:     z.string().uuid(),
+  scheduledAt: z.string().datetime(),
+  address:    z.string().min(1),
   designerId: z.string().uuid().optional(),
-  notes: z.string().optional(),
+  purpose:    z.enum(VISIT_PURPOSE_VALUES).optional(),
+  notes:      z.string().optional(),
 });
 
 // ─── GET /api/v1/site-visits ─────────────────────────────────────────────────
@@ -73,7 +78,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { leadId, scheduledAt, address, designerId, notes } = parsed.data;
+  const { leadId, scheduledAt, address, designerId, purpose, notes } = parsed.data;
 
   try {
     // Verify the lead belongs to this tenant
@@ -101,7 +106,8 @@ export async function POST(request: NextRequest) {
         scheduledAt: new Date(scheduledAt),
         locationJson: { address },
         designerId: designerId ?? null,
-        notes: notes ?? null,
+        purpose:    purpose ?? null,
+        notes:      notes ?? null,
         visitNumber,
       })
       .returning();

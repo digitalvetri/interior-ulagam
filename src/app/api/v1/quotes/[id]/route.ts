@@ -35,11 +35,13 @@ export async function DELETE(
 
 const UpdateQuoteSchema = z
   .object({
-    status: z.enum(['draft', 'sent', 'approved', 'revised']).optional(),
-    quoteNumber: z.string().optional(),
+    status:        z.enum(['draft', 'sent', 'approved', 'revised']).optional(),
+    quoteNumber:   z.string().optional(),
     discountPaise: z.number().int().min(0).optional(),
-    gstPct: z.number().int().min(0).max(28).optional(),
-    termsText: z.string().optional(),
+    gstPct:        z.number().int().min(0).max(28).optional(),
+    termsText:     z.string().optional(),
+    validUntil:    z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    paymentTerms:  z.string().max(500).optional().nullable(),
   })
   .strict();
 
@@ -71,6 +73,8 @@ export async function GET(
         approvedAt: quotes.approvedAt,
         createdBy: quotes.createdBy,
         createdAt: quotes.createdAt,
+        validUntil: quotes.validUntil,
+        paymentTerms: quotes.paymentTerms,
         projectName: projects.name,
         leadContactName: leads.contactName,
         leadContactPhone: leads.contactPhone,

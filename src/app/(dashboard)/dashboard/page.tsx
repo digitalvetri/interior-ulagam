@@ -276,8 +276,9 @@ function TeamCheckInsWidget() {
 
   useEffect(() => {
     fetch('/api/v1/me/team-checkins')
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
       .then(j => setCheckIns(j.data ?? []))
+      .catch(() => setCheckIns([]))
       .finally(() => setLoading(false));
   }, []);
 

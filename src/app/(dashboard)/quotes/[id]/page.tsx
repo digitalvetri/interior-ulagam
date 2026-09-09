@@ -22,6 +22,8 @@ interface QuoteExtended extends Quote {
   discountPaise?: number;
   gstPct?: number;
   termsText?: string | null;
+  validUntil?: string | null;
+  paymentTerms?: string | null;
   acceptedAt?: string;
 }
 
@@ -51,13 +53,36 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [booking, setBooking]                   = useState(false);
   const [bookError, setBookError]               = useState<string | null>(null);
 
+  // Quote details editable fields
+  const [validUntil,    setValidUntil]    = useState('');
+  const [paymentTerms,  setPaymentTerms]  = useState('');
+  const [detailsSaving, setDetailsSaving] = useState(false);
+
   const fetchQuote = useCallback(() => {
     setLoading(true);
     fetch(`/api/v1/quotes/${id}`)
       .then((r) => r.json())
-      .then(({ data }: { data: QuoteExtended }) => { setQuote(data); setLoading(false); })
+      .then(({ data }: { data: QuoteExtended }) => {
+        setQuote(data);
+        setValidUntil(data.validUntil ?? '');
+        setPaymentTerms(data.paymentTerms ?? '');
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, [id]);
+
+  async function patchQuoteField(field: 'validUntil' | 'paymentTerms', value: string | null) {
+    setDetailsSaving(true);
+    try {
+      await fetch(`/api/v1/quotes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value || null }),
+      });
+    } finally {
+      setDetailsSaving(false);
+    }
+  }
 
   useEffect(() => { fetchQuote(); }, [fetchQuote]);
 
@@ -521,6 +546,59 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                   <p className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Project</p>
                   <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{quote.projectName}</p>
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Quote details (valid until + payment terms) ──────────────────── */}
+        {isDraft && (
+          <div className="rounded-2xl border p-4" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Quote Details</h3>
+              {detailsSaving && <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Saving…</span>}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Valid Until
+                </label>
+                <input
+                  type="date"
+                  value={validUntil}
+                  onChange={e => setValidUntil(e.target.value)}
+                  onBlur={e => patchQuoteField('validUntil', e.target.value || null)}
+                  className="studio-input w-full text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                  Payment Terms
+                </label>
+                <textarea
+                  rows={2}
+                  value={paymentTerms}
+                  onChange={e => setPaymentTerms(e.target.value)}
+                  onBlur={e => patchQuoteField('paymentTerms', e.target.value || null)}
+                  placeholder="e.g. 50% advance, balance on completion"
+                  className="studio-input w-full text-sm resize-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+        {!isDraft && (quote.validUntil || quote.paymentTerms) && (
+          <div className="rounded-2xl border p-4 flex flex-wrap gap-x-8 gap-y-2" style={{ background: 'var(--surface-muted)', borderColor: 'var(--border-subtle)' }}>
+            {quote.validUntil && (
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Valid Until</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{fmtDate(quote.validUntil)}</p>
+              </div>
+            )}
+            {quote.paymentTerms && (
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-tertiary)' }}>Payment Terms</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{quote.paymentTerms}</p>
               </div>
             )}
           </div>

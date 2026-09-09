@@ -6,20 +6,19 @@ import { getAuthContext } from '@/lib/auth';
 
 // GET /api/v1/me/team-checkins — owner/manager view: who has checked in today
 export async function GET() {
-  const ctx = await getAuthContext();
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  // Only owners can see team check-ins
-  if (ctx.role !== 'owner') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  const now = new Date();
-  const istOffset = 5.5 * 60 * 60 * 1000;
-  const istDate = new Date(now.getTime() + istOffset);
-  const today = istDate.toISOString().slice(0, 10);
-
   try {
+    const ctx = await getAuthContext();
+    if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (ctx.role !== 'owner') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const today = istDate.toISOString().slice(0, 10);
+
     const records = await db
       .select()
       .from(attendanceRecords)

@@ -17,7 +17,7 @@ import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
 import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
-import { WonFlowModal } from '@/components/leads/WonFlowModal';
+import { ConvertLeadModal } from '@/components/leads/ConvertLeadModal';
 import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
 import type { SiteVisit } from '@/types/site-visits';
@@ -121,6 +121,63 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
   );
 }
 
+/* ── Measurement form constants ────────────────────────────── */
+const UNITS = [
+  { value: 'sqft',  label: 'Sq.ft',      dim: 'area'   },
+  { value: 'sqm',   label: 'Sq.m',       dim: 'area'   },
+  { value: 'rft',   label: 'Running ft', dim: 'linear' },
+  { value: 'ft',    label: 'ft',         dim: 'linear' },
+  { value: 'm',     label: 'm',          dim: 'linear' },
+  { value: 'nos',   label: 'Nos',        dim: 'count'  },
+  { value: 'lot',   label: 'Lot',        dim: 'count'  },
+  { value: 'each',  label: 'Each',       dim: 'count'  },
+] as const;
+
+type UnitDim = 'area' | 'linear' | 'count';
+
+const WORK_ITEMS: { label: string; unit: string }[] = [
+  { label: 'Tile Flooring',      unit: 'sqft' },
+  { label: 'Marble Flooring',    unit: 'sqft' },
+  { label: 'Wooden Flooring',    unit: 'sqft' },
+  { label: 'Vinyl Flooring',     unit: 'sqft' },
+  { label: 'False Ceiling',      unit: 'sqft' },
+  { label: 'POP Ceiling',        unit: 'sqft' },
+  { label: 'Gypsum Ceiling',     unit: 'sqft' },
+  { label: 'Wall Painting',      unit: 'sqft' },
+  { label: 'Wall Cladding',      unit: 'sqft' },
+  { label: 'Wallpaper',          unit: 'sqft' },
+  { label: 'Texture Painting',   unit: 'sqft' },
+  { label: 'Glass Partition',    unit: 'sqft' },
+  { label: 'Wardrobe',           unit: 'rft'  },
+  { label: 'Kitchen Cabinet',    unit: 'rft'  },
+  { label: 'TV Unit',            unit: 'rft'  },
+  { label: 'Storage Cabinet',    unit: 'rft'  },
+  { label: 'Curtain Track',      unit: 'rft'  },
+  { label: 'Skirting',           unit: 'rft'  },
+  { label: 'Countertop',         unit: 'rft'  },
+  { label: 'Door',               unit: 'nos'  },
+  { label: 'Window',             unit: 'nos'  },
+  { label: 'Light Point',        unit: 'nos'  },
+  { label: 'Fan Point',          unit: 'nos'  },
+  { label: 'AC Point',           unit: 'nos'  },
+  { label: 'Electrical Point',   unit: 'nos'  },
+  { label: 'Plumbing Point',     unit: 'nos'  },
+  { label: 'Sanitary Fixture',   unit: 'nos'  },
+];
+
+function unitDim(unit: string): UnitDim {
+  return (UNITS.find(u => u.value === unit)?.dim ?? 'area') as UnitDim;
+}
+
+function computeArea(len: string, wid: string, unit: string): number | null {
+  const l = parseFloat(len) || 0;
+  const w = parseFloat(wid) || 0;
+  const dim = unitDim(unit);
+  if (dim === 'area')   return l > 0 && w > 0 ? parseFloat((l * w).toFixed(3)) : null;
+  if (dim === 'linear') return l > 0 ? l : null;
+  return null; // count-based: no area
+}
+
 /* ── MeasurementsTabContent ────────────────────────────────── */
 function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdded }: {
   leadId: string;
@@ -135,14 +192,14 @@ function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdd
   const [roundErr, setRoundErr]       = useState<string | null>(null);
   const [expandedId, setExpandedId]   = useState<string | null>(null);
   const [addingTo, setAddingTo]       = useState<string | null>(null);
-  const [iRoom, setIRoom]   = useState('');
-  const [iItem, setIItem]   = useState('');
-  const [iLen, setILen]     = useState('');
-  const [iWid, setIWid]     = useState('');
-  const [iArea, setIArea]   = useState('');
-  const [iQty, setIQty]     = useState('1');
-  const [iUnit, setIUnit]   = useState('sqft');
-  const [iNotes, setINotes] = useState('');
+  const [iRoom, setIRoom]     = useState('');
+  const [iItem, setIItem]     = useState('');
+  const [iLen, setILen]       = useState('');
+  const [iWid, setIWid]       = useState('');
+  const [iHeight, setIHeight] = useState('');
+  const [iQty, setIQty]       = useState('1');
+  const [iUnit, setIUnit]     = useState('sqft');
+  const [iNotes, setINotes]   = useState('');
   const [savingItem, setSavingItem] = useState(false);
   const [itemErr, setItemErr]       = useState<string | null>(null);
 
@@ -189,17 +246,19 @@ function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdd
   }
 
   function clearItemForm() {
-    setIRoom(''); setIItem(''); setILen(''); setIWid(''); setIArea('');
+    setIRoom(''); setIItem(''); setILen(''); setIWid(''); setIHeight('');
     setIQty('1'); setIUnit('sqft'); setINotes(''); setItemErr(null);
   }
 
   async function addItem(roundId: string) {
     if (!iRoom.trim() || !iItem.trim()) { setItemErr('Room and item name are required'); return; }
     setSavingItem(true); setItemErr(null);
+    const area = computeArea(iLen, iWid, iUnit);
     const dimensionsJson: Record<string, unknown> = { unit: iUnit };
-    if (iLen)  dimensionsJson['length'] = parseFloat(iLen);
-    if (iWid)  dimensionsJson['width']  = parseFloat(iWid);
-    if (iArea) dimensionsJson['area']   = parseFloat(iArea);
+    if (iLen)    dimensionsJson['length'] = parseFloat(iLen);
+    if (iWid)    dimensionsJson['width']  = parseFloat(iWid);
+    if (iHeight) dimensionsJson['height'] = parseFloat(iHeight);
+    if (area !== null) dimensionsJson['area'] = area;
     try {
       const res = await fetch(`/api/v1/leads/${leadId}/measurements/${roundId}/items`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -306,12 +365,16 @@ function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdd
                         {item.room} — {item.itemName}
                       </p>
                       <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                        {item.dimensionsJson.length && item.dimensionsJson.width
-                          ? `${item.dimensionsJson.length} × ${item.dimensionsJson.width} ${item.dimensionsJson.unit}`
-                          : item.dimensionsJson.area
-                          ? `${item.dimensionsJson.area} ${item.dimensionsJson.unit}`
-                          : '—'
-                        }{' · '}qty {item.qty} {item.unit}
+                        {(() => {
+                          const d = item.dimensionsJson;
+                          const dims = [d.length, d.width, d.height].filter(Boolean).join(' × ');
+                          const areaStr = d.area != null ? `${d.area} ${item.unit}` : null;
+                          return dims
+                            ? `${dims}${areaStr ? ` = ${areaStr}` : ''}` + ` · qty ${item.qty}`
+                            : areaStr
+                            ? `${areaStr} · qty ${item.qty}`
+                            : `qty ${item.qty} ${item.unit}`;
+                        })()}
                       </p>
                       {item.notes && (
                         <p className="text-xs mt-0.5 italic" style={{ color: 'var(--text-tertiary)' }}>{item.notes}</p>
@@ -370,22 +433,65 @@ function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdd
                   </div>
                 ) : (
                   <div className="space-y-2">
+                    {/* Row 1: Room / Work Item */}
                     <div className="grid grid-cols-2 gap-2">
-                      <input value={iRoom} onChange={e => setIRoom(e.target.value)} placeholder="Room" className="studio-input text-sm" />
-                      <input value={iItem} onChange={e => setIItem(e.target.value)} placeholder="Item / Work" className="studio-input text-sm" />
+                      <input
+                        value={iRoom} onChange={e => setIRoom(e.target.value)}
+                        placeholder="Room / Space" className="studio-input text-sm" list="room-suggestions"
+                      />
+                      <input
+                        value={iItem}
+                        onChange={e => {
+                          setIItem(e.target.value);
+                          const match = WORK_ITEMS.find(w => w.label.toLowerCase() === e.target.value.toLowerCase());
+                          if (match) setIUnit(match.unit);
+                        }}
+                        placeholder="Work / Item" className="studio-input text-sm" list="work-item-suggestions"
+                      />
                     </div>
+                    <datalist id="work-item-suggestions">
+                      {WORK_ITEMS.map(w => <option key={w.label} value={w.label} />)}
+                    </datalist>
+
+                    {/* Row 2: L / W / H (optional) */}
                     <div className="grid grid-cols-3 gap-2">
-                      <input value={iLen}  onChange={e => setILen(e.target.value)}  placeholder="L (ft)" type="number" min="0" step="0.01" className="studio-input text-sm" />
-                      <input value={iWid}  onChange={e => setIWid(e.target.value)}  placeholder="W (ft)" type="number" min="0" step="0.01" className="studio-input text-sm" />
-                      <input value={iArea} onChange={e => setIArea(e.target.value)} placeholder="Area"   type="number" min="0" step="0.01" className="studio-input text-sm" />
+                      <input value={iLen}    onChange={e => setILen(e.target.value)}    placeholder="Length (ft)" type="number" min="0" step="0.01" className="studio-input text-sm" />
+                      <input value={iWid}    onChange={e => setIWid(e.target.value)}    placeholder="Width (ft)"  type="number" min="0" step="0.01" className="studio-input text-sm" />
+                      <input value={iHeight} onChange={e => setIHeight(e.target.value)} placeholder="Height (opt)" type="number" min="0" step="0.01" className="studio-input text-sm" />
                     </div>
+
+                    {/* Row 3: Qty / Unit */}
                     <div className="grid grid-cols-3 gap-2">
                       <input value={iQty} onChange={e => setIQty(e.target.value)} placeholder="Qty" type="number" min="1" className="studio-input text-sm" />
                       <select value={iUnit} onChange={e => setIUnit(e.target.value)} className="studio-input text-sm col-span-2">
-                        {['sqft', 'sqm', 'ft', 'm', 'rft', 'nos', 'lot'].map(u => <option key={u} value={u}>{u}</option>)}
+                        {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                       </select>
                     </div>
+
+                    {/* Row 4: Auto-calculated area (read-only) */}
+                    {(() => {
+                      const area = computeArea(iLen, iWid, iUnit);
+                      const dim  = unitDim(iUnit);
+                      if (area === null) return null;
+                      const total = area * (parseInt(iQty) || 1);
+                      const label = dim === 'linear' ? 'Length' : 'Area';
+                      const unitLabel = UNITS.find(u => u.value === iUnit)?.label ?? iUnit;
+                      return (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                          <span style={{ color: 'var(--text-tertiary)' }}>{label}:</span>
+                          <span style={{ color: 'var(--text-heading)' }}>{area} {unitLabel}</span>
+                          {parseInt(iQty) > 1 && (
+                            <><span style={{ color: 'var(--text-tertiary)' }}>× {iQty} =</span>
+                            <span style={{ color: 'var(--violet-primary)', fontWeight: 600 }}>{total} {unitLabel}</span></>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Row 5: Notes */}
                     <input value={iNotes} onChange={e => setINotes(e.target.value)} placeholder="Notes (optional)" className="studio-input w-full text-sm" />
+
                     {itemErr && <p className="text-xs text-red-600">{itemErr}</p>}
                     <div className="flex gap-2">
                       <button type="button" onClick={() => addItem(round.id)} disabled={savingItem}
@@ -840,15 +946,10 @@ export default function LeadDetailPage() {
           setShowQualifyModal(false);
         }}
       />
-      <WonFlowModal
+      <ConvertLeadModal
         lead={lead}
         open={showWonFlowModal}
         onClose={() => setShowWonFlowModal(false)}
-        onSuccess={(project) => {
-          setLead(prev => prev ? { ...prev, stage: 'won' } : prev);
-          setLinkedProject({ id: project.id, name: project.name, lifecycleStage: 'design_pending' });
-          setShowWonFlowModal(false);
-        }}
       />
 
       {/* ── Convert to Client dialog ───────────────────────── */}
@@ -1410,6 +1511,35 @@ export default function LeadDetailPage() {
                 <SidebarRow label="Last activity" value={relDate(lead.lastActivityAt)} />
                 {lead.contactCity && <SidebarRow label="City" value={lead.contactCity} />}
                 <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage]} />
+                {(() => {
+                  const now = new Date();
+                  const nextVisit = siteVisitsData
+                    .filter(v => v.status === 'scheduled' && new Date(v.scheduledAt) >= now)
+                    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+                  const lastVisit = siteVisitsData
+                    .filter(v => v.status === 'completed')
+                    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
+                  const displayVisit = nextVisit ?? lastVisit;
+                  return displayVisit ? (
+                    <>
+                      <SidebarRow
+                        label={nextVisit ? 'Next site visit' : 'Last site visit'}
+                        value={fmtDate(displayVisit.scheduledAt)}
+                      />
+                      {displayVisit.purpose && (
+                        <SidebarRow
+                          label="Visit purpose"
+                          value={{
+                            initial: 'Initial visit', measurement: 'Measurement',
+                            design_review: 'Design review', site_inspection: 'Site inspection',
+                            material_inspection: 'Material inspection', final_inspection: 'Final inspection',
+                            other: 'Other',
+                          }[displayVisit.purpose] ?? displayVisit.purpose}
+                        />
+                      )}
+                    </>
+                  ) : null;
+                })()}
               </div>
 
               {/* QUOTATIONS mini-card */}
