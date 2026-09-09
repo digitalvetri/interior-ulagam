@@ -583,15 +583,6 @@ export default function LeadDetailPage() {
   const [lostReasonInput, setLostReasonInput]         = useState('');
   const [stageError, setStageError]                   = useState<string | null>(null);
 
-  // Customer conversion
-  const [converting, setConverting] = useState(false);
-  const [convertError, setConvertError] = useState<string | null>(null);
-  const [showConvertDialog, setShowConvertDialog] = useState(false);
-  const [cEmail, setCEmail]     = useState('');
-  const [cAddress, setCAddress] = useState('');
-  const [cCity, setCCity]       = useState('');
-  const [cGst, setCGst]         = useState('');
-
   // Site visit modal
   const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
 
@@ -799,25 +790,6 @@ export default function LeadDetailPage() {
     finally { setUploadingDoc(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   }
 
-  async function convertToCustomer(extra?: { email?: string; address?: string; city?: string; gstNo?: string }) {
-    setConverting(true); setConvertError(null);
-    try {
-      const res = await fetch(`/api/v1/leads/${id}/convert-to-customer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(extra ?? {}),
-      });
-      const json = await res.json() as { data?: { customerId: string }; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Conversion failed');
-      setCustomerId(json.data!.customerId);
-      setShowConvertDialog(false);
-      setCEmail(''); setCAddress(''); setCCity(''); setCGst('');
-    } catch (e) {
-      setConvertError(e instanceof Error ? e.message : 'Conversion failed');
-    } finally { setConverting(false); }
-  }
-
-
   /* Loading / not-found */
   if (loading) {
     return (
@@ -952,64 +924,6 @@ export default function LeadDetailPage() {
         onClose={() => setShowWonFlowModal(false)}
       />
 
-      {/* ── Convert to Client dialog ───────────────────────── */}
-      {showConvertDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="rounded-2xl p-6 max-w-md w-full shadow-2xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <h3 className="text-base font-bold mb-0.5" style={{ color: 'var(--text-heading)' }}>Convert to Client</h3>
-            <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>Review details before creating the client record.</p>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>Name</label>
-                  <input readOnly value={lead.contactName} className="studio-input w-full text-sm h-9 opacity-60 cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>Phone</label>
-                  <input readOnly value={lead.contactPhone} className="studio-input w-full text-sm h-9 opacity-60 cursor-not-allowed" />
-                </div>
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>Email</label>
-                <input type="email" value={cEmail} onChange={e => setCEmail(e.target.value)}
-                  placeholder="client@email.com" className="studio-input w-full text-sm h-9" />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>Address</label>
-                <input type="text" value={cAddress} onChange={e => setCAddress(e.target.value)}
-                  placeholder="Full address" className="studio-input w-full text-sm h-9" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>City</label>
-                  <input type="text" value={cCity} onChange={e => setCCity(e.target.value)}
-                    placeholder={lead.contactCity ?? 'City'} className="studio-input w-full text-sm h-9" />
-                </div>
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>GST No <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(optional)</span></label>
-                  <input type="text" value={cGst} onChange={e => setCGst(e.target.value)}
-                    placeholder="22AAAAA0000A1Z5" className="studio-input w-full text-sm h-9" />
-                </div>
-              </div>
-            </div>
-            {convertError && <p className="mt-3 text-xs text-red-600">{convertError}</p>}
-            <div className="flex gap-2 justify-end mt-5">
-              <button type="button" onClick={() => { setShowConvertDialog(false); setConvertError(null); }}
-                disabled={converting} className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50"
-                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-                Cancel
-              </button>
-              <button type="button" disabled={converting}
-                onClick={() => convertToCustomer({ email: cEmail || undefined, address: cAddress || undefined, city: cCity || lead.contactCity || undefined, gstNo: cGst || undefined })}
-                className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50"
-                style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                {converting ? 'Creating…' : 'Create Client'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="p-6 lg:p-8 pb-24 space-y-5">
 
         {/* Back nav */}
@@ -1138,13 +1052,7 @@ export default function LeadDetailPage() {
               style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
               <MapPin className="h-4 w-4" style={{ color: '#16A34A' }} /> Site Visit
             </button>
-            {!customerId ? (
-              <button type="button" onClick={() => setShowConvertDialog(true)}
-                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--surface-muted)]"
-                style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-                <Users className="h-4 w-4" style={{ color: '#0369A1' }} /> Convert to Client
-              </button>
-            ) : (
+            {customerId && (
               <Link href={`/customers/${customerId}`}
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--surface-muted)]"
                 style={{ background: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.3)', color: 'var(--success-text)' }}>
@@ -1163,7 +1071,7 @@ export default function LeadDetailPage() {
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(16,185,129,0.4)', color: 'var(--success-text)', background: 'var(--success-soft)' }}>
-                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Marking…' : 'Won'}
+                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Creating…' : 'Convert to Project'}
                 </button>
                 <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
