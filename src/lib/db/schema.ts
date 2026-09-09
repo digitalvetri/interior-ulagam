@@ -527,6 +527,7 @@ export const expenses = pgTable('expenses', {
   gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
   expenseNumber: text('expense_number'),
   ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const snagItems = pgTable('snag_items', {
