@@ -71,14 +71,14 @@ export async function GET(
           }).from(quotes).where(and(...dateFilters)).groupBy(quotes.status),
 
           db.select({
-            month:        sql<string>`to_char(q.created_at, 'YYYY-MM')`,
+            month:        sql<string>`to_char(created_at, 'YYYY-MM')`,
             sent:         sql<number>`count(*)::int`,
-            accepted:     sql<number>`count(*) filter (where q.status = 'approved')::int`,
-            booked:       sql<number>`count(*) filter (where q.status = 'booked')::int`,
-            totalPaise:   sql<number>`coalesce(sum(q.total_paise), 0)::bigint`,
+            accepted:     sql<number>`count(*) filter (where status = 'accepted')::int`,
+            rejected:     sql<number>`count(*) filter (where status = 'rejected')::int`,
+            totalPaise:   sql<number>`coalesce(sum(total_paise), 0)::bigint`,
           }).from(quotes).where(and(...dateFilters))
-            .groupBy(sql`to_char(q.created_at, 'YYYY-MM')`)
-            .orderBy(sql`to_char(q.created_at, 'YYYY-MM')`),
+            .groupBy(sql`to_char(created_at, 'YYYY-MM')`)
+            .orderBy(sql`to_char(created_at, 'YYYY-MM')`),
         ]);
 
         return NextResponse.json({ data: { byStatus, byMonth } });
@@ -199,7 +199,7 @@ export async function GET(
                 sum(
                   (
                     select coalesce(sum((line->>'qty')::numeric * (line->>'ratePaise')::numeric), 0)
-                    from jsonb_array_elements(po.lines_json) as line
+                    from jsonb_array_elements(lines_json) as line
                   )
                 ),
                 0
