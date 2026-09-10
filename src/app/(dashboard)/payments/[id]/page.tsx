@@ -121,16 +121,16 @@ export default function PaymentDetailPage({
   // --- Loading state ---
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <div className="px-6 py-6 space-y-6">
         <div className="h-4 w-32 rounded animate-pulse" style={{ background: 'var(--surface-muted)' }} />
         <div className="h-8 w-48 rounded animate-pulse" style={{ background: 'var(--surface-muted)' }} />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+          <div className="space-y-4">
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
           </div>
-          <div>
+          <div className="sticky top-6 self-start">
             <SkeletonCard />
           </div>
         </div>
@@ -141,7 +141,7 @@ export default function PaymentDetailPage({
   // --- Not found / error state ---
   if (notFound || !milestone) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <Link
           href="/projects"
           className="inline-flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-70"
@@ -162,7 +162,7 @@ export default function PaymentDetailPage({
     : null;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+    <div className="px-6 py-6 space-y-6">
       {/* Back link */}
       <Link
         href="/projects"
@@ -188,9 +188,9 @@ export default function PaymentDetailPage({
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT — col-span-2 */}
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+        {/* LEFT — main content */}
+        <div className="space-y-4">
 
           {/* Milestone Details card */}
           <div
@@ -278,7 +278,7 @@ export default function PaymentDetailPage({
         </div>
 
         {/* RIGHT — sidebar */}
-        <div className="space-y-4">
+        <div className="sticky top-6 self-start space-y-4">
           {/* Related card */}
           <div
             className="rounded-2xl border p-5"

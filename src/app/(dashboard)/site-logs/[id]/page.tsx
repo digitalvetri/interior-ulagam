@@ -74,16 +74,16 @@ function Card({
 
 function Skeleton() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6 animate-pulse">
+    <div className="px-6 py-6 space-y-6 animate-pulse">
       <div className="h-8 w-64 rounded bg-[var(--surface-muted)]" />
       <div className="h-4 w-40 rounded bg-[var(--surface-muted)]" />
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+        <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-28 rounded-2xl bg-[var(--surface-muted)]" />
           ))}
         </div>
-        <div className="space-y-4">
+        <div className="sticky top-6 self-start space-y-4">
           <div className="h-24 rounded-2xl bg-[var(--surface-muted)]" />
           <div className="h-24 rounded-2xl bg-[var(--surface-muted)]" />
         </div>
@@ -124,7 +124,7 @@ export default function SiteLogDetailPage() {
 
   if (fetchError || !log) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
           {fetchError ?? 'Site log not found.'}
@@ -156,7 +156,7 @@ export default function SiteLogDetailPage() {
   ) : null;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+    <div className="px-6 py-6 space-y-6">
 
       {/* Header */}
       <PageHeader
@@ -171,10 +171,10 @@ export default function SiteLogDetailPage() {
       />
 
       {/* Two-column layout */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
 
-        {/* LEFT — lg:col-span-2 */}
-        <div className="lg:col-span-2 space-y-4">
+        {/* LEFT — main content */}
+        <div className="space-y-4">
 
           {/* Progress card */}
           <Card title="Progress" icon={TrendingUp}>
@@ -267,8 +267,8 @@ export default function SiteLogDetailPage() {
           </Card>
         </div>
 
-        {/* RIGHT */}
-        <div className="space-y-4">
+        {/* RIGHT — sticky sidebar */}
+        <div className="sticky top-6 self-start space-y-4">
 
           {/* Related project card */}
           <Card title="Related" icon={FolderKanban}>

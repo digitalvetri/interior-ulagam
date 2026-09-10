@@ -358,9 +358,9 @@ export default function VendorPayableDetailPage({
       </div>
 
       {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* ── LEFT: PO Details (2/3 width) ─────────────────────────────────── */}
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+        {/* ── LEFT: PO Details ────────────────────────────────────────────── */}
+        <div className="space-y-6">
           {/* PO metadata */}
           <div
             className="rounded-2xl p-5 space-y-3"
@@ -576,8 +576,8 @@ export default function VendorPayableDetailPage({
           </div>
         </div>
 
-        {/* ── RIGHT: Related links (1/3 width) ────────────────────────────── */}
-        <div className="space-y-4">
+        {/* ── RIGHT: Related links ────────────────────────────────────────── */}
+        <div className="sticky top-6 self-start space-y-4">
           <div
             className="rounded-2xl p-5 space-y-4"
             style={{ border: '1px solid var(--border-subtle)', background: 'var(--surface-card)' }}

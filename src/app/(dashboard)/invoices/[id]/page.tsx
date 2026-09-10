@@ -115,7 +115,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const paidPct          = totalPaise > 0 ? Math.min(100, Math.round((paidPaise / totalPaise) * 100)) : 0;
 
   return (
-    <div className="p-6 max-w-5xl space-y-6">
+    <div className="px-6 py-6 space-y-6">
       {/* Back */}
       <Link
         href="/invoices"

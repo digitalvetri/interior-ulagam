@@ -435,7 +435,7 @@ export default function DesignDeliverableDetailPage({
   const revisionLabel  = `${typeLabel} · Revision ${versions.length} of ${deliverable.revisionCap}`;
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+    <div className="px-6 py-6 space-y-6">
 
       {/* Back */}
       <Link
@@ -502,10 +502,10 @@ export default function DesignDeliverableDetailPage({
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_280px]">
 
         {/* LEFT — Versions + Approval */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
 
           {/* Versions card */}
           <div
@@ -634,7 +634,7 @@ export default function DesignDeliverableDetailPage({
         </div>
 
         {/* RIGHT — Related */}
-        <div>
+        <div className="sticky top-6 self-start">
           <div
             className="rounded-2xl border p-5"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}

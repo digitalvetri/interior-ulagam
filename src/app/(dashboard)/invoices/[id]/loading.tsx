@@ -12,8 +12,8 @@ export default function InvoiceDetailLoading() {
           <div className="h-9 w-28 rounded-lg bg-[var(--surface-hover)]" />
         </div>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
+        <div className="space-y-4">
           <div className="rounded-2xl border border-[var(--border-subtle)] p-6 space-y-3">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="flex gap-4">

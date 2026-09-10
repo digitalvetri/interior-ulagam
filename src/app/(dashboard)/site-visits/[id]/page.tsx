@@ -118,16 +118,16 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
 
 function Skeleton() {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6 animate-pulse">
+    <div className="px-6 py-6 space-y-6 animate-pulse">
       <div className="h-10 w-64 rounded-xl bg-[var(--surface-muted)]" />
       <div className="h-4 w-40 rounded bg-[var(--surface-muted)]" />
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+        <div className="space-y-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-32 rounded-2xl bg-[var(--surface-muted)]" />
           ))}
         </div>
-        <div className="space-y-4">
+        <div className="sticky top-6 self-start space-y-4">
           <div className="h-28 rounded-2xl bg-[var(--surface-muted)]" />
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function SiteVisitDetailPage() {
 
   if (fetchError || !visit) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
           <AlertTriangle className="h-5 w-5 flex-shrink-0" />
           {fetchError ?? 'Site visit not found.'}
@@ -207,7 +207,7 @@ export default function SiteVisitDetailPage() {
   const isCompleted = visit.status === 'completed';
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+    <div className="px-6 py-6 space-y-6">
       {/* Header */}
       <PageHeader
         title={pageTitle}
@@ -244,9 +244,9 @@ export default function SiteVisitDetailPage() {
       )}
 
       {/* Main grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
         {/* Left column */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4">
 
           {/* Visit Details */}
           <Card title="Visit Details" icon={Calendar}>
@@ -373,7 +373,7 @@ export default function SiteVisitDetailPage() {
         </div>
 
         {/* Right column */}
-        <div className="space-y-4">
+        <div className="sticky top-6 self-start space-y-4">
           <Card title="Related" icon={ExternalLink}>
             <div className="space-y-3">
               {/* Lead */}

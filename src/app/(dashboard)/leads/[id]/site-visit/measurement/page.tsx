@@ -64,7 +64,7 @@ export default function MeasurementViewPage({ params }: { params: Promise<{ id: 
   const totalItems = rounds.reduce((s, r) => s + (r.items?.length ?? 0), 0);
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-5xl">
+    <div className="p-4 sm:p-6 space-y-5">
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">

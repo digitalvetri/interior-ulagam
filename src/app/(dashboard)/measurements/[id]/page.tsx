@@ -154,17 +154,17 @@ export default function MeasurementDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <div className="px-6 py-6 space-y-6">
         <div className="animate-pulse">
           <div className="h-7 bg-gray-200 rounded w-1/4 mb-2" />
           <div className="h-4 bg-gray-200 rounded w-1/5" />
         </div>
-        <div className="grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+          <div className="space-y-6">
             <SkeletonCard />
             <SkeletonCard />
           </div>
-          <div>
+          <div className="sticky top-6 self-start">
             <SkeletonCard />
           </div>
         </div>
@@ -174,7 +174,7 @@ export default function MeasurementDetailPage() {
 
   if (error) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-6">
+      <div className="px-6 py-6">
         <div className="rounded-lg bg-red-50 border border-red-200 p-6 text-center">
           <p className="text-sm font-medium text-red-700 mb-1">Failed to load measurement</p>
           <p className="text-xs text-red-500 mb-4">{error}</p>
@@ -194,7 +194,7 @@ export default function MeasurementDetailPage() {
   const title = measurement.measurementNumber ?? measurement.roundName ?? 'Measurement';
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-6">
+    <div className="px-6 py-6">
       {/* Page Header */}
       <div className="flex items-start justify-between mb-6 gap-4">
         <div className="min-w-0">
@@ -226,9 +226,9 @@ export default function MeasurementDetailPage() {
       </div>
 
       {/* Body grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* LEFT: col-span-2 */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-6">
+        {/* LEFT: main content */}
+        <div className="space-y-6">
           {/* Overview card */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">Overview</h2>
@@ -312,7 +312,7 @@ export default function MeasurementDetailPage() {
         </div>
 
         {/* RIGHT: Related card */}
-        <div>
+        <div className="sticky top-6 self-start">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">Related</h2>
             <ul className="space-y-3">

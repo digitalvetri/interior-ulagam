@@ -828,7 +828,7 @@ export default function SitePage({ params }: { params: Promise<{ id: string }> }
   const hasFilter  = !!(filterFrom || filterTo || delayOnly || stageFilter);
 
   return (
-    <div className="p-6 space-y-5 max-w-4xl mx-auto">
+    <div className="p-6 space-y-5">
 
       {/* Page header */}
       <div className="flex items-start justify-between gap-4">

@@ -413,10 +413,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* ── TWO-COLUMN BODY ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_280px]">
 
-          {/* ══ LEFT: Primary content (col-span-2) ══════════════════════ */}
-          <div className="flex flex-col gap-5 lg:col-span-2">
+          {/* ══ LEFT: Primary content ══════════════════════════════════ */}
+          <div className="flex flex-col gap-5">
 
             {/* Client Info Card */}
             <section
@@ -832,8 +832,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </section>
           </div>
 
-          {/* ══ RIGHT: Secondary sidebar (col-span-1) ══════════════════ */}
-          <div className="flex flex-col gap-4">
+          {/* ══ RIGHT: Secondary sidebar ════════════════════════════════ */}
+          <div className="sticky top-6 self-start flex flex-col gap-4">
 
             {/* Quick contact card */}
             <section
