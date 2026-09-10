@@ -4,7 +4,6 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Trash2, FileText, PackageCheck,
-  Package, Pencil, ChevronDown,
 } from 'lucide-react';
 import {
   Dialog,
@@ -16,7 +15,6 @@ import {
 import { formatRupees } from '@/lib/utils';
 import type { POStatus, POLine } from '@/types/purchase-orders';
 import type { PurchaseOrder as BasePurchaseOrder } from '@/types/purchase-orders';
-import type { MaterialCategory } from '@/types/vendors';
 
 interface PurchaseOrder extends BasePurchaseOrder {
   projectName: string | null;
@@ -111,7 +109,6 @@ export default function PurchaseOrdersPage() {
   const [deleteTarget, setDeleteTarget]         = useState<PurchaseOrder | null>(null);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError]           = useState<string | null>(null);
-  const [activeTab, setActiveTab]               = useState<'orders' | 'vendors'>('orders');
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -270,55 +267,24 @@ export default function PurchaseOrdersPage() {
   return (
     <div className="space-y-6 p-6 lg:p-8">
       {/* Page header */}
-      <div className="space-y-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h1 className="page-title">Purchase orders</h1>
-            <p className="page-subtitle">
-              {loading
-                ? 'Loading…'
-                : `${orders.length} ${orders.length === 1 ? 'order' : 'orders'} across your projects`}
-            </p>
-          </div>
-          {activeTab === 'orders' && (
-            <button
-              onClick={openDialog}
-              className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-              New order
-            </button>
-          )}
+      <div className="flex items-end justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+        <div>
+          <h1 className="page-title">Purchase orders</h1>
+          <p className="page-subtitle">
+            {loading
+              ? 'Loading…'
+              : `${orders.length} ${orders.length === 1 ? 'order' : 'orders'} across your projects`}
+          </p>
         </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('orders')}
-            className="px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors"
-            style={
-              activeTab === 'orders'
-                ? { background: 'var(--accent-soft)', color: 'var(--accent-text)' }
-                : { color: 'var(--text-secondary)', background: 'transparent' }
-            }
-          >
-            Orders
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('vendors')}
-            className="px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors"
-            style={
-              activeTab === 'vendors'
-                ? { background: 'var(--accent-soft)', color: 'var(--accent-text)' }
-                : { color: 'var(--text-secondary)', background: 'transparent' }
-            }
-          >
-            Vendors
-          </button>
-        </div>
+        <button
+          onClick={openDialog}
+          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
+        >
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+          New order
+        </button>
       </div>
 
-      {activeTab === 'orders' && (<>
       {/* Search + status filter */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px] max-w-md">
@@ -783,8 +749,6 @@ export default function PurchaseOrdersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </>)}
-      {activeTab === 'vendors' && <VendorsPanel />}
     </div>
   );
 }
@@ -868,396 +832,4 @@ function POSkeleton() {
   );
 }
 
-// ─── Vendors Panel ────────────────────────────────────────────────────────────
 
-const VENDOR_CATEGORIES: MaterialCategory[] = [
-  'laminate', 'hardware', 'furniture', 'fabric', 'lighting', 'flooring', 'sanitary', 'other',
-];
-
-const VENDOR_CAT_LABELS: Record<MaterialCategory, string> = {
-  laminate: 'Laminate', hardware: 'Hardware', furniture: 'Furniture',
-  fabric: 'Fabric', lighting: 'Lighting', flooring: 'Flooring',
-  sanitary: 'Sanitary', other: 'Other',
-};
-
-const VENDOR_CAT_STYLES: Record<MaterialCategory, { bg: string; fg: string }> = {
-  laminate:  { bg: '#EDE9FE', fg: '#6D28D9' },
-  hardware:  { bg: '#DBEAFE', fg: '#1D4ED8' },
-  furniture: { bg: '#FEF3C7', fg: '#92400E' },
-  fabric:    { bg: '#FCE7F3', fg: '#9D174D' },
-  lighting:  { bg: '#FEF9C3', fg: '#854D0E' },
-  flooring:  { bg: '#FEF3C7', fg: '#78350F' },
-  sanitary:  { bg: '#CCFBF1', fg: '#0F766E' },
-  other:     { bg: 'var(--surface-muted)', fg: 'var(--text-secondary)' },
-};
-
-interface VendorFull {
-  id: string;
-  name: string;
-  phone: string | null;
-  email: string | null;
-  gstin: string | null;
-  category: MaterialCategory | null;
-  address: string | null;
-  notes: string | null;
-  createdAt: string;
-  openPOCount: number;
-}
-
-interface VendorFormState {
-  name: string; phone: string; email: string;
-  gstin: string; category: MaterialCategory | ''; address: string; notes: string;
-}
-
-const EMPTY_VFORM: VendorFormState = {
-  name: '', phone: '', email: '', gstin: '', category: '', address: '', notes: '',
-};
-
-function formFromVendorFull(v: VendorFull): VendorFormState {
-  return {
-    name: v.name, phone: v.phone ?? '', email: v.email ?? '',
-    gstin: v.gstin ?? '', category: v.category ?? '',
-    address: v.address ?? '', notes: v.notes ?? '',
-  };
-}
-
-function VendorFormFields({ form, onChange, error }: {
-  form: VendorFormState;
-  onChange: (f: VendorFormState) => void;
-  error: string | null;
-}) {
-  const set = (key: keyof VendorFormState) => (val: string) => onChange({ ...form, [key]: val });
-  return (
-    <div className="space-y-4 py-1">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Name *</label>
-          <input value={form.name} onChange={e => set('name')(e.target.value)} placeholder="Vendor name" className="studio-input h-9 w-full" />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Phone</label>
-          <input value={form.phone} onChange={e => set('phone')(e.target.value)} placeholder="+91 98765 43210" className="studio-input h-9 w-full" />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Email</label>
-          <input type="email" value={form.email} onChange={e => set('email')(e.target.value)} placeholder="vendor@example.com" className="studio-input h-9 w-full" />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>GSTIN</label>
-          <input value={form.gstin} onChange={e => set('gstin')(e.target.value)} placeholder="29AABCU9603R1ZX" className="studio-input h-9 w-full" />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Category</label>
-          <select value={form.category} onChange={e => set('category')(e.target.value)} className="studio-input h-9 w-full">
-            <option value="">Select category</option>
-            {VENDOR_CATEGORIES.map(c => <option key={c} value={c}>{VENDOR_CAT_LABELS[c]}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Address</label>
-          <textarea value={form.address} onChange={e => set('address')(e.target.value)} placeholder="Full address" rows={2} className="studio-input w-full py-2 resize-none" />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Notes</label>
-          <textarea value={form.notes} onChange={e => set('notes')(e.target.value)} placeholder="Internal notes" rows={2} className="studio-input w-full py-2 resize-none" />
-        </div>
-      </div>
-      {error && <p className="text-[12px] font-medium" style={{ color: '#DC2626' }}>{error}</p>}
-    </div>
-  );
-}
-
-function VendorDetailField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--text-secondary)' }}>{label}</p>
-      <p className="mt-0.5 text-[13px]" style={{ color: 'var(--text-primary)' }}>{value}</p>
-    </div>
-  );
-}
-
-function VendorsPanel() {
-  const [vendors,    setVendors]    = useState<VendorFull[]>([]);
-  const [vLoading,   setVLoading]   = useState(true);
-  const [vError,     setVError]     = useState<string | null>(null);
-  const [vSearch,    setVSearch]    = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState<VendorFormState>(EMPTY_VFORM);
-  const [addSub,  setAddSub]  = useState(false);
-  const [addErr,  setAddErr]  = useState<string | null>(null);
-
-  const [editTarget, setEditTarget] = useState<VendorFull | null>(null);
-  const [editForm,   setEditForm]   = useState<VendorFormState>(EMPTY_VFORM);
-  const [editSub,    setEditSub]    = useState(false);
-  const [editErr,    setEditErr]    = useState<string | null>(null);
-
-  const [delTarget, setDelTarget] = useState<VendorFull | null>(null);
-  const [delSub,    setDelSub]    = useState(false);
-  const [delErr,    setDelErr]    = useState<string | null>(null);
-
-  const loadVendors = useCallback(async () => {
-    setVLoading(true); setVError(null);
-    try {
-      const res  = await fetch('/api/v1/vendors');
-      const json = (await res.json()) as { data?: VendorFull[] };
-      setVendors(json.data ?? []);
-    } catch { setVError('Failed to load vendors'); }
-    finally { setVLoading(false); }
-  }, []);
-
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { void loadVendors(); }, [loadVendors]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  const filteredVendors = useMemo(() => {
-    const q = vSearch.trim().toLowerCase();
-    if (!q) return vendors;
-    return vendors.filter(v =>
-      v.name.toLowerCase().includes(q) ||
-      (v.phone  ?? '').includes(q) ||
-      (v.email  ?? '').toLowerCase().includes(q) ||
-      (v.gstin  ?? '').toLowerCase().includes(q),
-    );
-  }, [vendors, vSearch]);
-
-  function vendorPayload(f: VendorFormState) {
-    return {
-      name:     f.name.trim(),
-      phone:    f.phone.trim()   || null,
-      email:    f.email.trim()   || null,
-      gstin:    f.gstin.trim()   || null,
-      category: f.category       || null,
-      address:  f.address.trim() || null,
-      notes:    f.notes.trim()   || null,
-    };
-  }
-
-  async function handleAdd() {
-    if (!addForm.name.trim()) { setAddErr('Name is required.'); return; }
-    setAddSub(true); setAddErr(null);
-    try {
-      const res = await fetch('/api/v1/vendors', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendorPayload(addForm)),
-      });
-      if (!res.ok) { const b = (await res.json()) as { error?: string }; setAddErr(b.error ?? 'Failed'); return; }
-      setAddOpen(false);
-      await loadVendors();
-    } catch { setAddErr('Network error'); }
-    finally { setAddSub(false); }
-  }
-
-  async function handleEdit() {
-    if (!editTarget || !editForm.name.trim()) { setEditErr('Name is required.'); return; }
-    setEditSub(true); setEditErr(null);
-    try {
-      const res = await fetch(`/api/v1/vendors/${editTarget.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(vendorPayload(editForm)),
-      });
-      if (!res.ok) { const b = (await res.json()) as { error?: string }; setEditErr(b.error ?? 'Failed'); return; }
-      setEditTarget(null);
-      await loadVendors();
-    } catch { setEditErr('Network error'); }
-    finally { setEditSub(false); }
-  }
-
-  async function handleDelete() {
-    if (!delTarget) return;
-    setDelSub(true); setDelErr(null);
-    try {
-      const res = await fetch(`/api/v1/vendors/${delTarget.id}`, { method: 'DELETE' });
-      if (!res.ok) { const b = (await res.json()) as { error?: string }; setDelErr(b.error ?? 'Failed'); return; }
-      setDelTarget(null);
-      setExpandedId(null);
-      await loadVendors();
-    } catch { setDelErr('Network error'); }
-    finally { setDelSub(false); }
-  }
-
-  return (
-    <div className="space-y-4">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px] max-w-sm">
-          <Search className="studio-search-icon" style={{ color: 'var(--text-secondary)' }} />
-          <input
-            type="text"
-            value={vSearch}
-            onChange={e => setVSearch(e.target.value)}
-            placeholder="Search name, phone, GSTIN…"
-            className="studio-input w-full h-9"
-          />
-        </div>
-        <button
-          onClick={() => { setAddForm(EMPTY_VFORM); setAddErr(null); setAddOpen(true); }}
-          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px]"
-        >
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
-          Add vendor
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="premium-card overflow-hidden">
-        {vLoading && (
-          <div className="flex items-center justify-center py-14">
-            <div className="h-5 w-5 animate-spin rounded-full border-2" style={{ borderColor: 'var(--accent-base)', borderTopColor: 'transparent' }} />
-          </div>
-        )}
-        {vError && !vLoading && (
-          <div className="flex flex-col items-center gap-2 py-12 text-center">
-            <p className="text-sm font-medium" style={{ color: '#DC2626' }}>{vError}</p>
-            <button onClick={() => void loadVendors()} className="text-[12px] underline" style={{ color: 'var(--accent-base)' }}>Retry</button>
-          </div>
-        )}
-        {!vLoading && !vError && vendors.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-14 text-center">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full" style={{ background: 'var(--accent-soft)' }}>
-              <Package className="h-5 w-5" style={{ color: 'var(--accent-base)' }} strokeWidth={1.75} />
-            </div>
-            <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>No vendors yet</p>
-            <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Add vendors to assign them to purchase orders.</p>
-            <button
-              onClick={() => { setAddForm(EMPTY_VFORM); setAddErr(null); setAddOpen(true); }}
-              className="btn-primary mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px]"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add vendor
-            </button>
-          </div>
-        )}
-        {!vLoading && !vError && vendors.length > 0 && filteredVendors.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-12 text-center">
-            <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>No vendors match</p>
-            <button onClick={() => setVSearch('')} className="text-[12px] underline" style={{ color: 'var(--accent-base)' }}>Clear search</button>
-          </div>
-        )}
-        {!vLoading && !vError && filteredVendors.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
-              <thead style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <tr>
-                  {['Vendor', 'Category', 'Phone', 'Email', 'Open POs', ''].map(h => (
-                    <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--text-secondary)' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredVendors.map(v => {
-                  const isExpanded = expandedId === v.id;
-                  const cs = v.category ? (VENDOR_CAT_STYLES[v.category] ?? null) : null;
-                  return (
-                    <React.Fragment key={v.id}>
-                      <tr
-                        className="cursor-pointer transition-colors"
-                        style={{ borderBottom: '1px solid var(--border-subtle)', background: isExpanded ? 'var(--surface-muted)' : 'transparent' }}
-                        onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = 'var(--surface-muted)'; }}
-                        onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent'; }}
-                        onClick={() => setExpandedId(isExpanded ? null : v.id)}
-                      >
-                        <td className="px-4 py-2.5 font-medium" style={{ color: 'var(--text-primary)' }}>{v.name}</td>
-                        <td className="px-4 py-2.5">
-                          {cs && v.category ? (
-                            <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium" style={{ background: cs.bg, color: cs.fg }}>
-                              {VENDOR_CAT_LABELS[v.category]}
-                            </span>
-                          ) : <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                        </td>
-                        <td className="px-4 py-2.5 tnum" style={{ color: 'var(--text-secondary)' }}>{v.phone ?? '—'}</td>
-                        <td className="px-4 py-2.5 max-w-[160px] truncate text-[12px]" style={{ color: 'var(--text-secondary)' }}>{v.email ?? '—'}</td>
-                        <td className="px-4 py-2.5 tnum" style={{ color: v.openPOCount > 0 ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                          {v.openPOCount > 0 ? v.openPOCount : '—'}
-                        </td>
-                        <td className="px-4 py-2.5 text-right">
-                          <ChevronDown className="inline-block h-3.5 w-3.5 transition-transform" style={{ color: 'var(--text-secondary)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }} />
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr>
-                          <td colSpan={6} className="px-4 pb-4 pt-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                            <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-3 mb-3">
-                              <VendorDetailField label="GSTIN"   value={v.gstin   ?? '—'} />
-                              <VendorDetailField label="Address" value={v.address ?? '—'} />
-                              <VendorDetailField label="Notes"   value={v.notes   ?? '—'} />
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors"
-                                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
-                                onClick={e => { e.stopPropagation(); setEditForm(formFromVendorFull(v)); setEditErr(null); setEditTarget(v); }}
-                              >
-                                <Pencil className="h-3 w-3" /> Edit
-                              </button>
-                              <button
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium border transition-colors hover:bg-red-50"
-                                style={{ color: '#DC2626', borderColor: '#FEE2E2', background: 'var(--surface-card)' }}
-                                onClick={e => { e.stopPropagation(); setDelErr(null); setDelTarget(v); }}
-                              >
-                                <Trash2 className="h-3 w-3" /> Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Add dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Add vendor</DialogTitle></DialogHeader>
-          <VendorFormFields form={addForm} onChange={setAddForm} error={addErr} />
-          <DialogFooter>
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }} onClick={() => setAddOpen(false)} disabled={addSub}>Cancel</button>
-            <button className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50" onClick={handleAdd} disabled={addSub || !addForm.name.trim()}>
-              {addSub ? 'Adding…' : 'Add vendor'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit dialog */}
-      <Dialog open={!!editTarget} onOpenChange={open => { if (!open) setEditTarget(null); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Edit vendor</DialogTitle></DialogHeader>
-          <VendorFormFields form={editForm} onChange={setEditForm} error={editErr} />
-          <DialogFooter>
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }} onClick={() => setEditTarget(null)} disabled={editSub}>Cancel</button>
-            <button className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50" onClick={handleEdit} disabled={editSub || !editForm.name.trim()}>
-              {editSub ? 'Saving…' : 'Save changes'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete confirm */}
-      <Dialog open={!!delTarget} onOpenChange={open => { if (!open) setDelTarget(null); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Delete vendor?</DialogTitle></DialogHeader>
-          <p className="text-[13px] py-1" style={{ color: 'var(--text-secondary)' }}>
-            Delete{' '}
-            <span className="font-medium" style={{ color: 'var(--text-heading)' }}>{delTarget?.name}</span>?
-            {' '}This cannot be undone.
-          </p>
-          {delErr && <p className="text-[12px] font-medium" style={{ color: '#DC2626' }}>{delErr}</p>}
-          <DialogFooter>
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border disabled:opacity-50" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }} onClick={() => setDelTarget(null)} disabled={delSub}>Cancel</button>
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium text-white disabled:opacity-50" style={{ background: '#DC2626' }} onClick={handleDelete} disabled={delSub}>
-              <Trash2 className="h-3.5 w-3.5" /> {delSub ? 'Deleting…' : 'Delete vendor'}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
