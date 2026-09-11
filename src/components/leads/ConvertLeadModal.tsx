@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, CheckCircle2, User, MapPin, Home } from 'lucide-react';
+import { X, UserCheck, ChevronDown } from 'lucide-react';
 import type { Lead } from '@/types/leads';
 
 interface Props {
@@ -13,17 +13,15 @@ interface Props {
   acceptedQuoteRef?: string;
 }
 
+const PROJECT_TYPES = ['Design', 'Architecture', 'Construction', 'Renovation'];
+
 function rupeesToPaise(rupees: string): number | undefined {
   const n = parseFloat(rupees.replace(/,/g, ''));
   if (isNaN(n) || n < 0) return undefined;
   return Math.round(n * 100);
 }
 
-function fmt(paise: number) {
-  return (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
-}
-
-export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise, acceptedQuoteRef }: Props) {
+export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise }: Props) {
   const router = useRouter();
 
   const defaultName =
@@ -35,17 +33,16 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise,
     ? (sourcePaise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })
     : '';
 
-  const [projectName, setProjectName] = useState(defaultName);
-  const [budget, setBudget]           = useState(defaultBudget);
-  const [pincode, setPincode]         = useState(lead.pincode ?? '');
-  const [siteAddress, setSiteAddress] = useState(lead.projectLocation ?? '');
-  const [submitting, setSubmitting]   = useState(false);
-  const [error, setError]             = useState<string | null>(null);
+  const [projectName, setProjectName]   = useState(defaultName);
+  const [projectType, setProjectType]   = useState('');
+  const [siteCity, setSiteCity]         = useState(lead.contactCity ?? '');
+  const [budget, setBudget]             = useState(defaultBudget);
+  const [startDate, setStartDate]       = useState('');
+  const [requirement, setRequirement]   = useState('');
+  const [submitting, setSubmitting]     = useState(false);
+  const [error, setError]               = useState<string | null>(null);
 
   if (!open) return null;
-
-  const missingPincode     = !lead.pincode;
-  const missingSiteAddress = !lead.projectLocation;
 
   async function handleSubmit() {
     if (!projectName.trim()) { setError('Project name is required'); return; }
@@ -54,9 +51,11 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise,
     const budgetPaise = budget.trim() ? rupeesToPaise(budget) : undefined;
 
     const body: Record<string, unknown> = { projectName: projectName.trim() };
-    if (budgetPaise)               body.budgetPaise  = budgetPaise;
-    if (missingPincode && pincode.trim())         body.pincode     = pincode.trim();
-    if (missingSiteAddress && siteAddress.trim()) body.siteAddress = siteAddress.trim();
+    if (budgetPaise)            body.budgetPaise  = budgetPaise;
+    if (projectType)            body.projectType  = projectType;
+    if (siteCity.trim())        body.siteCity     = siteCity.trim();
+    if (startDate)              body.startDate    = new Date(startDate).toISOString();
+    if (requirement.trim())     body.requirement  = requirement.trim();
 
     try {
       const res = await fetch(`/api/v1/leads/${lead.id}/convert`, {
@@ -74,129 +73,149 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise,
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="rounded-2xl w-full max-w-md shadow-2xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}>
+      <div className="rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
 
         {/* Header */}
-        <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--success)' }} />
-              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Convert to Client</h2>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Creates a project, seeds payment milestones, and marks this lead as won.
-            </p>
-          </div>
+        <div className="px-5 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Convert to Client</h2>
           <button type="button" onClick={onClose}
             className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[var(--surface-muted)]">
             <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="overflow-y-auto flex-1 p-5 space-y-5">
 
-          {/* Carried-forward summary (read-only) */}
-          <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Carried from lead</p>
-            <div className="flex items-start gap-2.5">
-              <User className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--accent-base)' }} />
-              <div className="text-xs" style={{ color: 'var(--text-heading)' }}>
-                <span className="font-semibold">{lead.contactName}</span>
-                {lead.contactPhone && <span className="ml-1.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</span>}
-                {lead.contactEmail && <span className="ml-1.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactEmail}</span>}
-              </div>
+          {/* CLIENT INFO section */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-tertiary)' }}>
+              Client Info (from lead)
+            </p>
+            <div className="rounded-xl px-4 py-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{lead.contactName}</p>
+              {lead.contactPhone && (
+                <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>{lead.contactPhone}</p>
+              )}
             </div>
-            {(lead.contactCity || lead.pincode) && (
-              <div className="flex items-center gap-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                <MapPin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                {[lead.contactCity, lead.pincode].filter(Boolean).join(' ')}
-              </div>
-            )}
-            {lead.propertyType && (
-              <div className="flex items-center gap-2.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                <Home className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                {lead.propertyType}
-              </div>
-            )}
           </div>
 
-          {/* Missing client fields — show only if blank on lead */}
-          {(missingPincode || missingSiteAddress) && (
+          {/* NEW PROJECT section */}
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+              New Project
+            </p>
+
+            {/* Project Name */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-tertiary)' }}>Missing details</p>
-              <div className="space-y-2">
-                {missingPincode && (
-                  <div>
-                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Pincode</label>
-                    <input value={pincode} onChange={e => setPincode(e.target.value)}
-                      placeholder="641001" className="studio-input w-full text-sm h-9" />
-                  </div>
-                )}
-                {missingSiteAddress && (
-                  <div>
-                    <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>Site address</label>
-                    <input value={siteAddress} onChange={e => setSiteAddress(e.target.value)}
-                      placeholder="12, Saibaba Colony, Coimbatore" className="studio-input w-full text-sm h-9" />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Project name */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
-              Project Name *
-            </label>
-            <input
-              value={projectName}
-              onChange={e => setProjectName(e.target.value)}
-              placeholder="e.g. 3BHK Renovation — Coimbatore"
-              className="studio-input w-full text-sm"
-            />
-          </div>
-
-          {/* Budget */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
-              Budget (₹) *
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: 'var(--text-tertiary)' }}>₹</span>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                PROJECT NAME *
+              </label>
               <input
-                value={budget}
-                onChange={e => setBudget(e.target.value)}
-                placeholder="0"
-                inputMode="numeric"
-                className="studio-input w-full text-sm pl-7"
+                value={projectName}
+                onChange={e => setProjectName(e.target.value)}
+                placeholder="e.g. 3BHK Renovation — Coimbatore"
+                className="studio-input w-full text-sm"
               />
             </div>
-            {acceptedQuoteRef && acceptedQuoteTotalPaise && (
-              <p className="text-xs mt-1" style={{ color: 'var(--success-text)' }}>
-                From accepted quote {acceptedQuoteRef}: {fmt(acceptedQuoteTotalPaise)}
-              </p>
-            )}
-            {!acceptedQuoteTotalPaise && lead.budgetBand && (
-              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Estimated band: {lead.budgetBand}</p>
-            )}
+
+            {/* Project Type */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                PROJECT TYPE
+              </label>
+              <div className="relative">
+                <select
+                  value={projectType}
+                  onChange={e => setProjectType(e.target.value)}
+                  className="studio-input w-full text-sm appearance-none pr-8"
+                  style={{ color: projectType ? 'var(--text-heading)' : 'var(--text-tertiary)' }}
+                >
+                  <option value="">Select type</option>
+                  {PROJECT_TYPES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
+              </div>
+            </div>
+
+            {/* Site City */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                SITE CITY
+              </label>
+              <input
+                value={siteCity}
+                onChange={e => setSiteCity(e.target.value)}
+                placeholder="e.g. Coimbatore"
+                className="studio-input w-full text-sm"
+              />
+            </div>
+
+            {/* Estimated Budget */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                ESTIMATED BUDGET (₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-tertiary)' }}>₹</span>
+                <input
+                  value={budget}
+                  onChange={e => setBudget(e.target.value)}
+                  placeholder="0"
+                  inputMode="numeric"
+                  className="studio-input w-full text-sm"
+                  style={{ paddingLeft: '1.75rem' }}
+                />
+              </div>
+            </div>
+
+            {/* Expected Start Date */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                EXPECTED START DATE
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="studio-input w-full text-sm"
+              />
+            </div>
+
+            {/* Requirement */}
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                REQUIREMENT
+              </label>
+              <textarea
+                value={requirement}
+                onChange={e => setRequirement(e.target.value)}
+                placeholder="Describe the client's requirements…"
+                rows={3}
+                className="studio-input w-full text-sm resize-none"
+              />
+            </div>
           </div>
 
           {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
 
-          <div className="flex gap-2 pt-1">
-            <button type="button" onClick={onClose} disabled={submitting}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm border disabled:opacity-50"
-              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-              Cancel
-            </button>
-            <button type="button" onClick={handleSubmit}
-              disabled={submitting || !projectName.trim()}
-              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
-              style={{ background: 'var(--success)', color: '#fff' }}>
-              {submitting ? 'Creating…' : 'Create Project'}
-            </button>
-          </div>
+        {/* Footer */}
+        <div className="px-5 py-4 flex gap-2 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <button type="button" onClick={onClose} disabled={submitting}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm border disabled:opacity-50"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={handleSubmit}
+            disabled={submitting || !projectName.trim()}
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
+            style={{ background: 'var(--accent-base, #0D7F6E)', color: '#fff' }}>
+            <UserCheck className="h-4 w-4" />
+            {submitting ? 'Converting…' : 'Convert & Create Project'}
+          </button>
         </div>
       </div>
     </div>

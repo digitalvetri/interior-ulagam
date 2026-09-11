@@ -8,6 +8,10 @@ import { getAuthContext } from '@/lib/auth';
 const ConvertSchema = z.object({
   projectName:  z.string().min(1).max(200),
   budgetPaise:  z.number().int().nonnegative().optional(),
+  projectType:  z.string().max(50).optional(),
+  siteCity:     z.string().max(100).optional(),
+  startDate:    z.string().datetime().optional(),
+  requirement:  z.string().max(2000).optional(),
   // Optional missing client fields — written to the customer record
   pincode:      z.string().max(10).optional(),
   siteAddress:  z.string().max(500).optional(),
@@ -33,7 +37,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
   }
 
-  const { projectName, budgetPaise, pincode, siteAddress } = parsed.data;
+  const { projectName, budgetPaise, projectType, siteCity, startDate, requirement, pincode, siteAddress } = parsed.data;
 
   // 1. Fetch the lead
   const [lead] = await db
@@ -100,8 +104,9 @@ export async function POST(
 
   // 4. Update customer with any missing fields provided in request
   const customerPatch: Record<string, string> = {};
-  if (pincode)     customerPatch.address = pincode;     // customers table uses address for pincode+address
+  if (pincode)     customerPatch.address = pincode;
   if (siteAddress) customerPatch.address = siteAddress;
+  if (siteCity)    customerPatch.city    = siteCity;
   if (Object.keys(customerPatch).length > 0) {
     await db.update(customers)
       .set(customerPatch)
@@ -118,6 +123,7 @@ export async function POST(
       leadId:             lead.id,
       totalContractPaise: totalContractPaise ?? null,
       lifecycleStage:     'design_pending',
+      startedAt:          startDate ? new Date(startDate) : undefined,
     })
     .returning();
 
@@ -147,9 +153,13 @@ export async function POST(
     }
   }
 
-  // 8. Mark lead as won
+  // 8. Mark lead as won, persist project type and requirement if provided
   await db.update(leads)
-    .set({ stage: 'won' })
+    .set({
+      stage:        'won',
+      propertyType: projectType || undefined,
+      notes:        requirement || undefined,
+    })
     .where(eq(leads.id, leadId));
 
   return NextResponse.json({ data: { projectId: project.id } }, { status: 201 });
