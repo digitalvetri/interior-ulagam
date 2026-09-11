@@ -32,6 +32,7 @@ interface LeadFollowUp {
   stage: string;
   clientStatus: string;
   comments: string | null;
+  completedAt: string | null;
   createdByName: string | null;
   createdAt: string;
   updatedAt: string;
@@ -565,6 +566,12 @@ export default function LeadDetailPage() {
   const [followUpError, setFUError]     = useState<string | null>(null);
   const [savingFU, setSavingFU]         = useState(false);
   const [fuSuccess, setFUSuccess]       = useState(false);
+  const [markingDoneId, setMarkingDoneId]       = useState<string | null>(null);
+  const [reschedulingFuId, setReschedulingFuId] = useState<string | null>(null);
+  const [rescheduleInput, setRescheduleInput]   = useState('');
+  const [quotedAmountInput, setQuotedAmountInput] = useState('');
+  const [savingQuotedAmount, setSavingQuotedAmount] = useState(false);
+  const [quotedAmountSaved, setQuotedAmountSaved] = useState(false);
 
   // Menus / dialogs
   const [showActionsMenu, setShowActionsMenu]       = useState(false);
@@ -630,6 +637,7 @@ export default function LeadDetailPage() {
       setCustomerId(leadData.customerId ?? null);
       setLinkedProject(leadData.linkedProject ?? null);
       setLead(leadData);
+      if (leadData.projectValuePaise) setQuotedAmountInput(String(Math.round(leadData.projectValuePaise / 100)));
       if (actRes?.ok) {
         const { data: actData } = await actRes.json() as { data: LeadActivity[] };
         setActivities(actData ?? []);
@@ -699,6 +707,7 @@ export default function LeadDetailPage() {
         stage: lead?.stage ?? '',
         clientStatus: 'pending',
         comments: savedNote || null,
+        completedAt: null,
         createdByName: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -706,6 +715,40 @@ export default function LeadDetailPage() {
     } catch (e) {
       setFUError(e instanceof Error ? e.message : 'Failed to schedule');
     } finally { setSavingFU(false); }
+  }
+
+  async function markFollowUpDone(fu: LeadFollowUp) {
+    setMarkingDoneId(fu.id);
+    try {
+      const res = await fetch(`/api/v1/leads/${id}/follow-ups/${fu.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mark_done' }),
+      });
+      if (!res.ok) return;
+      const now = new Date().toISOString();
+      setFollowUps(prev => prev.map(f => f.id === fu.id ? { ...f, completedAt: now } : f));
+    } finally {
+      setMarkingDoneId(null);
+    }
+  }
+
+  async function rescheduleFollowUp(fu: LeadFollowUp) {
+    if (!rescheduleInput) return;
+    const followUpDate = new Date(rescheduleInput + 'T00:00:00').toISOString();
+    try {
+      const res = await fetch(`/api/v1/leads/${id}/follow-ups/${fu.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reschedule', followUpDate }),
+      });
+      if (!res.ok) return;
+      setFollowUps(prev => prev.map(f =>
+        f.id === fu.id ? { ...f, followUpDate: rescheduleInput, completedAt: null } : f
+      ));
+      setReschedulingFuId(null);
+      setRescheduleInput('');
+    } catch { /* silent */ }
   }
 
   async function handleDelete() {
@@ -1164,35 +1207,84 @@ export default function LeadDetailPage() {
                     </div>
                   )}
                   {followUps.map(fu => {
-                    const urgency = fu.followUpDate ? followUpUrgency(fu.followUpDate) : null;
+                    const isCompleted = !!fu.completedAt;
+                    const urgency = (!isCompleted && fu.followUpDate) ? followUpUrgency(fu.followUpDate) : null;
                     const badgeCfg =
-                      urgency === 'overdue'  ? { bg: 'var(--danger-soft)',  color: 'var(--danger)',       label: 'Overdue' } :
-                      urgency === 'today'    ? { bg: 'var(--warning-soft)', color: 'var(--warning)',      label: 'Today' } :
-                      urgency === 'upcoming' ? { bg: 'var(--success-soft)', color: 'var(--success-text)', label: 'Pending' } :
-                                              { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Done' };
+                      isCompleted                ? { bg: 'var(--surface-muted)', color: 'var(--text-secondary)',  label: 'Done'    } :
+                      urgency === 'overdue'      ? { bg: 'var(--danger-soft)',   color: 'var(--danger)',          label: 'Overdue' } :
+                      urgency === 'today'        ? { bg: 'var(--warning-soft)',  color: 'var(--warning)',         label: 'Today'   } :
+                      urgency === 'upcoming'     ? { bg: 'var(--success-soft)',  color: 'var(--success-text)',    label: 'Pending' } :
+                                                  { bg: 'var(--surface-muted)', color: 'var(--text-secondary)',  label: 'Done'    };
+                    const isRescheduling = reschedulingFuId === fu.id;
+                    const isMarkingDone  = markingDoneId === fu.id;
                     return (
-                      <div key={fu.id} className="rounded-xl px-4 py-3.5 flex items-start gap-3"
+                      <div key={fu.id} className="rounded-xl px-4 py-3.5"
                         style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                        <Calendar className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: urgency === 'overdue' ? 'var(--danger)' : 'var(--accent-base)' }} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
-                              {fu.followUpDate ? fmtFollowUpDate(fu.followUpDate.split('T')[0]) : fmtDate(fu.createdAt)}
-                            </span>
-                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                              style={{ background: badgeCfg.bg, color: badgeCfg.color }}>
-                              {badgeCfg.label}
-                            </span>
-                            <span className="text-[11px] capitalize" style={{ color: 'var(--text-secondary)' }}>
-                              {fu.clientStatus.replace(/_/g, ' ')}
-                            </span>
+                        <div className="flex items-start gap-3">
+                          <Calendar className="h-4 w-4 flex-shrink-0 mt-0.5"
+                            style={{ color: isCompleted ? 'var(--text-tertiary)' : urgency === 'overdue' ? 'var(--danger)' : 'var(--accent-base)' }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>
+                                {fu.followUpDate ? fmtFollowUpDate(fu.followUpDate.split('T')[0]) : fmtDate(fu.createdAt)}
+                              </span>
+                              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                style={{ background: badgeCfg.bg, color: badgeCfg.color }}>
+                                {badgeCfg.label}
+                              </span>
+                              <span className="text-[11px] capitalize" style={{ color: 'var(--text-secondary)' }}>
+                                {fu.clientStatus.replace(/_/g, ' ')}
+                              </span>
+                            </div>
+                            {fu.comments && (
+                              <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
+                            )}
+                            <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
+                              {fu.createdByName ? `by ${fu.createdByName} · ` : ''}{fmtDate(fu.createdAt)}
+                            </p>
+                            {/* Action buttons — only on pending follow-ups */}
+                            {!isCompleted && !isRescheduling && (
+                              <div className="flex items-center gap-2 mt-2.5">
+                                <button
+                                  onClick={() => markFollowUpDone(fu)}
+                                  disabled={isMarkingDone}
+                                  className="px-2.5 py-1 text-xs rounded-lg font-medium transition-colors disabled:opacity-50"
+                                  style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
+                                  {isMarkingDone ? '…' : '✓ Mark Done'}
+                                </button>
+                                <button
+                                  onClick={() => { setReschedulingFuId(fu.id); setRescheduleInput(''); }}
+                                  className="px-2.5 py-1 text-xs rounded-lg font-medium transition-colors"
+                                  style={{ background: 'var(--surface-muted)', color: 'var(--text-heading)', border: '1px solid var(--border-subtle)' }}>
+                                  Reschedule
+                                </button>
+                              </div>
+                            )}
+                            {!isCompleted && isRescheduling && (
+                              <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                                <input
+                                  type="date"
+                                  value={rescheduleInput}
+                                  onChange={e => setRescheduleInput(e.target.value)}
+                                  min={new Date().toISOString().split('T')[0]}
+                                  className="studio-input h-8 text-xs px-2 w-36"
+                                />
+                                <button
+                                  onClick={() => rescheduleFollowUp(fu)}
+                                  disabled={!rescheduleInput}
+                                  className="px-3 py-1.5 text-xs font-semibold rounded-lg disabled:opacity-50"
+                                  style={{ background: 'var(--accent-base)', color: '#fff' }}>
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => setReschedulingFuId(null)}
+                                  className="px-2 py-1.5 text-xs rounded-lg"
+                                  style={{ color: 'var(--text-secondary)' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
                           </div>
-                          {fu.comments && (
-                            <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
-                          )}
-                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                            {fu.createdByName ? `by ${fu.createdByName} · ` : ''}{fmtDate(fu.createdAt)}
-                          </p>
                         </div>
                       </div>
                     );
@@ -1232,61 +1324,49 @@ export default function LeadDetailPage() {
                 <SidebarRow label="Site Address" value={lead.projectLocation ?? '—'} />
               </div>
 
-              {/* QUOTATIONS mini-card */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Quotations</p>
-                  <button type="button" onClick={createQuote} disabled={creatingQuote}
-                    className="text-[12px] font-semibold disabled:opacity-50 hover:underline"
-                    style={{ color: 'var(--violet-primary)' }}>
-                    {creatingQuote ? 'Creating…' : '+ New estimate'}
+              {/* AMOUNT QUOTED */}
+              <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>Amount Quoted</p>
+                {lead.projectValuePaise ? (
+                  <p className="text-2xl font-bold mb-3" style={{ color: 'var(--text-heading)' }}>
+                    ₹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
+                  </p>
+                ) : (
+                  <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>No amount entered yet</p>
+                )}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Enter amount"
+                      value={quotedAmountInput}
+                      onChange={e => setQuotedAmountInput(e.target.value)}
+                      className="studio-input w-full text-sm h-9 pl-7"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    disabled={savingQuotedAmount || !quotedAmountInput}
+                    onClick={async () => {
+                      setSavingQuotedAmount(true);
+                      try {
+                        const paise = Math.round(parseFloat(quotedAmountInput) * 100);
+                        const res = await fetch(`/api/v1/leads/${id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ projectValuePaise: paise }),
+                        });
+                        const json = await res.json().catch(() => ({})) as { data?: Lead };
+                        if (res.ok && json.data) { setLead(json.data); setQuotedAmountSaved(true); setTimeout(() => setQuotedAmountSaved(false), 2000); }
+                      } finally { setSavingQuotedAmount(false); }
+                    }}
+                    className="btn-primary h-9 px-4 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
+                    {savingQuotedAmount ? 'Saving…' : 'Save'}
                   </button>
                 </div>
-                {leadQuotes.length === 0 ? (
-                  <div className="px-5 py-6 text-center">
-                    <FileText className="h-6 w-6 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                    <p className="text-[13px] mb-3" style={{ color: 'var(--text-secondary)' }}>No quotations yet</p>
-                    <button type="button" onClick={createQuote} disabled={creatingQuote}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
-                      style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                      <Plus className="h-3.5 w-3.5" /> Send rough estimate
-                    </button>
-                  </div>
-                ) : (
-                  <div className="px-4 py-3 space-y-1.5">
-                    {leadQuotes.slice(0, 4).map(q => {
-                      const qStyle =
-                        q.status === 'approved' || q.status === 'accepted' ? { bg: 'var(--success-soft)', color: 'var(--success-text)' }
-                        : q.status === 'sent'     ? { bg: 'var(--accent-soft)', color: 'var(--accent-text)' }
-                        : q.status === 'rejected' ? { bg: 'var(--danger-soft)', color: 'var(--danger)' }
-                        : { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
-                      return (
-                        <Link key={q.id} href={`/quotes/${q.id}`}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors hover:bg-[var(--surface-muted)]"
-                          style={{ border: '1px solid var(--border-subtle)' }}>
-                          <FileText className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>
-                              QUO-{q.id.slice(-6).toUpperCase()} v{q.version}
-                            </p>
-                            {q.totalPaise > 0 && (
-                              <p className="text-xs" style={{ color: 'var(--text-gold)' }}>{fmt(q.totalPaise)}</p>
-                            )}
-                          </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0"
-                            style={{ background: qStyle.bg, color: qStyle.color }}>
-                            {q.status.toUpperCase()}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                    {leadQuotes.length > 4 && (
-                      <p className="text-center text-xs pt-1" style={{ color: 'var(--violet-primary)' }}>
-                        +{leadQuotes.length - 4} more
-                      </p>
-                    )}
-                  </div>
-                )}
+                {quotedAmountSaved && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--success)' }}>Saved!</p>}
               </div>
 
               {/* RECENT ACTIVITY */}

@@ -48,6 +48,7 @@ export async function GET(
         stage:         leadFollowUps.stage,
         clientStatus:  leadFollowUps.clientStatus,
         comments:      leadFollowUps.comments,
+        completedAt:   leadFollowUps.completedAt,
         addToCalendar: leadFollowUps.addToCalendar,
         createdByName: users.fullName,
         createdByRole: users.role,
