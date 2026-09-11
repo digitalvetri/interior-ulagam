@@ -21,6 +21,8 @@ const CreateMilestoneSchema = z.object({
       'complete',
     ])
     .optional(),
+  paymentStatus: z.enum(['pending', 'link_sent', 'paid', 'overdue']).optional(),
+  paidAt: z.string().datetime().optional(),
 });
 
 const SeedSchema = z.object({
@@ -146,6 +148,8 @@ export async function POST(
         pctOfTotal: input.pctOfTotal,
         amountPaise: input.amountPaise,
         triggerStage: input.triggerStage,
+        ...(input.paymentStatus ? { paymentStatus: input.paymentStatus } : {}),
+        ...(input.paidAt ? { paidAt: new Date(input.paidAt) } : {}),
       })
       .returning();
 
