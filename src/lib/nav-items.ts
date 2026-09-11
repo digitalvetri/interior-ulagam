@@ -6,7 +6,6 @@ import {
   Ruler,
   FileText,
   ShoppingCart,
-  Package,
   Wallet,
   Settings,
   BarChart3,
@@ -74,19 +73,19 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'execution',
     label: 'Execution',
-    roles: DESIGN_ROLES,
+    roles: PROC_ROLES,
     items: [
-      { href: '/materials', label: 'Materials', icon: Package, roles: DESIGN_ROLES },
+      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: PROC_ROLES },
+      { href: '/vendors',         label: 'Vendors',         icon: Store,        roles: PROC_ROLES },
     ],
   },
+
   {
     key: 'finance',
     label: 'Finance',
-    roles: PROC_ROLES,
+    roles: FINANCE_ROLES,
     items: [
-      { href: '/finance',         label: 'Accounts',        icon: Wallet,       roles: FINANCE_ROLES },
-      { href: '/purchase-orders', label: 'Purchase Orders', icon: ShoppingCart, roles: PROC_ROLES },
-      { href: '/vendors',         label: 'Vendors',         icon: Store,        roles: PROC_ROLES },
+      { href: '/finance', label: 'Accounts', icon: Wallet, roles: FINANCE_ROLES },
     ],
   },
   {

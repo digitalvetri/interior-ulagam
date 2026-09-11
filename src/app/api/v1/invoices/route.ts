@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { invoices, milestones, projects, payments } from '@/lib/db/schema';
+import { invoices, milestones, projects, payments, customers } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, desc, count, ne, inArray, sql } from 'drizzle-orm';
 
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         tenantId: invoices.tenantId,
         projectId: invoices.projectId,
         projectName: projects.name,
+        clientName:  customers.fullName,
         invoiceNumber: invoices.invoiceNumber,
         invoiceDate: invoices.invoiceDate,
         subtotalPaise: invoices.subtotalPaise,
@@ -41,8 +42,9 @@ export async function GET(request: NextRequest) {
         milestonePaymentStatus: milestones.paymentStatus,
       })
       .from(invoices)
-      .innerJoin(projects, eq(invoices.projectId, projects.id))
-      .leftJoin(milestones, eq(milestones.invoiceId, invoices.id))
+      .innerJoin(projects,  eq(invoices.projectId,    projects.id))
+      .leftJoin(customers,  eq(projects.customerId,   customers.id))
+      .leftJoin(milestones, eq(milestones.invoiceId,  invoices.id))
       .where(and(...conditions))
       .orderBy(desc(invoices.createdAt));
 

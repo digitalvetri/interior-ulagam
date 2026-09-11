@@ -1,25 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  Search, Plus, Edit2, Trash2, Package, X, ChevronUp, ChevronDown,
-  Grid3X3, List, MoreVertical, Download, Clock,
-  ChevronLeft, ChevronRight, Tag,
-} from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Package, X, AlertTriangle } from 'lucide-react';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
-type MaterialCategory =
-  | 'laminate'
-  | 'hardware'
-  | 'furniture'
-  | 'fabric'
-  | 'lighting'
-  | 'flooring'
-  | 'sanitary'
-  | 'other';
 
-type SortKey = 'name' | 'category' | 'currentRatePaise';
-type ViewMode = 'table' | 'grid';
+type MaterialCategory =
+  | 'laminate' | 'hardware' | 'furniture' | 'fabric'
+  | 'lighting' | 'flooring' | 'sanitary' | 'other';
 
 interface Material {
   id: string;
@@ -27,6 +15,7 @@ interface Material {
   category: MaterialCategory;
   unit: string;
   currentRatePaise: number;
+  sellingRatePaise: number;
   lastPurchasePricePaise: number | null;
   brand: string | null;
   hsnSac: string | null;
@@ -49,72 +38,30 @@ const INITIAL_FORM: MaterialForm = {
   currentRateRupees: '', brand: '', hsnSac: '', notes: '',
 };
 
-/* ── Category config ──────────────────────────────────────────────────────── */
-const CATEGORY_CONFIG: Record<MaterialCategory, { label: string; emoji: string; bg: string; color: string }> = {
-  laminate:  { label: 'Laminates',        emoji: '📋', bg: 'var(--success-soft)',  color: 'var(--success-text)' },
-  hardware:  { label: 'Hardware',         emoji: '🔩', bg: 'var(--surface-muted)', color: 'var(--text-primary)' },
-  furniture: { label: 'Furniture',        emoji: '🪑', bg: '#FDF3E8',              color: '#92400E' },
-  fabric:    { label: 'Fabrics',          emoji: '🧵', bg: 'var(--accent-soft)',   color: '#6B21A8' },
-  lighting:  { label: 'Lighting',         emoji: '💡', bg: '#FEFCE8',              color: '#713F12' },
-  flooring:  { label: 'Flooring & Tiles', emoji: '🏛️', bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
-  sanitary:  { label: 'Sanitary',         emoji: '🚿', bg: '#EFF6FF',              color: '#1D4ED8' },
-  other:     { label: 'Other',            emoji: '📦', bg: '#FAF9F6',              color: 'var(--text-primary)' },
+/* ── Config ───────────────────────────────────────────────────────────────── */
+
+const CATEGORY_CONFIG: Record<MaterialCategory, { label: string; bg: string; color: string }> = {
+  laminate:  { label: 'Laminates',        bg: 'var(--success-soft)',  color: 'var(--success-text)' },
+  hardware:  { label: 'Hardware',         bg: 'var(--surface-muted)', color: 'var(--text-primary)' },
+  furniture: { label: 'Furniture',        bg: '#FDF3E8',              color: '#92400E' },
+  fabric:    { label: 'Fabrics',          bg: 'var(--accent-soft)',   color: '#6B21A8' },
+  lighting:  { label: 'Lighting',         bg: '#FEFCE8',              color: '#713F12' },
+  flooring:  { label: 'Flooring & Tiles', bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
+  sanitary:  { label: 'Sanitary',         bg: '#EFF6FF',              color: '#1D4ED8' },
+  other:     { label: 'Other',            bg: '#FAF9F6',              color: 'var(--text-primary)' },
 };
 
 const UNIT_OPTIONS = ['sqft', 'piece', 'running ft', 'box', 'litre', 'kg', 'set', 'pair', 'nos'];
-const PAGE_SIZE = 20;
+const CATEGORIES = Object.keys(CATEGORY_CONFIG) as MaterialCategory[];
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
+
 function fmt(paise: number) {
   return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 }
 
-function exportCSV(list: Material[]) {
-  const rows = [
-    ['Name', 'Category', 'Brand', 'Unit', 'Current Rate (₹)', 'Last Purchase (₹)', 'HSN/SAC', 'Notes'],
-    ...list.map(m => [
-      m.name,
-      CATEGORY_CONFIG[m.category]?.label ?? m.category,
-      m.brand ?? '',
-      m.unit,
-      (m.currentRatePaise / 100).toFixed(2),
-      m.lastPurchasePricePaise != null ? (m.lastPurchasePricePaise / 100).toFixed(2) : '',
-      m.hsnSac ?? '',
-      m.notes ?? '',
-    ]),
-  ];
-  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'materials.csv'; a.click();
-  URL.revokeObjectURL(url);
-}
+/* ── Add / Edit Modal ─────────────────────────────────────────────────────── */
 
-/* ── Stat Card ────────────────────────────────────────────────────────────── */
-function StatCard({
-  label, value, sub, iconBg, iconColor, icon: Icon,
-}: {
-  label: string; value: number | string; sub?: string;
-  iconBg: string; iconColor: string; icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="rounded-xl border p-4 flex items-start justify-between gap-3"
-      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-      <div className="min-w-0">
-        <p className="text-xs font-medium mb-1 truncate" style={{ color: 'var(--text-secondary)' }}>{label}</p>
-        <p className="text-2xl font-bold tabular-nums leading-tight" style={{ color: 'var(--text-heading)' }}>{value}</p>
-        {sub && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
-      </div>
-      <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ background: iconBg, color: iconColor }}>
-        <Icon className="h-4 w-4" />
-      </div>
-    </div>
-  );
-}
-
-/* ── Material Modal ───────────────────────────────────────────────────────── */
 function MaterialModal({
   open, onClose, onSave, initial,
 }: {
@@ -123,26 +70,24 @@ function MaterialModal({
   onSave: (form: MaterialForm) => Promise<void>;
   initial?: Material;
 }) {
-  const [form, setForm]       = useState<MaterialForm>(INITIAL_FORM);
-  const [saving, setSaving]   = useState(false);
-  const [errors, setErrors]   = useState<Partial<Record<keyof MaterialForm, string>>>({});
-  const [apiError, setApiErr] = useState<string | null>(null);
+  const [form,     setForm]     = useState<MaterialForm>(INITIAL_FORM);
+  const [saving,   setSaving]   = useState(false);
+  const [errors,   setErrors]   = useState<Partial<Record<keyof MaterialForm, string>>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initial) {
-      setForm({
-        name:               initial.name,
-        category:           initial.category,
-        unit:               initial.unit,
-        currentRateRupees:  String(initial.currentRatePaise / 100),
-        brand:              initial.brand ?? '',
-        hsnSac:             initial.hsnSac ?? '',
-        notes:              initial.notes ?? '',
-      });
-    } else {
-      setForm(INITIAL_FORM);
+    if (open) {
+      setForm(initial ? {
+        name:              initial.name,
+        category:          initial.category,
+        unit:              initial.unit,
+        currentRateRupees: String(initial.currentRatePaise / 100),
+        brand:             initial.brand ?? '',
+        hsnSac:            initial.hsnSac ?? '',
+        notes:             initial.notes ?? '',
+      } : INITIAL_FORM);
+      setErrors({}); setApiError(null);
     }
-    setErrors({}); setApiErr(null);
   }, [initial, open]);
 
   function set<K extends keyof MaterialForm>(k: K, v: MaterialForm[K]) {
@@ -152,15 +97,15 @@ function MaterialModal({
 
   async function handleSave() {
     const errs: Partial<Record<keyof MaterialForm, string>> = {};
-    if (!form.name.trim())         errs.name             = 'Name is required';
-    if (!form.currentRateRupees)   errs.currentRateRupees = 'Rate is required';
+    if (!form.name.trim())       errs.name             = 'Name is required';
+    if (!form.currentRateRupees) errs.currentRateRupees = 'Rate is required';
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    setSaving(true); setApiErr(null);
+    setSaving(true); setApiError(null);
     try {
       await onSave(form);
       onClose();
     } catch (e) {
-      setApiErr(e instanceof Error ? e.message : 'Failed to save material');
+      setApiError(e instanceof Error ? e.message : 'Failed to save material');
     } finally {
       setSaving(false);
     }
@@ -171,12 +116,12 @@ function MaterialModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
       style={{ background: 'rgba(0,0,0,0.4)' }}>
-      <div className="w-full max-w-lg rounded-2xl overflow-hidden"
-        style={{ background: 'var(--surface-card)', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden flex flex-col"
+        style={{ background: 'var(--surface-card)', maxHeight: '90vh' }}>
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>
-            {initial ? 'Edit Material' : 'Add Material'}
+            {initial ? 'Edit Item' : 'Add Item to Catalog'}
           </h2>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-[var(--border-subtle)]">
             <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
@@ -184,23 +129,20 @@ function MaterialModal({
         </div>
 
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
-
-          {/* Name */}
           <div>
-            <label className="studio-label block mb-1.5">Name *</label>
+            <label className="studio-label block mb-1.5">Item Name *</label>
             <input type="text" value={form.name} onChange={e => set('name', e.target.value)}
               placeholder="e.g. Marine Plywood 19mm" className="studio-input w-full text-sm" />
             {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
           </div>
 
-          {/* Category + Unit */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="studio-label block mb-1.5">Category</label>
               <select value={form.category} onChange={e => set('category', e.target.value as MaterialCategory)}
                 className="studio-input w-full text-sm">
-                {(Object.keys(CATEGORY_CONFIG) as MaterialCategory[]).map(k => (
-                  <option key={k} value={k}>{CATEGORY_CONFIG[k].emoji} {CATEGORY_CONFIG[k].label}</option>
+                {CATEGORIES.map(k => (
+                  <option key={k} value={k}>{CATEGORY_CONFIG[k].label}</option>
                 ))}
               </select>
             </div>
@@ -213,51 +155,43 @@ function MaterialModal({
             </div>
           </div>
 
-          {/* Brand */}
           <div>
-            <label className="studio-label block mb-1.5">Brand</label>
+            <label className="studio-label block mb-1.5">Brand / Supplier</label>
             <input type="text" value={form.brand} onChange={e => set('brand', e.target.value)}
               placeholder="e.g. Merino, Greenlam, Hafele" className="studio-input w-full text-sm" />
           </div>
 
-          {/* Current Rate */}
           <div>
-            <label className="studio-label block mb-1.5">Current Rate ₹ *</label>
+            <label className="studio-label block mb-1.5">Purchase Cost per {form.unit || 'unit'} (₹) *</label>
             <input type="number" min={0} step={0.01} value={form.currentRateRupees}
-              onChange={e => set('currentRateRupees', e.target.value)} placeholder="0"
-              className="studio-input w-full text-sm" />
+              onChange={e => set('currentRateRupees', e.target.value)}
+              placeholder="0.00" className="studio-input w-full text-sm" />
             {errors.currentRateRupees && <p className="text-xs text-red-600 mt-1">{errors.currentRateRupees}</p>}
-            <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-              This is your purchase cost per {form.unit}. The previous rate is saved automatically as history.
-            </p>
           </div>
 
-          {/* HSN/SAC */}
           <div>
             <label className="studio-label block mb-1.5">HSN / SAC Code</label>
             <input type="text" value={form.hsnSac} onChange={e => set('hsnSac', e.target.value)}
               placeholder="e.g. 4412" className="studio-input w-full text-sm" />
           </div>
 
-          {/* Notes */}
           <div>
             <label className="studio-label block mb-1.5">Notes</label>
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)}
               rows={2} placeholder="Specs, thickness, finish, supplier notes…"
               className="studio-input w-full text-sm resize-none" />
           </div>
-
         </div>
 
         {apiError && (
-          <div className="mx-6 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex-shrink-0">
-            {apiError}
+          <div className="mx-6 mb-3 flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex-shrink-0">
+            <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{apiError}
           </div>
         )}
         <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
-          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2 text-sm">
-            {saving ? 'Saving…' : initial ? 'Save Changes' : 'Add Material'}
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving} className="btn-primary flex-1 py-2.5 text-sm">
+            {saving ? 'Saving…' : initial ? 'Save Changes' : 'Add to Catalog'}
           </button>
         </div>
       </div>
@@ -265,249 +199,215 @@ function MaterialModal({
   );
 }
 
-/* ── Sort icon ────────────────────────────────────────────────────────────── */
-function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: 'asc' | 'desc' }) {
-  if (col !== sortKey) return <ChevronUp className="h-3 w-3 opacity-20" />;
-  return sortDir === 'asc'
-    ? <ChevronUp className="h-3 w-3 text-violet-600" />
-    : <ChevronDown className="h-3 w-3 text-violet-600" />;
-}
-
-/* ── Table header cell ────────────────────────────────────────────────────── */
-function Th({
-  col, label, align = 'left', sortKey, sortDir, onSort,
-}: {
-  col: SortKey; label: string; align?: 'left' | 'right';
-  sortKey: SortKey; sortDir: 'asc' | 'desc'; onSort: (col: SortKey) => void;
-}) {
-  return (
-    <th className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide cursor-pointer select-none ${align === 'right' ? 'text-right' : 'text-left'}`}
-      style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', whiteSpace: 'nowrap' }}
-      onClick={() => onSort(col)}>
-      <span className={`inline-flex items-center gap-1 ${align === 'right' ? 'flex-row-reverse' : ''}`}>
-        {label}
-        <SortIcon col={col} sortKey={sortKey} sortDir={sortDir} />
-      </span>
-    </th>
-  );
-}
-
-/* ── Row action menu ─────────────────────────────────────────────────────── */
-function RowMenu({
-  m, open, onToggle, onEdit, onDelete,
-}: {
-  m: Material; open: boolean;
-  onToggle: (id: string | null) => void;
-  onEdit: (m: Material) => void;
-  onDelete: (id: string) => void;
-}) {
-  return (
-    <div className="relative">
-      <button type="button"
-        onClick={e => { e.stopPropagation(); onToggle(open ? null : m.id); }}
-        className="p-1.5 rounded-lg transition-colors hover:bg-[var(--border-subtle)]">
-        <MoreVertical className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-8 z-20 w-40 rounded-xl border shadow-lg overflow-hidden"
-          style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-          <button type="button" onClick={() => onEdit(m)}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors">
-            <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-            <span style={{ color: 'var(--text-heading)' }}>Edit</span>
-          </button>
-          <div style={{ borderTop: '1px solid var(--border-subtle)' }} />
-          <button type="button" onClick={() => onDelete(m.id)}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-red-50 transition-colors">
-            <Trash2 className="h-3.5 w-3.5 text-red-500" />
-            <span className="text-red-600">Delete</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ── Page ─────────────────────────────────────────────────────────────────── */
+
 export default function MaterialsPage() {
-  const [materialsList, setMaterialsList]   = useState<Material[]>([]);
-  const [loading, setLoading]               = useState(true);
-  const [search, setSearch]                 = useState('');
-  const [activeCategory, setActiveCategory] = useState<MaterialCategory | 'all'>('all');
-  const [sortKey, setSortKey]               = useState<SortKey>('name');
-  const [sortDir, setSortDir]               = useState<'asc' | 'desc'>('asc');
-  const [viewMode, setViewMode]             = useState<ViewMode>('table');
-  const [page, setPage]                     = useState(1);
-  const [menuOpenId, setMenuOpenId]         = useState<string | null>(null);
-  const [modalOpen, setModalOpen]           = useState(false);
-  const [editTarget, setEditTarget]         = useState<Material | undefined>();
-  const isOwner                             = true;
-  const [loadedAt, setLoadedAt]             = useState<number>(() => 0);
+  const [materials,       setMaterials]       = useState<Material[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [search,          setSearch]          = useState('');
+  const [activeCategory,  setActiveCategory]  = useState<MaterialCategory | 'all'>('all');
+  const [modalOpen,       setModalOpen]       = useState(false);
+  const [editTarget,      setEditTarget]      = useState<Material | undefined>();
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/materials')
       .then(r => r.json())
-      .then(({ data }: { data: Material[] | null }) => {
-        setMaterialsList(data ?? []); setLoadedAt(Date.now()); setLoading(false);
-      })
+      .then(({ data }: { data: Material[] | null }) => { setMaterials(data ?? []); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
 
-  /* ── Derived stats ──────────────────────────────────────────────────────── */
-  const stats = useMemo(() => {
-    const thirtyDaysAgo  = loadedAt - 30 * 24 * 60 * 60 * 1000;
-    const withBrand      = materialsList.filter(m => m.brand).length;
-    const recentCount    = materialsList.filter(m => new Date(m.createdAt).getTime() > thirtyDaysAgo).length;
-    const uniqueCats     = new Set(materialsList.map(m => m.category)).size;
-    const avgRate        = materialsList.length
-      ? Math.round(materialsList.reduce((s, m) => s + m.currentRatePaise, 0) / materialsList.length)
-      : 0;
-    return { total: materialsList.length, withBrand, recentCount, uniqueCats, avgRate };
-  }, [materialsList, loadedAt]);
+  /* ── Derived ──────────────────────────────────────────────────────────────── */
 
-  /* ── Filter + sort ──────────────────────────────────────────────────────── */
+  const stats = useMemo(() => {
+    const totalValue = materials.reduce((s, m) => s + m.currentRatePaise, 0);
+    const uniqueCats = new Set(materials.map(m => m.category)).size;
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentCount = materials.filter(m => new Date(m.createdAt).getTime() > thirtyDaysAgo).length;
+    return { total: materials.length, uniqueCats, totalValue, recentCount };
+  }, [materials]);
+
   const filtered = useMemo(() => {
-    let result = materialsList;
+    let result = materials;
     if (activeCategory !== 'all') result = result.filter(m => m.category === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(m =>
         m.name.toLowerCase().includes(q) ||
         (m.brand ?? '').toLowerCase().includes(q) ||
-        (m.notes ?? '').toLowerCase().includes(q) ||
-        (m.hsnSac ?? '').toLowerCase().includes(q),
+        (m.hsnSac ?? '').toLowerCase().includes(q) ||
+        (m.notes ?? '').toLowerCase().includes(q),
       );
     }
-    return [...result].sort((a, b) => {
-      let av: number | string;
-      let bv: number | string;
-      if (sortKey === 'category') {
-        av = CATEGORY_CONFIG[a.category]?.label ?? a.category;
-        bv = CATEGORY_CONFIG[b.category]?.label ?? b.category;
-      } else {
-        av = a[sortKey] as number | string;
-        bv = b[sortKey] as number | string;
-      }
-      if (av < bv) return sortDir === 'asc' ? -1 : 1;
-      if (av > bv) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [materialsList, activeCategory, search, sortKey, sortDir]);
+    return [...result].sort((a, b) => a.name.localeCompare(b.name));
+  }, [materials, activeCategory, search]);
 
-  /* ── Pagination ─────────────────────────────────────────────────────────── */
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage   = Math.min(page, totalPages);
-  const paginated  = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  /* ── Handlers ───────────────────────────────────────────────────────────── */
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
-    setPage(1);
-  }
-
-  function clearFilters() { setSearch(''); setActiveCategory('all'); setPage(1); }
-  const hasFilters = !!(search || activeCategory !== 'all');
+  /* ── Handlers ─────────────────────────────────────────────────────────────── */
 
   const handleSave = useCallback(async (form: MaterialForm) => {
     const currentRatePaise = Math.round(Number(form.currentRateRupees) * 100);
 
     if (editTarget) {
-      // PATCH only accepts the strict subset: currentRatePaise, name, brand, unit, hsnSac, notes
       const body: Record<string, unknown> = { name: form.name.trim() };
-      if (form.unit)  body.unit  = form.unit;
-      if (currentRatePaise !== editTarget.currentRatePaise) body.currentRatePaise = currentRatePaise;
+      if (form.unit)                                          body.unit  = form.unit;
+      if (currentRatePaise !== editTarget.currentRatePaise)  body.currentRatePaise = currentRatePaise;
       if (form.brand.trim())  body.brand  = form.brand.trim();
       if (form.hsnSac.trim()) body.hsnSac = form.hsnSac.trim();
       if (form.notes.trim())  body.notes  = form.notes.trim();
 
-      const res = await fetch(`/api/v1/materials/${editTarget.id}`, {
+      const res  = await fetch(`/api/v1/materials/${editTarget.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({})) as { data?: Material; error?: unknown };
-      if (!res.ok) throw new Error(JSON.stringify(json.error) ?? `Failed (${res.status})`);
-      setMaterialsList(prev => prev.map(m => m.id === editTarget.id ? json.data! : m));
+      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : `Failed (${res.status})`);
+      setMaterials(prev => prev.map(m => m.id === editTarget.id ? json.data! : m));
     } else {
       const body: Record<string, unknown> = {
-        name: form.name.trim(),
-        category: form.category,
-        unit: form.unit,
-        currentRatePaise,
+        name: form.name.trim(), category: form.category, unit: form.unit, currentRatePaise,
       };
       if (form.brand.trim())  body.brand  = form.brand.trim();
       if (form.hsnSac.trim()) body.hsnSac = form.hsnSac.trim();
       if (form.notes.trim())  body.notes  = form.notes.trim();
 
-      const res = await fetch('/api/v1/materials', {
+      const res  = await fetch('/api/v1/materials', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({})) as { data?: Material; error?: unknown };
-      if (!res.ok) throw new Error(JSON.stringify(json.error) ?? `Failed (${res.status})`);
-      setMaterialsList(prev => [json.data!, ...prev]);
+      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : `Failed (${res.status})`);
+      setMaterials(prev => [json.data!, ...prev]);
     }
     setEditTarget(undefined);
   }, [editTarget]);
 
   async function handleDelete(id: string) {
-    if (!window.confirm('Delete this material? This cannot be undone.')) return;
     const res = await fetch(`/api/v1/materials/${id}`, { method: 'DELETE' });
-    if (res.ok) setMaterialsList(prev => prev.filter(m => m.id !== id));
-    setMenuOpenId(null);
+    if (res.ok) setMaterials(prev => prev.filter(m => m.id !== id));
+    setDeleteConfirmId(null);
   }
 
-  function openEdit(m: Material) { setEditTarget(m); setModalOpen(true); setMenuOpenId(null); }
+  function openEdit(m: Material) { setEditTarget(m); setModalOpen(true); }
   function openAdd()              { setEditTarget(undefined); setModalOpen(true); }
 
-  const categories = Object.keys(CATEGORY_CONFIG) as MaterialCategory[];
+  /* ── Render ───────────────────────────────────────────────────────────────── */
 
-  /* ── Render ─────────────────────────────────────────────────────────────── */
   return (
-    <div className="p-6 lg:p-8 space-y-6">
+    <div className="p-6 space-y-5">
 
-      {/* Close menu on backdrop click */}
-      {menuOpenId && (
-        <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
-      )}
-
-      {/* ── Header ─────────────────────────────────────────────────────── */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-4xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>Material Library</h2>
+          <h1 className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>Materials</h1>
           <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            Manage and track all materials across your projects
+            Catalog of materials used across your projects
           </p>
         </div>
-        {isOwner && (
-          <button type="button" onClick={openAdd}
-            className="btn-primary flex items-center gap-2 px-4 py-2 text-sm flex-shrink-0">
-            <Plus className="h-4 w-4" />Add Material
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'ITEMS',
+            value: loading ? '—' : String(stats.total),
+            sub: 'in catalog',
+            icon: (
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'CATEGORIES',
+            value: loading ? '—' : String(stats.uniqueCats),
+            sub: 'material types',
+            icon: (
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'CATALOG VALUE',
+            value: loading ? '—' : fmt(stats.totalValue),
+            sub: 'sum of purchase rates',
+            icon: (
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 8.25H9m6 3H9m3 6l-3-3h1.5a3 3 0 100-6M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ),
+          },
+          {
+            label: 'ADDED RECENTLY',
+            value: loading ? '—' : String(stats.recentCount),
+            sub: 'in last 30 days',
+            icon: (
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            ),
+          },
+        ].map(({ label, value, sub, icon }) => (
+          <div key={label} className="rounded-2xl border p-4"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-[10px] font-semibold tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+                {label}
+              </p>
+              <span style={{ color: 'var(--accent-base)' }}>{icon}</span>
+            </div>
+            <p className="text-2xl font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{value}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Add item button */}
+      <div>
+        <button type="button" onClick={openAdd}
+          className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
+          style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--surface-card)' }}>
+          <Plus className="h-4 w-4" />Add item (to catalog)
+        </button>
+      </div>
+
+      {/* Category pills + search */}
+      <div className="rounded-2xl border p-4 space-y-3"
+        style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setActiveCategory('all')}
+            className="rounded-full px-4 py-1.5 text-sm font-medium transition-all"
+            style={{
+              background: activeCategory === 'all' ? 'var(--accent-base)' : 'var(--surface-muted)',
+              color:      activeCategory === 'all' ? '#fff' : 'var(--text-secondary)',
+            }}>
+            All
           </button>
-        )}
-      </div>
+          {CATEGORIES.filter(cat => materials.some(m => m.category === cat)).map(cat => {
+            const cfg    = CATEGORY_CONFIG[cat];
+            const active = activeCategory === cat;
+            return (
+              <button key={cat} type="button" onClick={() => setActiveCategory(cat)}
+                className="rounded-full px-4 py-1.5 text-sm font-medium transition-all border"
+                style={{
+                  background:  active ? cfg.color : 'transparent',
+                  color:       active ? '#fff' : cfg.color,
+                  borderColor: active ? cfg.color : `${cfg.color}44`,
+                }}>
+                {cfg.label}
+              </button>
+            );
+          })}
+        </div>
 
-      {/* ── Stat Cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard label="Total Materials" value={stats.total}
-          icon={Package} iconBg="var(--accent-soft)" iconColor="var(--accent-base)" />
-        <StatCard label="Categories" value={stats.uniqueCats}
-          icon={Grid3X3} iconBg="var(--success-soft)" iconColor="var(--success)" />
-        <StatCard label="Avg. Rate" value={stats.avgRate > 0 ? fmt(stats.avgRate) : '—'}
-          sub="across all materials"
-          icon={Tag} iconBg="var(--surface-muted)" iconColor="var(--text-secondary)" />
-        <StatCard label="With Brand" value={stats.withBrand}
-          sub={stats.total ? `${Math.round(stats.withBrand / stats.total * 100)}% catalogued` : undefined}
-          icon={Tag} iconBg="#FDF3E8" iconColor="#92400E" />
-        <StatCard label="Recently Added" value={stats.recentCount} sub="last 30 days"
-          icon={Clock} iconBg="#FEFCE8" iconColor="var(--warning)" />
-      </div>
-
-      {/* ── Search + Export ─────────────────────────────────────────────── */}
-      <div className="flex gap-3 items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="studio-search-icon" />
-          <input type="text" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search by name, brand, notes, or HSN…"
-            className="studio-input w-full text-sm h-10" />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search item, brand, HSN…"
+            className="studio-input w-full text-sm" style={{ paddingLeft: '2.25rem' }}
+          />
           {search && (
             <button type="button" onClick={() => setSearch('')}
               className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -515,217 +415,131 @@ export default function MaterialsPage() {
             </button>
           )}
         </div>
-        <button type="button" onClick={() => exportCSV(filtered)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)', background: 'var(--surface-card)' }}>
-          <Download className="h-4 w-4" />
-          Export
-        </button>
-
-        {hasFilters && (
-          <button type="button" onClick={clearFilters}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-xl border transition-colors hover:bg-red-50"
-            style={{ borderColor: 'var(--danger-soft)', color: 'var(--danger)', background: 'var(--danger-soft)' }}>
-            <X className="h-3.5 w-3.5" />Clear
-          </button>
-        )}
-
-        <div className="ml-auto flex items-center gap-1 rounded-xl border p-1"
-          style={{ borderColor: 'var(--border-strong)', background: 'var(--surface-card)' }}>
-          <button type="button" onClick={() => setViewMode('table')}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ background: viewMode === 'table' ? 'var(--text-primary)' : 'transparent' }}>
-            <List className="h-4 w-4" style={{ color: viewMode === 'table' ? 'var(--surface-card)' : 'var(--text-secondary)' }} />
-          </button>
-          <button type="button" onClick={() => setViewMode('grid')}
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ background: viewMode === 'grid' ? 'var(--text-primary)' : 'transparent' }}>
-            <Grid3X3 className="h-4 w-4" style={{ color: viewMode === 'grid' ? 'var(--surface-card)' : 'var(--text-secondary)' }} />
-          </button>
-        </div>
       </div>
 
-      {/* ── Category pills ─────────────────────────────────────────────── */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        <button type="button" onClick={() => { setActiveCategory('all'); setPage(1); }}
-          className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
-          style={{
-            background: activeCategory === 'all' ? 'var(--text-primary)' : 'var(--surface-card)',
-            color: activeCategory === 'all' ? 'var(--surface-card)' : 'var(--text-primary)',
-            border: '1px solid var(--border-strong)',
-          }}>
-          All ({materialsList.length})
-        </button>
-        {categories.map(cat => {
-          const count = materialsList.filter(m => m.category === cat).length;
-          if (count === 0) return null;
-          const cfg = CATEGORY_CONFIG[cat];
-          return (
-            <button key={cat} type="button" onClick={() => { setActiveCategory(cat); setPage(1); }}
-              className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
-              style={{
-                background: activeCategory === cat ? cfg.color : cfg.bg,
-                color:      activeCategory === cat ? 'var(--surface-card)' : cfg.color,
-                border: `1px solid ${cfg.color}33`,
-              }}>
-              {cfg.emoji} {cfg.label} ({count})
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Results header ─────────────────────────────────────────────── */}
-      {!loading && filtered.length > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-            Showing {Math.min((safePage - 1) * PAGE_SIZE + 1, filtered.length)}–
-            {Math.min(safePage * PAGE_SIZE, filtered.length)} of {filtered.length} material
-            {filtered.length !== 1 ? 's' : ''}
-          </p>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage === 1}
-                className="p-1 rounded-lg disabled:opacity-30 hover:bg-[var(--border-subtle)] transition-colors">
-                <ChevronLeft className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-              </button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                const n = i + 1;
-                return (
-                  <button key={n} type="button" onClick={() => setPage(n)}
-                    className="min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors"
-                    style={{
-                      background: safePage === n ? 'var(--text-primary)' : 'transparent',
-                      color: safePage === n ? 'var(--surface-card)' : 'var(--text-secondary)',
-                    }}>
-                    {n}
-                  </button>
-                );
-              })}
-              {totalPages > 5 && <span className="text-xs px-1" style={{ color: 'var(--text-tertiary)' }}>…{totalPages}</span>}
-              <button type="button" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}
-                className="p-1 rounded-lg disabled:opacity-30 hover:bg-[var(--border-subtle)] transition-colors">
-                <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Content ────────────────────────────────────────────────────── */}
+      {/* Table */}
       {loading ? (
         <div className="space-y-2">
-          {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-14 rounded-xl" />)}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed"
-          style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
-            style={{ background: 'rgba(36,33,30,0.08)' }}>
-            <Package className="h-7 w-7" style={{ color: 'var(--border-strong)' }} />
-          </div>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {hasFilters ? 'No materials match your filters.' : 'No materials yet.'}
-          </p>
-          {isOwner && !hasFilters ? (
-            <button type="button" onClick={openAdd} className="btn-secondary px-4 py-2 text-sm">
-              Add your first material
-            </button>
-          ) : hasFilters ? (
-            <button type="button" onClick={clearFilters} className="btn-secondary px-4 py-2 text-sm">
-              Clear filters
-            </button>
-          ) : null}
+          {[...Array(6)].map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
         </div>
 
-      ) : viewMode === 'table' ? (
-        /* ── Table view ─────────────────────────────────────────────────── */
-        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+      ) : filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-2xl border-2 border-dashed"
+          style={{ borderColor: 'var(--border-subtle)' }}>
+          <Package className="h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            {search || activeCategory !== 'all' ? 'No items match your filters.' : 'No materials in catalog yet.'}
+          </p>
+          {search || activeCategory !== 'all' ? (
+            <button type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}
+              className="text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+              Clear filters
+            </button>
+          ) : (
+            <button type="button" onClick={openAdd} className="btn-secondary px-4 py-2 text-sm">
+              Add first item
+            </button>
+          )}
+        </div>
+
+      ) : (
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <Th col="name" label="Name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <Th col="category" label="Category" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Brand</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Unit</th>
-                  <Th col="currentRatePaise" label="Current Rate" align="right" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-right"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>Last Purchase</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)' }}>HSN/SAC</th>
-                  {isOwner && (
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-right"
-                      style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', width: 48 }} />
-                  )}
+                <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>ITEM</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>CATEGORY</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>BRAND</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>UNIT</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>COST</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold tracking-wide" style={{ color: 'var(--text-secondary)' }}>HSN / SAC</th>
+                  <th className="px-3 py-3" style={{ width: 80 }} />
                 </tr>
               </thead>
               <tbody>
-                {paginated.map((m, idx) => {
+                {filtered.map((m, idx) => {
                   const cat = CATEGORY_CONFIG[m.category];
                   return (
-                    <tr key={m.id} className="transition-colors hover:bg-[#FDFCFB]"
-                      style={{ borderBottom: idx < paginated.length - 1 ? '1px solid #F5F3F0' : undefined }}>
+                    <tr key={m.id}
+                      className="transition-colors hover:bg-[var(--surface-muted)]"
+                      style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
 
-                      {/* Name */}
-                      <td className="px-4 py-3">
+                      {/* Item */}
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 text-base"
-                            style={{ background: cat?.bg ?? '#FAF9F6' }}>{cat?.emoji ?? '📦'}</div>
+                          <div className="h-9 w-9 rounded-lg flex-shrink-0 flex items-center justify-center text-sm"
+                            style={{ background: cat.bg, color: cat.color, fontWeight: 700 }}>
+                            {m.name.charAt(0).toUpperCase()}
+                          </div>
                           <div>
-                            <p className="font-semibold whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>{m.name}</p>
+                            <p className="font-semibold text-sm" style={{ color: 'var(--text-heading)' }}>{m.name}</p>
                             {m.notes && (
-                              <p className="text-[10px] truncate max-w-[180px]" style={{ color: 'var(--text-tertiary)' }}>{m.notes}</p>
+                              <p className="text-[11px] truncate max-w-[200px]" style={{ color: 'var(--text-tertiary)' }}>
+                                {m.notes}
+                              </p>
                             )}
                           </div>
                         </div>
                       </td>
 
                       {/* Category */}
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap"
-                          style={{ background: cat?.bg ?? '#FAF9F6', color: cat?.color ?? 'var(--text-primary)' }}>
-                          {cat?.emoji ?? '📦'} {cat?.label ?? m.category}
+                      <td className="px-5 py-3.5">
+                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                          style={{ background: cat.bg, color: cat.color }}>
+                          {cat.label}
                         </span>
                       </td>
 
                       {/* Brand */}
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {m.brand ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                       </td>
 
                       {/* Unit */}
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {m.unit}
                       </td>
 
-                      {/* Current Rate */}
-                      <td className="px-4 py-3 text-right tabular-nums font-semibold whitespace-nowrap"
-                        style={{ color: '#8F6F2E' }}>
+                      {/* Cost */}
+                      <td className="px-5 py-3.5 text-right tabular-nums font-semibold whitespace-nowrap text-xs"
+                        style={{ color: 'var(--text-heading)' }}>
                         {fmt(m.currentRatePaise)}
-                        <span className="text-[10px] font-normal ml-0.5" style={{ color: 'var(--text-tertiary)' }}>/{m.unit}</span>
-                      </td>
-
-                      {/* Last Purchase */}
-                      <td className="px-4 py-3 text-right tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {m.lastPurchasePricePaise != null
-                          ? <>{fmt(m.lastPurchasePricePaise)}</>
-                          : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                        <span className="font-normal ml-0.5" style={{ color: 'var(--text-tertiary)' }}>/{m.unit}</span>
                       </td>
 
                       {/* HSN/SAC */}
-                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
+                      <td className="px-5 py-3.5 text-xs font-mono" style={{ color: 'var(--text-secondary)' }}>
                         {m.hsnSac ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                       </td>
 
                       {/* Actions */}
-                      {isOwner && (
-                        <td className="px-3 py-3 text-right">
-                          <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
-                            onEdit={openEdit} onDelete={handleDelete} />
-                        </td>
-                      )}
+                      <td className="px-3 py-3.5">
+                        {deleteConfirmId === m.id ? (
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => handleDelete(m.id)}
+                              className="px-2 py-1 rounded text-xs font-medium text-red-600 border border-red-200 hover:bg-red-50 transition-colors">
+                              Delete
+                            </button>
+                            <button type="button" onClick={() => setDeleteConfirmId(null)}
+                              className="p-1 rounded hover:bg-[var(--border-subtle)]">
+                              <X className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 justify-end">
+                            <button type="button" onClick={() => openEdit(m)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
+                              style={{ borderColor: 'var(--border-strong)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}>
+                              <Edit2 className="h-3 w-3" />Edit
+                            </button>
+                            <button type="button" onClick={() => setDeleteConfirmId(m.id)}
+                              className="p-1.5 rounded-lg transition-colors hover:bg-red-50">
+                              <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -733,73 +547,20 @@ export default function MaterialsPage() {
             </table>
           </div>
 
-          {/* Table footer */}
-          <div className="flex items-center justify-between px-4 py-2.5 text-xs"
-            style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
-            <span>{filtered.length} material{filtered.length !== 1 ? 's' : ''}</span>
-            {hasFilters && (
-              <button type="button" onClick={clearFilters} className="font-medium hover:underline"
-                style={{ color: 'var(--accent-base)' }}>Clear filters</button>
+          {/* Footer */}
+          <div className="px-5 py-2.5 text-xs" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
+            {filtered.length} item{filtered.length !== 1 ? 's' : ''}
+            {(search || activeCategory !== 'all') && ` · `}
+            {(search || activeCategory !== 'all') && (
+              <button type="button" onClick={() => { setSearch(''); setActiveCategory('all'); }}
+                className="font-medium hover:underline" style={{ color: 'var(--accent-base)' }}>
+                Clear filters
+              </button>
             )}
           </div>
         </div>
-
-      ) : (
-        /* ── Grid view ──────────────────────────────────────────────────── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {paginated.map(m => {
-            const cat = CATEGORY_CONFIG[m.category];
-            return (
-              <div key={m.id} className="rounded-xl border p-4 hover:shadow-md transition-all"
-                style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-
-                {/* Card header */}
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="h-10 w-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                      style={{ background: cat?.bg ?? '#FAF9F6' }}>{cat?.emoji ?? '📦'}</div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-heading)' }}>{m.name}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>per {m.unit}</p>
-                    </div>
-                  </div>
-                  {isOwner && <RowMenu m={m} open={menuOpenId === m.id} onToggle={setMenuOpenId}
-                    onEdit={openEdit} onDelete={handleDelete} />}
-                </div>
-
-                {/* Category */}
-                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium mb-2"
-                  style={{ background: cat?.bg ?? '#FAF9F6', color: cat?.color ?? 'var(--text-primary)' }}>
-                  {cat?.emoji} {cat?.label ?? m.category}
-                </span>
-
-                {/* Brand */}
-                {m.brand && (
-                  <p className="text-xs mb-2 truncate" style={{ color: 'var(--text-secondary)' }}>
-                    <span style={{ color: 'var(--text-tertiary)' }}>Brand: </span>{m.brand}
-                  </p>
-                )}
-
-                {/* Rate */}
-                <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <div>
-                    <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Current Rate</p>
-                    <p className="font-bold text-sm" style={{ color: '#8F6F2E' }}>{fmt(m.currentRatePaise)}</p>
-                  </div>
-                  {m.lastPurchasePricePaise != null && m.lastPurchasePricePaise !== m.currentRatePaise && (
-                    <div className="text-right">
-                      <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Prev. Rate</p>
-                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{fmt(m.lastPurchasePricePaise)}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
       )}
 
-      {/* ── Modal ──────────────────────────────────────────────────────── */}
       <MaterialModal
         open={modalOpen}
         onClose={() => { setModalOpen(false); setEditTarget(undefined); }}

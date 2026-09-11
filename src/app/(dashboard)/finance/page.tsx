@@ -14,10 +14,10 @@ import { formatRupees } from '@/lib/utils';
 
 type Tab = 'invoices' | 'payments' | 'expenses' | 'vendor_payables';
 
-type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue';
+type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue' | 'partial';
 
 interface InvoiceRow {
-  id: string; projectId: string; projectName: string;
+  id: string; projectId: string; projectName: string; clientName: string | null;
   invoiceNumber: string; invoiceDate: string;
   subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number;
   isInterstate: boolean; irn: string | null; pdfUrl: string | null;
@@ -66,11 +66,12 @@ const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
   { key: 'vendor_payables', label: 'Vendor payables',   icon: Truck       },
 ];
 
-const INV_STATUS: Record<PaymentStatus, { label: string; bg: string; color: string }> = {
-  paid:      { label: 'Paid',      bg: 'var(--success-soft)', color: 'var(--success)'        },
-  overdue:   { label: 'Overdue',   bg: 'var(--danger-soft)',  color: 'var(--danger)'          },
-  link_sent: { label: 'Link sent', bg: '#FEF9C3',             color: '#92400E'                },
-  pending:   { label: 'Pending',   bg: 'var(--surface-muted)',color: 'var(--text-secondary)'  },
+const INV_STATUS: Record<PaymentStatus, { label: string; bg: string; color: string; border: string }> = {
+  paid:      { label: 'Paid',        bg: 'var(--success-soft)',  color: 'var(--success-text)',   border: 'rgba(15,157,110,0.24)' },
+  overdue:   { label: 'Outstanding', bg: '#FEE2E2',              color: '#B91C1C',               border: '#FCA5A5'               },
+  link_sent: { label: 'Issued',      bg: '#EEF2FF',              color: '#4338CA',               border: 'rgba(67,56,202,0.22)'  },
+  pending:   { label: 'Draft',       bg: 'var(--surface-muted)', color: 'var(--text-secondary)', border: 'var(--border-subtle)'  },
+  partial:   { label: 'Partial',     bg: '#FFF7ED',              color: '#C2410C',               border: 'rgba(194,65,12,0.22)'  },
 };
 
 const RCV_STATUS: Record<string, { label: string; bg: string; color: string }> = {
@@ -111,6 +112,7 @@ function InvoicesTab() {
   const [rows, setRows]       = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery]     = useState('');
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all' | 'outstanding'>('all');
   const [modalOpen, setModal] = useState(false);
   const [step, setStep]       = useState<1 | 2>(1);
   const [creating, setCreating] = useState(false);
@@ -196,11 +198,18 @@ function InvoicesTab() {
   const total = sub + cgst + sgst + igst;
   const canCreate = invNumber.trim().length > 0 && invDate.length > 0 && sub > 0 && !!selProjectId;
 
-  const filtered = rows.filter(r =>
-    query === '' ||
-    r.invoiceNumber.toLowerCase().includes(query.toLowerCase()) ||
-    r.projectName.toLowerCase().includes(query.toLowerCase()),
-  );
+  const filtered = rows.filter(r => {
+    const status = r.paymentStatus ?? 'pending';
+    if (statusFilter === 'outstanding' && status !== 'overdue') return false;
+    if (statusFilter !== 'all' && statusFilter !== 'outstanding' && status !== statusFilter) return false;
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return (
+      r.invoiceNumber.toLowerCase().includes(q) ||
+      r.projectName.toLowerCase().includes(q) ||
+      (r.clientName ?? '').toLowerCase().includes(q)
+    );
+  });
   const totalPaise = rows.reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
   const outstanding = rows.filter(r => r.paymentStatus !== 'paid')
     .reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
@@ -340,62 +349,135 @@ function InvoicesTab() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative w-full max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-        <input type="text" placeholder="Search invoice # or project…" value={query} onChange={e => setQuery(e.target.value)}
-          className="h-9 w-full rounded-xl border bg-[var(--surface-card)] pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
-          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
-      </div>
-
-      {/* Table */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border p-12 text-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-          <Receipt className="mx-auto mb-3 h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{query ? 'No invoices match your search' : 'No invoices yet'}</p>
+      {/* Filter pills + search */}
+      <div className="overflow-hidden rounded-2xl border" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex flex-wrap gap-1.5">
+            {([
+              { key: 'all',         label: 'All' },
+              { key: 'outstanding', label: 'Outstanding' },
+              { key: 'pending',     label: 'Draft' },
+              { key: 'link_sent',   label: 'Issued' },
+              { key: 'partial',     label: 'Partial' },
+              { key: 'paid',        label: 'Paid' },
+            ] as { key: typeof statusFilter; label: string }[]).map(({ key, label }) => {
+              const count = key === 'all'         ? rows.length
+                          : key === 'outstanding' ? rows.filter(r => r.paymentStatus === 'overdue').length
+                          : rows.filter(r => (r.paymentStatus ?? 'pending') === key).length;
+              if (key !== 'all' && key !== 'outstanding' && count === 0) return null;
+              const active = statusFilter === key;
+              return (
+                <button key={key} type="button" onClick={() => setStatusFilter(key)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-medium transition-all"
+                  style={active
+                    ? { background: 'var(--accent-base)', color: '#fff', borderColor: 'var(--accent-base)' }
+                    : { background: 'transparent', color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }
+                  }>
+                  {label}
+                  <span className="tabular-nums" style={{ opacity: 0.75 }}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="relative min-w-[200px] max-w-xs flex-1">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
+            <input type="text" placeholder="Search invoice #, client, project…" value={query} onChange={e => setQuery(e.target.value)}
+              className="studio-input h-8 w-full text-sm" style={{ paddingLeft: '2.25rem' }} />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2">
+                <X className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
+              </button>
+            )}
+          </div>
         </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-14 text-center">
+            <Receipt className="h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
+            <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+              {query || statusFilter !== 'all' ? 'No invoices match your filters.' : 'No invoices yet.'}
+            </p>
+            {(query || statusFilter !== 'all') && (
+              <button type="button" onClick={() => { setQuery(''); setStatusFilter('all'); }}
+                className="text-xs font-medium" style={{ color: 'var(--accent-base)' }}>Clear filters</button>
+            )}
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Invoice #','Project','Date','Subtotal','Tax','Total','Status',''].map(h => (
-                    <th key={h} className="px-4 py-3 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                  {['INVOICE #', 'CLIENT', 'PROJECT/SO', 'INVOICE DATE', 'STATUS', 'AMOUNT', ''].map((h, i) => (
+                    <th key={i} className="px-4 py-3 text-xs font-semibold tracking-wide"
+                      style={{ color: 'var(--text-secondary)', textAlign: h === 'AMOUNT' ? 'right' : 'left' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(inv => {
+                {filtered.map((inv, idx) => {
                   const taxPaise = inv.isInterstate ? inv.igstPaise : inv.cgstPaise + inv.sgstPaise;
-                  const invTotal = inv.subtotalPaise + taxPaise;
+                  const total    = inv.subtotalPaise + taxPaise;
                   const status   = inv.paymentStatus ?? 'pending';
                   const cfg      = INV_STATUS[status] ?? INV_STATUS.pending;
                   return (
-                    <tr key={inv.id} className="hover:bg-[var(--surface-muted)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td className="px-4 py-3 font-semibold" style={{ color: 'var(--accent-base)' }}>
-                        <Link href={`/invoices/${inv.id}`} className="hover:underline">{inv.invoiceNumber}</Link>
+                    <tr key={inv.id} className="group hover:bg-[var(--surface-muted)]"
+                      style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+
+                      {/* INVOICE # */}
+                      <td className="px-4 py-3.5">
+                        <Link href={`/invoices/${inv.id}`} className="font-semibold font-mono text-sm hover:underline" style={{ color: 'var(--accent-base)' }}>
+                          {inv.invoiceNumber}
+                        </Link>
+                        {inv.irn && (
+                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                            style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>e-Invoice</span>
+                        )}
                       </td>
-                      <td className="px-4 py-3" style={{ color: 'var(--text-heading)' }}>
-                        <Link href={`/projects/${inv.projectId}`} className="hover:underline">{inv.projectName}</Link>
+
+                      {/* CLIENT */}
+                      <td className="px-4 py-3.5 max-w-[150px] truncate">
+                        <span className="font-medium text-sm" style={{ color: 'var(--text-heading)' }}>
+                          {inv.clientName ?? '—'}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
+
+                      {/* PROJECT/SO */}
+                      <td className="px-4 py-3.5 max-w-[170px] truncate">
+                        <Link href={`/projects/${inv.projectId}`} className="text-sm hover:underline" style={{ color: 'var(--text-secondary)' }}>
+                          {inv.projectName}
+                        </Link>
+                      </td>
+
+                      {/* INVOICE DATE */}
+                      <td className="px-4 py-3.5 tabular-nums text-sm" style={{ color: 'var(--text-secondary)' }}>
                         {new Date(inv.invoiceDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>{formatRupees(inv.subtotalPaise)}</td>
-                      <td className="px-4 py-3 text-right tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {formatRupees(taxPaise)}<span className="ml-0.5 text-[10px]">{inv.isInterstate ? 'igst' : 'gst'}</span>
+
+                      {/* STATUS */}
+                      <td className="px-4 py-3.5">
+                        <span className="inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
+                          style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>{cfg.label}</span>
                       </td>
-                      <td className="px-4 py-3 text-right tabular-nums font-bold" style={{ color: 'var(--text-heading)' }}>{formatRupees(invTotal)}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+
+                      {/* AMOUNT */}
+                      <td className="px-4 py-3.5 text-right tabular-nums font-bold" style={{ color: 'var(--text-heading)' }}>
+                        {formatRupees(total)}
+                        <div className="text-[10px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                          +{formatRupees(taxPaise)} {inv.isInterstate ? 'IGST' : 'GST'}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
+
+                      {/* PDF */}
+                      <td className="px-3 py-3.5 text-right">
                         {inv.pdfUrl
-                          ? <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70" style={{ color: 'var(--text-secondary)' }}><Download className="h-3.5 w-3.5" /> PDF</a>
-                          : <Link href={`/invoices/${inv.id}`} className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70" style={{ color: 'var(--text-tertiary)' }}><FileText className="h-3.5 w-3.5" /> View</Link>
+                          ? <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer"
+                              className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 text-xs font-medium transition-all hover:opacity-70"
+                              style={{ color: 'var(--text-secondary)' }}><Download className="h-3.5 w-3.5" />PDF</a>
+                          : <Link href={`/invoices/${inv.id}`}
+                              className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 text-xs transition-all"
+                              style={{ color: 'var(--text-tertiary)' }}><FileText className="h-3.5 w-3.5" />View</Link>
                         }
                       </td>
                     </tr>
@@ -403,9 +485,17 @@ function InvoicesTab() {
                 })}
               </tbody>
             </table>
+            {(query || statusFilter !== 'all') && (
+              <div className="flex justify-between px-4 py-2 text-xs"
+                style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
+                <span>{filtered.length} of {rows.length}</span>
+                <button type="button" onClick={() => { setQuery(''); setStatusFilter('all'); }}
+                  className="font-medium" style={{ color: 'var(--accent-base)' }}>Clear filters</button>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
