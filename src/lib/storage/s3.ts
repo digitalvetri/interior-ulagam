@@ -76,19 +76,29 @@ export async function putObject(opts: {
   );
 }
 
-/** Time-limited download link. `filename` sets the browser's save-as name. */
+/**
+ * Time-limited presigned URL.
+ * `inline: true`  → browser renders PDF in-tab (native preview + toolbar).
+ * `filename`      → forces download with the given save-as name.
+ * Neither          → no Content-Disposition override; browser decides.
+ */
 export async function getDownloadUrl(opts: {
   bucket?: string;
   key: string;
   expiresIn?: number;
   filename?: string;
+  inline?: boolean;
 }): Promise<string> {
+  const disposition = opts.inline
+    ? 'inline'
+    : opts.filename
+    ? `attachment; filename="${opts.filename.replace(/"/g, '')}"`
+    : undefined;
+
   const command = new GetObjectCommand({
     Bucket: opts.bucket ?? DOCUMENTS_BUCKET,
     Key: opts.key,
-    ResponseContentDisposition: opts.filename
-      ? `attachment; filename="${opts.filename.replace(/"/g, '')}"`
-      : undefined,
+    ResponseContentDisposition: disposition,
   });
   return getSignedUrl(presignClient(), command, { expiresIn: opts.expiresIn ?? 300 });
 }

@@ -49,7 +49,7 @@ export function TopBar() {
   return (
     <>
       <CommandPalette />
-      <header className="studio-topbar flex h-16 items-center gap-4 px-6 relative z-10">
+      <header className="studio-topbar hidden lg:flex h-16 items-center gap-4 px-6 relative z-10">
 
         {/* ── Search — always visible, proportional width ──────────── */}
         <button

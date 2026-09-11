@@ -50,14 +50,11 @@ const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
   { value: 'other',     label: 'Other'     },
 ];
 
-const PROPERTY_TYPE_OPTIONS = [
-  'Apartment',
-  'Villa',
-  'Independent House',
-  'Row House',
-  'Commercial Space',
-  'Plot / Land',
-  'Other',
+const PROJECT_TYPE_OPTIONS = [
+  'Design',
+  'Architecture',
+  'Construction',
+  'Renovation',
 ];
 
 const BUDGET_OPTIONS = [
@@ -255,13 +252,13 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
           <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
             <SectionLabel>Property / Site</SectionLabel>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field id="e-propertyType" label="Property Type">
+              <Field id="e-propertyType" label="Project Type">
                 <Select value={form.propertyType} onValueChange={v => set('propertyType', v)}>
                   <SelectTrigger id="e-propertyType" className={inputCls}>
                     <SelectValue placeholder="Select type…" />
                   </SelectTrigger>
                   <SelectContent>
-                    {PROPERTY_TYPE_OPTIONS.map(pt => (
+                    {PROJECT_TYPE_OPTIONS.map(pt => (
                       <SelectItem key={pt} value={pt}>{pt}</SelectItem>
                     ))}
                   </SelectContent>

@@ -1042,16 +1042,6 @@ export default function LeadDetailPage() {
 
           {/* ── ACTION BAR ───────────────────────────────────────── */}
           <div className="flex items-center gap-2 flex-wrap">
-            <button type="button" onClick={scrollToFollowUp}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--surface-muted)]"
-              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-              <Calendar className="h-4 w-4" style={{ color: 'var(--accent-base)' }} /> Follow-up
-            </button>
-            <button type="button" onClick={() => setShowSiteVisitModal(true)}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--surface-muted)]"
-              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-              <MapPin className="h-4 w-4" style={{ color: '#16A34A' }} /> Site Visit
-            </button>
             {customerId && (
               <Link href={`/customers/${customerId}`}
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border transition-colors hover:bg-[var(--surface-muted)]"
@@ -1110,7 +1100,7 @@ export default function LeadDetailPage() {
                   {lead.budgetBand
                     ? <DetailField label="Estimated Budget" value={fmtBudgetBand(lead.budgetBand)} />
                     : <div />}
-                  {lead.propertyType && <DetailField label="Property Type" value={lead.propertyType} />}
+                  {lead.propertyType && <DetailField label="Project Type" value={lead.propertyType} />}
                   {lead.contactCity && (
                     <DetailField label="City" value={lead.contactCity + (lead.pincode ? ` – ${lead.pincode}` : '')} />
                   )}
@@ -1128,206 +1118,6 @@ export default function LeadDetailPage() {
                 )}
               </div>
 
-              {/* Detail tabs */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="flex gap-0 overflow-x-auto"
-                  style={{ borderBottom: '2px solid var(--border-subtle)', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                  {(
-                    [
-                      { key: 'sitevisits',   label: 'Site Visits',    count: siteVisitsData.length },
-                      { key: 'measurements', label: 'Measurements',   count: measurementsData.length },
-                      { key: 'design',       label: 'Design Studio',  count: 0 },
-                      { key: 'quotations',   label: 'All Quotations', count: leadQuotes.length },
-                      { key: 'documents',    label: 'Documents',      count: leadDocs.length },
-                      { key: 'activity',     label: 'Activity',       count: activities.length },
-                    ] as { key: TabKey; label: string; count: number }[]
-                  ).map(tab => (
-                    <button key={tab.key} type="button"
-                      onClick={() => setActiveTab(prev => prev === tab.key ? null : tab.key)}
-                      className="flex items-center gap-2 px-5 py-3.5 text-sm font-semibold whitespace-nowrap border-b-2 -mb-0.5 transition-colors"
-                      style={{
-                        borderColor: activeTab === tab.key ? 'var(--violet-primary)' : 'transparent',
-                        color: activeTab === tab.key ? 'var(--violet-primary)' : 'var(--text-secondary)',
-                        background: activeTab === tab.key ? 'rgba(99,102,241,0.05)' : 'transparent',
-                      }}>
-                      {tab.label}
-                      {tab.count > 0 && (
-                        <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[11px] font-bold"
-                          style={{
-                            background: activeTab === tab.key ? 'var(--violet-primary)' : 'var(--surface-muted)',
-                            color: activeTab === tab.key ? '#fff' : 'var(--text-secondary)',
-                          }}>
-                          {tab.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-                {activeTab && (
-                  <div className="p-4">
-                    {activeTab === 'sitevisits' && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                            {siteVisitsData.length} Visit{siteVisitsData.length !== 1 ? 's' : ''}
-                          </p>
-                          <button type="button" onClick={() => setShowSiteVisitModal(true)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                            <Plus className="h-3.5 w-3.5" /> Schedule Visit
-                          </button>
-                        </div>
-                        {siteVisitsData.length === 0 ? (
-                          <div className="py-8 text-center">
-                            <Home className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No site visits yet</p>
-                          </div>
-                        ) : (
-                          siteVisitsData.map(sv => (
-                            <div key={sv.id} className="rounded-xl p-4" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                              <div className="flex items-start gap-3">
-                                <div className="h-7 w-7 rounded-full flex items-center justify-center flex-shrink-0"
-                                  style={{ background: sv.completedAt ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
-                                  <Home className="h-3.5 w-3.5" style={{ color: sv.completedAt ? 'var(--success)' : 'var(--accent-base)' }} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{fmtDate(sv.scheduledAt)}</span>
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-                                      style={sv.completedAt ? { background: 'var(--success-soft)', color: 'var(--success-text)' } : { background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                                      {sv.completedAt ? 'Completed' : 'Scheduled'}
-                                    </span>
-                                  </div>
-                                  {sv.locationJson?.address && <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{sv.locationJson.address}</p>}
-                                  {sv.notes && <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{sv.notes}</p>}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                    {activeTab === 'measurements' && (
-                      <MeasurementsTabContent
-                        leadId={id}
-                        initialRounds={measurementsData}
-                        draftQuotes={leadQuotes.filter(q => q.status === 'draft')}
-                        onRoundAdded={round => setMeasurementsData(prev => [...prev, round])}
-                      />
-                    )}
-                    {activeTab === 'design' && <DesignDeliverablesTab leadId={id} />}
-                    {activeTab === 'quotations' && (
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                            {leadQuotes.length} Quotation{leadQuotes.length !== 1 ? 's' : ''}
-                          </p>
-                          <button type="button" onClick={createQuote} disabled={creatingQuote}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                            <Plus className="h-3.5 w-3.5" />{creatingQuote ? 'Creating…' : 'New Quotation'}
-                          </button>
-                        </div>
-                        {leadQuotes.length === 0 ? (
-                          <div className="py-8 text-center">
-                            <FileText className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No quotations yet</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {leadQuotes.map(q => {
-                              const qs = q.status === 'approved' || q.status === 'accepted' ? { bg: 'var(--success-soft)', color: 'var(--success-text)' }
-                                : q.status === 'sent' ? { bg: 'var(--accent-soft)', color: 'var(--accent-text)' }
-                                : q.status === 'rejected' ? { bg: 'var(--danger-soft)', color: 'var(--danger)' }
-                                : { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
-                              return (
-                                <Link key={q.id} href={`/quotes/${q.id}`}
-                                  className="flex items-center gap-3 rounded-xl px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
-                                  style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                                  <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>QUO-{q.id.slice(-6).toUpperCase()} v{q.version}</span>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: qs.bg, color: qs.color }}>{q.status.toUpperCase()}</span>
-                                    </div>
-                                    {q.totalPaise > 0 && <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--text-gold)' }}>{fmt(q.totalPaise)}</p>}
-                                  </div>
-                                  <ExternalLink className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-                                </Link>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {activeTab === 'documents' && (
-                      <div>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                            {leadDocs.length} Document{leadDocs.length !== 1 ? 's' : ''}
-                          </p>
-                          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingDoc}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                            <Upload className="h-3.5 w-3.5" />{uploadingDoc ? 'Uploading…' : 'Upload'}
-                          </button>
-                        </div>
-                        <input ref={fileInputRef} type="file" className="hidden"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) uploadDocument(f); }} />
-                        {leadDocs.length === 0 ? (
-                          <div className="py-8 text-center">
-                            <Upload className="h-7 w-7 mx-auto mb-2" style={{ color: 'var(--text-secondary)' }} />
-                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Upload floor plans, mood boards, or site photos</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {leadDocs.map(doc => (
-                              <div key={doc.id} className="flex items-center gap-3 rounded-xl px-4 py-3"
-                                style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                                <FileText className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-heading)' }}>{doc.name}</p>
-                                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{doc.sizeBytes ? `${(doc.sizeBytes / 1024).toFixed(1)} KB · ` : ''}{fmtDate(doc.createdAt)}</p>
-                                </div>
-                                {doc.downloadUrl && (
-                                  <a href={doc.downloadUrl} target="_blank" rel="noreferrer" className="flex-shrink-0 p-1.5 rounded-lg hover:bg-[var(--surface-card)]">
-                                    <Download className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
-                                  </a>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {activeTab === 'activity' && (
-                      activities.length === 0 ? (
-                        <div className="py-8 text-center">
-                          <Users className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No activity yet</p>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <div className="absolute left-[18px] top-0 bottom-0 w-px" style={{ background: 'var(--border-subtle)' }} />
-                          {activities.map((act, idx) => (
-                            <div key={act.id} className="flex gap-3 py-2.5 relative">
-                              <div className="flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center z-10"
-                                style={{ background: idx === 0 ? 'var(--violet-primary)' : 'var(--surface-muted)', border: `2px solid ${idx === 0 ? 'var(--violet-primary)' : 'var(--border-subtle)'}` }}>
-                                <div className="h-1.5 w-1.5 rounded-full" style={{ background: idx === 0 ? '#fff' : 'var(--text-tertiary)' }} />
-                              </div>
-                              <div className="flex-1 min-w-0 pb-1">
-                                <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{act.title}</p>
-                                {act.description && <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>{act.description}</p>}
-                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{fmtDate(act.createdAt)} · {fmtTime(act.createdAt)}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-              </div>
 
               {/* Inline follow-up scheduler */}
               <div ref={followUpRef} className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
@@ -1419,13 +1209,9 @@ export default function LeadDetailPage() {
               {/* AT A GLANCE */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>At a Glance</p>
-                {lead.budgetBand && <SidebarRow label="Estimated budget" value={fmtBudgetBand(lead.budgetBand)} />}
-                <SidebarRow label="Source" value={SOURCE_LABELS[lead.source] ?? lead.source} />
-                {lead.designerName && <SidebarRow label="Assigned to" value={lead.designerName} />}
-                <SidebarRow label="Created" value={fmtDate(lead.createdAt)} />
-                <SidebarRow label="Last activity" value={relDate(lead.lastActivityAt)} />
-                {lead.contactCity && <SidebarRow label="City" value={lead.contactCity} />}
-                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage]} />
+                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage] ?? '—'} />
+                <SidebarRow label="Assigned To" value={lead.designerName ?? '—'} />
+                <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : '—'} />
                 {(() => {
                   const now = new Date();
                   const nextVisit = siteVisitsData
@@ -1435,26 +1221,15 @@ export default function LeadDetailPage() {
                     .filter(v => v.status === 'completed')
                     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
                   const displayVisit = nextVisit ?? lastVisit;
-                  return displayVisit ? (
-                    <>
-                      <SidebarRow
-                        label={nextVisit ? 'Next site visit' : 'Last site visit'}
-                        value={fmtDate(displayVisit.scheduledAt)}
-                      />
-                      {displayVisit.purpose && (
-                        <SidebarRow
-                          label="Visit purpose"
-                          value={{
-                            initial: 'Initial visit', measurement: 'Measurement',
-                            design_review: 'Design review', site_inspection: 'Site inspection',
-                            material_inspection: 'Material inspection', final_inspection: 'Final inspection',
-                            other: 'Other',
-                          }[displayVisit.purpose] ?? displayVisit.purpose}
-                        />
-                      )}
-                    </>
-                  ) : null;
+                  return (
+                    <SidebarRow
+                      label="Site Visit"
+                      value={displayVisit ? fmtDate(displayVisit.scheduledAt) : '—'}
+                    />
+                  );
                 })()}
+                <SidebarRow label="Last Activity" value={relDate(lead.lastActivityAt) ?? '—'} />
+                <SidebarRow label="Site Address" value={lead.projectLocation ?? '—'} />
               </div>
 
               {/* QUOTATIONS mini-card */}

@@ -71,14 +71,11 @@ const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
   { value: 'other',     label: 'Other'     },
 ];
 
-const PROPERTY_TYPE_OPTIONS = [
-  'Apartment',
-  'Villa',
-  'Independent House',
-  'Row House',
-  'Commercial Space',
-  'Plot / Land',
-  'Other',
+const PROJECT_TYPE_OPTIONS = [
+  'Design',
+  'Architecture',
+  'Construction',
+  'Renovation',
 ];
 
 const BUDGET_OPTIONS = [
@@ -298,17 +295,7 @@ export function NewLeadDialog({
     setSubmitting(true);
     setError(null);
 
-    // Build the combined notes string
-    const parts: string[] = [];
-    if (form.expectedStart) {
-      const formatted = new Date(form.expectedStart).toLocaleDateString('en-IN', {
-        day: 'numeric', month: 'short', year: 'numeric',
-      });
-      parts.push(`Expected Start: ${formatted}`);
-    }
-    parts.push(form.requirement.trim());
-    if (form.notes.trim()) parts.push(`Notes: ${form.notes.trim()}`);
-    const combinedNotes = parts.join('\n\n');
+    const combinedNotes = form.requirement.trim();
 
     const payload: Record<string, unknown> = {
       contactName:  form.contactName.trim(),
@@ -524,13 +511,13 @@ export function NewLeadDialog({
               <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                 <SectionLabel>Property / Site</SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Field id="propertyType" label="Property Type">
+                  <Field id="propertyType" label="Project Type">
                     <Select value={form.propertyType} onValueChange={v => set('propertyType', v)}>
                       <SelectTrigger id="propertyType" className={inputCls}>
                         <SelectValue placeholder="Select type…" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PROPERTY_TYPE_OPTIONS.map(pt => (
+                        {PROJECT_TYPE_OPTIONS.map(pt => (
                           <SelectItem key={pt} value={pt}>{pt}</SelectItem>
                         ))}
                       </SelectContent>
@@ -551,60 +538,6 @@ export function NewLeadDialog({
                       onChange={e => set('pincode', e.target.value)} />
                   </Field>
 
-                  <div className="sm:col-span-3">
-                    <Field id="projectLocation" label="Site Address">
-                      <Input id="projectLocation" className={inputCls}
-                        placeholder="Full site / property address"
-                        value={form.projectLocation}
-                        onChange={e => set('projectLocation', e.target.value)} />
-                    </Field>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── 3. Lead Information ── */}
-              <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-                <SectionLabel>Lead Information</SectionLabel>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Field id="source" label="Lead Source" required>
-                    <Select value={form.source} onValueChange={v => set('source', v as LeadSource)}>
-                      <SelectTrigger id="source" className={inputCls}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SOURCE_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field id="priority" label="Lead Priority">
-                    <Select value={form.priority} onValueChange={v => set('priority', v as LeadPriority)}>
-                      <SelectTrigger id="priority" className={inputCls}>
-                        <SelectValue placeholder="Select priority…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRIORITY_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field id="stage" label="Lead Stage">
-                    <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}>
-                      <SelectTrigger id="stage" className={inputCls}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STAGE_OPTIONS.map(o => (
-                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
                   <Field id="ownerId" label="Assigned To" required>
                     <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
                       <SelectTrigger id="ownerId" className={inputCls}>
@@ -617,6 +550,15 @@ export function NewLeadDialog({
                       </SelectContent>
                     </Select>
                   </Field>
+
+                  <div className="sm:col-span-2">
+                    <Field id="projectLocation" label="Site Address">
+                      <Input id="projectLocation" className={inputCls}
+                        placeholder="Full site / property address"
+                        value={form.projectLocation}
+                        onChange={e => set('projectLocation', e.target.value)} />
+                    </Field>
+                  </div>
                 </div>
               </div>
 
@@ -635,40 +577,17 @@ export function NewLeadDialog({
                     />
                   </Field>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field id="expectedBudget" label="Expected Budget">
-                      <Select value={form.expectedBudget} onValueChange={v => set('expectedBudget', v)}>
-                        <SelectTrigger id="expectedBudget" className={inputCls}>
-                          <SelectValue placeholder="Select range…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BUDGET_OPTIONS.map(o => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-
-                    <Field id="expectedStart" label="Expected Start" hint="Optional">
-                      <Input
-                        id="expectedStart"
-                        type="date"
-                        className={inputCls}
-                        value={form.expectedStart}
-                        onChange={e => set('expectedStart', e.target.value)}
-                      />
-                    </Field>
-                  </div>
-
-                  <Field id="notes" label="Notes" hint="Optional">
-                    <Textarea
-                      id="notes"
-                      placeholder="Referral context, style preferences, access instructions, or anything else…"
-                      rows={2}
-                      value={form.notes}
-                      onChange={e => set('notes', e.target.value)}
-                      className="text-sm resize-none"
-                    />
+                  <Field id="expectedBudget" label="Expected Budget">
+                    <Select value={form.expectedBudget} onValueChange={v => set('expectedBudget', v)}>
+                      <SelectTrigger id="expectedBudget" className={inputCls}>
+                        <SelectValue placeholder="Select range…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BUDGET_OPTIONS.map(o => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </Field>
                 </div>
               </div>

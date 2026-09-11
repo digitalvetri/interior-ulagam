@@ -495,28 +495,28 @@ export default function DashboardPage() {
      ══════════════════════════════════════════════════════════════════════ */
   if (isAdmin) {
     return (
-      <div className="space-y-6 animate-fade-in p-6 lg:p-8">
+      <div className="space-y-5 animate-fade-in p-4 lg:p-8">
 
         {/* Page heading */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}>
               Studio at a glance
             </p>
-            <h1 className="text-4xl font-bold leading-none"
+            <h1 className="text-2xl sm:text-4xl font-bold leading-none"
               style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
               Dashboard
             </h1>
           </div>
           <Link href="/leads?new=1"
-            className="btn-primary flex items-center gap-2 flex-shrink-0 px-4 py-2.5 text-sm rounded-xl">
+            className="btn-primary flex items-center gap-2 flex-shrink-0 px-3.5 py-2 text-sm rounded-xl">
             <Plus className="h-3.5 w-3.5" strokeWidth={2.25} /> New Lead
           </Link>
         </div>
 
         {/* Hero banner */}
-        <div className="rounded-2xl p-6 relative overflow-hidden"
+        <div className="rounded-2xl p-4 sm:p-6 relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
             style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
@@ -884,7 +884,7 @@ export default function DashboardPage() {
      EMPLOYEE VIEW
      ══════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="space-y-6 animate-fade-in p-6 lg:p-8">
+    <div className="space-y-5 animate-fade-in p-4 lg:p-8">
 
       {/* Page heading */}
       <div>
@@ -892,14 +892,14 @@ export default function DashboardPage() {
           style={{ color: 'var(--text-tertiary)' }}>
           My Workspace
         </p>
-        <h1 className="text-4xl font-bold leading-none"
+        <h1 className="text-2xl sm:text-4xl font-bold leading-none"
           style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
           Dashboard
         </h1>
       </div>
 
       {/* Hero banner */}
-      <div className="rounded-2xl p-6"
+      <div className="rounded-2xl p-4 sm:p-6"
         style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
           style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>

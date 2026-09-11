@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { NAV_GROUPS } from '@/lib/nav-items';
-import { Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Menu, X, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
+import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
 // ─── Single nav item ─────────────────────────────────────────────────────────
 
@@ -88,16 +89,31 @@ function NavGroupSection({
 // ─── Sidebar body (shared by desktop + mobile) ────────────────────────────────
 
 function SidebarBody({
-  role, isAdmin, pathname, iconOnly, onNavigate,
+  role, isAdmin, fullName, pathname, iconOnly, onNavigate, onSignOut,
 }: {
-  role: string; isAdmin: boolean; pathname: string;
-  iconOnly: boolean; onNavigate?: () => void;
+  role: string; isAdmin: boolean; fullName: string; pathname: string;
+  iconOnly: boolean; onNavigate?: () => void; onSignOut?: () => void;
 }) {
   const visibleGroups = NAV_GROUPS.filter(g => g.roles.some(r => r === role));
+  const isMobile = !!onNavigate;
+
+  const initials = fullName
+    .split(' ')
+    .filter(Boolean)
+    .map(w => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?';
+
+  const ROLE_LABELS: Record<string, string> = {
+    admin: 'Admin', owner: 'Owner', designer: 'Designer',
+    accountant: 'Accountant', supervisor: 'Supervisor', employee: 'Employee',
+  };
+  const roleLabel = ROLE_LABELS[role] ?? role;
 
   return (
     <>
-      {/* ── Brand ────────────────────────────────────────────────────── */}
+      {/* ── Brand ────────────────────────────────────────────── */}
       <div
         className="flex h-[60px] flex-shrink-0 items-center"
         style={{
@@ -126,7 +142,7 @@ function SidebarBody({
         )}
       </div>
 
-      {/* ── Nav groups (scrollable) ───────────────────────────────────── */}
+      {/* ── Nav groups (scrollable) ───────────────────────────── */}
       <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
         {visibleGroups.map(group => (
           <NavGroupSection
@@ -140,16 +156,62 @@ function SidebarBody({
         ))}
       </nav>
 
-      {/* ── Brand footer ─────────────────────────────────────────────── */}
+      {/* ── Footer ───────────────────────────────────────────── */}
       {!iconOnly && (
-        <div className="flex-shrink-0 px-4 pb-8 pt-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-            Built by DigitalVetri
-          </p>
-          {isAdmin && (
-            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: 'var(--accent-base)' }}>
-              Admin
-            </p>
+        <div className="flex-shrink-0" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          {/* Mobile drawer footer — user info + theme + sign out */}
+          {isMobile ? (
+            <div className="px-3 py-3 space-y-2">
+              {fullName && (
+                <div className="flex items-center gap-2.5 px-1 py-1">
+                  <div
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+                    style={{ background: 'rgba(255,255,255,0.12)', color: '#E2E8F0' }}
+                  >
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold" style={{ color: '#E2E8F0' }}>
+                      {fullName}
+                    </p>
+                    <p className="text-[10px]" style={{ color: '#94A3B8' }}>{roleLabel}</p>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-1 px-1">
+                <ThemeToggle />
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="flex flex-1 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors"
+                  style={{ color: '#CBD5E1' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <LogOut className="h-3.5 w-3.5 flex-shrink-0" />
+                  Sign out
+                </button>
+              </div>
+              {isAdmin && (
+                <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.06em]"
+                  style={{ color: 'var(--accent-base)' }}>
+                  Admin
+                </p>
+              )}
+            </div>
+          ) : (
+            /* Desktop sidebar footer */
+            <div className="px-4 pb-8 pt-3">
+              <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                Built by DigitalVetri
+              </p>
+              {isAdmin && (
+                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]"
+                  style={{ color: 'var(--accent-base)' }}>
+                  Admin
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -161,8 +223,10 @@ function SidebarBody({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [role, setRole]             = useState('');
   const [isAdmin, setIsAdmin]       = useState(false);
+  const [fullName, setFullName]     = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [iconOnly, setIconOnly]     = useState(false);
   const initDone = useRef(false);
@@ -172,13 +236,13 @@ export function Sidebar() {
       .then(res => (res.ok ? res.json() : null))
       .then(body => {
         if (!body?.data) return;
-        // Treat legacy 'owner' as admin during transition
         const isAdminFlag = body.data.isAdmin === true;
         const normalized = isAdminFlag || body.data.role === 'owner' ? 'admin'
           : ['designer', 'supervisor', 'accountant'].includes(body.data.role) ? 'employee'
           : body.data.role;
         setRole(normalized);
         setIsAdmin(normalized === 'admin');
+        setFullName(body.data.fullName ?? '');
       })
       .catch(() => {});
   }, []);
@@ -207,6 +271,17 @@ export function Sidebar() {
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { closeMenu(); }, [pathname, closeMenu]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  async function handleSignOut() {
+    closeMenu();
+    await fetch('/api/auth/sign-out', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <>
@@ -242,11 +317,11 @@ export function Sidebar() {
 
       {/* ── Mobile drawer ──────────────────────────────────────────── */}
       <aside
-        className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-64 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-72 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <SidebarBody
-          role={role} isAdmin={isAdmin} pathname={pathname}
-          iconOnly={false} onNavigate={closeMenu}
+          role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
+          iconOnly={false} onNavigate={closeMenu} onSignOut={handleSignOut}
         />
       </aside>
 
@@ -255,7 +330,7 @@ export function Sidebar() {
         className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
         <SidebarBody
-          role={role} isAdmin={isAdmin} pathname={pathname} iconOnly={iconOnly}
+          role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
         />
 
         {/* Collapse / expand toggle */}

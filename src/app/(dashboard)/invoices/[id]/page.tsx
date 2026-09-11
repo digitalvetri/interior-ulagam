@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  ArrowLeft, Download, ExternalLink, IndianRupee, Loader2, Plus, Printer, Zap, HandCoins,
+  ArrowLeft, Download, ExternalLink, IndianRupee, Loader2, Plus, Zap, HandCoins,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -225,21 +225,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
             >
               {pdfGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {invoice.pdfUrl ? 'PDF' : 'Generate PDF'}
+              Download PDF
             </button>
-            {invoice.pdfUrl && (
-              <button
-                onClick={async () => {
-                  const r = await fetch(`/api/v1/invoices/${id}/pdf`);
-                  const b = await r.json();
-                  if (r.ok && b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
-                }}
-                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all hover:bg-[var(--surface-muted)]"
-                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-              >
-                <Printer className="h-4 w-4" /> Print
-              </button>
-            )}
             {!isFullyPaid && (
               <button
                 onClick={openDialog}

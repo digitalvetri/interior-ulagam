@@ -753,7 +753,7 @@ body {
 /* ── Page header (title + subtitle + action) — from feat branch ─────────── */
 .page-title {
   color: var(--text-heading);
-  font-size: 2.25rem;
+  font-size: clamp(1.375rem, 5vw, 2.25rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.15;
@@ -762,6 +762,42 @@ body {
   color: var(--text-secondary);
   font-size: 0.8125rem;
   margin-top: 0.25rem;
+}
+
+/* ── Mobile-responsive page header ──────────────────────────────────────── */
+/* Wrap the title+subtitle div and action button in .page-header for mobile stacking */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ── Responsive table wrapper ────────────────────────────────────────────── */
+/* Ensures tables never cause full-page horizontal scroll on mobile */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Mobile-safe modal ───────────────────────────────────────────────────── */
+/* Modals on mobile should fill most of the screen bottom-up */
+@media (max-width: 640px) {
+  .modal-mobile-full {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    transform: none !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
 }
 
 /* Tabular figures utility */

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle, Check, ChevronRight, Download, FileText,
   IndianRupee, Plus, Receipt, Search, X, Zap,
@@ -52,6 +53,7 @@ const inputCls = 'studio-input w-full h-10';
 const labelCls = 'mb-1.5 block text-[12px] font-semibold uppercase tracking-wide';
 
 export default function InvoicesPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -587,16 +589,17 @@ export default function InvoicesPage() {
                   return (
                     <tr
                       key={inv.id}
-                      className="transition-colors hover:bg-[var(--surface-muted)]"
+                      className="cursor-pointer transition-colors hover:bg-[var(--surface-muted)]"
                       style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                      onClick={() => router.push(`/invoices/${inv.id}`)}
                     >
                       <td className="px-4 py-3 font-semibold" style={{ color: 'var(--accent-base)' }}>
-                        <Link href={`/invoices/${inv.id}`} className="hover:underline">
+                        <Link href={`/invoices/${inv.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                           {inv.invoiceNumber}
                         </Link>
                       </td>
                       <td className="px-4 py-3" style={{ color: 'var(--text-heading)' }}>
-                        <Link href={`/projects/${inv.projectId}`} className="hover:underline">
+                        <Link href={`/projects/${inv.projectId}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
                           {inv.projectName}
                         </Link>
                       </td>
@@ -637,7 +640,7 @@ export default function InvoicesPage() {
                           <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                         {inv.pdfUrl ? (
                           <a
                             href={inv.pdfUrl}
@@ -649,13 +652,12 @@ export default function InvoicesPage() {
                             <Download className="h-3.5 w-3.5" /> PDF
                           </a>
                         ) : (
-                          <Link
-                            href={`/invoices/${inv.id}`}
-                            className="inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70"
+                          <span
+                            className="inline-flex items-center gap-1 text-xs font-medium"
                             style={{ color: 'var(--text-tertiary)' }}
                           >
                             <FileText className="h-3.5 w-3.5" /> View
-                          </Link>
+                          </span>
                         )}
                       </td>
                     </tr>
