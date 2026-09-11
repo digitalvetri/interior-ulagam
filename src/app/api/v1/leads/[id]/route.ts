@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { leads, waMessages, projects } from '@/lib/db/schema';
+import { leads, waMessages, projects, users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
 import { applyStageTransition } from '@/lib/leads/transitions';
@@ -159,7 +159,15 @@ export async function PATCH(
 
   // Build non-stage field updates
   const updates: Partial<typeof leads.$inferInsert> = {};
-  if (d.ownerId      !== undefined) updates.ownerId    = d.ownerId;
+  if (d.ownerId !== undefined) {
+    updates.ownerId = d.ownerId;
+    if (d.ownerId) {
+      const [emp] = await db.select({ fullName: users.fullName }).from(users).where(eq(users.id, d.ownerId));
+      updates.designerName = emp?.fullName ?? null;
+    } else {
+      updates.designerName = null;
+    }
+  }
   if (d.notes        !== undefined) updates.notes      = d.notes;
   if (d.budgetBand   !== undefined) updates.budgetBand = d.budgetBand;
   if (d.source       !== undefined) updates.source     = d.source;

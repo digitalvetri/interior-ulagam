@@ -13,6 +13,26 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Lead, LeadSource, LeadPriority, LeadStage } from '@/types/leads';
 
+function fromLead(lead: Lead): FormState {
+  return {
+    contactName:     lead.contactName ?? '',
+    contactPhone:    lead.contactPhone ?? '',
+    contactEmail:    lead.contactEmail ?? '',
+    propertyType:    lead.propertyType ?? '',
+    contactCity:     lead.contactCity ?? '',
+    pincode:         lead.pincode ?? '',
+    projectLocation: lead.projectLocation ?? '',
+    source:          (lead.source as LeadSource) ?? 'whatsapp',
+    priority:        (lead.priority as LeadPriority) ?? '',
+    stage:           (lead.stage as LeadStage) ?? 'new',
+    ownerId:         lead.ownerId ?? '',
+    requirement:     lead.notes ?? '',
+    expectedBudget:  lead.budgetBand ?? '',
+    expectedStart:   '',
+    notes:           '',
+  };
+}
+
 interface NewLeadDialogProps {
   onSuccess: (lead: Lead) => void;
   defaultOpen?: boolean;
@@ -24,6 +44,10 @@ interface NewLeadDialogProps {
     phone: string;
     city?: string | null;
   };
+  // Edit mode
+  editLead?: Lead;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface Employee {
@@ -166,7 +190,10 @@ function Field({
 
 export function NewLeadDialog({
   onSuccess, defaultOpen = false, triggerLabel, triggerClassName, onClose, preselectedCustomer,
+  editLead, open: controlledOpen, onOpenChange: controlledOnOpenChange,
 }: NewLeadDialogProps) {
+  const isEditMode = !!editLead;
+
   const preselectedResult: CustomerResult | null = preselectedCustomer
     ? { id: '', fullName: preselectedCustomer.fullName, phone: preselectedCustomer.phone, email: null, city: preselectedCustomer.city ?? null, company: null }
     : null;
@@ -175,11 +202,21 @@ export function NewLeadDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [form, setForm]             = useState<FormState>(
-    preselectedCustomer
+    isEditMode ? fromLead(editLead!)
+    : preselectedCustomer
       ? { ...INITIAL, contactName: preselectedCustomer.fullName, contactPhone: preselectedCustomer.phone, contactCity: preselectedCustomer.city ?? '' }
       : INITIAL
   );
   const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // Sync form when editLead changes (dialog re-opens with different lead)
+  const effectiveOpen = isEditMode ? (controlledOpen ?? false) : open;
+  useEffect(() => {
+    if (isEditMode && controlledOpen && editLead) {
+      setForm(fromLead(editLead));
+      setError(null);
+    }
+  }, [isEditMode, controlledOpen, editLead]);
 
   // Customer type gate
   const [customerType, setCustomerType]         = useState<CustomerType | null>(preselectedCustomer ? 'existing' : null);
@@ -288,9 +325,9 @@ export function NewLeadDialog({
 
     if (!form.contactName.trim()) { setError('Customer name is required.'); return; }
     if (!form.contactPhone.trim()) { setError('Mobile number is required.'); return; }
-    if (!form.source) { setError('Lead source is required.'); return; }
-    if (!form.ownerId) { setError('Please assign this lead to a team member.'); return; }
-    if (!form.requirement.trim()) { setError('Project requirement is required.'); return; }
+    if (!isEditMode && !form.source) { setError('Lead source is required.'); return; }
+    if (!isEditMode && !form.ownerId) { setError('Please assign this lead to a team member.'); return; }
+    if (!isEditMode && !form.requirement.trim()) { setError('Project requirement is required.'); return; }
 
     setSubmitting(true);
     setError(null);
@@ -301,9 +338,11 @@ export function NewLeadDialog({
       contactName:  form.contactName.trim(),
       contactPhone: form.contactPhone.trim(),
       source:       form.source,
-      ownerId:      form.ownerId,
       notes:        combinedNotes,
     };
+
+    if (!isEditMode) payload.ownerId = form.ownerId;
+    else if (form.ownerId) payload.ownerId = form.ownerId;
 
     if (form.contactEmail.trim())    payload.contactEmail    = form.contactEmail.trim();
     if (form.propertyType)           payload.propertyType    = form.propertyType;
@@ -315,8 +354,10 @@ export function NewLeadDialog({
     if (form.expectedBudget)         payload.budgetBand      = form.expectedBudget;
 
     try {
-      const res = await fetch('/api/v1/leads', {
-        method: 'POST',
+      const url    = isEditMode ? `/api/v1/leads/${editLead!.id}` : '/api/v1/leads';
+      const method = isEditMode ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
@@ -328,8 +369,12 @@ export function NewLeadDialog({
 
       const { data } = await res.json() as { data: Lead };
       onSuccess(data);
-      setOpen(false);
-      reset();
+      if (isEditMode) {
+        controlledOnOpenChange?.(false);
+      } else {
+        setOpen(false);
+        reset();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -338,10 +383,19 @@ export function NewLeadDialog({
   }
 
   const inputCls = 'h-9 text-sm';
-  const showForm = customerType === 'new' || (customerType === 'existing' && selectedCustomer !== null);
+  const showForm = isEditMode || customerType === 'new' || (customerType === 'existing' && selectedCustomer !== null);
+
+  function handleOpenChange(v: boolean) {
+    if (isEditMode) {
+      controlledOnOpenChange?.(v);
+    } else {
+      setOpen(v);
+      if (!v) { reset(); onClose?.(); }
+    }
+  }
 
   return (
-    <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { reset(); onClose?.(); } }}>
+    <Dialog open={effectiveOpen} onOpenChange={handleOpenChange}>
       {!defaultOpen && (
         <DialogTrigger asChild>
           {triggerClassName ? (
@@ -357,12 +411,14 @@ export function NewLeadDialog({
       <DialogContent className="max-w-[720px] w-full max-h-[92vh] overflow-y-auto">
         <DialogHeader className="pb-1">
           <DialogTitle className="text-xl font-bold" style={{ color: 'var(--text-heading)', letterSpacing: '-0.02em' }}>
-            {preselectedCustomer ? 'Add New Enquiry' : 'New Lead'}
+            {isEditMode ? 'Edit Lead' : preselectedCustomer ? 'Add New Enquiry' : 'New Lead'}
           </DialogTitle>
           <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            {preselectedCustomer
-              ? `Adding a new enquiry for ${preselectedCustomer.fullName}.`
-              : 'Fill in the details below to capture the enquiry.'}
+            {isEditMode
+              ? 'Update the lead details below.'
+              : preselectedCustomer
+                ? `Adding a new enquiry for ${preselectedCustomer.fullName}.`
+                : 'Fill in the details below to capture the enquiry.'}
           </p>
         </DialogHeader>
 
@@ -562,6 +618,47 @@ export function NewLeadDialog({
                 </div>
               </div>
 
+              {/* ── 3. Lead Information (edit mode only) ── */}
+              {isEditMode && (
+                <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                  <SectionLabel>Lead Information</SectionLabel>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Field id="ed-source" label="Lead Source">
+                      <Select value={form.source} onValueChange={v => set('source', v as LeadSource)}>
+                        <SelectTrigger id="ed-source" className={inputCls}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {SOURCE_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field id="ed-priority" label="Priority">
+                      <Select value={form.priority} onValueChange={v => set('priority', v as LeadPriority)}>
+                        <SelectTrigger id="ed-priority" className={inputCls}>
+                          <SelectValue placeholder="Select…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRIORITY_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field id="ed-stage" label="Stage">
+                      <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}>
+                        <SelectTrigger id="ed-stage" className={inputCls}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {STAGE_OPTIONS.map(o => (
+                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  </div>
+                </div>
+              )}
+
               {/* ── 4. Project Requirements ── */}
               <div className="rounded-xl p-5" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
                 <SectionLabel>Project Requirements</SectionLabel>
@@ -598,12 +695,15 @@ export function NewLeadDialog({
 
               <div className="flex justify-end gap-2 pt-1 pb-1">
                 <Button type="button" variant="outline"
-                  onClick={() => { setOpen(false); reset(); }}
+                  onClick={() => handleOpenChange(false)}
                   disabled={submitting}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? 'Creating…' : preselectedCustomer ? 'Add Enquiry' : 'Create Lead'}
+                  {submitting
+                    ? (isEditMode ? 'Saving…' : 'Creating…')
+                    : isEditMode ? 'Save Changes'
+                    : preselectedCustomer ? 'Add Enquiry' : 'Create Lead'}
                 </Button>
               </div>
             </>

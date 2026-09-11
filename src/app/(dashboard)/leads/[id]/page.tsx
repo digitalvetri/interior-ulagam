@@ -12,7 +12,7 @@ import {
   Upload, ExternalLink, Download,
 } from 'lucide-react';
 import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem } from '@/types/leads';
-import { EditLeadDialog } from '@/components/leads/EditLeadDialog';
+import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
@@ -935,12 +935,12 @@ export default function LeadDetailPage() {
         confirmLabel="Archive" loading={archiving}
         onConfirm={handleArchive} onCancel={() => setShowArchiveConfirm(false)}
       />
-      {showEditDialog && (
-        <EditLeadDialog
-          lead={lead} open={showEditDialog} onOpenChange={setShowEditDialog}
-          onSuccess={updated => { setLead(updated); setShowEditDialog(false); }}
-        />
-      )}
+      <NewLeadDialog
+        editLead={lead}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSuccess={updated => { setLead(updated); setShowEditDialog(false); }}
+      />
       {showProjectDialog && (
         <ProjectDetailsDialog
           lead={lead} open={showProjectDialog} onOpenChange={setShowProjectDialog}
