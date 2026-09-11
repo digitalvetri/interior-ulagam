@@ -3,9 +3,8 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  Edit2, Plus, Receipt, FileText, Camera,
+  Edit2, Plus, Receipt, Camera,
   ChevronRight, X, AlertTriangle, IndianRupee,
-  ClipboardList, Wrench, File,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { STAGE_STYLE_MAP, LIFECYCLE_STAGE_LABELS, LIFECYCLE_STAGE_ORDER } from '@/types/deliverables';
@@ -877,33 +876,6 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             </div>
           )}
 
-          {/* Quick links to sub-pages */}
-          <div className="rounded-2xl border p-4"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-tertiary)' }}>
-              More
-            </p>
-            <div className="space-y-0.5">
-              {[
-                { label: 'Deliverables', href: `/projects/${id}/deliverables`, Icon: ClipboardList },
-                { label: 'BOQ',          href: `/projects/${id}/boq`,          Icon: FileText },
-                { label: 'Site Logs',    href: `/projects/${id}/site`,         Icon: Camera },
-                { label: 'Snag List',    href: `/projects/${id}/snag`,         Icon: AlertTriangle },
-                { label: 'Payments',     href: `/projects/${id}/payments`,     Icon: IndianRupee },
-                { label: 'Work Orders',  href: `/projects/${id}/work-orders`,  Icon: Wrench },
-                { label: 'Documents',    href: `/projects/${id}/documents`,    Icon: File },
-              ].map(({ label, href, Icon }) => (
-                <Link key={label} href={href}
-                  className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"
-                  style={{ color: 'var(--text-secondary)' }}>
-                  <span className="flex items-center gap-2">
-                    <Icon className="h-3.5 w-3.5" />{label}
-                  </span>
-                  <ChevronRight className="h-3 w-3" />
-                </Link>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
