@@ -769,42 +769,56 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
           </div>
 
           {/* Site Photos */}
-          {allPhotos.length > 0 && (
-            <div className="rounded-2xl border overflow-hidden"
-              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-              <div className="flex items-center justify-between px-5 py-3.5"
-                style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <div>
-                  <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Site Photos</h2>
+          <div className="rounded-2xl border overflow-hidden"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <div>
+                <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Site Photos</h2>
+                {allPhotos.length > 0 && (
                   <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
                     {allPhotos.length} photo{allPhotos.length !== 1 ? 's' : ''}
                   </p>
-                </div>
+                )}
+              </div>
+              <Link href={`/projects/${id}/site`}
+                className="inline-flex items-center gap-0.5 text-xs font-medium"
+                style={{ color: 'var(--text-secondary)' }}>
+                All<ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+
+            {allPhotos.length === 0 ? (
+              <div className="py-10 text-center">
+                <Camera className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No site photos yet</p>
                 <Link href={`/projects/${id}/site`}
-                  className="inline-flex items-center gap-0.5 text-xs font-medium"
-                  style={{ color: 'var(--text-secondary)' }}>
-                  All<ChevronRight className="h-3 w-3" />
+                  className="mt-2 inline-block text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+                  Add via site logs →
                 </Link>
               </div>
-              <div className="p-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {allPhotos.slice(0, 12).map((url, idx) => (
-                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer"
-                    className="aspect-square rounded-xl overflow-hidden block hover:opacity-90 transition-opacity">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Site photo ${idx + 1}`} className="w-full h-full object-cover" />
-                  </a>
-                ))}
-              </div>
-              {allPhotos.length > 12 && (
-                <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                  <Link href={`/projects/${id}/site`} className="text-xs font-medium"
-                    style={{ color: 'var(--accent-base)' }}>
-                    View all {allPhotos.length} photos →
-                  </Link>
+            ) : (
+              <>
+                <div className="p-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {allPhotos.slice(0, 12).map((url, idx) => (
+                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer"
+                      className="aspect-square rounded-xl overflow-hidden block hover:opacity-90 transition-opacity">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt={`Site photo ${idx + 1}`} className="w-full h-full object-cover" />
+                    </a>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
+                {allPhotos.length > 12 && (
+                  <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <Link href={`/projects/${id}/site`} className="text-xs font-medium"
+                      style={{ color: 'var(--accent-base)' }}>
+                      View all {allPhotos.length} photos →
+                    </Link>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* RIGHT SIDEBAR */}
