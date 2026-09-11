@@ -67,6 +67,8 @@ export interface CustomerActivity {
 export interface CustomerSummary {
   projectCount: number;
   totalContractPaise: number;
+  totalInvoicedPaise: number;
+  totalReceivedPaise: number;
   quoteCount?: number;
   siteVisitCount?: number;
   projects: Array<{
@@ -85,6 +87,21 @@ export interface CustomerSummary {
     projectLocation: string | null;
     budgetBand: string | null;
     source: string;
+    createdAt: string;
+  }>;
+  invoices: Array<{
+    id: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    projectId: string;
+    totalPaise: number;
+    paidPaise: number;
+    createdAt: string;
+  }>;
+  payments: Array<{
+    id: string;
+    invoiceId: string;
+    amountPaise: number;
     createdAt: string;
   }>;
 }

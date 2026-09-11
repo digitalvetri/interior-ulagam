@@ -95,7 +95,7 @@ const LIFECYCLE_STAGE_COLOR: Record<string, { bg: string; color: string }> = {
   complete:           { bg: 'rgba(16,185,129,0.12)',  color: '#059669' },
 };
 
-type Tab = 'overview' | 'activity';
+type Tab = 'overview' | 'ledger' | 'activity';
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -332,9 +332,45 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const avatarBg = avatarColor(displayed.fullName);
   const healthSt = customer.healthStatus ? HEALTH_STYLE[customer.healthStatus] : null;
 
-  const totalContractPaise = summary?.projects.reduce(
-    (acc, p) => acc + (p.totalContractPaise ?? 0), 0,
-  ) ?? 0;
+  const totalContractPaise  = summary?.totalContractPaise  ?? 0;
+  const totalInvoicedPaise  = summary?.totalInvoicedPaise  ?? 0;
+  const totalReceivedPaise  = summary?.totalReceivedPaise  ?? 0;
+  const outstandingPaise    = Math.max(0, totalInvoicedPaise - totalReceivedPaise);
+  const collectedPct        = totalInvoicedPaise > 0 ? Math.round((totalReceivedPaise / totalInvoicedPaise) * 100) : 0;
+
+  // Build ledger: interleave invoices (debit) + payments (credit) sorted by date
+  type LedgerRow =
+    | { kind: 'invoice'; date: string; number: string; particulars: string; debitPaise: number; creditPaise: 0 }
+    | { kind: 'payment'; date: string; number: string; particulars: string; debitPaise: 0;    creditPaise: number };
+
+  const ledgerRows: LedgerRow[] = [
+    ...(summary?.invoices ?? []).map(inv => ({
+      kind: 'invoice' as const,
+      date: inv.invoiceDate,
+      number: inv.invoiceNumber,
+      particulars: summary?.projects.find(p => p.id === inv.projectId)?.name ?? 'Invoice',
+      debitPaise: inv.totalPaise,
+      creditPaise: 0 as const,
+    })),
+    ...(summary?.payments ?? []).map(pay => {
+      const inv = summary?.invoices.find(i => i.id === pay.invoiceId);
+      return {
+        kind: 'payment' as const,
+        date: pay.createdAt.slice(0, 10),
+        number: `PAY-${pay.id.slice(0, 8).toUpperCase()}`,
+        particulars: inv ? `Against ${inv.invoiceNumber}` : 'Payment received',
+        debitPaise: 0 as const,
+        creditPaise: pay.amountPaise,
+      };
+    }),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Running balance for ledger
+  let runningBalance = 0;
+  const ledgerWithBalance = ledgerRows.map(row => {
+    runningBalance += row.debitPaise - row.creditPaise;
+    return { ...row, balancePaise: runningBalance };
+  });
 
   const visibleActivities = activities.slice(0, activityPage * ACTIVITY_PAGE_SIZE);
   const hasMoreActivities = activities.length > activityPage * ACTIVITY_PAGE_SIZE;
@@ -415,6 +451,58 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             </button>
           </div>
         </div>
+
+        {/* ── FINANCIAL KPI CARDS ─────────────────────────────────────── */}
+        {!summaryLoading && (
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              {
+                label: 'TOTAL INVOICED',
+                value: totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '₹0',
+                sub: `${summary?.invoices.length ?? 0} invoice${(summary?.invoices.length ?? 0) !== 1 ? 's' : ''}`,
+                icon: <FileText className="h-5 w-5" />,
+                color: '#6366f1', bg: 'rgba(99,102,241,0.08)',
+              },
+              {
+                label: 'RECEIVED',
+                value: totalReceivedPaise > 0 ? formatRupees(totalReceivedPaise) : '₹0',
+                sub: `${summary?.payments.length ?? 0} payment${(summary?.payments.length ?? 0) !== 1 ? 's' : ''}`,
+                icon: <CreditCard className="h-5 w-5" />,
+                color: '#059669', bg: 'rgba(16,185,129,0.08)',
+              },
+              {
+                label: 'OUTSTANDING',
+                value: outstandingPaise > 0 ? formatRupees(outstandingPaise) : '₹0',
+                sub: outstandingPaise > 0 ? 'awaiting payment' : 'fully settled',
+                icon: <TrendingUp className="h-5 w-5" />,
+                color: outstandingPaise > 0 ? '#dc2626' : '#059669',
+                bg: outstandingPaise > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+              },
+              {
+                label: 'CONTRACT VALUE',
+                value: totalContractPaise > 0 ? formatRupeesShort(totalContractPaise) : '₹0',
+                sub: `${summary?.projectCount ?? 0} project${(summary?.projectCount ?? 0) !== 1 ? 's' : ''}`,
+                icon: <FolderOpen className="h-5 w-5" />,
+                color: '#f59e0b', bg: 'rgba(245,158,11,0.08)',
+              },
+            ].map((kpi, i) => (
+              <div
+                key={i}
+                className="rounded-xl p-4 flex items-start gap-3"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
+              >
+                <div className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: kpi.bg, color: kpi.color }}>
+                  {kpi.icon}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>{kpi.label}</p>
+                  <p className="text-[18px] font-bold tabular-nums leading-tight mt-0.5" style={{ color: i === 2 && outstandingPaise > 0 ? '#dc2626' : 'var(--text-heading)' }}>{kpi.value}</p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{kpi.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* ── TWO-COLUMN BODY ─────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_280px]">
@@ -561,7 +649,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
               >
                 {([
-                  { key: 'overview' as Tab, label: 'Overview', icon: <LayoutGrid className="h-3.5 w-3.5" /> },
+                  { key: 'overview' as Tab, label: 'Overview', icon: <LayoutGrid  className="h-3.5 w-3.5" /> },
+                  { key: 'ledger'   as Tab, label: 'Ledger',   icon: <Wallet      className="h-3.5 w-3.5" /> },
                   { key: 'activity' as Tab, label: 'Activity',  icon: <Activity   className="h-3.5 w-3.5" /> },
                 ] as const).map((t) => (
                   <button
@@ -692,6 +781,94 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       )}
 
                     </>
+                  )}
+                </div>
+              )}
+
+              {/* Ledger tab */}
+              {tab === 'ledger' && (
+                <div style={{ background: 'var(--surface-card)' }}>
+                  {/* Header row */}
+                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                    <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                      Running account — invoices raised (debit) against payments received (credit).
+                    </p>
+                  </div>
+
+                  {ledgerWithBalance.length === 0 ? (
+                    <div className="flex flex-col items-center gap-3 py-14 text-center">
+                      <Wallet className="h-8 w-8" style={{ color: 'var(--text-tertiary)' }} />
+                      <div>
+                        <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No transactions yet</p>
+                        <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Invoices and payments will appear here once raised.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[12px]">
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                            {['DATE', 'TYPE', 'PARTICULARS', 'DEBIT', 'CREDIT', 'BALANCE'].map((h, i) => (
+                              <th key={h} className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest ${i >= 3 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-tertiary)' }}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                          {ledgerWithBalance.map((row, idx) => (
+                            <tr key={idx} className="hover:bg-[var(--surface-muted)] transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                                {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </td>
+                              <td className="px-4 py-3">
+                                <span
+                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                  style={row.kind === 'payment'
+                                    ? { background: 'rgba(16,185,129,0.12)', color: '#059669', border: '1px solid rgba(16,185,129,0.30)' }
+                                    : { background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.25)' }
+                                  }
+                                >
+                                  {row.kind === 'payment' ? 'Received' : 'Sent'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 max-w-[200px]">
+                                <p className="font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{row.number}</p>
+                                <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{row.particulars}</p>
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                                {row.debitPaise > 0 ? formatRupees(row.debitPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#059669' }}>
+                                {row.creditPaise > 0 ? formatRupees(row.creditPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: row.balancePaise > 0 ? '#dc2626' : '#059669' }}>
+                                {row.balancePaise !== 0
+                                  ? `${row.balancePaise < 0 ? '-' : ''}${formatRupees(Math.abs(row.balancePaise))}`
+                                  : '₹0'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        {/* Closing balance */}
+                        <tfoot>
+                          <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                            <td colSpan={3} className="px-4 py-3 text-right text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>
+                              Closing balance
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: 'var(--text-heading)' }}>
+                              {totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: '#059669' }}>
+                              {totalReceivedPaise > 0 ? formatRupees(totalReceivedPaise) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: outstandingPaise > 0 ? '#dc2626' : '#059669' }}>
+                              {formatRupees(outstandingPaise)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   )}
                 </div>
               )}
@@ -852,132 +1029,74 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </section>
 
-            {/* Summary card */}
+            {/* Financial Summary card */}
+            <section
+              className="rounded-xl overflow-hidden"
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
+            >
+              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Financial Summary</p>
+                <button onClick={() => setTab('ledger')} className="text-[11px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                  Ledger →
+                </button>
+              </div>
+
+              <div className="divide-y px-4" style={{ borderColor: 'var(--border-subtle)' }}>
+                {[
+                  { label: 'Total project value',  value: totalContractPaise,  color: 'var(--text-heading)', bold: false },
+                  { label: 'Quotations',            value: null, text: String(summary?.quoteCount ?? 0), color: 'var(--text-heading)', bold: false },
+                  { label: 'Invoiced to date',      value: totalInvoicedPaise,  color: 'var(--text-heading)', bold: false },
+                  { label: 'Payments received',     value: totalReceivedPaise,  color: '#059669', bold: false },
+                  { label: 'Outstanding balance',   value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
+                ].map((row, i) => (
+                  <div key={i} className="flex items-center justify-between py-2.5">
+                    <span className={`text-[12px] ${row.bold ? 'font-bold' : ''}`} style={{ color: row.bold ? 'var(--text-heading)' : 'var(--text-secondary)' }}>
+                      {row.label}
+                    </span>
+                    <span className={`text-[13px] tabular-nums ${row.bold ? 'font-bold' : 'font-medium'}`} style={{ color: row.color }}>
+                      {row.text ?? (row.value != null && row.value > 0 ? formatRupees(row.value) : (row.value === 0 && i > 0 ? '₹0' : '—'))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress bar */}
+              {totalInvoicedPaise > 0 && (
+                <div className="px-4 pb-4 pt-2">
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${collectedPct}%`, background: '#10b981' }} />
+                  </div>
+                  <p className="mt-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    {collectedPct}% collected of invoiced amount
+                  </p>
+                </div>
+              )}
+            </section>
+
+            {/* Quick stats card */}
             <section
               className="rounded-xl overflow-hidden"
               style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
             >
               <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Summary</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Activity</p>
               </div>
-
-              {/* Contract value hero */}
-              {totalContractPaise > 0 && (
-                <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--accent-soft, rgba(13,127,110,0.06))' }}>
-                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--accent-base)' }}>Total contract value</p>
-                  <p className="text-[22px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>
-                    {formatRupeesShort(totalContractPaise)}
-                  </p>
-                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                    across {summary?.projectCount ?? 0} {(summary?.projectCount ?? 0) === 1 ? 'project' : 'projects'}
-                  </p>
-                </div>
-              )}
-
-              {/* Stat rows */}
               <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                 {[
-                  {
-                    label: 'Projects',
-                    value: summaryLoading && !summary ? '…' : String(summary?.projectCount ?? 0),
-                    icon: <FolderOpen className="h-3.5 w-3.5" />,
-                    color: '#6366f1', bg: 'rgba(99,102,241,0.10)',
-                  },
-                  {
-                    label: 'Quotations',
-                    value: summaryLoading && !summary ? '…' : String(summary?.quoteCount ?? 0),
-                    icon: <FileText className="h-3.5 w-3.5" />,
-                    color: '#059669', bg: 'rgba(16,185,129,0.10)',
-                  },
-                  {
-                    label: 'Site visits',
-                    value: summaryLoading && !summary ? '…' : String(summary?.siteVisitCount ?? 0),
-                    icon: <MapPin className="h-3.5 w-3.5" />,
-                    color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',
-                  },
-                  {
-                    label: 'Activities',
-                    value: activitiesLoading ? '…' : String(activities.length),
-                    icon: <Activity className="h-3.5 w-3.5" />,
-                    color: '#f97316', bg: 'rgba(249,115,22,0.10)',
-                  },
+                  { label: 'Site visits', value: summaryLoading ? '…' : String(summary?.siteVisitCount ?? 0), icon: <MapPin className="h-3.5 w-3.5" />, color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' },
+                  { label: 'Activities',  value: activitiesLoading ? '…' : String(activities.length), icon: <Activity className="h-3.5 w-3.5" />, color: '#f97316', bg: 'rgba(249,115,22,0.10)' },
                 ].map((kpi, i) => (
                   <div key={i} className="flex items-center justify-between px-4 py-2.5">
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: kpi.bg, color: kpi.color }}>
                         {kpi.icon}
                       </div>
-                      <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</span>
+                      <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</span>
                     </div>
                     <span className="text-[14px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
                   </div>
                 ))}
               </div>
-            </section>
-
-            {/* Payment Ledger card */}
-            <section
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-            >
-              <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <Wallet className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Payment Ledger</p>
-              </div>
-
-              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                {/* Contract value row */}
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#6366f1' }} />
-                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Contract value</span>
-                  </div>
-                  <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                    {totalContractPaise > 0 ? formatRupees(totalContractPaise) : '—'}
-                  </span>
-                </div>
-
-                {/* Invoiced row */}
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#f59e0b' }} />
-                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Invoiced</span>
-                  </div>
-                  <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>—</span>
-                </div>
-
-                {/* Collected row */}
-                <div className="flex items-center justify-between px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#10b981' }} />
-                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Collected</span>
-                  </div>
-                  <span className="text-[13px] font-bold tabular-nums" style={{ color: '#059669' }}>—</span>
-                </div>
-
-                {/* Outstanding row */}
-                <div className="flex items-center justify-between px-4 py-3 rounded-b-xl" style={{ background: totalContractPaise > 0 ? 'rgba(239,68,68,0.04)' : undefined }}>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#ef4444' }} />
-                    <span className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Outstanding</span>
-                  </div>
-                  <span className="text-[13px] font-bold tabular-nums" style={{ color: totalContractPaise > 0 ? '#dc2626' : 'var(--text-tertiary)' }}>
-                    {totalContractPaise > 0 ? formatRupees(totalContractPaise) : '—'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Progress bar: collected / contract */}
-              {totalContractPaise > 0 && (
-                <div className="px-4 pb-4 pt-1">
-                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                    <div className="h-full rounded-full" style={{ width: '0%', background: '#10b981' }} />
-                  </div>
-                  <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                    0% collected · Connect invoice data to see live progress
-                  </p>
-                </div>
-              )}
             </section>
 
             {/* Notes card */}
