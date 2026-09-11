@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Edit2, Plus, Receipt, Camera,
@@ -428,9 +428,12 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const [editOpen,    setEditOpen]    = useState(false);
-  const [paymentOpen, setPaymentOpen] = useState(false);
-  const [expenseOpen, setExpenseOpen] = useState(false);
+  const [editOpen,        setEditOpen]        = useState(false);
+  const [paymentOpen,     setPaymentOpen]     = useState(false);
+  const [expenseOpen,     setExpenseOpen]     = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [photoUploadErr,  setPhotoUploadErr]  = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true); setFetchError(null);
@@ -471,6 +474,28 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const clientName         = project?.customerFullName ?? project?.leadContactName ?? null;
   const stage              = project ? STAGE_STYLE_MAP[project.lifecycleStage] : null;
   const allPhotos          = siteLogs.flatMap(l => l.photos ?? []);
+
+  async function handlePhotoUpload(files: FileList) {
+    if (!files.length) return;
+    setUploadingPhotos(true);
+    setPhotoUploadErr(null);
+    try {
+      const fd = new FormData();
+      Array.from(files).forEach(f => fd.append('files', f));
+      const res = await fetch(`/api/v1/projects/${id}/photos`, { method: 'POST', body: fd });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setPhotoUploadErr(json.error ?? 'Upload failed');
+        return;
+      }
+      await loadAll();
+    } catch {
+      setPhotoUploadErr('Network error — please try again');
+    } finally {
+      setUploadingPhotos(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  }
 
   if (loading) {
     return (
@@ -781,21 +806,40 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                   </p>
                 )}
               </div>
-              <Link href={`/projects/${id}/site`}
-                className="inline-flex items-center gap-0.5 text-xs font-medium"
-                style={{ color: 'var(--text-secondary)' }}>
-                All<ChevronRight className="h-3 w-3" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhotos}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+                  style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
+                  <Camera className="h-3.5 w-3.5" />
+                  {uploadingPhotos ? 'Uploading…' : 'Add photos'}
+                </button>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  multiple
+                  className="hidden"
+                  onChange={e => { if (e.target.files?.length) void handlePhotoUpload(e.target.files); }}
+                />
+              </div>
             </div>
+            {photoUploadErr && (
+              <div className="flex items-center gap-2 mx-5 mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{photoUploadErr}
+              </div>
+            )}
 
             {allPhotos.length === 0 ? (
               <div className="py-10 text-center">
                 <Camera className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No site photos yet</p>
-                <Link href={`/projects/${id}/site`}
-                  className="mt-2 inline-block text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
-                  Add via site logs →
-                </Link>
+                <button type="button" onClick={() => photoInputRef.current?.click()}
+                  className="mt-2 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+                  Upload photos →
+                </button>
               </div>
             ) : (
               <>

@@ -7,8 +7,6 @@ import {
   FileText,
   ShoppingCart,
   Package,
-  HardHat,
-  ClipboardList,
   Wallet,
   Settings,
   BarChart3,
@@ -76,11 +74,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: 'execution',
     label: 'Execution',
-    roles: FIELD_ROLES,
+    roles: DESIGN_ROLES,
     items: [
-      { href: '/work-orders', label: 'Work Orders', icon: ClipboardList, roles: FIELD_ROLES },
-      { href: '/site-logs',   label: 'Site Logs',   icon: HardHat,       roles: FIELD_ROLES },
-      { href: '/materials',   label: 'Materials',   icon: Package,       roles: DESIGN_ROLES },
+      { href: '/materials', label: 'Materials', icon: Package, roles: DESIGN_ROLES },
     ],
   },
   {
