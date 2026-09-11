@@ -3,11 +3,11 @@
 import { use, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Mail, Phone, Building2, MapPin, Tag, User, Calendar,
+  ArrowLeft, Mail, Phone, Building2, MapPin, Tag, User,
   Trash2, Save, Loader2, MessageCircle, StickyNote, Users,
   FolderOpen, Bell, Plus, Send, CreditCard, X, FileText,
   ChevronRight, ArrowRightCircle,
-  Pencil, Activity, LayoutGrid, Heart,
+  Pencil, Activity, LayoutGrid, Heart, TrendingUp, Wallet,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -331,6 +331,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const stageSt = STAGE_STYLE[displayed.stage];
   const avatarBg = avatarColor(displayed.fullName);
   const healthSt = customer.healthStatus ? HEALTH_STYLE[customer.healthStatus] : null;
+
+  const totalContractPaise = summary?.projects.reduce(
+    (acc, p) => acc + (p.totalContractPaise ?? 0), 0,
+  ) ?? 0;
 
   const visibleActivities = activities.slice(0, activityPage * ACTIVITY_PAGE_SIZE);
   const hasMoreActivities = activities.length > activityPage * ACTIVITY_PAGE_SIZE;
@@ -687,35 +691,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         </>
                       )}
 
-                      {activities.length > 0 && (
-                        <>
-                          <div className="flex items-center justify-between px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Recent activity</p>
-                            <button onClick={() => setTab('activity')} className="text-[11px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                              View all →
-                            </button>
-                          </div>
-                          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                            {activities.slice(0, 5).map((a) => {
-                              const meta = ACTIVITY_META[a.type];
-                              return (
-                                <div key={a.id} className="flex items-start gap-3 px-5 py-3.5">
-                                  <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full" style={{ background: `${meta.color}18`, color: meta.color }}>
-                                    {meta.icon}
-                                  </span>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{a.title}</p>
-                                      <span className="flex-shrink-0 text-[11px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>{relativeTime(a.createdAt)}</span>
-                                    </div>
-                                    {a.body && <p className="mt-0.5 text-[12px] leading-relaxed line-clamp-2" style={{ color: 'var(--text-secondary)' }}>{a.body}</p>}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
                     </>
                   )}
                 </div>
@@ -877,7 +852,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </section>
 
-            {/* Stats card */}
+            {/* Summary card */}
             <section
               className="rounded-xl overflow-hidden"
               style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
@@ -885,44 +860,124 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Summary</p>
               </div>
-              <div className="grid grid-cols-2 divide-x divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+
+              {/* Contract value hero */}
+              {totalContractPaise > 0 && (
+                <div className="px-4 py-4" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--accent-soft, rgba(13,127,110,0.06))' }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--accent-base)' }}>Total contract value</p>
+                  <p className="text-[22px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>
+                    {formatRupeesShort(totalContractPaise)}
+                  </p>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                    across {summary?.projectCount ?? 0} {(summary?.projectCount ?? 0) === 1 ? 'project' : 'projects'}
+                  </p>
+                </div>
+              )}
+
+              {/* Stat rows */}
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                 {[
                   {
                     label: 'Projects',
                     value: summaryLoading && !summary ? '…' : String(summary?.projectCount ?? 0),
-                    icon: <FolderOpen className="h-4 w-4" />,
-                    color: '#6366f1', bg: 'rgba(99,102,241,0.08)',
+                    icon: <FolderOpen className="h-3.5 w-3.5" />,
+                    color: '#6366f1', bg: 'rgba(99,102,241,0.10)',
                   },
                   {
                     label: 'Quotations',
                     value: summaryLoading && !summary ? '…' : String(summary?.quoteCount ?? 0),
-                    icon: <FileText className="h-4 w-4" />,
-                    color: '#059669', bg: 'rgba(16,185,129,0.08)',
+                    icon: <FileText className="h-3.5 w-3.5" />,
+                    color: '#059669', bg: 'rgba(16,185,129,0.10)',
                   },
                   {
                     label: 'Site visits',
                     value: summaryLoading && !summary ? '…' : String(summary?.siteVisitCount ?? 0),
-                    icon: <MapPin className="h-4 w-4" />,
-                    color: '#475569', bg: 'rgba(100,116,139,0.08)',
+                    icon: <MapPin className="h-3.5 w-3.5" />,
+                    color: '#f59e0b', bg: 'rgba(245,158,11,0.10)',
                   },
                   {
                     label: 'Activities',
                     value: activitiesLoading ? '…' : String(activities.length),
-                    icon: <Activity className="h-4 w-4" />,
-                    color: '#f97316', bg: 'rgba(249,115,22,0.08)',
+                    icon: <Activity className="h-3.5 w-3.5" />,
+                    color: '#f97316', bg: 'rgba(249,115,22,0.10)',
                   },
                 ].map((kpi, i) => (
-                  <div key={i} className="flex flex-col gap-2 p-4">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: kpi.bg, color: kpi.color }}>
-                      {kpi.icon}
+                  <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: kpi.bg, color: kpi.color }}>
+                        {kpi.icon}
+                      </div>
+                      <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</span>
                     </div>
-                    <div>
-                      <p className="text-[16px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>{kpi.value}</p>
-                      <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</p>
-                    </div>
+                    <span className="text-[14px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
                   </div>
                 ))}
               </div>
+            </section>
+
+            {/* Payment Ledger card */}
+            <section
+              className="rounded-xl overflow-hidden"
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
+            >
+              <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <Wallet className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Payment Ledger</p>
+              </div>
+
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                {/* Contract value row */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#6366f1' }} />
+                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Contract value</span>
+                  </div>
+                  <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                    {totalContractPaise > 0 ? formatRupees(totalContractPaise) : '—'}
+                  </span>
+                </div>
+
+                {/* Invoiced row */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#f59e0b' }} />
+                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Invoiced</span>
+                  </div>
+                  <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-tertiary)' }}>—</span>
+                </div>
+
+                {/* Collected row */}
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#10b981' }} />
+                    <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>Collected</span>
+                  </div>
+                  <span className="text-[13px] font-bold tabular-nums" style={{ color: '#059669' }}>—</span>
+                </div>
+
+                {/* Outstanding row */}
+                <div className="flex items-center justify-between px-4 py-3 rounded-b-xl" style={{ background: totalContractPaise > 0 ? 'rgba(239,68,68,0.04)' : undefined }}>
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#ef4444' }} />
+                    <span className="text-[12px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Outstanding</span>
+                  </div>
+                  <span className="text-[13px] font-bold tabular-nums" style={{ color: totalContractPaise > 0 ? '#dc2626' : 'var(--text-tertiary)' }}>
+                    {totalContractPaise > 0 ? formatRupees(totalContractPaise) : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress bar: collected / contract */}
+              {totalContractPaise > 0 && (
+                <div className="px-4 pb-4 pt-1">
+                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                    <div className="h-full rounded-full" style={{ width: '0%', background: '#10b981' }} />
+                  </div>
+                  <p className="mt-1.5 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                    0% collected · Connect invoice data to see live progress
+                  </p>
+                </div>
+              )}
             </section>
 
             {/* Notes card */}
