@@ -678,40 +678,63 @@ export default function LeadDetailPage() {
     if (!followUpDate) return;
     setSavingFU(true); setFUError(null); setFUSuccess(false);
     try {
-      const res = await fetch(`/api/v1/leads/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ followUpDate }),
+      const followUpDateISO = new Date(followUpDate + 'T00:00:00').toISOString();
+      const dueDateLabel = new Date(followUpDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+
+      // Map lead stage to a value accepted by the follow-ups endpoint
+      const validFUStages = new Set(['new','contacted','qualified','site_visit','measurement','quotation','negotiation','won','lost','site_visit_scheduled','consultation_done','proposal_sent']);
+      const fuStage = validFUStages.has(lead?.stage ?? '') ? (lead?.stage ?? 'new') : 'contacted';
+
+      // 1. Create follow-up row (also updates lead.followUpDate + lastActivityAt via DB transaction)
+      const fuRes = await fetch(`/api/v1/leads/${id}/follow-ups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          followUpDate: followUpDateISO,
+          stage: fuStage,
+          clientStatus: 'callback',
+          comments: followUpNote.trim() || null,
+          addToCalendar: true,
+        }),
       });
-      const json = await res.json().catch(() => ({})) as { data?: Lead; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
-      setLead(json.data!);
-      if (followUpNote.trim()) {
-        const dueDateLabel = new Date(followUpDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-        const actRes = await fetch(`/api/v1/leads/${id}/activities`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'follow_up', title: `Follow-up — ${dueDateLabel}`, description: followUpNote.trim(), scheduledAt: new Date(followUpDate + 'T00:00:00').toISOString(), status: 'pending' }),
-        });
-        if (actRes.ok) {
-          const actJson = await actRes.json() as { data?: LeadActivity };
-          if (actJson.data) setActivities(prev => [actJson.data!, ...prev]);
-        }
+      if (!fuRes.ok) {
+        const j = await fuRes.json().catch(() => ({})) as { error?: string };
+        throw new Error(j.error ?? `Failed (${fuRes.status})`);
       }
-      const savedDate = followUpDate;
-      const savedNote = followUpNote.trim();
+
+      // 2. Refresh lead so At a Glance reflects the new followUpDate
+      const leadRes = await fetch(`/api/v1/leads/${id}`);
+      if (leadRes.ok) {
+        const { data: leadData } = await leadRes.json() as { data: Lead };
+        setLead(leadData);
+      }
+
+      // 3. Refresh follow-up history list from DB
+      const fuListRes = await fetch(`/api/v1/leads/${id}/follow-ups`);
+      if (fuListRes.ok) {
+        const fuListData = await fuListRes.json() as { data?: LeadFollowUp[] };
+        setFollowUps(fuListData.data ?? []);
+      }
+
+      // 4. Always log to activity feed (not just when note exists)
+      const actRes = await fetch(`/api/v1/leads/${id}/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'follow_up',
+          title: `Follow-up scheduled — ${dueDateLabel}`,
+          description: followUpNote.trim() || null,
+          scheduledAt: followUpDateISO,
+          status: 'pending',
+        }),
+      });
+      if (actRes.ok) {
+        const actJson = await actRes.json() as { data?: LeadActivity };
+        if (actJson.data) setActivities(prev => [actJson.data!, ...prev]);
+      }
+
       setFollowUpDate(''); setFollowUpNote('');
       setFUSuccess(true); setTimeout(() => setFUSuccess(false), 3000);
-      // Show the new follow-up immediately in history without a refetch
-      setFollowUps(prev => [{
-        id: `local-${Date.now()}`,
-        followUpDate: savedDate,
-        stage: lead?.stage ?? '',
-        clientStatus: 'pending',
-        comments: savedNote || null,
-        completedAt: null,
-        createdByName: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, ...prev]);
     } catch (e) {
       setFUError(e instanceof Error ? e.message : 'Failed to schedule');
     } finally { setSavingFU(false); }
@@ -1336,14 +1359,15 @@ export default function LeadDetailPage() {
                 )}
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>₹</span>
                     <input
                       type="number"
                       min="0"
-                      placeholder="Enter amount"
+                      placeholder="0"
                       value={quotedAmountInput}
                       onChange={e => setQuotedAmountInput(e.target.value)}
-                      className="studio-input w-full text-sm h-9 pl-7"
+                      className="studio-input w-full text-sm h-9"
+                      style={{ paddingLeft: '1.75rem' }}
                     />
                   </div>
                   <button
