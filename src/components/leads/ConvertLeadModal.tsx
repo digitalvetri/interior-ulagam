@@ -82,7 +82,7 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise,
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <CheckCircle2 className="h-5 w-5" style={{ color: 'var(--success)' }} />
-              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Convert to Project</h2>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Convert to Client</h2>
             </div>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               Creates a project, seeds payment milestones, and marks this lead as won.
