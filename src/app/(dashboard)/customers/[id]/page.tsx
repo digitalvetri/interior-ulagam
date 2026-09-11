@@ -8,6 +8,7 @@ import {
   FolderOpen, Bell, Plus, Send, CreditCard, X, FileText,
   ChevronRight, ArrowRightCircle,
   Pencil, Activity, LayoutGrid, Heart, TrendingUp, Wallet,
+  Paperclip, Upload,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -82,6 +83,11 @@ const LIFECYCLE_LABEL: Record<string, string> = {
   snagging:           'Snagging',
   handover:           'Handover',
   complete:           'Complete',
+};
+
+const LIFECYCLE_PROGRESS: Record<string, number> = {
+  design_pending: 8, design_in_progress: 22, design_approved: 38,
+  procurement: 52, execution: 68, snagging: 82, handover: 92, complete: 100,
 };
 
 const LIFECYCLE_STAGE_COLOR: Record<string, { bg: string; color: string }> = {
@@ -172,6 +178,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [summaryLoading, setSumLoading] = useState(false);
 
   const [tab, setTab] = useState<Tab>('overview');
+
+  interface ClientFile { key: string; name: string; size: number; lastModified: string; url: string; }
+  const [clientFiles, setClientFiles]   = useState<ClientFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [uploading, setUploading]       = useState(false);
+  const [uploadErr, setUploadErr]       = useState<string | null>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -272,6 +286,46 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     } finally {
       setNotesSaving(false);
     }
+  }
+
+  /* ── Files ── */
+  const loadFiles = useCallback(() => {
+    setFilesLoading(true);
+    fetch(`/api/v1/customers/${id}/files`)
+      .then(r => r.json())
+      .then(({ data }) => setClientFiles(data ?? []))
+      .catch(() => {})
+      .finally(() => setFilesLoading(false));
+  }, [id]);
+
+  useEffect(() => { loadFiles(); }, [loadFiles]);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadErr(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/v1/customers/${id}/files`, { method: 'POST', body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? `Upload failed (${res.status})`);
+      loadFiles();
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDeleteFile(key: string) {
+    await fetch(`/api/v1/customers/${id}/files?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+    setClientFiles(prev => prev.filter(f => f.key !== key));
+  }
+
+  function fmtSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
   /* ── Activity ── */
@@ -384,24 +438,24 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         <div className="mb-6">
           <Link
             href="/customers"
-            className="mb-3 inline-flex items-center gap-1.5 text-[12px] font-medium hover:opacity-70 transition-opacity"
+            className="mb-4 inline-flex items-center gap-1.5 text-[12px] font-medium hover:opacity-70 transition-opacity"
             style={{ color: 'var(--text-secondary)' }}
           >
             <ArrowLeft className="h-3.5 w-3.5" /> All clients
           </Link>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             {/* Avatar + identity */}
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-start gap-4 min-w-0">
               <div
-                className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-white text-[15px] font-bold shadow-sm"
+                className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-white text-[18px] font-bold shadow-sm"
                 style={{ background: avatarBg }}
               >
                 {initials(displayed.fullName)}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 pt-0.5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-[18px] font-bold leading-tight truncate" style={{ color: 'var(--text-heading)' }}>
+                  <h1 className="text-[22px] font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
                     {displayed.fullName}
                   </h1>
                   <span
@@ -432,23 +486,78 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     </Link>
                   )}
                 </div>
-                <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                  Added {new Date(customer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                  {displayed.company && <> · {displayed.company}</>}
-                  {displayed.city && <> · {displayed.city}</>}
-                </p>
+                {/* Contact metadata row */}
+                <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
+                  {displayed.phone && (
+                    <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                      <Phone className="h-3.5 w-3.5 flex-shrink-0" />{displayed.phone}
+                    </span>
+                  )}
+                  {displayed.email && (
+                    <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                      <Mail className="h-3.5 w-3.5 flex-shrink-0" />{displayed.email}
+                    </span>
+                  )}
+                  {displayed.city && (
+                    <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                      <MapPin className="h-3.5 w-3.5 flex-shrink-0" />{displayed.city}
+                    </span>
+                  )}
+                  <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                    Added {new Date(customer.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Delete */}
-            <button
-              onClick={remove}
-              className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border transition-colors hover:border-red-200 hover:bg-red-50"
-              style={{ color: '#dc2626', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
-              title="Delete client"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+            {/* Action buttons */}
+            <div className="flex flex-shrink-0 flex-wrap items-center gap-2 pt-1">
+              {displayed.phone && (
+                <a
+                  href={`https://wa.me/${displayed.phone.replace(/\D/g, '')}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-85"
+                  style={{ background: '#25d366', color: '#fff' }}
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </a>
+              )}
+              {displayed.phone && (
+                <a
+                  href={`tel:${displayed.phone}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-[13px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+                >
+                  <Phone className="h-4 w-4" /> Call
+                </a>
+              )}
+              {displayed.email && (
+                <a
+                  href={`mailto:${displayed.email}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-[13px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+                >
+                  <Mail className="h-4 w-4" /> Email
+                </a>
+              )}
+              {!editMode && (
+                <button
+                  onClick={() => setEditMode(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-2 text-[13px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+                >
+                  <Pencil className="h-4 w-4" /> Edit
+                </button>
+              )}
+              <button
+                onClick={remove}
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg border transition-colors hover:border-red-200 hover:bg-red-50"
+                style={{ color: '#dc2626', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}
+                title="Delete client"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -504,33 +613,22 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           </div>
         )}
 
-        {/* ── TWO-COLUMN BODY ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_280px]">
+        {/* ── MAIN CONTENT ─────────────────────────────────────────── */}
+        <div className="flex flex-col gap-5">
 
-          {/* ══ LEFT: Primary content ══════════════════════════════════ */}
-          <div className="flex flex-col gap-5">
-
-            {/* Client Info Card */}
-            <section
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-            >
-              <div
-                className="flex items-center justify-between px-5 py-3"
-                style={{ borderBottom: '1px solid var(--border-subtle)' }}
+            {/* Client Details edit panel — only shown when editing */}
+            {editMode && (
+              <section
+                className="rounded-xl overflow-hidden"
+                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
               >
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
-                  Client details
-                </p>
-                {!editMode ? (
-                  <button
-                    onClick={() => setEditMode(true)}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    <Pencil className="h-3 w-3" /> Edit
-                  </button>
-                ) : (
+                <div
+                  className="flex items-center justify-between px-5 py-3"
+                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                >
+                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
+                    Edit client details
+                  </p>
                   <div className="flex items-center gap-2">
                     <button onClick={cancelEdit} className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
                       Cancel
@@ -545,56 +643,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       Save
                     </button>
                   </div>
-                )}
-              </div>
-
-              {/* View mode — 2-col grid */}
-              {!editMode && (
-                <div className="p-5">
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                    <ViewField label="Mobile" icon={Phone}>
-                      <a href={`tel:${displayed.phone}`} className="hover:opacity-70" style={{ color: 'var(--text-heading)' }}>
-                        {displayed.phone}
-                      </a>
-                    </ViewField>
-                    <ViewField label="Email" icon={Mail}>
-                      {displayed.email
-                        ? <a href={`mailto:${displayed.email}`} className="hover:opacity-70 truncate block" style={{ color: 'var(--text-heading)' }}>{displayed.email}</a>
-                        : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                    </ViewField>
-                    <ViewField label="City" icon={MapPin}>
-                      <span style={{ color: displayed.city ? 'var(--text-heading)' : 'var(--text-tertiary)' }}>
-                        {displayed.city ?? '—'}
-                      </span>
-                    </ViewField>
-                    <ViewField label="Company" icon={Building2}>
-                      <span style={{ color: displayed.company ? 'var(--text-heading)' : 'var(--text-tertiary)' }}>
-                        {displayed.company ?? '—'}
-                      </span>
-                    </ViewField>
-                    <ViewField label="Source" icon={Tag}>
-                      <span className="capitalize" style={{ color: 'var(--text-heading)' }}>
-                        {SOURCES.find(s => s.value === displayed.source)?.label ?? displayed.source}
-                      </span>
-                    </ViewField>
-                  </div>
-                  {(displayed.tags ?? []).length > 0 && (
-                    <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Tags</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(displayed.tags ?? []).map(tag => (
-                          <span key={tag} className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-white" style={{ background: tagColor(tag) }}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              )}
-
-              {/* Edit mode */}
-              {editMode && (
                 <div className="p-5">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
@@ -638,8 +687,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                   {saveErr && <p className="mt-3 text-xs text-red-600">{saveErr}</p>}
                 </div>
-              )}
-            </section>
+              </section>
+            )}
 
             {/* Tabbed panel */}
             <section className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
@@ -668,120 +717,195 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 ))}
               </div>
 
-              {/* Overview tab */}
+              {/* Overview tab — 50/50 */}
               {tab === 'overview' && (
-                <div style={{ background: 'var(--surface-card)' }}>
-                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Projects</p>
-                    <Link href="/projects/new" className="inline-flex items-center gap-1 text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                      <Plus className="h-3.5 w-3.5" /> New project
-                    </Link>
-                  </div>
+                <div className="grid lg:grid-cols-2 gap-4 p-4" style={{ background: 'var(--surface-muted)' }}>
 
-                  {summaryLoading && !summary ? (
-                    <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
-                  ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
-                    <div className="flex flex-col items-center gap-3 py-12 text-center">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                        <FolderOpen className="h-6 w-6" style={{ color: '#6366f1' }} />
-                      </div>
-                      <div>
-                        <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
-                        <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Projects linked to this client will appear here</p>
-                      </div>
-                      <Link href="/projects/new" className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold" style={{ background: 'var(--accent-base)', color: '#fff' }}>
-                        <Plus className="h-4 w-4" /> Create first project
+                  {/* LEFT: Projects card */}
+                  <div className="rounded-xl overflow-hidden min-w-0" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Projects</p>
+                      <Link href="/projects/new" className="inline-flex items-center gap-1 text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                        <Plus className="h-3.5 w-3.5" /> New project
                       </Link>
                     </div>
-                  ) : (
-                    <>
-                      {summary.projects.length > 0 && (
-                        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {summary.projects.slice(0, 5).map((p) => {
-                            const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
-                            return (
-                              <Link
-                                key={p.id}
-                                href={`/projects/${p.id}`}
-                                className="flex items-center justify-between px-5 py-3.5 transition-colors"
-                                style={{ background: 'var(--surface-card)' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
-                              >
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(99,102,241,0.08)', color: '#6366f1' }}>
-                                    <FolderOpen className="h-4 w-4" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <p className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>{p.name || 'Untitled project'}</p>
-                                    {p.siteAddress && (
-                                      <p className="mt-0.5 flex items-center gap-1 truncate text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                                        <MapPin className="h-2.5 w-2.5 shrink-0" />{p.siteAddress}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="ml-4 flex shrink-0 items-center gap-3">
-                                  {p.totalContractPaise != null && p.totalContractPaise > 0 && (
-                                    <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                                      {formatRupees(p.totalContractPaise)}
-                                    </span>
-                                  )}
-                                  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: sc.bg, color: sc.color }}>
-                                    {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
-                                  </span>
-                                  <ChevronRight className="h-4 w-4 shrink-0 opacity-40" style={{ color: 'var(--text-secondary)' }} />
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {summary.projects.length > 5 && (
-                        <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                          <Link href="/projects" className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                            View all {summary.projects.length} projects →
-                          </Link>
-                        </div>
-                      )}
 
-                      {summary.leads.length > 0 && (
-                        <>
-                          <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Active enquiries</p>
-                          </div>
+                    {summaryLoading && !summary ? (
+                      <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+                    ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
+                      <div className="flex flex-col items-center gap-3 py-10 text-center">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                          <FolderOpen className="h-5 w-5" style={{ color: '#6366f1' }} />
+                        </div>
+                        <div>
+                          <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
+                          <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Projects linked to this client will appear here</p>
+                        </div>
+                        <Link href="/projects/new" className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold" style={{ background: 'var(--accent-base)', color: '#fff' }}>
+                          <Plus className="h-3.5 w-3.5" /> Create first project
+                        </Link>
+                      </div>
+                    ) : (
+                      <>
+                        {summary.projects.length > 0 && (
                           <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                            {summary.leads.map((l) => (
-                              <Link
-                                key={l.id}
-                                href={`/leads/${l.id}`}
-                                className="flex items-center justify-between px-5 py-3.5 transition-colors"
-                                style={{ background: 'var(--surface-card)' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{l.projectName || 'New enquiry'}</p>
-                                  {l.projectLocation && (
-                                    <p className="mt-0.5 flex items-center gap-1 truncate text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                                      <MapPin className="h-2.5 w-2.5 shrink-0" />{l.projectLocation}
+                            {summary.projects.slice(0, 5).map((p) => {
+                              const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
+                              const pct = LIFECYCLE_PROGRESS[p.lifecycleStage] ?? 8;
+                              return (
+                                <Link
+                                  key={p.id}
+                                  href={`/projects/${p.id}`}
+                                  className="block px-5 py-3 transition-colors"
+                                  style={{ background: 'var(--surface-card)' }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
+                                      {p.name || 'Untitled project'}
                                     </p>
-                                  )}
-                                </div>
-                                <div className="ml-3 flex shrink-0 items-center gap-2">
-                                  <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                      {p.totalContractPaise != null && p.totalContractPaise > 0 && (
+                                        <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                                          {formatRupeesShort(p.totalContractPaise)}
+                                        </span>
+                                      )}
+                                      <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: sc.bg, color: sc.color }}>
+                                        {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-2 h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+                                  </div>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {summary.projects.length > 5 && (
+                          <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                            <Link href="/projects" className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                              View all {summary.projects.length} projects →
+                            </Link>
+                          </div>
+                        )}
+                        {summary.leads.length > 0 && (
+                          <>
+                            <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                              <p className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Active enquiries</p>
+                            </div>
+                            <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                              {summary.leads.map((l) => (
+                                <Link
+                                  key={l.id}
+                                  href={`/leads/${l.id}`}
+                                  className="flex items-center justify-between px-5 py-3 transition-colors"
+                                  style={{ background: 'var(--surface-card)' }}
+                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
+                                >
+                                  <p className="truncate text-[13px] font-medium mr-3" style={{ color: 'var(--text-heading)' }}>{l.projectName || 'New enquiry'}</p>
+                                  <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
                                     {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
                                   </span>
-                                  <ChevronRight className="h-4 w-4 opacity-40" style={{ color: 'var(--text-secondary)' }} />
-                                </div>
-                              </Link>
-                            ))}
-                          </div>
-                        </>
-                      )}
+                                </Link>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
 
-                    </>
-                  )}
+                  {/* RIGHT: stacked cards */}
+                  <div className="flex flex-col gap-4">
+
+                    {/* Financial Summary card */}
+                    <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Financial Summary</p>
+                        <button onClick={() => setTab('ledger')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                          Ledger →
+                        </button>
+                      </div>
+                      <div className="px-5 divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                        {[
+                          { label: 'Total project value', value: totalContractPaise, color: 'var(--text-heading)', bold: false },
+                          { label: 'Invoiced to date',    value: totalInvoicedPaise, color: 'var(--text-heading)', bold: false },
+                          { label: 'Payments received',   value: totalReceivedPaise, color: '#059669',             bold: false },
+                          { label: 'Outstanding balance', value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
+                        ].map((row, i) => (
+                          <div key={i} className="flex items-center justify-between py-2.5">
+                            <span className={`text-[13px] ${row.bold ? 'font-bold' : ''}`} style={{ color: row.bold ? 'var(--text-heading)' : 'var(--text-secondary)' }}>
+                              {row.label}
+                            </span>
+                            <span className={`text-[13px] tabular-nums ${row.bold ? 'font-bold' : 'font-medium'}`} style={{ color: row.color }}>
+                              {row.value > 0 ? formatRupees(row.value) : '₹0'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {totalInvoicedPaise > 0 && (
+                        <div className="px-5 pb-3.5 pt-2.5">
+                          <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                            <div className="h-full rounded-full" style={{ width: `${collectedPct}%`, background: '#10b981' }} />
+                          </div>
+                          <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{collectedPct}% collected</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Activity + Notes side by side */}
+                    <div className="grid grid-cols-2 gap-4">
+
+                      {/* Activity card */}
+                      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Activity</p>
+                        </div>
+                        <div className="grid grid-cols-2 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
+                          {[
+                            { label: 'Site visits', value: summaryLoading ? '…' : String(summary?.siteVisitCount ?? 0), color: '#f59e0b' },
+                            { label: 'Activities',  value: activitiesLoading ? '…' : String(activities.length),         color: '#f97316' },
+                          ].map((kpi, i) => (
+                            <div key={i} className="flex flex-col items-center justify-center py-4 gap-1">
+                              <span className="text-[26px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
+                              <span className="text-[11px] font-medium" style={{ color: kpi.color }}>{kpi.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Notes card */}
+                      <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                        <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                          <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Notes</p>
+                          {notesDraft !== (customer.notes ?? '') && (
+                            <button onClick={saveNotes} disabled={notesSaving}
+                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
+                              style={{ background: 'var(--accent-base)', color: '#fff' }}>
+                              {notesSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Save className="h-2.5 w-2.5" />}
+                              Save
+                            </button>
+                          )}
+                        </div>
+                        <div className="p-3 flex-1">
+                          <Textarea
+                            rows={4}
+                            placeholder="Add notes…"
+                            value={notesDraft}
+                            onChange={e => { setNotesDraft(e.target.value); setNotesErr(null); }}
+                            onBlur={saveNotes}
+                            className="text-[13px] resize-none w-full h-full min-h-0"
+                          />
+                          {notesErr && <p className="mt-1 text-xs text-red-600">{notesErr}</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
                 </div>
               )}
 
@@ -982,159 +1106,88 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               )}
             </section>
-          </div>
 
-          {/* ══ RIGHT: Secondary sidebar ════════════════════════════════ */}
-          <div className="sticky top-6 self-start flex flex-col gap-4">
+            {/* Files & photos card */}
+            <section className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              {/* Hidden file inputs */}
+              <input ref={imgInputRef} type="file" className="hidden" accept="image/*,.pdf"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+              <input ref={docInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
 
-            {/* Quick contact card */}
-            <section
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-            >
-              <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Contact</p>
-              </div>
-              <div className="p-4 space-y-2">
-                {displayed.phone && (
-                  <a
-                    href={`https://wa.me/${displayed.phone.replace(/\D/g, '')}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-[13px] font-semibold transition-opacity hover:opacity-85"
-                    style={{ background: '#25d366', color: '#fff' }}
-                  >
-                    <MessageCircle className="h-4 w-4" /> WhatsApp
-                  </a>
-                )}
-                <div className="grid grid-cols-2 gap-2">
-                  {displayed.phone && (
-                    <a
-                      href={`tel:${displayed.phone}`}
-                      className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
-                      style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
-                    >
-                      <Phone className="h-3.5 w-3.5" /> Call
-                    </a>
-                  )}
-                  {displayed.email && (
-                    <a
-                      href={`mailto:${displayed.email}`}
-                      className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-[12px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
-                      style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
-                    >
-                      <Mail className="h-3.5 w-3.5" /> Email
-                    </a>
-                  )}
+              <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <div>
+                  <p className="flex items-center gap-2 text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
+                    <Paperclip className="h-4 w-4" style={{ color: 'var(--accent-base)' }} /> Files &amp; photos
+                  </p>
+                  <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                    Reference images, floor plans, signed approvals — anything that belongs with this client.
+                  </p>
+                </div>
+                <div className="flex flex-shrink-0 items-center gap-2 ml-6">
+                  <button onClick={() => docInputRef.current?.click()} disabled={uploading}
+                    className="rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:opacity-50"
+                    style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+                    Document
+                  </button>
+                  <button onClick={() => imgInputRef.current?.click()} disabled={uploading}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50"
+                    style={{ background: 'var(--accent-base)', color: '#fff' }}>
+                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    {uploading ? 'Uploading…' : 'Upload'}
+                  </button>
                 </div>
               </div>
-            </section>
 
-            {/* Financial Summary card */}
-            <section
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-            >
-              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Financial Summary</p>
-                <button onClick={() => setTab('ledger')} className="text-[11px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                  Ledger →
-                </button>
-              </div>
+              {uploadErr && (
+                <div className="px-5 py-2 text-[12px] font-medium text-red-600 bg-red-50" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  {uploadErr}
+                </div>
+              )}
 
-              <div className="divide-y px-4" style={{ borderColor: 'var(--border-subtle)' }}>
-                {[
-                  { label: 'Total project value',  value: totalContractPaise,  color: 'var(--text-heading)', bold: false },
-                  { label: 'Quotations',            value: null, text: String(summary?.quoteCount ?? 0), color: 'var(--text-heading)', bold: false },
-                  { label: 'Invoiced to date',      value: totalInvoicedPaise,  color: 'var(--text-heading)', bold: false },
-                  { label: 'Payments received',     value: totalReceivedPaise,  color: '#059669', bold: false },
-                  { label: 'Outstanding balance',   value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
-                ].map((row, i) => (
-                  <div key={i} className="flex items-center justify-between py-2.5">
-                    <span className={`text-[12px] ${row.bold ? 'font-bold' : ''}`} style={{ color: row.bold ? 'var(--text-heading)' : 'var(--text-secondary)' }}>
-                      {row.label}
-                    </span>
-                    <span className={`text-[13px] tabular-nums ${row.bold ? 'font-bold' : 'font-medium'}`} style={{ color: row.color }}>
-                      {row.text ?? (row.value != null && row.value > 0 ? formatRupees(row.value) : (row.value === 0 && i > 0 ? '₹0' : '—'))}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Progress bar */}
-              {totalInvoicedPaise > 0 && (
-                <div className="px-4 pb-4 pt-2">
-                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                    <div className="h-full rounded-full transition-all" style={{ width: `${collectedPct}%`, background: '#10b981' }} />
-                  </div>
-                  <p className="mt-1 text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                    {collectedPct}% collected of invoiced amount
-                  </p>
+              {filesLoading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+              ) : clientFiles.length === 0 ? (
+                <div className="flex flex-col items-center gap-1 py-9 text-center">
+                  <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No files yet.</p>
+                  <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>JPG, PNG, WEBP or PDF, up to 10MB each.</p>
+                </div>
+              ) : (
+                <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {clientFiles.map(f => {
+                    const ext = f.name.split('.').pop()?.toUpperCase() ?? 'FILE';
+                    const isImg = /^(jpg|jpeg|png|webp)$/i.test(ext);
+                    return (
+                      <div key={f.key} className="flex items-center gap-3 px-5 py-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-bold"
+                          style={{ background: isImg ? 'rgba(99,102,241,0.10)' : 'rgba(245,158,11,0.10)', color: isImg ? '#6366f1' : '#b45309' }}>
+                          {ext.slice(0, 3)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
+                            {f.name.replace(/^\d+_/, '')}
+                          </p>
+                          <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{fmtSize(f.size)}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <a href={f.url} target="_blank" rel="noopener noreferrer"
+                            className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+                            style={{ color: 'var(--accent-base)' }}>
+                            View
+                          </a>
+                          <button onClick={() => handleDeleteFile(f.key)}
+                            className="rounded-md p-1 transition-colors hover:bg-red-50 hover:text-red-600"
+                            style={{ color: 'var(--text-tertiary)' }}>
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
 
-            {/* Quick stats card */}
-            <section
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-            >
-              <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Activity</p>
-              </div>
-              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                {[
-                  { label: 'Site visits', value: summaryLoading ? '…' : String(summary?.siteVisitCount ?? 0), icon: <MapPin className="h-3.5 w-3.5" />, color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' },
-                  { label: 'Activities',  value: activitiesLoading ? '…' : String(activities.length), icon: <Activity className="h-3.5 w-3.5" />, color: '#f97316', bg: 'rgba(249,115,22,0.10)' },
-                ].map((kpi, i) => (
-                  <div key={i} className="flex items-center justify-between px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-6 w-6 items-center justify-center rounded-md" style={{ background: kpi.bg, color: kpi.color }}>
-                        {kpi.icon}
-                      </div>
-                      <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{kpi.label}</span>
-                    </div>
-                    <span className="text-[14px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* Notes card */}
-            <section
-              className="rounded-xl overflow-hidden"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
-            >
-              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Notes</p>
-                {notesDraft !== (customer.notes ?? '') && (
-                  <button
-                    onClick={saveNotes}
-                    disabled={notesSaving}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-50"
-                    style={{ background: 'var(--accent-base)', color: '#fff' }}
-                  >
-                    {notesSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                    Save
-                  </button>
-                )}
-              </div>
-              <div className="p-4">
-                <Textarea
-                  rows={5}
-                  placeholder="Preferences, follow-up notes…"
-                  value={notesDraft}
-                  onChange={(e) => { setNotesDraft(e.target.value); setNotesErr(null); }}
-                  onBlur={saveNotes}
-                  className="text-sm resize-none"
-                />
-                {notesErr && <p className="mt-1.5 text-xs text-red-600">{notesErr}</p>}
-                {notesDraft === (customer.notes ?? '') && notesDraft && (
-                  <p className="mt-1.5 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Auto-saves on blur</p>
-                )}
-              </div>
-            </section>
-
-          </div>
         </div>
       </div>
     </div>

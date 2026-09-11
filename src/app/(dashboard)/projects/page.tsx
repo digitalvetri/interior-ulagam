@@ -174,11 +174,6 @@ function LeadSelector({
 function ProjectCard({ project, onClick }: { project: ProjectRow; onClick: () => void }) {
   const stage = STAGE_STYLE_MAP[project.lifecycleStage];
   const clientName = project.customerFullName ?? project.leadContactName;
-  const hasMoney = !!project.totalContractPaise && project.totalContractPaise > 0;
-  const progress = hasMoney
-    ? Math.min(100, Math.round((project.collectedPaise / project.totalContractPaise!) * 100))
-    : null;
-
   const isComplete = project.lifecycleStage === 'complete';
   const overdueDays = !isComplete && project.expectedEndAt
     ? daysDiff(project.expectedEndAt)
@@ -264,41 +259,6 @@ function ProjectCard({ project, onClick }: { project: ProjectRow; onClick: () =>
           )}
         </div>
 
-        {/* Money + progress + next milestone */}
-        {(hasMoney || project.nextMilestoneLabel) && (
-          <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            {hasMoney && (
-              <>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-semibold tnum" style={{ color: 'var(--text-heading)' }}>
-                    {formatRupees(project.totalContractPaise!)}
-                  </span>
-                  {progress !== null && (
-                    <span className="text-[11px] tnum" style={{ color: 'var(--text-secondary)' }}>
-                      {progress}% collected
-                    </span>
-                  )}
-                </div>
-                {progress !== null && (
-                  <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${progress}%`,
-                        background: progress === 100 ? 'var(--success)' : 'var(--accent-base)',
-                      }}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-            {project.nextMilestoneLabel && (
-              <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
-                → {project.nextMilestoneLabel}
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </button>
   );

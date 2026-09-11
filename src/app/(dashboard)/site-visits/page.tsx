@@ -335,47 +335,31 @@ export default function SiteVisitsPage() {
 
       {/* Tab bar */}
       <div className="flex items-center gap-2">
-        {([
-          { key: 'visits',        label: 'Site Visits'  },
-          { key: 'measurements',  label: 'Measurements' },
-        ] as { key: Tab; label: string }[]).map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setActiveTab(key)}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
-            style={activeTab === key ? {
-              background: 'var(--accent-base)',
-              color: '#fff',
-            } : {
-              background: 'var(--surface-muted)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            {label}
-            {key === 'visits' && visits.length > 0 && (
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                style={activeTab === 'visits'
-                  ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
-                  : { background: 'var(--accent-base)', color: '#fff' }}
-              >
-                {visits.length}
-              </span>
-            )}
-            {key === 'measurements' && mLoaded && measurements.length > 0 && (
-              <span
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                style={activeTab === 'measurements'
-                  ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
-                  : { background: 'var(--accent-base)', color: '#fff' }}
-              >
-                {measurements.length}
-              </span>
-            )}
-          </button>
-        ))}
+        <button
+          type="button"
+          onClick={() => setActiveTab('visits')}
+          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all"
+          style={activeTab === 'visits' ? {
+            background: 'var(--accent-base)',
+            color: '#fff',
+          } : {
+            background: 'var(--surface-muted)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          Site Visits
+          {visits.length > 0 && (
+            <span
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+              style={activeTab === 'visits'
+                ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
+                : { background: 'var(--accent-base)', color: '#fff' }}
+            >
+              {visits.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* ── SITE VISITS TAB ──────────────────────────────────────────── */}
@@ -511,8 +495,8 @@ export default function SiteVisitsPage() {
         </>
       )}
 
-      {/* ── MEASUREMENTS TAB ────────────────────────────────────────── */}
-      {activeTab === 'measurements' && (
+      {/* ── MEASUREMENTS TAB (removed) ── */}
+      {false && (
         <>
           {/* Search + summary */}
           <div className="flex flex-wrap items-center justify-between gap-3">

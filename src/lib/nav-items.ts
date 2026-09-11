@@ -70,7 +70,6 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ALL_ROLES,
     items: [
       { href: '/projects',    label: 'Projects',    icon: FolderKanban, roles: FIELD_ROLES },
-      { href: '/quotes',      label: 'Quotations',  icon: FileText,     roles: ALL_ROLES },
       { href: '/site-visits', label: 'Site Visits', icon: Ruler,        roles: FIELD_ROLES },
     ],
   },

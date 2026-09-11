@@ -3,6 +3,8 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectsCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -119,6 +121,40 @@ export function getPublicUrl(bucket: string, key: string): string {
     );
   }
   return `${base}/${bucket}/${key}`;
+}
+
+export interface S3ObjectMeta {
+  key: string;
+  size: number;
+  lastModified: Date;
+}
+
+/** List all objects under a given prefix. */
+export async function listObjects(prefix: string, bucket?: string): Promise<S3ObjectMeta[]> {
+  const results: S3ObjectMeta[] = [];
+  let continuationToken: string | undefined;
+  do {
+    const res = await client().send(new ListObjectsV2Command({
+      Bucket: bucket ?? DOCUMENTS_BUCKET,
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+    }));
+    for (const obj of res.Contents ?? []) {
+      if (obj.Key && obj.Size != null && obj.LastModified) {
+        results.push({ key: obj.Key, size: obj.Size, lastModified: obj.LastModified });
+      }
+    }
+    continuationToken = res.NextContinuationToken;
+  } while (continuationToken);
+  return results;
+}
+
+/** Delete a single object. */
+export async function deleteObject(key: string, bucket?: string): Promise<void> {
+  await client().send(new DeleteObjectCommand({
+    Bucket: bucket ?? DOCUMENTS_BUCKET,
+    Key: key,
+  }));
 }
 
 /** Best-effort bulk delete — callers treat storage failures as non-fatal. */
