@@ -847,30 +847,6 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 {stage.label}
               </span>
             )}
-            <div className="mt-3 space-y-1.5">
-              {LIFECYCLE_STAGE_ORDER.map((s, idx) => {
-                const currentIdx = LIFECYCLE_STAGE_ORDER.indexOf(project.lifecycleStage);
-                const isPast     = idx < currentIdx;
-                const isCurrent  = idx === currentIdx;
-                return (
-                  <div key={s} className="flex items-center gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{
-                      background: isCurrent
-                        ? 'var(--accent-base)'
-                        : isPast ? 'var(--success)' : 'var(--border-subtle)',
-                    }} />
-                    <span className="text-xs" style={{
-                      color: isCurrent
-                        ? 'var(--text-heading)'
-                        : isPast ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                      fontWeight: isCurrent ? 600 : 400,
-                    }}>
-                      {LIFECYCLE_STAGE_LABELS[s]}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
             <button type="button" onClick={() => setEditOpen(true)}
               className="mt-4 w-full text-xs font-medium py-2 rounded-xl transition-colors hover:opacity-80"
               style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
