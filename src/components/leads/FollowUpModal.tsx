@@ -2,17 +2,19 @@
 
 import { useState } from 'react';
 import { X, Check, BellRing, ChevronDown, Loader2 } from 'lucide-react';
-import { Lead, LeadStage } from '@/types/leads';
+import { Lead, LeadStage, STAGE_LABELS } from '@/types/leads';
 
-const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
-  { value: 'new',                  label: 'New Inquiry' },
-  { value: 'site_visit_scheduled', label: 'Site Visit' },
-  { value: 'consultation_done',    label: 'Consultation' },
-  { value: 'proposal_sent',        label: 'Proposal Sent' },
-  { value: 'negotiation',          label: 'Negotiation' },
-  { value: 'won',                  label: 'Won' },
-  { value: 'lost',                 label: 'Lost' },
+// Active (non-terminal, non-legacy) stages only.
+// Stage selection here records context on the follow-up record — it must
+// never include won/lost since follow-up creation is not a stage transition.
+const ACTIVE_STAGE_KEYS: LeadStage[] = [
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'measured', 'quotation', 'negotiation', 'booked',
 ];
+
+const STAGE_OPTIONS: { value: LeadStage; label: string }[] = ACTIVE_STAGE_KEYS.map(
+  (s) => ({ value: s, label: STAGE_LABELS[s] }),
+);
 
 const CLIENT_STATUS_OPTIONS = [
   { value: 'interested',        label: 'Interested' },
@@ -40,10 +42,16 @@ interface FollowUpModalProps {
   onSaved?: () => void;
 }
 
+const ACTIVE_STAGE_SET = new Set<LeadStage>(ACTIVE_STAGE_KEYS);
+
 export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
   const [followUpDate, setFollowUpDate] = useState(todayDateString());
   const [followUpTime, setFollowUpTime] = useState('10:00');
-  const [stage, setStage] = useState<LeadStage>(lead.stage);
+  // Normalize: if lead is in a terminal or legacy stage, default to 'new' so
+  // the select always shows a valid active option.
+  const [stage, setStage] = useState<LeadStage>(
+    ACTIVE_STAGE_SET.has(lead.stage) ? lead.stage : 'new',
+  );
   const [clientStatus, setClientStatus] = useState('interested');
   const [addToCalendar, setAddToCalendar] = useState(true);
   const [comments, setComments] = useState('');

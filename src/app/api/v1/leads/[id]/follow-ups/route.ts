@@ -112,7 +112,6 @@ export async function POST(
       await tx
         .update(leads)
         .set({
-          stage,
           lastActivityAt: new Date(),
           ...(addToCalendar ? { followUpDate: followUpDateObj } : {}),
         })
