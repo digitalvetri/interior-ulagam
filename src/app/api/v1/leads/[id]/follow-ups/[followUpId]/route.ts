@@ -46,6 +46,18 @@ export async function PATCH(
       });
     } else {
       const newDate = new Date(parsed.data.followUpDate);
+      // Reject past-date reschedules using midnight IST — same convention as
+      // /api/v1/dashboard/follow-ups (IST_OFFSET_MS = 5.5 * 60 * 60 * 1000).
+      const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+      const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+      const todayStartIST = new Date(nowIST); todayStartIST.setHours(0, 0, 0, 0);
+      const todayStartUTC = new Date(todayStartIST.getTime() - IST_OFFSET_MS);
+      if (newDate < todayStartUTC) {
+        return NextResponse.json(
+          { error: 'Reschedule date cannot be in the past' },
+          { status: 422 },
+        );
+      }
       await db.transaction(async (tx) => {
         await tx
           .update(leadFollowUps)

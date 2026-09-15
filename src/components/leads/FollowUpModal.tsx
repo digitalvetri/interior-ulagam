@@ -153,6 +153,7 @@ export function FollowUpModal({ lead, onClose, onSaved }: FollowUpModalProps) {
               <input
                 type="date"
                 className="studio-input w-full"
+                min={todayDateString()}
                 value={followUpDate}
                 onChange={e => setFollowUpDate(e.target.value)}
               />

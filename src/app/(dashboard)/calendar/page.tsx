@@ -356,6 +356,7 @@ export default function CalendarPage() {
                     DATE
                   </label>
                   <input type="date" value={fuDate} onChange={e => setFUDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
                     className="studio-input w-full h-10 text-sm px-3" />
                 </div>
                 <div>
