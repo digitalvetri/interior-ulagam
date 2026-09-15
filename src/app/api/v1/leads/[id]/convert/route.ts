@@ -90,6 +90,7 @@ export async function POST(
           email:    lead.contactEmail ?? undefined,
           city:     lead.contactCity  ?? undefined,
           source:   'other',
+          stage:    'client',
           leadId:   lead.id,
         })
         .returning({ id: customers.id });
@@ -102,16 +103,14 @@ export async function POST(
       .where(eq(leads.id, leadId));
   }
 
-  // 4. Update customer with any missing fields provided in request
-  const customerPatch: Record<string, string> = {};
+  // 4. Advance customer to 'client' stage + apply any missing fields from request
+  const customerPatch: Record<string, string> = { stage: 'client' };
   if (pincode)     customerPatch.address = pincode;
   if (siteAddress) customerPatch.address = siteAddress;
   if (siteCity)    customerPatch.city    = siteCity;
-  if (Object.keys(customerPatch).length > 0) {
-    await db.update(customers)
-      .set(customerPatch)
-      .where(eq(customers.id, customerId));
-  }
+  await db.update(customers)
+    .set(customerPatch)
+    .where(eq(customers.id, customerId));
 
   // 5. Create the project
   const [project] = await db
