@@ -5,7 +5,7 @@ import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 type LeadStage =
-  | 'new' | 'contacted' | 'qualified' | 'site_visit' | 'measurement'
+  | 'new' | 'contacted' | 'qualified' | 'site_visit' | 'measurement' | 'measured' | 'booked'
   | 'quotation' | 'negotiation' | 'won' | 'lost'
   // legacy
   | 'site_visit_scheduled' | 'consultation_done' | 'proposal_sent';
@@ -16,6 +16,8 @@ interface LeadStatsResponse {
   qualified: number;
   site_visit: number;
   measurement: number;
+  measured: number;
+  booked: number;
   quotation: number;
   negotiation: number;
   won: number;
@@ -29,6 +31,8 @@ const ZERO_STATS: LeadStatsResponse = {
   qualified: 0,
   site_visit: 0,
   measurement: 0,
+  measured: 0,
+  booked: 0,
   quotation: 0,
   negotiation: 0,
   won: 0,

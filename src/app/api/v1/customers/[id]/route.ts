@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq, desc, notInArray } from 'drizzle-orm';
+import { and, eq, desc, notInArray, ne, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { customers, customerActivities, leads } from '@/lib/db/schema';
+import { customers, customerActivities, leads, waMessages } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const CustomerSourceEnum = z.enum([
@@ -115,11 +115,61 @@ export async function PATCH(
     const existing = await fetchOne(id, ctx.tenantId);
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-    const [row] = await db
-      .update(customers)
-      .set(patch)
-      .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
-      .returning();
+    const newPhone = typeof patch.phone === 'string' ? patch.phone : undefined;
+    if (newPhone !== undefined && newPhone !== existing.phone) {
+      const [conflict] = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(
+          eq(customers.tenantId, ctx.tenantId),
+          eq(customers.phone, newPhone),
+          ne(customers.id, id),
+        ))
+        .limit(1);
+
+      if (conflict) {
+        return NextResponse.json(
+          { error: 'Phone number is already assigned to a different customer record' },
+          { status: 422 },
+        );
+      }
+    }
+
+    // B-14b: when the customer's phone changes, collect the IDs of all leads
+    // linked to this customer so we can migrate wa_messages.thread_id atomically.
+    const oldPhone = existing.phone;
+    const phoneIsChanging = newPhone !== undefined && newPhone !== oldPhone;
+    let linkedLeadIds: string[] = [];
+    if (phoneIsChanging) {
+      const linked = await db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(and(eq(leads.customerId, id), eq(leads.tenantId, ctx.tenantId)));
+      linkedLeadIds = linked.map(l => l.id);
+    }
+
+    const [row] = await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(customers)
+        .set(patch)
+        .where(and(eq(customers.id, id), eq(customers.tenantId, ctx.tenantId)))
+        .returning();
+
+      // Migrate thread_id on messages scoped to this customer's leads only —
+      // mirrors the lead-PATCH fix (B-14) but fans out across all linked leads.
+      if (phoneIsChanging && linkedLeadIds.length > 0) {
+        await tx
+          .update(waMessages)
+          .set({ threadId: newPhone! })
+          .where(and(
+            eq(waMessages.tenantId, ctx.tenantId),
+            eq(waMessages.threadId, oldPhone),
+            inArray(waMessages.leadId, linkedLeadIds),
+          ));
+      }
+
+      return rows;
+    });
 
     // Auto-log stage changes on the activity timeline
     if (patch.stage && patch.stage !== existing.stage) {

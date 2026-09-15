@@ -38,7 +38,7 @@ export async function PATCH(
           ));
         await tx
           .update(leads)
-          .set({ followUpDate: null })
+          .set({ followUpDate: null, lastActivityAt: now })
           .where(and(
             eq(leads.id, leadId),
             eq(leads.tenantId, ctx.tenantId),
@@ -56,7 +56,7 @@ export async function PATCH(
           ));
         await tx
           .update(leads)
-          .set({ followUpDate: newDate })
+          .set({ followUpDate: newDate, lastActivityAt: now })
           .where(and(
             eq(leads.id, leadId),
             eq(leads.tenantId, ctx.tenantId),

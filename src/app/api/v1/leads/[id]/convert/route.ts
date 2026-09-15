@@ -68,33 +68,36 @@ export async function POST(
   let customerId = lead.customerId;
 
   if (!customerId) {
-    // Create or find by phone
-    const [existing] = await db
-      .select({ id: customers.id })
-      .from(customers)
-      .where(and(
-        eq(customers.phone, lead.contactPhone),
-        eq(customers.tenantId, ctx.tenantId),
-      ))
-      .limit(1);
+    // Atomic insert — if a customer with this (tenant_id, phone) already exists
+    // (race condition or re-submit), onConflictDoNothing skips the insert and
+    // returns nothing; we then re-read to get the winner's id.
+    const [inserted] = await db
+      .insert(customers)
+      .values({
+        tenantId: ctx.tenantId,
+        fullName: lead.contactName,
+        phone:    lead.contactPhone,
+        email:    lead.contactEmail ?? undefined,
+        city:     lead.contactCity  ?? undefined,
+        source:   'other',
+        stage:    'client',
+        leadId:   lead.id,
+      })
+      .onConflictDoNothing({ target: [customers.tenantId, customers.phone] })
+      .returning({ id: customers.id });
 
-    if (existing) {
-      customerId = existing.id;
+    if (inserted) {
+      customerId = inserted.id;
     } else {
-      const [newCustomer] = await db
-        .insert(customers)
-        .values({
-          tenantId: ctx.tenantId,
-          fullName: lead.contactName,
-          phone:    lead.contactPhone,
-          email:    lead.contactEmail ?? undefined,
-          city:     lead.contactCity  ?? undefined,
-          source:   'other',
-          stage:    'client',
-          leadId:   lead.id,
-        })
-        .returning({ id: customers.id });
-      customerId = newCustomer.id;
+      const [existing] = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(
+          eq(customers.tenantId, ctx.tenantId),
+          eq(customers.phone, lead.contactPhone),
+        ))
+        .limit(1);
+      customerId = existing.id;
     }
 
     // Link the customer to the lead
@@ -105,7 +108,6 @@ export async function POST(
 
   // 4. Advance customer to 'client' stage + apply any missing fields from request
   const customerPatch: Record<string, string> = { stage: 'client' };
-  if (pincode)     customerPatch.address = pincode;
   if (siteAddress) customerPatch.address = siteAddress;
   if (siteCity)    customerPatch.city    = siteCity;
   await db.update(customers)

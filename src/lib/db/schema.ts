@@ -12,6 +12,7 @@ import {
   date,
   decimal,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
@@ -669,6 +670,7 @@ export const customers = pgTable('customers', {
   healthUpdatedAt: timestamp('health_updated_at', { withTimezone: true }),
   ...timestamps,
 }, (t) => [
+  uniqueIndex('customers_tenant_phone_unique').on(t.tenantId, t.phone),
   index('customers_tenant_stage_idx').on(t.tenantId, t.stage),
   index('customers_tenant_owner_idx').on(t.tenantId, t.ownerId),
 ]);

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { leads, waMessages, projects, users } from '@/lib/db/schema';
+import { leads, waMessages, projects, users, customers } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
 import { applyStageTransition } from '@/lib/leads/transitions';
@@ -13,7 +13,7 @@ const LeadSourceEnum = z.enum(['instagram', 'whatsapp', 'referral', 'website', '
 
 // Won/lost are terminal — must use PATCH /api/v1/leads/[id]/stage for those.
 const MidPipelineStageEnum = z.enum([
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'quotation', 'negotiation',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'measured', 'booked', 'quotation', 'negotiation',
   // legacy values accepted for backward compat
   'site_visit_scheduled', 'consultation_done', 'proposal_sent',
 ]);
@@ -148,6 +148,47 @@ export async function PATCH(
 
   const d = parsed.data;
 
+  // ─── Phone-change pre-flight ──────────────────────────────────────────────
+  // When contactPhone is changing: record the old value so the transaction can
+  // migrate wa_messages.thread_id (scoped to this lead), and verify the new
+  // phone isn't already owned by a different customer (B-13 constraint).
+  let oldPhone: string | null = null;
+  let linkedCustomerId: string | null = null;
+
+  if (d.contactPhone !== undefined) {
+    const [current] = await db
+      .select({ contactPhone: leads.contactPhone, customerId: leads.customerId })
+      .from(leads)
+      .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))
+      .limit(1);
+
+    if (!current) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+
+    if (d.contactPhone !== current.contactPhone) {
+      oldPhone = current.contactPhone;
+      linkedCustomerId = current.customerId ?? null;
+
+      if (linkedCustomerId !== null) {
+        const [conflict] = await db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(and(
+            eq(customers.tenantId, ctx.tenantId),
+            eq(customers.phone, d.contactPhone),
+            ne(customers.id, linkedCustomerId),
+          ))
+          .limit(1);
+
+        if (conflict) {
+          return NextResponse.json(
+            { error: 'Phone number is already assigned to a different customer record' },
+            { status: 422 },
+          );
+        }
+      }
+    }
+  }
+
   // Stage transitions run through the shared helper (customer sync, activity log, etc.)
   // This must happen before the general field update so lastActivityAt is consistent.
   if (d.stage !== undefined) {
@@ -192,39 +233,66 @@ export async function PATCH(
   updates.lastActivityAt = new Date();
 
   try {
-    const [updated] = await db
-      .update(leads)
-      .set(updates)
-      .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))
-      .returning({
-        id: leads.id,
-        tenantId: leads.tenantId,
-        customerId: leads.customerId,
-        source: leads.source,
-        stage: leads.stage,
-        priority: leads.priority,
-        ownerId: leads.ownerId,
-        contactName: leads.contactName,
-        contactPhone: leads.contactPhone,
-        alternatePhone: leads.alternatePhone,
-        contactEmail: leads.contactEmail,
-        contactCity: leads.contactCity,
-        pincode: leads.pincode,
-        propertyType: leads.propertyType,
-        projectName: leads.projectName,
-        projectLocation: leads.projectLocation,
-        budgetBand: leads.budgetBand,
-        projectValuePaise: leads.projectValuePaise,
-        designerName: leads.designerName,
-        followUpDate: leads.followUpDate,
-        lostReason: leads.lostReason,
-        notes: leads.notes,
-        score: leads.score,
-        scoreBreakdown: leads.scoreBreakdown,
-        firstTouchAt: leads.firstTouchAt,
-        lastActivityAt: leads.lastActivityAt,
-        createdAt: leads.createdAt,
-      });
+    const [updated] = await db.transaction(async (tx) => {
+      const rows = await tx
+        .update(leads)
+        .set(updates)
+        .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))
+        .returning({
+          id: leads.id,
+          tenantId: leads.tenantId,
+          customerId: leads.customerId,
+          source: leads.source,
+          stage: leads.stage,
+          priority: leads.priority,
+          ownerId: leads.ownerId,
+          contactName: leads.contactName,
+          contactPhone: leads.contactPhone,
+          alternatePhone: leads.alternatePhone,
+          contactEmail: leads.contactEmail,
+          contactCity: leads.contactCity,
+          pincode: leads.pincode,
+          propertyType: leads.propertyType,
+          projectName: leads.projectName,
+          projectLocation: leads.projectLocation,
+          budgetBand: leads.budgetBand,
+          projectValuePaise: leads.projectValuePaise,
+          designerName: leads.designerName,
+          followUpDate: leads.followUpDate,
+          lostReason: leads.lostReason,
+          notes: leads.notes,
+          score: leads.score,
+          scoreBreakdown: leads.scoreBreakdown,
+          firstTouchAt: leads.firstTouchAt,
+          lastActivityAt: leads.lastActivityAt,
+          createdAt: leads.createdAt,
+        });
+
+      if (oldPhone !== null) {
+        // Migrate only this lead's messages — avoids touching other leads that
+        // may share the same old phone (e.g. duplicate lead records).
+        await tx
+          .update(waMessages)
+          .set({ threadId: d.contactPhone! })
+          .where(and(
+            eq(waMessages.tenantId, ctx.tenantId),
+            eq(waMessages.leadId, id),
+            eq(waMessages.threadId, oldPhone),
+          ));
+
+        if (linkedCustomerId !== null) {
+          await tx
+            .update(customers)
+            .set({ phone: d.contactPhone! })
+            .where(and(
+              eq(customers.id, linkedCustomerId),
+              eq(customers.tenantId, ctx.tenantId),
+            ));
+        }
+      }
+
+      return rows;
+    });
 
     if (!updated) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
 

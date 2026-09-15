@@ -68,24 +68,10 @@ export async function upsertCustomerFromLead(
 ): Promise<{ customerId: string; isNew: boolean }> {
   const targetStage = mapLeadStageToCustomerStage(lead.stage);
 
-  const [existing] = await db
-    .select({ id: customers.id, stage: customers.stage })
-    .from(customers)
-    .where(and(eq(customers.tenantId, tenantId), eq(customers.phone, lead.contactPhone)))
-    .limit(1);
-
-  if (existing) {
-    // Only upgrade — never downgrade an existing customer's stage
-    if (STAGE_RANK[targetStage] > STAGE_RANK[existing.stage]) {
-      await db
-        .update(customers)
-        .set({ stage: targetStage })
-        .where(and(eq(customers.id, existing.id), eq(customers.tenantId, tenantId)));
-    }
-    return { customerId: existing.id, isNew: false };
-  }
-
-  const [row] = await db
+  // Atomic insert — if a customer with this (tenant_id, phone) already exists
+  // (race condition or re-run), onConflictDoNothing skips the insert; we then
+  // re-read to get the winner's id and apply the no-downgrade stage rule.
+  const [inserted] = await db
     .insert(customers)
     .values({
       tenantId,
@@ -98,9 +84,28 @@ export async function upsertCustomerFromLead(
       city:      lead.contactCity ?? lead.projectLocation ?? null,
       leadId:    lead.id,
     })
+    .onConflictDoNothing({ target: [customers.tenantId, customers.phone] })
     .returning({ id: customers.id });
 
-  return { customerId: row.id, isNew: true };
+  if (inserted) {
+    return { customerId: inserted.id, isNew: true };
+  }
+
+  // Conflict — fetch the existing record and apply no-downgrade stage rule.
+  const [existing] = await db
+    .select({ id: customers.id, stage: customers.stage })
+    .from(customers)
+    .where(and(eq(customers.tenantId, tenantId), eq(customers.phone, lead.contactPhone)))
+    .limit(1);
+
+  if (STAGE_RANK[targetStage] > STAGE_RANK[existing.stage]) {
+    await db
+      .update(customers)
+      .set({ stage: targetStage })
+      .where(and(eq(customers.id, existing.id), eq(customers.tenantId, tenantId)));
+  }
+
+  return { customerId: existing.id, isNew: false };
 }
 
 // ─── Stage propagation ────────────────────────────────────────────────────────

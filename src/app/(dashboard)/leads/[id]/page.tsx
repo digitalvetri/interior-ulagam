@@ -566,9 +566,10 @@ export default function LeadDetailPage() {
   const [followUpError, setFUError]     = useState<string | null>(null);
   const [savingFU, setSavingFU]         = useState(false);
   const [fuSuccess, setFUSuccess]       = useState(false);
-  const [markingDoneId, setMarkingDoneId]       = useState<string | null>(null);
-  const [reschedulingFuId, setReschedulingFuId] = useState<string | null>(null);
-  const [rescheduleInput, setRescheduleInput]   = useState('');
+  const [markingDoneId, setMarkingDoneId]           = useState<string | null>(null);
+  const [reschedulingFuId, setReschedulingFuId]     = useState<string | null>(null);
+  const [rescheduleInput, setRescheduleInput]       = useState('');
+  const [followUpActionError, setFollowUpActionError] = useState<string | null>(null);
   const [quotedAmountInput, setQuotedAmountInput] = useState('');
   const [savingQuotedAmount, setSavingQuotedAmount] = useState(false);
   const [quotedAmountSaved, setQuotedAmountSaved] = useState(false);
@@ -742,15 +743,23 @@ export default function LeadDetailPage() {
 
   async function markFollowUpDone(fu: LeadFollowUp) {
     setMarkingDoneId(fu.id);
+    setFollowUpActionError(null);
     try {
       const res = await fetch(`/api/v1/leads/${id}/follow-ups/${fu.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'mark_done' }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({})) as { error?: string };
+        setFollowUpActionError(j.error ?? 'Failed to mark follow-up done');
+        return;
+      }
       const now = new Date().toISOString();
       setFollowUps(prev => prev.map(f => f.id === fu.id ? { ...f, completedAt: now } : f));
+      setLead(prev => prev ? { ...prev, followUpDate: null, lastActivityAt: now } : prev);
+    } catch (e) {
+      setFollowUpActionError(e instanceof Error ? e.message : 'Failed to mark follow-up done');
     } finally {
       setMarkingDoneId(null);
     }
@@ -759,19 +768,28 @@ export default function LeadDetailPage() {
   async function rescheduleFollowUp(fu: LeadFollowUp) {
     if (!rescheduleInput) return;
     const followUpDate = new Date(rescheduleInput + 'T00:00:00').toISOString();
+    setFollowUpActionError(null);
     try {
       const res = await fetch(`/api/v1/leads/${id}/follow-ups/${fu.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reschedule', followUpDate }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({})) as { error?: string };
+        setFollowUpActionError(j.error ?? 'Failed to reschedule follow-up');
+        return;
+      }
       setFollowUps(prev => prev.map(f =>
         f.id === fu.id ? { ...f, followUpDate: rescheduleInput, completedAt: null } : f
       ));
       setReschedulingFuId(null);
       setRescheduleInput('');
-    } catch { /* silent */ }
+      const now = new Date().toISOString();
+      setLead(prev => prev ? { ...prev, followUpDate, lastActivityAt: now } : prev);
+    } catch (e) {
+      setFollowUpActionError(e instanceof Error ? e.message : 'Failed to reschedule follow-up');
+    }
   }
 
   async function handleDelete() {
@@ -1224,6 +1242,9 @@ export default function LeadDetailPage() {
                   <p className="text-sm font-semibold px-1" style={{ color: 'var(--text-heading)' }}>
                     Follow-up History {followUps.length > 0 && <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>({followUps.length})</span>}
                   </p>
+                  {followUpActionError && (
+                    <p className="text-xs text-red-600 px-1">{followUpActionError}</p>
+                  )}
                   {followUps.length === 0 && (
                     <div className="rounded-xl px-4 py-4 text-center" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No follow-ups scheduled yet</p>
