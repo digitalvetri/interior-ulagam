@@ -396,7 +396,7 @@ export function NewLeadDialog({
 
   return (
     <Dialog open={effectiveOpen} onOpenChange={handleOpenChange}>
-      {!defaultOpen && (
+      {!defaultOpen && !isEditMode && (
         <DialogTrigger asChild>
           {triggerClassName ? (
             <button type="button" className={triggerClassName} suppressHydrationWarning>
