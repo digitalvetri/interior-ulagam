@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { and, eq, isNull, isNotNull, lt, gte } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { leadFollowUps } from '@/lib/db/schema';
+import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 // GET /api/v1/dashboard/follow-ups
-// Returns counts of open follow-ups by urgency for the dashboard widget.
+// Returns counts of leads with an active follow-up date, bucketed by urgency.
+// Uses leads.followUpDate as the source of truth — matches what the leads page chip shows.
 export async function GET() {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -21,20 +22,20 @@ export async function GET() {
     const tomorrowStartUTC = new Date(todayStartUTC.getTime() + 86_400_000);
     const nextWeekUTC = new Date(todayStartUTC.getTime() + 7 * 86_400_000);
 
-    const openBase = and(
-      eq(leadFollowUps.tenantId, ctx.tenantId),
-      isNull(leadFollowUps.completedAt),
-      isNotNull(leadFollowUps.followUpDate),
+    const baseFilter = and(
+      eq(leads.tenantId, ctx.tenantId),
+      isNotNull(leads.followUpDate),
+      isNull(leads.archivedAt),
     );
 
     const [all, overdueRows, todayRows, upcomingRows] = await Promise.all([
-      db.select({ id: leadFollowUps.id }).from(leadFollowUps).where(openBase),
-      db.select({ id: leadFollowUps.id }).from(leadFollowUps)
-        .where(and(openBase, lt(leadFollowUps.followUpDate, todayStartUTC))),
-      db.select({ id: leadFollowUps.id }).from(leadFollowUps)
-        .where(and(openBase, gte(leadFollowUps.followUpDate, todayStartUTC), lt(leadFollowUps.followUpDate, tomorrowStartUTC))),
-      db.select({ id: leadFollowUps.id }).from(leadFollowUps)
-        .where(and(openBase, gte(leadFollowUps.followUpDate, tomorrowStartUTC), lt(leadFollowUps.followUpDate, nextWeekUTC))),
+      db.select({ id: leads.id }).from(leads).where(baseFilter),
+      db.select({ id: leads.id }).from(leads)
+        .where(and(baseFilter, lt(leads.followUpDate, todayStartUTC))),
+      db.select({ id: leads.id }).from(leads)
+        .where(and(baseFilter, gte(leads.followUpDate, todayStartUTC), lt(leads.followUpDate, tomorrowStartUTC))),
+      db.select({ id: leads.id }).from(leads)
+        .where(and(baseFilter, gte(leads.followUpDate, tomorrowStartUTC), lt(leads.followUpDate, nextWeekUTC))),
     ]);
 
     return NextResponse.json({

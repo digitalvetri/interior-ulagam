@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Users, FolderKanban, IndianRupee,
@@ -37,7 +37,7 @@ interface Task {
   relatedType: string | null;
 }
 interface PendingVendorDelivery {
-  poNumber: string; vendorName: string | null; expectedDeliveryAt: string | null;
+  poNumber: string; vendorName: string | null; vendorContactName: string | null; expectedDeliveryAt: string | null;
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
@@ -379,11 +379,12 @@ export default function DashboardPage() {
   const [myProjects,   setMyProjects]   = useState<Project[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [followUps, setFollowUps] = useState<FollowUpCounts | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
+  const load = useCallback(async () => {
+    setLoadError(false);
+    try {
         const [me, sv, ts] = await Promise.all([
           fetch('/api/v1/me').then(r => r.json()),
           fetch('/api/v1/site-visits').then(r => r.json()),
@@ -416,7 +417,7 @@ export default function DashboardPage() {
             fetch('/api/v1/accounts/receivables').then(r => r.json()),
             fetch('/api/v1/quotes?status=sent').then(r => r.json()),
             fetch('/api/v1/analytics/overview').then(r => r.json()),
-            fetch('/api/v1/purchase-orders?status=sent&limit=20').then(r => r.json()),
+            fetch('/api/v1/purchase-orders?limit=20').then(r => r.json()),
           ]);
           if (ls?.data?.counts) setLeadStats(ls.data.counts);
           if (ls?.data?.budgets) setLeadBudgets(ls.data.budgets);
@@ -436,9 +437,10 @@ export default function DashboardPage() {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const soon = new Date(today.getTime() + 7 * 86400_000);
+            const PO_EXCLUDE = new Set(['draft', 'complete', 'cancelled']);
             setUpcomingPOs(pos.data
-              .filter((po: { expectedDeliveryAt: string | null }) =>
-                po.expectedDeliveryAt && new Date(po.expectedDeliveryAt) <= soon)
+              .filter((po: { expectedDeliveryAt: string | null; status: string }) =>
+                !PO_EXCLUDE.has(po.status) && po.expectedDeliveryAt && new Date(po.expectedDeliveryAt) <= soon)
               .slice(0, 5));
           }
         } else {
@@ -448,10 +450,10 @@ export default function DashboardPage() {
             setMyProjects(ps.data.filter((p: Project) => p.lifecycleStage !== 'complete').slice(0, 5));
           }
         }
-      } catch { /* silent */ } finally { setLoading(false); }
-    }
-    load();
+    } catch { setLoadError(true); } finally { setLoading(false); }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   /* ── Derived ──────────────────────────────────────────────────────── */
   function funnelCount(key: string): number {
@@ -497,6 +499,17 @@ export default function DashboardPage() {
     return (
       <div className="space-y-5 animate-fade-in p-4 lg:p-8">
 
+        {loadError && (
+          <div className="flex items-center justify-between rounded-xl px-4 py-3"
+            style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--danger)' }}>Failed to load dashboard data.</span>
+            <button type="button" onClick={load}
+              className="text-xs font-bold hover:underline ml-4" style={{ color: 'var(--danger)' }}>
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Page heading */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
@@ -530,12 +543,12 @@ export default function DashboardPage() {
             <div className="h-7 w-72 rounded-lg mb-4" style={{ background: 'rgba(255,255,255,0.08)' }} />
           ) : (
             <h2 className="text-2xl font-bold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
-              {activeLeads > 0
-                ? `${activeLeads} active lead${activeLeads !== 1 ? 's' : ''} in your pipeline.`
+              {overdueCount > 0
+                ? `${overdueCount} overdue payment${overdueCount !== 1 ? 's' : ''} to follow up.`
                 : pendingQs > 0
                   ? `${pendingQs} quotation${pendingQs !== 1 ? 's' : ''} awaiting acceptance.`
-                  : overdueCount > 0
-                    ? `${overdueCount} overdue payment${overdueCount !== 1 ? 's' : ''} to follow up.`
+                  : activeLeads > 0
+                    ? `${activeLeads} active lead${activeLeads !== 1 ? 's' : ''} in your pipeline.`
                     : 'All caught up. Great work!'}
             </h2>
           )}
@@ -859,7 +872,7 @@ export default function DashboardPage() {
                     <Truck className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--accent-base)' }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                        {po.vendorName ?? 'Unknown vendor'}
+                        {po.vendorName ?? po.vendorContactName ?? 'Unknown vendor'}
                       </p>
                       <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{po.poNumber}</p>
                     </div>
@@ -885,6 +898,17 @@ export default function DashboardPage() {
      ══════════════════════════════════════════════════════════════════════ */
   return (
     <div className="space-y-5 animate-fade-in p-4 lg:p-8">
+
+      {loadError && (
+        <div className="flex items-center justify-between rounded-xl px-4 py-3"
+          style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger)' }}>
+          <span className="text-sm font-medium" style={{ color: 'var(--danger)' }}>Failed to load dashboard data.</span>
+          <button type="button" onClick={load}
+            className="text-xs font-bold hover:underline ml-4" style={{ color: 'var(--danger)' }}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Page heading */}
       <div>

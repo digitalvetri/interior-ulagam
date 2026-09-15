@@ -395,9 +395,16 @@ export default function LeadsPage() {
   const [search, setSearch]         = useState('');
   const deferredSearch              = useDeferredValue(search);
   const [activeChip, setActiveChip] = useState<FilterKey>(() => {
+    const fu = searchParams.get('followup');
+    if (fu === 'overdue' || fu === 'today' || fu === 'upcoming') return 'follow_up';
     const s = searchParams.get('stage');
     if (!s || s === 'all') return 'all';
     return s as FilterKey;
+  });
+
+  const [followupSubFilter, setFollowupSubFilter] = useState<'overdue' | 'today' | 'upcoming' | null>(() => {
+    const fu = searchParams.get('followup');
+    return (fu === 'overdue' || fu === 'today' || fu === 'upcoming') ? fu : null;
   });
 
   // List-level delete / archive
@@ -483,10 +490,14 @@ export default function LeadsPage() {
 
     /* Stage / chip filter */
     if (activeChip === 'follow_up') {
-      result = result.filter(l => {
-        const s = followUpState(l.followUpDate);
-        return s === 'overdue' || s === 'today';
-      });
+      if (followupSubFilter) {
+        result = result.filter(l => followUpState(l.followUpDate) === followupSubFilter);
+      } else {
+        result = result.filter(l => {
+          const s = followUpState(l.followUpDate);
+          return s === 'overdue' || s === 'today';
+        });
+      }
     } else if (activeChip === 'in_progress') {
       result = result.filter(l => IN_PROGRESS_STAGES.includes(l.stage));
     } else if (activeChip !== 'all') {
@@ -508,7 +519,7 @@ export default function LeadsPage() {
     return [...result].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-  }, [leads, activeChip, deferredSearch]);
+  }, [leads, activeChip, followupSubFilter, deferredSearch]);
 
   /* Group filtered leads by customer — one card per customer on the list */
   const grouped = useMemo(() => {
@@ -599,11 +610,14 @@ export default function LeadsPage() {
           {STATUS_CHIPS.map(chip => {
             const count = chipCounts[chip.key] ?? 0;
             const isActive = activeChip === chip.key;
+            const subLabel = isActive && chip.key === 'follow_up' && followupSubFilter
+              ? followupSubFilter === 'overdue' ? '· overdue' : followupSubFilter === 'today' ? '· today' : '· upcoming'
+              : null;
             return (
               <button
                 key={chip.key}
                 type="button"
-                onClick={() => setActiveChip(chip.key)}
+                onClick={() => { setActiveChip(chip.key); setFollowupSubFilter(null); }}
                 suppressHydrationWarning
                 className="flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium transition-all"
                 style={isActive ? {
@@ -616,7 +630,7 @@ export default function LeadsPage() {
                   border: '1.5px solid var(--border-subtle)',
                 }}
               >
-                {chip.label}
+                {chip.label}{subLabel && <span className="text-[11px] opacity-80">{subLabel}</span>}
                 <span
                   className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold leading-none"
                   style={{

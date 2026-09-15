@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { leadFollowUps } from '@/lib/db/schema';
+import { leadFollowUps, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const PatchSchema = z.discriminatedUnion('action', [
@@ -15,7 +15,6 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; followUpId: string }> },
 ) {
   const { id: leadId, followUpId } = await params;
-  void leadId;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -29,22 +28,40 @@ export async function PATCH(
 
   try {
     if (parsed.data.action === 'mark_done') {
-      await db
-        .update(leadFollowUps)
-        .set({ completedAt: now, updatedAt: now, updatedBy: ctx.dbUserId ?? undefined })
-        .where(and(
-          eq(leadFollowUps.id, followUpId),
-          eq(leadFollowUps.tenantId, ctx.tenantId),
-        ));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(leadFollowUps)
+          .set({ completedAt: now, updatedAt: now, updatedBy: ctx.dbUserId ?? undefined })
+          .where(and(
+            eq(leadFollowUps.id, followUpId),
+            eq(leadFollowUps.tenantId, ctx.tenantId),
+          ));
+        await tx
+          .update(leads)
+          .set({ followUpDate: null })
+          .where(and(
+            eq(leads.id, leadId),
+            eq(leads.tenantId, ctx.tenantId),
+          ));
+      });
     } else {
       const newDate = new Date(parsed.data.followUpDate);
-      await db
-        .update(leadFollowUps)
-        .set({ followUpDate: newDate, completedAt: null, updatedAt: now, updatedBy: ctx.dbUserId ?? undefined })
-        .where(and(
-          eq(leadFollowUps.id, followUpId),
-          eq(leadFollowUps.tenantId, ctx.tenantId),
-        ));
+      await db.transaction(async (tx) => {
+        await tx
+          .update(leadFollowUps)
+          .set({ followUpDate: newDate, completedAt: null, updatedAt: now, updatedBy: ctx.dbUserId ?? undefined })
+          .where(and(
+            eq(leadFollowUps.id, followUpId),
+            eq(leadFollowUps.tenantId, ctx.tenantId),
+          ));
+        await tx
+          .update(leads)
+          .set({ followUpDate: newDate })
+          .where(and(
+            eq(leads.id, leadId),
+            eq(leads.tenantId, ctx.tenantId),
+          ));
+      });
     }
     return NextResponse.json({ success: true });
   } catch (e) {

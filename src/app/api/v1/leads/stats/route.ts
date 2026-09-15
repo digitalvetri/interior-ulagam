@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -49,7 +49,7 @@ export async function GET(_request: NextRequest) {
         sumPaise: sql<number>`coalesce(sum(${leads.projectValuePaise}), 0)`,
       })
       .from(leads)
-      .where(eq(leads.tenantId, ctx.tenantId))
+      .where(and(eq(leads.tenantId, ctx.tenantId), isNull(leads.archivedAt)))
       .groupBy(leads.stage);
 
     const counts: LeadStatsResponse = { ...ZERO_STATS };
