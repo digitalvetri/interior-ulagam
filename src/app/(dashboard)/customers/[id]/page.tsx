@@ -420,11 +420,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   // Running balance for ledger
-  let runningBalance = 0;
-  const ledgerWithBalance = ledgerRows.map(row => {
-    runningBalance += row.debitPaise - row.creditPaise;
-    return { ...row, balancePaise: runningBalance };
-  });
+  const ledgerWithBalance = ledgerRows.reduce<Array<LedgerRow & { balancePaise: number }>>(
+    (acc, row) => {
+      const prev = acc.at(-1)?.balancePaise ?? 0;
+      return [...acc, { ...row, balancePaise: prev + row.debitPaise - row.creditPaise }];
+    },
+    []
+  );
 
   const visibleActivities = activities.slice(0, activityPage * ACTIVITY_PAGE_SIZE);
   const hasMoreActivities = activities.length > activityPage * ACTIVITY_PAGE_SIZE;

@@ -209,6 +209,7 @@ export default function MaterialsPage() {
   const [modalOpen,       setModalOpen]       = useState(false);
   const [editTarget,      setEditTarget]      = useState<Material | undefined>();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   useEffect(() => {
     fetch('/api/v1/materials')
@@ -222,10 +223,9 @@ export default function MaterialsPage() {
   const stats = useMemo(() => {
     const totalValue = materials.reduce((s, m) => s + m.currentRatePaise, 0);
     const uniqueCats = new Set(materials.map(m => m.category)).size;
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
     const recentCount = materials.filter(m => new Date(m.createdAt).getTime() > thirtyDaysAgo).length;
     return { total: materials.length, uniqueCats, totalValue, recentCount };
-  }, [materials]);
+  }, [materials, thirtyDaysAgo]);
 
   const filtered = useMemo(() => {
     let result = materials;
