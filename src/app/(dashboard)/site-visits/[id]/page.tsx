@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
   AlertTriangle, Calendar, MapPin, User,
-  FileText, Camera, ExternalLink, CheckCircle2, XCircle,
-  UserX, RefreshCw, ChevronRight,
+  FileText, Camera, CheckCircle2, XCircle,
+  UserX, RefreshCw,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -449,13 +449,22 @@ export default function SiteVisitDetailPage() {
             )}
           </Card>
 
-          {/* Outcome (set on completion) */}
+          {/* Designer's report (set on completion) */}
           {visit.followUpNotes && (
-            <Card title="Outcome / Next Steps" icon={ChevronRight}>
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-[var(--text-tertiary)]" />
+                <h2 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--accent-base)' }}>
+                  {visit.designerName ? `${visit.designerName}'s Report` : 'Field Report'}
+                </h2>
+              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>
+                What they saw on site
+              </p>
               <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
                 {visit.followUpNotes}
               </p>
-            </Card>
+            </div>
           )}
 
           {/* Photos */}
@@ -481,47 +490,81 @@ export default function SiteVisitDetailPage() {
 
         </div>
 
-        {/* Right column */}
+        {/* Right column — Client Details */}
         <div className="sticky top-6 self-start space-y-4">
-          <Card title="Related" icon={ExternalLink}>
-            <div className="space-y-3">
-              <div className="space-y-0.5">
-                <p className="text-xs text-[var(--text-tertiary)]">Lead</p>
-                {visit.leadId ? (
-                  <Link
-                    href={`/leads/${visit.leadId}`}
-                    className="text-sm font-medium text-[var(--accent-base)] underline underline-offset-2 hover:opacity-70 transition-opacity"
-                  >
-                    {visit.leadName ?? visit.leadId.slice(0, 8)}
-                  </Link>
-                ) : (
-                  <span className="text-sm text-[var(--text-tertiary)]">—</span>
-                )}
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-5 space-y-4">
+
+            {/* Client name + status */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--accent-base)' }}>
+                  Client
+                </p>
+                <p className="text-base font-bold leading-snug truncate" style={{ color: 'var(--text-heading)' }}>
+                  {visit.customerName ?? visit.leadName ?? '—'}
+                </p>
               </div>
-              {visit.customerId && (
-                <div className="space-y-0.5">
-                  <p className="text-xs text-[var(--text-tertiary)]">Client</p>
-                  <Link
-                    href={`/customers/${visit.customerId}`}
-                    className="text-sm font-medium text-[var(--accent-base)] underline underline-offset-2 hover:opacity-70 transition-opacity"
-                  >
-                    {visit.customerName ?? visit.customerId.slice(0, 8)}
-                  </Link>
-                </div>
-              )}
-              {visit.projectId && (
-                <div className="space-y-0.5">
-                  <p className="text-xs text-[var(--text-tertiary)]">Project</p>
-                  <Link
-                    href={`/projects/${visit.projectId}`}
-                    className="text-sm font-medium text-[var(--accent-base)] underline underline-offset-2 hover:opacity-70 transition-opacity"
-                  >
-                    Linked project →
-                  </Link>
+              <StatusBadge module="site_visits" status={visit.status} />
+            </div>
+
+            {/* Scheduled + Assigned To */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                  <Calendar className="h-3 w-3" /> Scheduled
+                </p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                  {new Date(visit.scheduledAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </p>
+              </div>
+              {visit.designerName && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                    <User className="h-3 w-3" /> Assigned To
+                  </p>
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--text-heading)' }}>
+                    {visit.designerName}
+                  </p>
                 </div>
               )}
             </div>
-          </Card>
+
+            {/* Completed date */}
+            {visit.completedAt && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-1 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
+                  <Calendar className="h-3 w-3" /> Completed
+                </p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
+                  {new Date(visit.completedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </p>
+              </div>
+            )}
+
+            {/* Lead / Client links */}
+            {(visit.leadId || visit.customerId || visit.projectId) && (
+              <div className="pt-3 border-t border-[var(--border-subtle)] flex flex-col gap-1.5">
+                {visit.leadId && (
+                  <Link href={`/leads/${visit.leadId}`}
+                    className="text-xs font-medium hover:underline" style={{ color: 'var(--accent-base)' }}>
+                    View Lead →
+                  </Link>
+                )}
+                {visit.customerId && (
+                  <Link href={`/customers/${visit.customerId}`}
+                    className="text-xs font-medium hover:underline" style={{ color: 'var(--accent-base)' }}>
+                    View Client →
+                  </Link>
+                )}
+                {visit.projectId && (
+                  <Link href={`/projects/${visit.projectId}`}
+                    className="text-xs font-medium hover:underline" style={{ color: 'var(--accent-base)' }}>
+                    View Project →
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
