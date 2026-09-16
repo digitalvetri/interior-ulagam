@@ -2,7 +2,6 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { STAGE_STYLE_MAP } from '@/types/deliverables';
 import type { ProjectStage } from '@/types/deliverables';
@@ -14,17 +13,6 @@ interface ProjectMini {
   leadContactName?: string | null;
 }
 
-const PROJECT_TABS = (id: string) => [
-  { href: `/projects/${id}`,              label: 'Overview',     exact: true  },
-  { href: `/projects/${id}/payments`,     label: 'Payments',     exact: false },
-  { href: `/projects/${id}/expenses`,     label: 'Expenses',     exact: false },
-  { href: `/projects/${id}/boq`,          label: 'BOQ',          exact: false },
-  { href: `/projects/${id}/deliverables`, label: 'Deliverables', exact: false },
-  { href: `/projects/${id}/documents`,    label: 'Documents',    exact: false },
-  { href: `/projects/${id}/site`,         label: 'Site',         exact: false },
-  { href: `/projects/${id}/work-orders`,  label: 'Work Orders',  exact: false },
-];
-
 export default function ProjectShellLayout({
   children,
   params,
@@ -33,7 +21,6 @@ export default function ProjectShellLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const pathname = usePathname();
   const [project, setProject] = useState<ProjectMini | null>(null);
 
   useEffect(() => {
@@ -90,29 +77,6 @@ export default function ProjectShellLayout({
             )}
           </div>
         </div>
-      </div>
-
-      {/* Tab navigation */}
-      <div
-        className="flex overflow-x-auto scrollbar-hide"
-        style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
-      >
-        {PROJECT_TABS(id).map(tab => {
-          const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className="flex-shrink-0 px-4 py-2.5 text-sm font-medium transition-colors"
-              style={{
-                color: active ? 'var(--accent-base)' : 'var(--text-secondary)',
-                borderBottom: active ? '2px solid var(--accent-base)' : '2px solid transparent',
-              }}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
       </div>
 
       {children}
