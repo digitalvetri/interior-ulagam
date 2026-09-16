@@ -57,7 +57,7 @@ export async function GET(
   }
 
   try {
-    const [lead] = await db
+    const [row] = await db
       .select({
         id: leads.id,
         tenantId: leads.tenantId,
@@ -78,6 +78,7 @@ export async function GET(
         budgetBand: leads.budgetBand,
         projectValuePaise: leads.projectValuePaise,
         designerName: leads.designerName,
+        ownerFullName: users.fullName,
         followUpDate: leads.followUpDate,
         lostReason: leads.lostReason,
         notes: leads.notes,
@@ -88,8 +89,12 @@ export async function GET(
         createdAt: leads.createdAt,
       })
       .from(leads)
+      .leftJoin(users, and(eq(leads.ownerId, users.id), eq(users.tenantId, ctx.tenantId)))
       .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))
       .limit(1);
+
+    // Backfill designerName from the joined user row when the denormalized column is null
+    const lead = row ? { ...row, designerName: row.designerName ?? row.ownerFullName ?? null } : undefined;
 
     if (!lead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });

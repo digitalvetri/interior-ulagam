@@ -115,7 +115,7 @@ export async function POST(
       type:       'whatsapp',
       title:      `WhatsApp sent`,
       body:       parsed.data.text.slice(0, 500),
-      performedBy: ctx.userId,
+      performedBy: ctx.dbUserId ?? null,
     });
 
     return NextResponse.json({ data: saved }, { status: 201 });

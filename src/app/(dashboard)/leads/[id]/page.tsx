@@ -573,6 +573,7 @@ export default function LeadDetailPage() {
   const [quotedAmountInput, setQuotedAmountInput] = useState('');
   const [savingQuotedAmount, setSavingQuotedAmount] = useState(false);
   const [quotedAmountSaved, setQuotedAmountSaved] = useState(false);
+  const [editingQuotedAmount, setEditingQuotedAmount] = useState(false);
 
   // Menus / dialogs
   const [showActionsMenu, setShowActionsMenu]       = useState(false);
@@ -1125,6 +1126,25 @@ export default function LeadDetailPage() {
             )}
             {!isTerminal && (
               <div className="ml-auto flex items-center gap-2">
+                {(() => {
+                  const now = new Date();
+                  const upcoming = siteVisitsData.find(
+                    v => v.status === 'scheduled' && new Date(v.scheduledAt) >= now,
+                  );
+                  return upcoming ? (
+                    <button type="button" onClick={() => setActiveTab('sitevisits')}
+                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border"
+                      style={{ borderColor: 'rgba(99,102,241,0.3)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
+                      <Calendar className="h-4 w-4" /> Visit {fmtDate(upcoming.scheduledAt)}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setShowSiteVisitModal(true)} disabled={stageActionsDisabled}
+                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}>
+                      <Calendar className="h-4 w-4" /> Schedule Site Visit
+                    </button>
+                  );
+                })()}
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(16,185,129,0.4)', color: 'var(--success-text)', background: 'var(--success-soft)' }}>
@@ -1354,46 +1374,88 @@ export default function LeadDetailPage() {
               {/* AMOUNT QUOTED */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>Amount Quoted</p>
-                {lead.projectValuePaise ? (
-                  <p className="text-2xl font-bold mb-3" style={{ color: 'var(--text-heading)' }}>
-                    ₹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
-                  </p>
-                ) : (
-                  <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>No amount entered yet</p>
-                )}
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={quotedAmountInput}
-                      onChange={e => setQuotedAmountInput(e.target.value)}
-                      className="studio-input w-full text-sm h-9"
-                      style={{ paddingLeft: '1.75rem' }}
-                    />
+                {lead.projectValuePaise && !editingQuotedAmount ? (
+                  /* Read-only view — amount already saved */
+                  <div className="flex items-center justify-between">
+                    <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
+                      ₹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuotedAmountInput(String(lead.projectValuePaise! / 100));
+                        setEditingQuotedAmount(true);
+                      }}
+                      className="text-xs font-semibold hover:underline"
+                      style={{ color: 'var(--accent-base)' }}>
+                      Edit
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={savingQuotedAmount || !quotedAmountInput}
-                    onClick={async () => {
-                      setSavingQuotedAmount(true);
-                      try {
-                        const paise = Math.round(parseFloat(quotedAmountInput) * 100);
-                        const res = await fetch(`/api/v1/leads/${id}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ projectValuePaise: paise }),
-                        });
-                        const json = await res.json().catch(() => ({})) as { data?: Lead };
-                        if (res.ok && json.data) { setLead(json.data); setQuotedAmountSaved(true); setTimeout(() => setQuotedAmountSaved(false), 2000); }
-                      } finally { setSavingQuotedAmount(false); }
-                    }}
-                    className="btn-primary h-9 px-4 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
-                    {savingQuotedAmount ? 'Saving…' : 'Save'}
-                  </button>
-                </div>
+                ) : (
+                  /* Edit view — no amount yet, or user clicked Edit */
+                  <div>
+                    {!lead.projectValuePaise && (
+                      <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>No amount entered yet</p>
+                    )}
+                    <div className="flex gap-2 mt-2">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>₹</span>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          value={quotedAmountInput}
+                          onChange={e => setQuotedAmountInput(e.target.value)}
+                          className="studio-input w-full text-sm h-9"
+                          style={{ paddingLeft: '1.75rem' }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        disabled={savingQuotedAmount || !quotedAmountInput}
+                        onClick={async () => {
+                          setSavingQuotedAmount(true);
+                          try {
+                            const paise = Math.round(parseFloat(quotedAmountInput) * 100);
+                            const prevPaise = lead.projectValuePaise;
+                            const res = await fetch(`/api/v1/leads/${id}`, {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ projectValuePaise: paise }),
+                            });
+                            const json = await res.json().catch(() => ({})) as { data?: Lead };
+                            if (res.ok && json.data) {
+                              setLead(json.data);
+                              setQuotedAmountSaved(true);
+                              setEditingQuotedAmount(false);
+                              setTimeout(() => setQuotedAmountSaved(false), 2000);
+                              if (prevPaise !== paise) {
+                                const prevStr = prevPaise ? `₹${(prevPaise / 100).toLocaleString('en-IN')}` : 'none';
+                                const newStr = `₹${(paise / 100).toLocaleString('en-IN')}`;
+                                await fetch(`/api/v1/leads/${id}/activities`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ type: 'note', title: `Amount quoted updated: ${prevStr} → ${newStr}` }),
+                                }).catch(() => {});
+                              }
+                            }
+                          } finally { setSavingQuotedAmount(false); }
+                        }}
+                        className="btn-primary h-9 px-4 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
+                        {savingQuotedAmount ? 'Saving…' : 'Save'}
+                      </button>
+                      {editingQuotedAmount && (
+                        <button
+                          type="button"
+                          onClick={() => setEditingQuotedAmount(false)}
+                          className="h-9 px-3 text-sm rounded-lg border flex-shrink-0"
+                          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {quotedAmountSaved && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--success)' }}>Saved!</p>}
               </div>
 

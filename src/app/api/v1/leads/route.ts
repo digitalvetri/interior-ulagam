@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and, desc, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { leads } from '@/lib/db/schema';
+import { leads, users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
 
@@ -138,6 +138,17 @@ export async function POST(request: NextRequest) {
   } = parsed.data;
 
   try {
+    // Resolve designerName from ownerId so it's denormalized at creation time
+    let designerName: string | null = null;
+    if (ownerId) {
+      const [emp] = await db
+        .select({ fullName: users.fullName })
+        .from(users)
+        .where(and(eq(users.id, ownerId), eq(users.tenantId, ctx.tenantId)))
+        .limit(1);
+      designerName = emp?.fullName ?? null;
+    }
+
     // 1. Insert the lead — explicit RETURNING avoids schema-drift 500s when new
     //    columns exist in schema.ts but the migration hasn't been run yet.
     const [lead] = await db
@@ -159,6 +170,7 @@ export async function POST(request: NextRequest) {
         budgetBand:      budgetBand || null,
         notes:           notes || null,
         ownerId:         ownerId || null,
+        designerName:    designerName,
       })
       .returning({
         id:                leads.id,

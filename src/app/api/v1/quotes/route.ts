@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { quotes, projects, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, or, inArray } from 'drizzle-orm';
 
 const CreateQuoteSchema = z.object({
   projectId: z.string().uuid().optional(),
@@ -19,15 +19,32 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const projectId = searchParams.get('projectId');
-  const leadId    = searchParams.get('leadId');
-  const status    = searchParams.get('status');
+  const projectId  = searchParams.get('projectId');
+  const leadId     = searchParams.get('leadId');
+  const status     = searchParams.get('status');
+  const customerId = searchParams.get('customerId');
 
   try {
     const conditions = [eq(quotes.tenantId, ctx.tenantId)];
     if (projectId) conditions.push(eq(quotes.projectId, projectId));
     if (leadId)    conditions.push(eq(quotes.leadId, leadId));
     if (status)    conditions.push(eq(quotes.status, status));
+    if (customerId) {
+      // Collect all lead IDs and project IDs linked to this customer
+      const [custLeads, custProjects] = await Promise.all([
+        db.select({ id: leads.id }).from(leads)
+          .where(and(eq(leads.customerId, customerId), eq(leads.tenantId, ctx.tenantId))),
+        db.select({ id: projects.id }).from(projects)
+          .where(and(eq(projects.customerId, customerId), eq(projects.tenantId, ctx.tenantId))),
+      ]);
+      const leadIds    = custLeads.map(l => l.id);
+      const projectIds = custProjects.map(p => p.id);
+      const parts = [];
+      if (leadIds.length > 0)    parts.push(inArray(quotes.leadId, leadIds));
+      if (projectIds.length > 0) parts.push(inArray(quotes.projectId, projectIds));
+      if (parts.length === 0) return NextResponse.json({ data: [] });
+      conditions.push(or(...parts)!);
+    }
 
     const rows = await db
       .select({

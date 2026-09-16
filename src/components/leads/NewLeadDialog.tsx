@@ -207,7 +207,9 @@ export function NewLeadDialog({
       ? { ...INITIAL, contactName: preselectedCustomer.fullName, contactPhone: preselectedCustomer.phone, contactCity: preselectedCustomer.city ?? '' }
       : INITIAL
   );
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees]           = useState<Employee[]>([]);
+  const [employeesLoading, setEmpLoading]   = useState(false);
+  const [employeesError, setEmpError]       = useState<string | null>(null);
 
   // Sync form when editLead changes (dialog re-opens with different lead)
   const effectiveOpen = isEditMode ? (controlledOpen ?? false) : open;
@@ -228,14 +230,15 @@ export function NewLeadDialog({
   const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!effectiveOpen) return;
+    setEmpLoading(true);
+    setEmpError(null);
     fetch('/api/v1/employees')
-      .then(r => r.json())
-      .then(({ data }: { data?: Employee[] }) => {
-        setEmployees((data ?? []).filter(e => ['owner', 'admin', 'designer'].includes(e.role)));
-      })
-      .catch(() => {});
-  }, [open]);
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(({ data }: { data?: Employee[] }) => { setEmployees(data ?? []); })
+      .catch(() => { setEmpError('Could not load team members. Refresh and try again.'); })
+      .finally(() => { setEmpLoading(false); });
+  }, [effectiveOpen]);
 
   // Debounced customer search
   useEffect(() => {
@@ -595,16 +598,30 @@ export function NewLeadDialog({
                   </Field>
 
                   <Field id="ownerId" label="Assigned To" required>
-                    <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
-                      <SelectTrigger id="ownerId" className={inputCls}>
-                        <SelectValue placeholder="Choose team member…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map(emp => (
-                          <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {employeesLoading ? (
+                      <div className="flex items-center gap-2 h-9 px-3 rounded-lg text-xs" style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                        Loading team members…
+                      </div>
+                    ) : employeesError ? (
+                      <p className="text-xs py-2 px-3 rounded-lg" style={{ color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                        {employeesError}
+                      </p>
+                    ) : employees.length === 0 ? (
+                      <p className="text-xs py-2 px-3 rounded-lg" style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                        No team members found. Add employees in Settings → Team first.
+                      </p>
+                    ) : (
+                      <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
+                        <SelectTrigger id="ownerId" className={inputCls}>
+                          <SelectValue placeholder="Choose team member…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {employees.map(emp => (
+                            <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </Field>
 
                   <div className="sm:col-span-2">

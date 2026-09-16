@@ -138,10 +138,12 @@ function Field({ id, label, required, hint, children }: {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLeadDialogProps) {
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const [employees, setEmployees]   = useState<Employee[]>([]);
-  const [form, setForm]             = useState<FormState>(() => fromLead(lead));
+  const [submitting, setSubmitting]       = useState(false);
+  const [error, setError]                 = useState<string | null>(null);
+  const [employees, setEmployees]         = useState<Employee[]>([]);
+  const [employeesLoading, setEmpLoading] = useState(false);
+  const [employeesError, setEmpError]     = useState<string | null>(null);
+  const [form, setForm]                   = useState<FormState>(() => fromLead(lead));
 
   useEffect(() => {
     if (open) {
@@ -152,12 +154,13 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
 
   useEffect(() => {
     if (!open) return;
+    setEmpLoading(true);
+    setEmpError(null);
     fetch('/api/v1/employees')
-      .then(r => r.json())
-      .then(({ data }: { data?: Employee[] }) => {
-        setEmployees((data ?? []).filter(e => ['owner', 'admin', 'designer'].includes(e.role)));
-      })
-      .catch(() => {});
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.json(); })
+      .then(({ data }: { data?: Employee[] }) => { setEmployees(data ?? []); })
+      .catch(() => { setEmpError('Could not load team members. Refresh and try again.'); })
+      .finally(() => { setEmpLoading(false); });
   }, [open]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -328,17 +331,31 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
                 </Select>
               </Field>
               <Field id="e-ownerId" label="Assigned To">
-                <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
-                  <SelectTrigger id="e-ownerId" className={inputCls}>
-                    <SelectValue placeholder="Choose team member…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                    {employees.map(emp => (
-                      <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {employeesLoading ? (
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-lg text-xs" style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                    Loading team members…
+                  </div>
+                ) : employeesError ? (
+                  <p className="text-xs py-2 px-3 rounded-lg" style={{ color: '#DC2626', background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                    {employeesError}
+                  </p>
+                ) : employees.length === 0 ? (
+                  <p className="text-xs py-2 px-3 rounded-lg" style={{ color: 'var(--text-secondary)', background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                    No team members found. Add employees in Settings → Team first.
+                  </p>
+                ) : (
+                  <Select value={form.ownerId} onValueChange={v => set('ownerId', v)}>
+                    <SelectTrigger id="e-ownerId" className={inputCls}>
+                      <SelectValue placeholder="Choose team member…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                      {employees.map(emp => (
+                        <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </Field>
             </div>
           </div>

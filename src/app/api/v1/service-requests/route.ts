@@ -20,16 +20,18 @@ export async function GET(request: NextRequest) {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const sp        = request.nextUrl.searchParams;
-  const statusQ   = sp.get('status');
-  const priorityQ = sp.get('priority');
-  const projectQ  = sp.get('projectId');
-  const limit     = Math.min(parseInt(sp.get('limit') ?? '100', 10), 200);
+  const sp         = request.nextUrl.searchParams;
+  const statusQ    = sp.get('status');
+  const priorityQ  = sp.get('priority');
+  const projectQ   = sp.get('projectId');
+  const customerQ  = sp.get('customerId');
+  const limit      = Math.min(parseInt(sp.get('limit') ?? '100', 10), 200);
 
   const filters = [eq(serviceRequests.tenantId, ctx.tenantId)];
-  if (statusQ)   filters.push(eq(serviceRequests.status, statusQ as 'open' | 'assigned' | 'in_progress' | 'resolved'));
-  if (priorityQ) filters.push(eq(serviceRequests.priority, priorityQ as 'low' | 'medium' | 'high' | 'urgent'));
-  if (projectQ)  filters.push(eq(serviceRequests.projectId, projectQ));
+  if (statusQ)    filters.push(eq(serviceRequests.status, statusQ as 'open' | 'assigned' | 'in_progress' | 'resolved'));
+  if (priorityQ)  filters.push(eq(serviceRequests.priority, priorityQ as 'low' | 'medium' | 'high' | 'urgent'));
+  if (projectQ)   filters.push(eq(serviceRequests.projectId, projectQ));
+  if (customerQ)  filters.push(eq(serviceRequests.customerId, customerQ));
 
   const rows = await db
     .select({

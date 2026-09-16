@@ -8,7 +8,8 @@ import {
   FolderOpen, Bell, Plus, Send, CreditCard, X, FileText,
   ChevronRight, ArrowRightCircle,
   Pencil, Activity, LayoutGrid, Heart, TrendingUp, Wallet,
-  Paperclip, Upload,
+  Paperclip, Upload, FolderKanban, Wrench, CheckCircle2,
+  Clock, ExternalLink, AlertCircle,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -101,7 +102,37 @@ const LIFECYCLE_STAGE_COLOR: Record<string, { bg: string; color: string }> = {
   complete:           { bg: 'rgba(16,185,129,0.12)',  color: '#059669' },
 };
 
-type Tab = 'overview' | 'ledger' | 'activity';
+const SR_PRIORITY_STYLE: Record<string, { bg: string; color: string; label: string }> = {
+  low:    { bg: 'rgba(100,116,139,0.12)', color: '#475569', label: 'Low'    },
+  medium: { bg: 'rgba(59,130,246,0.12)',  color: '#2563eb', label: 'Medium' },
+  high:   { bg: 'rgba(245,158,11,0.12)', color: '#b45309', label: 'High'   },
+  urgent: { bg: 'rgba(239,68,68,0.12)',  color: '#dc2626', label: 'Urgent' },
+};
+
+const SR_STATUS_STYLE: Record<string, { bg: string; color: string; label: string; icon: React.ReactNode }> = {
+  open:        { bg: 'rgba(239,68,68,0.12)',   color: '#dc2626', label: 'Open',        icon: <AlertCircle   className="h-3 w-3" /> },
+  assigned:    { bg: 'rgba(59,130,246,0.12)',  color: '#2563eb', label: 'Assigned',    icon: <Clock         className="h-3 w-3" /> },
+  in_progress: { bg: 'rgba(245,158,11,0.12)', color: '#b45309', label: 'In progress', icon: <Clock         className="h-3 w-3" /> },
+  resolved:    { bg: 'rgba(16,185,129,0.12)', color: '#059669', label: 'Resolved',    icon: <CheckCircle2  className="h-3 w-3" /> },
+};
+
+type Tab = 'overview' | 'projects' | 'payments' | 'service' | 'activity';
+
+/* ── Local interfaces ───────────────────────────────────────────────────────── */
+
+interface ServiceReq {
+  id: string;
+  issue: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'assigned' | 'in_progress' | 'resolved';
+  projectName: string | null;
+  projectId: string | null;
+  assigneeName: string | null;
+  scheduledVisitAt: string | null;
+  resolvedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+}
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -116,7 +147,6 @@ function relativeTime(dateStr: string): string {
   if (days < 7) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
-
 
 function formatRupees(paise: number): string {
   return `₹${(paise / 100).toLocaleString('en-IN')}`;
@@ -189,7 +219,18 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   const titleRef = useRef<HTMLInputElement>(null);
 
-  /* ── Load ── */
+  // ── New tab state ──────────────────────────────────────────────────────────
+  const [serviceReqs, setServiceReqs]     = useState<ServiceReq[]>([]);
+  const [serviceLoading, setSvcLd]        = useState(false);
+  const [serviceLoaded, setSvcLoaded]     = useState(false);
+  const [showSRForm, setShowSRForm]       = useState(false);
+  const [srIssue, setSrIssue]             = useState('');
+  const [srPriority, setSrPriority]       = useState<'low'|'medium'|'high'|'urgent'>('medium');
+  const [srProjectId, setSrProjectId]     = useState('');
+  const [srSaving, setSrSaving]           = useState(false);
+  const [srError, setSrError]             = useState<string | null>(null);
+
+  /* ── Load customer ── */
   const load = useCallback(() => {
     fetch(`/api/v1/customers/${id}`)
       .then((r) => {
@@ -226,6 +267,60 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       .finally(() => setActLoading(false));
   }, [id]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  /* ── Lazy-load new tabs ── */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (tab !== 'service' || serviceLoaded) return;
+    setSvcLd(true);
+    fetch(`/api/v1/service-requests?customerId=${id}`)
+      .then(r => r.json())
+      .then(({ data }) => setServiceReqs(data ?? []))
+      .catch(() => {})
+      .finally(() => { setSvcLd(false); setSvcLoaded(true); });
+  }, [tab, id, serviceLoaded]);
+
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  /* ── Files ── */
+  const loadFiles = useCallback(() => {
+    setFilesLoading(true);
+    fetch(`/api/v1/customers/${id}/files`)
+      .then(r => r.json())
+      .then(({ data }) => setClientFiles(data ?? []))
+      .catch(() => {})
+      .finally(() => setFilesLoading(false));
+  }, [id]);
+
+  useEffect(() => { loadFiles(); }, [loadFiles]);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    setUploadErr(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/v1/customers/${id}/files`, { method: 'POST', body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((body as { error?: string }).error ?? `Upload failed (${res.status})`);
+      loadFiles();
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function handleDeleteFile(key: string) {
+    await fetch(`/api/v1/customers/${id}/files?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+    setClientFiles(prev => prev.filter(f => f.key !== key));
+  }
+
+  function fmtSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   /* ── Edit ── */
   const dirty = Object.keys(draft).length > 0;
@@ -288,46 +383,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
-  /* ── Files ── */
-  const loadFiles = useCallback(() => {
-    setFilesLoading(true);
-    fetch(`/api/v1/customers/${id}/files`)
-      .then(r => r.json())
-      .then(({ data }) => setClientFiles(data ?? []))
-      .catch(() => {})
-      .finally(() => setFilesLoading(false));
-  }, [id]);
-
-  useEffect(() => { loadFiles(); }, [loadFiles]);
-
-  async function handleUpload(file: File) {
-    setUploading(true);
-    setUploadErr(null);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch(`/api/v1/customers/${id}/files`, { method: 'POST', body: fd });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((body as { error?: string }).error ?? `Upload failed (${res.status})`);
-      loadFiles();
-    } catch (e) {
-      setUploadErr(e instanceof Error ? e.message : 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleDeleteFile(key: string) {
-    await fetch(`/api/v1/customers/${id}/files?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
-    setClientFiles(prev => prev.filter(f => f.key !== key));
-  }
-
-  function fmtSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
   /* ── Activity ── */
   async function submitActivity(e: React.FormEvent) {
     e.preventDefault();
@@ -353,6 +408,51 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       setComposerErr(e instanceof Error ? e.message : 'Failed to log activity');
     } finally {
       setComposerSaving(false);
+    }
+  }
+
+  /* ── Service requests ── */
+  async function createServiceRequest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!srIssue.trim()) return;
+    setSrSaving(true);
+    setSrError(null);
+    try {
+      const res = await fetch('/api/v1/service-requests', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          issue: srIssue.trim(),
+          customerId: id,
+          priority: srPriority,
+          ...(srProjectId ? { projectId: srProjectId } : {}),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((body as { error?: string })?.error ?? `Failed (${res.status})`);
+      const created = body.data as ServiceReq;
+      // Enrich with project name from summary
+      const projName = summary?.projects.find(p => p.id === created.projectId)?.name ?? null;
+      setServiceReqs(prev => [{ ...created, projectName: projName, assigneeName: null }, ...prev]);
+      setSrIssue('');
+      setSrPriority('medium');
+      setSrProjectId('');
+      setShowSRForm(false);
+    } catch (e) {
+      setSrError(e instanceof Error ? e.message : 'Failed to create request');
+    } finally {
+      setSrSaving(false);
+    }
+  }
+
+  async function resolveServiceReq(reqId: string) {
+    const res = await fetch(`/api/v1/service-requests/${reqId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'resolved', resolvedAt: new Date().toISOString() }),
+    });
+    if (res.ok) {
+      setServiceReqs(prev => prev.map(r => r.id === reqId ? { ...r, status: 'resolved', resolvedAt: new Date().toISOString() } : r));
     }
   }
 
@@ -392,7 +492,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const outstandingPaise    = Math.max(0, totalInvoicedPaise - totalReceivedPaise);
   const collectedPct        = totalInvoicedPaise > 0 ? Math.round((totalReceivedPaise / totalInvoicedPaise) * 100) : 0;
 
-  // Build ledger: interleave invoices (debit) + payments (credit) sorted by date
+  // Ledger data (used by Payments tab)
   type LedgerRow =
     | { kind: 'invoice'; date: string; number: string; particulars: string; debitPaise: number; creditPaise: 0 }
     | { kind: 'payment'; date: string; number: string; particulars: string; debitPaise: 0;    creditPaise: number };
@@ -419,7 +519,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     }),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Running balance for ledger
   const ledgerWithBalance = ledgerRows.reduce<Array<LedgerRow & { balancePaise: number }>>(
     (acc, row) => {
       const prev = acc.at(-1)?.balancePaise ?? 0;
@@ -488,7 +587,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     </Link>
                   )}
                 </div>
-                {/* Contact metadata row */}
                 <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1">
                   {displayed.phone && (
                     <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'var(--text-secondary)' }}>
@@ -618,152 +716,308 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         {/* ── MAIN CONTENT ─────────────────────────────────────────── */}
         <div className="flex flex-col gap-5">
 
-            {/* Client Details edit panel — only shown when editing */}
-            {editMode && (
-              <section
-                className="rounded-xl overflow-hidden"
-                style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
+          {/* Edit panel */}
+          {editMode && (
+            <section
+              className="rounded-xl overflow-hidden"
+              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}
+            >
+              <div
+                className="flex items-center justify-between px-5 py-3"
+                style={{ borderBottom: '1px solid var(--border-subtle)' }}
               >
-                <div
-                  className="flex items-center justify-between px-5 py-3"
-                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
+                <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Edit client details</p>
+                <div className="flex items-center gap-2">
+                  <button onClick={cancelEdit} className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveProps}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-50"
+                    style={{ background: 'var(--accent-base)', color: '#fff' }}
+                  >
+                    {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                    Save
+                  </button>
+                </div>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <InlineField label="Full name" icon={User}>
+                      <Input value={displayed.fullName} onChange={(e) => set('fullName', e.target.value)} className="h-9 text-sm" />
+                    </InlineField>
+                  </div>
+                  <InlineField label="Mobile" icon={Phone}>
+                    <Input value={displayed.phone} onChange={(e) => set('phone', e.target.value)} className="h-9 text-sm" />
+                  </InlineField>
+                  <InlineField label="Email" icon={Mail}>
+                    <Input type="email" value={displayed.email ?? ''} onChange={(e) => set('email', (e.target.value || null) as Customer['email'])} placeholder="—" className="h-9 text-sm" />
+                  </InlineField>
+                  <InlineField label="City" icon={MapPin}>
+                    <Input value={displayed.city ?? ''} onChange={(e) => set('city', (e.target.value || null) as Customer['city'])} placeholder="—" className="h-9 text-sm" />
+                  </InlineField>
+                  <InlineField label="Company" icon={Building2}>
+                    <Input value={displayed.company ?? ''} onChange={(e) => set('company', (e.target.value || null) as Customer['company'])} placeholder="—" className="h-9 text-sm" />
+                  </InlineField>
+                  <InlineField label="Stage" icon={Tag}>
+                    <Select value={displayed.stage} onValueChange={(v) => set('stage', v as CustomerStage)}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {STAGES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </InlineField>
+                  <InlineField label="Source" icon={Tag}>
+                    <Select value={displayed.source} onValueChange={(v) => set('source', v as CustomerSource)}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SOURCES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </InlineField>
+                  <div className="col-span-2">
+                    <InlineField label="Tags" icon={Tag}>
+                      <TagsChipEditor tags={displayed.tags ?? []} onChange={(tags) => set('tags', tags)} />
+                    </InlineField>
+                  </div>
+                </div>
+                {saveErr && <p className="mt-3 text-xs text-red-600">{saveErr}</p>}
+              </div>
+            </section>
+          )}
+
+          {/* ── TABBED PANEL ─────────────────────────────────────── */}
+          <section className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+
+            {/* Tab bar — scrollable for narrow screens */}
+            <div
+              className="flex items-center overflow-x-auto"
+              style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
+            >
+              {([
+                { key: 'overview'    as Tab, label: 'Overview',    icon: <LayoutGrid     className="h-3.5 w-3.5" /> },
+                { key: 'projects'    as Tab, label: 'Projects',    icon: <FolderKanban   className="h-3.5 w-3.5" /> },
+                { key: 'payments'    as Tab, label: 'Payments',    icon: <Wallet         className="h-3.5 w-3.5" /> },
+                { key: 'service'     as Tab, label: 'Service',     icon: <Wrench         className="h-3.5 w-3.5" /> },
+                { key: 'activity'    as Tab, label: 'Activity',    icon: <Activity       className="h-3.5 w-3.5" /> },
+              ] as const).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className="flex flex-shrink-0 items-center gap-2 px-4 py-3 text-[13px] font-semibold border-b-2 transition-all whitespace-nowrap"
+                  style={{
+                    borderColor: tab === t.key ? 'var(--accent-base)' : 'transparent',
+                    color:       tab === t.key ? 'var(--accent-base)' : 'var(--text-secondary)',
+                    background:  tab === t.key ? 'var(--surface-card)' : 'var(--surface-muted)',
+                  }}
                 >
-                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
-                    Edit client details
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button onClick={cancelEdit} className="rounded-lg px-2.5 py-1.5 text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--text-secondary)' }}>
-                      Cancel
-                    </button>
-                    <button
-                      onClick={saveProps}
-                      disabled={saving}
-                      className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-50"
-                      style={{ background: 'var(--accent-base)', color: '#fff' }}
-                    >
-                      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                      Save
+                  {t.icon}{t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── OVERVIEW TAB ──────────────────────────────────────── */}
+            {tab === 'overview' && (
+              <div className="grid lg:grid-cols-2 gap-4 p-4" style={{ background: 'var(--surface-muted)' }}>
+
+                {/* LEFT: Projects summary */}
+                <div className="rounded-xl overflow-hidden min-w-0" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Projects</p>
+                    <button onClick={() => setTab('projects')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                      All projects →
                     </button>
                   </div>
+
+                  {summaryLoading && !summary ? (
+                    <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+                  ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
+                    <div className="flex flex-col items-center gap-3 py-10 text-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                        <FolderOpen className="h-5 w-5" style={{ color: '#6366f1' }} />
+                      </div>
+                      <div>
+                        <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
+                        <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Projects linked to this client will appear here</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {summary.projects.slice(0, 5).map((p) => {
+                        const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
+                        const pct = LIFECYCLE_PROGRESS[p.lifecycleStage] ?? 8;
+                        return (
+                          <Link key={p.id} href={`/projects/${p.id}`} className="block px-5 py-3 transition-colors"
+                            style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
+                                {p.name || 'Untitled project'}
+                              </p>
+                              <div className="flex shrink-0 items-center gap-2">
+                                {p.totalContractPaise != null && p.totalContractPaise > 0 && (
+                                  <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                                    {formatRupeesShort(p.totalContractPaise)}
+                                  </span>
+                                )}
+                                <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: sc.bg, color: sc.color }}>
+                                  {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-2 h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+                            </div>
+                          </Link>
+                        );
+                      })}
+                      {summary.leads.length > 0 && (
+                        <>
+                          <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                            <p className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Active enquiries</p>
+                          </div>
+                          {summary.leads.map((l) => (
+                            <Link key={l.id} href={`/leads/${l.id}`}
+                              className="flex items-center justify-between px-5 py-3 transition-colors"
+                              style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
+                            >
+                              <p className="truncate text-[13px] font-medium mr-3" style={{ color: 'var(--text-heading)' }}>{l.projectName || 'New enquiry'}</p>
+                              <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
+                                {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
+                              </span>
+                            </Link>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
-                <div className="p-5">
+
+                {/* RIGHT: Financial Summary + Activity + Notes */}
+                <div className="flex flex-col gap-4">
+                  <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Financial Summary</p>
+                      <button onClick={() => setTab('payments')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                        Payments →
+                      </button>
+                    </div>
+                    <div className="px-5 divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                      {[
+                        { label: 'Total project value', value: totalContractPaise, color: 'var(--text-heading)', bold: false },
+                        { label: 'Invoiced to date',    value: totalInvoicedPaise, color: 'var(--text-heading)', bold: false },
+                        { label: 'Payments received',   value: totalReceivedPaise, color: '#059669',             bold: false },
+                        { label: 'Outstanding balance', value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
+                      ].map((row, i) => (
+                        <div key={i} className="flex items-center justify-between py-2.5">
+                          <span className={`text-[13px] ${row.bold ? 'font-bold' : ''}`} style={{ color: row.bold ? 'var(--text-heading)' : 'var(--text-secondary)' }}>{row.label}</span>
+                          <span className={`text-[13px] tabular-nums ${row.bold ? 'font-bold' : 'font-medium'}`} style={{ color: row.color }}>
+                            {row.value > 0 ? formatRupees(row.value) : '₹0'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {totalInvoicedPaise > 0 && (
+                      <div className="px-5 pb-3.5 pt-2.5">
+                        <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                          <div className="h-full rounded-full" style={{ width: `${collectedPct}%`, background: '#10b981' }} />
+                        </div>
+                        <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{collectedPct}% collected</p>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2">
-                      <InlineField label="Full name" icon={User}>
-                        <Input value={displayed.fullName} onChange={(e) => set('fullName', e.target.value)} className="h-9 text-sm" />
-                      </InlineField>
+                    <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Activity</p>
+                      </div>
+                      <div className="grid grid-cols-2 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
+                        {[
+                          { label: 'Site visits', value: summaryLoading ? '…' : String(summary?.siteVisitCount ?? 0), color: '#f59e0b' },
+                          { label: 'Activities',  value: activitiesLoading ? '…' : String(activities.length),         color: '#f97316' },
+                        ].map((kpi, i) => (
+                          <div key={i} className="flex flex-col items-center justify-center py-4 gap-1">
+                            <span className="text-[26px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
+                            <span className="text-[11px] font-medium" style={{ color: kpi.color }}>{kpi.label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <InlineField label="Mobile" icon={Phone}>
-                      <Input value={displayed.phone} onChange={(e) => set('phone', e.target.value)} className="h-9 text-sm" />
-                    </InlineField>
-                    <InlineField label="Email" icon={Mail}>
-                      <Input type="email" value={displayed.email ?? ''} onChange={(e) => set('email', (e.target.value || null) as Customer['email'])} placeholder="—" className="h-9 text-sm" />
-                    </InlineField>
-                    <InlineField label="City" icon={MapPin}>
-                      <Input value={displayed.city ?? ''} onChange={(e) => set('city', (e.target.value || null) as Customer['city'])} placeholder="—" className="h-9 text-sm" />
-                    </InlineField>
-                    <InlineField label="Company" icon={Building2}>
-                      <Input value={displayed.company ?? ''} onChange={(e) => set('company', (e.target.value || null) as Customer['company'])} placeholder="—" className="h-9 text-sm" />
-                    </InlineField>
-                    <InlineField label="Stage" icon={Tag}>
-                      <Select value={displayed.stage} onValueChange={(v) => set('stage', v as CustomerStage)}>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {STAGES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </InlineField>
-                    <InlineField label="Source" icon={Tag}>
-                      <Select value={displayed.source} onValueChange={(v) => set('source', v as CustomerSource)}>
-                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {SOURCES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </InlineField>
-                    <div className="col-span-2">
-                      <InlineField label="Tags" icon={Tag}>
-                        <TagsChipEditor tags={displayed.tags ?? []} onChange={(tags) => set('tags', tags)} />
-                      </InlineField>
+
+                    <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                      <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Notes</p>
+                        {notesDraft !== (customer.notes ?? '') && (
+                          <button onClick={saveNotes} disabled={notesSaving}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
+                            style={{ background: 'var(--accent-base)', color: '#fff' }}>
+                            {notesSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Save className="h-2.5 w-2.5" />}
+                            Save
+                          </button>
+                        )}
+                      </div>
+                      <div className="p-3 flex-1">
+                        <Textarea
+                          rows={4}
+                          placeholder="Add notes…"
+                          value={notesDraft}
+                          onChange={e => { setNotesDraft(e.target.value); setNotesErr(null); }}
+                          onBlur={saveNotes}
+                          className="text-[13px] resize-none w-full h-full min-h-0"
+                        />
+                        {notesErr && <p className="mt-1 text-xs text-red-600">{notesErr}</p>}
+                      </div>
                     </div>
                   </div>
-                  {saveErr && <p className="mt-3 text-xs text-red-600">{saveErr}</p>}
                 </div>
-              </section>
+              </div>
             )}
 
-            {/* Tabbed panel */}
-            <section className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
-              {/* Tab bar */}
-              <div
-                className="flex items-center"
-                style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
-              >
-                {([
-                  { key: 'overview' as Tab, label: 'Overview', icon: <LayoutGrid  className="h-3.5 w-3.5" /> },
-                  { key: 'ledger'   as Tab, label: 'Ledger',   icon: <Wallet      className="h-3.5 w-3.5" /> },
-                  { key: 'activity' as Tab, label: 'Activity',  icon: <Activity   className="h-3.5 w-3.5" /> },
-                ] as const).map((t) => (
-                  <button
-                    key={t.key}
-                    onClick={() => setTab(t.key)}
-                    className="flex items-center gap-2 px-5 py-3 text-[13px] font-semibold border-b-2 transition-all"
-                    style={{
-                      borderColor: tab === t.key ? 'var(--accent-base)' : 'transparent',
-                      color:       tab === t.key ? 'var(--accent-base)' : 'var(--text-secondary)',
-                      background:  tab === t.key ? 'var(--surface-card)' : 'var(--surface-muted)',
-                    }}
-                  >
-                    {t.icon}{t.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Overview tab — 50/50 */}
-              {tab === 'overview' && (
-                <div className="grid lg:grid-cols-2 gap-4 p-4" style={{ background: 'var(--surface-muted)' }}>
-
-                  {/* LEFT: Projects card */}
-                  <div className="rounded-xl overflow-hidden min-w-0" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                    <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Projects</p>
-                      <Link href="/projects/new" className="inline-flex items-center gap-1 text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                        <Plus className="h-3.5 w-3.5" /> New project
-                      </Link>
+            {/* ── PROJECTS TAB ──────────────────────────────────────── */}
+            {tab === 'projects' && (
+              <div style={{ background: 'var(--surface-card)' }}>
+                {summaryLoading && !summary ? (
+                  <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+                ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
+                  <div className="flex flex-col items-center gap-3 py-16 text-center">
+                    <FolderKanban className="h-9 w-9" style={{ color: 'var(--text-tertiary)' }} />
+                    <div>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
+                      <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Projects will appear here once a quote is booked.</p>
                     </div>
-
-                    {summaryLoading && !summary ? (
-                      <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
-                    ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
-                      <div className="flex flex-col items-center gap-3 py-10 text-center">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                          <FolderOpen className="h-5 w-5" style={{ color: '#6366f1' }} />
-                        </div>
-                        <div>
-                          <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
-                          <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Projects linked to this client will appear here</p>
-                        </div>
-                        <Link href="/projects/new" className="mt-1 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12px] font-semibold" style={{ background: 'var(--accent-base)', color: '#fff' }}>
-                          <Plus className="h-3.5 w-3.5" /> Create first project
-                        </Link>
-                      </div>
-                    ) : (
+                  </div>
+                ) : (
+                  <>
+                    {summary.projects.length > 0 && (
                       <>
-                        {summary.projects.length > 0 && (
-                          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                            {summary.projects.slice(0, 5).map((p) => {
-                              const sc = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
-                              const pct = LIFECYCLE_PROGRESS[p.lifecycleStage] ?? 8;
-                              return (
-                                <Link
-                                  key={p.id}
-                                  href={`/projects/${p.id}`}
-                                  className="block px-5 py-3 transition-colors"
-                                  style={{ background: 'var(--surface-card)' }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
-                                >
-                                  <div className="flex items-center justify-between gap-3">
+                        <div className="px-5 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                          <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
+                            Projects ({summary.projects.length})
+                          </p>
+                        </div>
+                        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                          {summary.projects.map((p) => {
+                            const sc  = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
+                            const pct = LIFECYCLE_PROGRESS[p.lifecycleStage] ?? 8;
+                            return (
+                              <Link key={p.id} href={`/projects/${p.id}`}
+                                className="flex items-center gap-4 px-5 py-4 transition-colors"
+                                style={{ background: 'var(--surface-card)' }}
+                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                                onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
+                              >
+                                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(99,102,241,0.08)' }}>
+                                  <FolderOpen className="h-4.5 w-4.5" style={{ color: '#6366f1' }} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center justify-between gap-3 mb-1.5">
                                     <p className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
                                       {p.name || 'Untitled project'}
                                     </p>
@@ -773,422 +1027,471 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                           {formatRupeesShort(p.totalContractPaise)}
                                         </span>
                                       )}
-                                      <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: sc.bg, color: sc.color }}>
+                                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: sc.bg, color: sc.color }}>
                                         {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
                                       </span>
+                                      <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
                                     </div>
                                   </div>
-                                  <div className="mt-2 h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+                                  <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
+                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
                                   </div>
-                                </Link>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {summary.projects.length > 5 && (
-                          <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                            <Link href="/projects" className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                              View all {summary.projects.length} projects →
-                            </Link>
-                          </div>
-                        )}
-                        {summary.leads.length > 0 && (
-                          <>
-                            <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                              <p className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>Active enquiries</p>
-                            </div>
-                            <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                              {summary.leads.map((l) => (
-                                <Link
-                                  key={l.id}
-                                  href={`/leads/${l.id}`}
-                                  className="flex items-center justify-between px-5 py-3 transition-colors"
-                                  style={{ background: 'var(--surface-card)' }}
-                                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                                  onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
-                                >
-                                  <p className="truncate text-[13px] font-medium mr-3" style={{ color: 'var(--text-heading)' }}>{l.projectName || 'New enquiry'}</p>
-                                  <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
-                                    {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
-                                  </span>
-                                </Link>
-                              ))}
-                            </div>
-                          </>
-                        )}
+                                  <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{pct}% complete</p>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
                       </>
                     )}
+                    {summary.leads.length > 0 && (
+                      <>
+                        <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                          <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
+                            Active Enquiries ({summary.leads.length})
+                          </p>
+                        </div>
+                        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                          {summary.leads.map((l) => (
+                            <Link key={l.id} href={`/leads/${l.id}`}
+                              className="flex items-center justify-between px-5 py-4 transition-colors"
+                              style={{ background: 'var(--surface-card)' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(245,158,11,0.08)' }}>
+                                  <Bell className="h-4 w-4" style={{ color: '#b45309' }} />
+                                </div>
+                                <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
+                                  {l.projectName || 'New enquiry'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
+                                  {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
+                                </span>
+                                <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── PAYMENTS TAB ──────────────────────────────────────── */}
+            {tab === 'payments' && (
+              <div style={{ background: 'var(--surface-card)' }}>
+                <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                  <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                    Running account — invoices raised (debit) against payments received (credit).
+                  </p>
+                </div>
+                {ledgerWithBalance.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-14 text-center">
+                    <Wallet className="h-8 w-8" style={{ color: 'var(--text-tertiary)' }} />
+                    <div>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No transactions yet</p>
+                      <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Invoices and payments will appear here once raised.</p>
+                    </div>
                   </div>
-
-                  {/* RIGHT: stacked cards */}
-                  <div className="flex flex-col gap-4">
-
-                    {/* Financial Summary card */}
-                    <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Financial Summary</p>
-                        <button onClick={() => setTab('ledger')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                          Ledger →
-                        </button>
-                      </div>
-                      <div className="px-5 divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                        {[
-                          { label: 'Total project value', value: totalContractPaise, color: 'var(--text-heading)', bold: false },
-                          { label: 'Invoiced to date',    value: totalInvoicedPaise, color: 'var(--text-heading)', bold: false },
-                          { label: 'Payments received',   value: totalReceivedPaise, color: '#059669',             bold: false },
-                          { label: 'Outstanding balance', value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
-                        ].map((row, i) => (
-                          <div key={i} className="flex items-center justify-between py-2.5">
-                            <span className={`text-[13px] ${row.bold ? 'font-bold' : ''}`} style={{ color: row.bold ? 'var(--text-heading)' : 'var(--text-secondary)' }}>
-                              {row.label}
-                            </span>
-                            <span className={`text-[13px] tabular-nums ${row.bold ? 'font-bold' : 'font-medium'}`} style={{ color: row.color }}>
-                              {row.value > 0 ? formatRupees(row.value) : '₹0'}
-                            </span>
-                          </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                          {['DATE', 'TYPE', 'PARTICULARS', 'DEBIT', 'CREDIT', 'BALANCE'].map((h, i) => (
+                            <th key={h} className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest ${i >= 3 ? 'text-right' : 'text-left'}`}
+                              style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                        {ledgerWithBalance.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-[var(--surface-muted)] transition-colors">
+                            <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                              {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                style={row.kind === 'payment'
+                                  ? { background: 'rgba(16,185,129,0.12)', color: '#059669', border: '1px solid rgba(16,185,129,0.30)' }
+                                  : { background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.25)' }
+                                }>
+                                {row.kind === 'payment' ? 'Received' : 'Invoice'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 max-w-[200px]">
+                              <p className="font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{row.number}</p>
+                              <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{row.particulars}</p>
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                              {row.debitPaise > 0 ? formatRupees(row.debitPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#059669' }}>
+                              {row.creditPaise > 0 ? formatRupees(row.creditPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: row.balancePaise > 0 ? '#dc2626' : '#059669' }}>
+                              {row.balancePaise !== 0
+                                ? `${row.balancePaise < 0 ? '-' : ''}${formatRupees(Math.abs(row.balancePaise))}`
+                                : '₹0'}
+                            </td>
+                          </tr>
                         ))}
+                      </tbody>
+                      <tfoot>
+                        <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                          <td colSpan={3} className="px-4 py-3 text-right text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Closing balance</td>
+                          <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: 'var(--text-heading)' }}>
+                            {totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: '#059669' }}>
+                            {totalReceivedPaise > 0 ? formatRupees(totalReceivedPaise) : '—'}
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: outstandingPaise > 0 ? '#dc2626' : '#059669' }}>
+                            {formatRupees(outstandingPaise)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SERVICE TAB ──────────────────────────────────────── */}
+            {tab === 'service' && (
+              <div style={{ background: 'var(--surface-card)' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
+                    Service Requests {serviceReqs.length > 0 && <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>({serviceReqs.length})</span>}
+                  </p>
+                  <button
+                    onClick={() => setShowSRForm(v => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-85"
+                    style={{ background: 'var(--accent-base)', color: '#fff' }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> New Request
+                  </button>
+                </div>
+
+                {/* Create form */}
+                {showSRForm && (
+                  <form onSubmit={createServiceRequest} className="px-5 py-4 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                    <Textarea
+                      value={srIssue}
+                      onChange={e => setSrIssue(e.target.value)}
+                      placeholder="Describe the issue…"
+                      rows={3}
+                      className="text-[13px] resize-none"
+                      required
+                    />
+                    <div className="flex flex-wrap gap-3">
+                      <div className="w-40">
+                        <Select value={srPriority} onValueChange={v => setSrPriority(v as typeof srPriority)}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Priority" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="low">Low</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="high">High</SelectItem>
+                            <SelectItem value="urgent">Urgent</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                      {totalInvoicedPaise > 0 && (
-                        <div className="px-5 pb-3.5 pt-2.5">
-                          <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                            <div className="h-full rounded-full" style={{ width: `${collectedPct}%`, background: '#10b981' }} />
-                          </div>
-                          <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{collectedPct}% collected</p>
+                      {summary && summary.projects.length > 0 && (
+                        <div className="w-56">
+                          <Select value={srProjectId} onValueChange={setSrProjectId}>
+                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Link to project (optional)" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">No project</SelectItem>
+                              {summary.projects.map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.name || 'Untitled project'}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                       )}
+                      <button
+                        type="submit"
+                        disabled={srSaving || !srIssue.trim()}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40"
+                        style={{ background: 'var(--accent-base)', color: '#fff' }}
+                      >
+                        {srSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        {srSaving ? 'Creating…' : 'Create'}
+                      </button>
+                      <button type="button" onClick={() => setShowSRForm(false)}
+                        className="rounded-lg px-3 py-2 text-[13px] font-semibold hover:opacity-70"
+                        style={{ color: 'var(--text-secondary)' }}>
+                        Cancel
+                      </button>
                     </div>
+                    {srError && <p className="text-xs text-red-600">{srError}</p>}
+                  </form>
+                )}
 
-                    {/* Activity + Notes side by side */}
-                    <div className="grid grid-cols-2 gap-4">
-
-                      {/* Activity card */}
-                      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Activity</p>
-                        </div>
-                        <div className="grid grid-cols-2 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {[
-                            { label: 'Site visits', value: summaryLoading ? '…' : String(summary?.siteVisitCount ?? 0), color: '#f59e0b' },
-                            { label: 'Activities',  value: activitiesLoading ? '…' : String(activities.length),         color: '#f97316' },
-                          ].map((kpi, i) => (
-                            <div key={i} className="flex flex-col items-center justify-center py-4 gap-1">
-                              <span className="text-[26px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
-                              <span className="text-[11px] font-medium" style={{ color: kpi.color }}>{kpi.label}</span>
+                {/* List */}
+                {serviceLoading ? (
+                  <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+                ) : serviceReqs.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-16 text-center">
+                    <Wrench className="h-9 w-9" style={{ color: 'var(--text-tertiary)' }} />
+                    <div>
+                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No service requests</p>
+                      <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Post-handover complaints and service visits will appear here.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {serviceReqs.map((req) => {
+                      const prio = SR_PRIORITY_STYLE[req.priority] ?? SR_PRIORITY_STYLE.medium;
+                      const stat = SR_STATUS_STYLE[req.status] ?? SR_STATUS_STYLE.open;
+                      return (
+                        <div key={req.id} className="flex items-start gap-4 px-5 py-4">
+                          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg mt-0.5"
+                            style={{ background: `${stat.color}14`, color: stat.color }}>
+                            {stat.icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-semibold leading-snug" style={{ color: 'var(--text-heading)' }}>
+                              {req.issue}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                style={{ background: stat.bg, color: stat.color }}>
+                                {stat.icon}<span className="ml-0.5">{stat.label}</span>
+                              </span>
+                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                                style={{ background: prio.bg, color: prio.color }}>
+                                {prio.label}
+                              </span>
+                              {req.projectName && (
+                                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>· {req.projectName}</span>
+                              )}
+                              {req.assigneeName && (
+                                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>· Assigned to {req.assigneeName}</span>
+                              )}
                             </div>
-                          ))}
+                            {req.notes && (
+                              <p className="mt-1 text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{req.notes}</p>
+                            )}
+                          </div>
+                          <div className="flex flex-shrink-0 flex-col items-end gap-2">
+                            <span className="text-[11px] tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                              {relativeTime(req.createdAt)}
+                            </span>
+                            {req.status !== 'resolved' && (
+                              <button
+                                onClick={() => resolveServiceReq(req.id)}
+                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:opacity-80"
+                                style={{ background: 'rgba(16,185,129,0.12)', color: '#059669' }}
+                              >
+                                <CheckCircle2 className="h-3 w-3" /> Resolve
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Notes card */}
-                      <div className="rounded-xl overflow-hidden flex flex-col" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                        <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                          <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Notes</p>
-                          {notesDraft !== (customer.notes ?? '') && (
-                            <button onClick={saveNotes} disabled={notesSaving}
-                              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold disabled:opacity-50"
-                              style={{ background: 'var(--accent-base)', color: '#fff' }}>
-                              {notesSaving ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Save className="h-2.5 w-2.5" />}
-                              Save
-                            </button>
-                          )}
-                        </div>
-                        <div className="p-3 flex-1">
-                          <Textarea
-                            rows={4}
-                            placeholder="Add notes…"
-                            value={notesDraft}
-                            onChange={e => { setNotesDraft(e.target.value); setNotesErr(null); }}
-                            onBlur={saveNotes}
-                            className="text-[13px] resize-none w-full h-full min-h-0"
-                          />
-                          {notesErr && <p className="mt-1 text-xs text-red-600">{notesErr}</p>}
-                        </div>
-                      </div>
-                    </div>
-
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {/* Ledger tab */}
-              {tab === 'ledger' && (
-                <div style={{ background: 'var(--surface-card)' }}>
-                  {/* Header row */}
-                  <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                    <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                      Running account — invoices raised (debit) against payments received (credit).
-                    </p>
+            {/* ── ACTIVITY TAB ──────────────────────────────────────── */}
+            {tab === 'activity' && (
+              <div style={{ background: 'var(--surface-card)' }}>
+                {/* Composer */}
+                <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <p className="mb-3 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Log activity</p>
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {COMPOSER_TYPES.map((ct) => {
+                      const meta = ACTIVITY_META[ct.type];
+                      const active = composerType === ct.type;
+                      return (
+                        <button
+                          key={ct.type}
+                          type="button"
+                          onClick={() => setComposerType(ct.type)}
+                          className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold transition-all"
+                          style={{
+                            background: active ? `${meta.color}18` : 'var(--surface-muted)',
+                            color:      active ? meta.color : 'var(--text-secondary)',
+                            border:     active ? `1.5px solid ${meta.color}40` : '1.5px solid transparent',
+                          }}
+                        >
+                          <span style={{ color: meta.color }}>{meta.icon}</span>
+                          {ct.label}
+                        </button>
+                      );
+                    })}
                   </div>
-
-                  {ledgerWithBalance.length === 0 ? (
-                    <div className="flex flex-col items-center gap-3 py-14 text-center">
-                      <Wallet className="h-8 w-8" style={{ color: 'var(--text-tertiary)' }} />
-                      <div>
-                        <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No transactions yet</p>
-                        <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Invoices and payments will appear here once raised.</p>
-                      </div>
+                  <form onSubmit={submitActivity} className="space-y-2">
+                    <input
+                      ref={titleRef}
+                      value={composerTitle}
+                      onChange={(e) => setComposerTitle(e.target.value)}
+                      placeholder={`${ACTIVITY_META[composerType].label} summary…`}
+                      className="w-full rounded-lg px-3 py-2.5 text-[13px] outline-none transition-all"
+                      style={{ background: 'var(--surface-muted)', border: '1.5px solid transparent', color: 'var(--text-heading)' }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-base)')}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+                    />
+                    <Textarea
+                      value={composerBody}
+                      onChange={(e) => setComposerBody(e.target.value)}
+                      placeholder="Details (optional)…"
+                      rows={2}
+                      className="text-[13px] resize-none"
+                    />
+                    {composerErr && <p className="text-xs text-red-600">{composerErr}</p>}
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={composerSaving || !composerTitle.trim()}
+                        className="flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-85 disabled:opacity-40"
+                        style={{ background: 'var(--accent-base)', color: '#fff' }}
+                      >
+                        {composerSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        {composerSaving ? 'Saving…' : `Log ${ACTIVITY_META[composerType].label.toLowerCase()}`}
+                      </button>
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[12px]">
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                            {['DATE', 'TYPE', 'PARTICULARS', 'DEBIT', 'CREDIT', 'BALANCE'].map((h, i) => (
-                              <th key={h} className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest ${i >= 3 ? 'text-right' : 'text-left'}`} style={{ color: 'var(--text-tertiary)' }}>
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {ledgerWithBalance.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-[var(--surface-muted)] transition-colors">
-                              <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                                {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                              </td>
-                              <td className="px-4 py-3">
-                                <span
-                                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                                  style={row.kind === 'payment'
-                                    ? { background: 'rgba(16,185,129,0.12)', color: '#059669', border: '1px solid rgba(16,185,129,0.30)' }
-                                    : { background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.25)' }
-                                  }
-                                >
-                                  {row.kind === 'payment' ? 'Received' : 'Sent'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 max-w-[200px]">
-                                <p className="font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{row.number}</p>
-                                <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{row.particulars}</p>
-                              </td>
-                              <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                                {row.debitPaise > 0 ? formatRupees(row.debitPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                              </td>
-                              <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#059669' }}>
-                                {row.creditPaise > 0 ? formatRupees(row.creditPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                              </td>
-                              <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: row.balancePaise > 0 ? '#dc2626' : '#059669' }}>
-                                {row.balancePaise !== 0
-                                  ? `${row.balancePaise < 0 ? '-' : ''}${formatRupees(Math.abs(row.balancePaise))}`
-                                  : '₹0'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        {/* Closing balance */}
-                        <tfoot>
-                          <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                            <td colSpan={3} className="px-4 py-3 text-right text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>
-                              Closing balance
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: 'var(--text-heading)' }}>
-                              {totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '—'}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: '#059669' }}>
-                              {totalReceivedPaise > 0 ? formatRupees(totalReceivedPaise) : '—'}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: outstandingPaise > 0 ? '#dc2626' : '#059669' }}>
-                              {formatRupees(outstandingPaise)}
-                            </td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
+                  </form>
                 </div>
-              )}
-
-              {/* Activity tab */}
-              {tab === 'activity' && (
-                <div style={{ background: 'var(--surface-card)' }}>
-                  {/* Composer */}
-                  <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>Log activity</p>
-                    <div className="mb-3 flex flex-wrap gap-1.5">
-                      {COMPOSER_TYPES.map((ct) => {
-                        const meta = ACTIVITY_META[ct.type];
-                        const active = composerType === ct.type;
+                {/* Timeline */}
+                {activitiesLoading && activities.length === 0 ? (
+                  <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+                ) : activities.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-10 text-center">
+                    <StickyNote className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
+                    <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No activity yet — log the first interaction above</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                      {visibleActivities.map((a) => {
+                        const meta = ACTIVITY_META[a.type];
                         return (
-                          <button
-                            key={ct.type}
-                            type="button"
-                            onClick={() => setComposerType(ct.type)}
-                            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-semibold transition-all"
-                            style={{
-                              background: active ? `${meta.color}18` : 'var(--surface-muted)',
-                              color:      active ? meta.color : 'var(--text-secondary)',
-                              border:     active ? `1.5px solid ${meta.color}40` : '1.5px solid transparent',
-                            }}
-                          >
-                            <span style={{ color: meta.color }}>{meta.icon}</span>
-                            {ct.label}
-                          </button>
+                          <div key={a.id} className="flex items-start gap-3 px-5 py-4">
+                            <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full" style={{ background: `${meta.color}18`, color: meta.color }}>
+                              {meta.icon}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>{a.title}</p>
+                                <span className="flex-shrink-0 text-[11px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>{relativeTime(a.createdAt)}</span>
+                              </div>
+                              {a.body && <p className="mt-0.5 text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.body}</p>}
+                              <span className="mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${meta.color}14`, color: meta.color }}>
+                                {meta.label}
+                              </span>
+                            </div>
+                          </div>
                         );
                       })}
                     </div>
-                    <form onSubmit={submitActivity} className="space-y-2">
-                      <input
-                        ref={titleRef}
-                        value={composerTitle}
-                        onChange={(e) => setComposerTitle(e.target.value)}
-                        placeholder={`${ACTIVITY_META[composerType].label} summary…`}
-                        className="w-full rounded-lg px-3 py-2.5 text-[13px] outline-none transition-all"
-                        style={{ background: 'var(--surface-muted)', border: '1.5px solid transparent', color: 'var(--text-heading)' }}
-                        onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent-base)')}
-                        onBlur={(e) => (e.currentTarget.style.borderColor = 'transparent')}
-                      />
-                      <Textarea
-                        value={composerBody}
-                        onChange={(e) => setComposerBody(e.target.value)}
-                        placeholder="Details (optional)…"
-                        rows={2}
-                        className="text-[13px] resize-none"
-                      />
-                      {composerErr && <p className="text-xs text-red-600">{composerErr}</p>}
-                      <div className="flex justify-end">
+                    {hasMoreActivities && (
+                      <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
                         <button
-                          type="submit"
-                          disabled={composerSaving || !composerTitle.trim()}
-                          className="flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-85 disabled:opacity-40"
-                          style={{ background: 'var(--accent-base)', color: '#fff' }}
+                          onClick={() => setActivityPage(p => p + 1)}
+                          className="w-full rounded-lg py-2.5 text-[13px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+                          style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
                         >
-                          {composerSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                          {composerSaving ? 'Saving…' : `Log ${ACTIVITY_META[composerType].label.toLowerCase()}`}
+                          Load more ({activities.length - visibleActivities.length} remaining)
                         </button>
                       </div>
-                    </form>
-                  </div>
-
-                  {/* Timeline */}
-                  {activitiesLoading && activities.length === 0 ? (
-                    <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
-                  ) : activities.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 py-10 text-center">
-                      <StickyNote className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
-                      <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No activity yet — log the first interaction above</p>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                        {visibleActivities.map((a) => {
-                          const meta = ACTIVITY_META[a.type];
-                          return (
-                            <div key={a.id} className="flex items-start gap-3 px-5 py-4">
-                              <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full" style={{ background: `${meta.color}18`, color: meta.color }}>
-                                {meta.icon}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>{a.title}</p>
-                                  <span className="flex-shrink-0 text-[11px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>{relativeTime(a.createdAt)}</span>
-                                </div>
-                                {a.body && <p className="mt-0.5 text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.body}</p>}
-                                <span className="mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${meta.color}14`, color: meta.color }}>
-                                  {meta.label}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {hasMoreActivities && (
-                        <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                          <button
-                            onClick={() => setActivityPage(p => p + 1)}
-                            className="w-full rounded-lg py-2.5 text-[13px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
-                            style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}
-                          >
-                            Load more ({activities.length - visibleActivities.length} remaining)
-                          </button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </section>
-
-            {/* Files & photos card */}
-            <section className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-              {/* Hidden file inputs */}
-              <input ref={imgInputRef} type="file" className="hidden" accept="image/*,.pdf"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
-              <input ref={docInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx"
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
-
-              <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                <div>
-                  <p className="flex items-center gap-2 text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
-                    <Paperclip className="h-4 w-4" style={{ color: 'var(--accent-base)' }} /> Files &amp; photos
-                  </p>
-                  <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                    Reference images, floor plans, signed approvals — anything that belongs with this client.
-                  </p>
-                </div>
-                <div className="flex flex-shrink-0 items-center gap-2 ml-6">
-                  <button onClick={() => docInputRef.current?.click()} disabled={uploading}
-                    className="rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:opacity-50"
-                    style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-                    Document
-                  </button>
-                  <button onClick={() => imgInputRef.current?.click()} disabled={uploading}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50"
-                    style={{ background: 'var(--accent-base)', color: '#fff' }}>
-                    {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                    {uploading ? 'Uploading…' : 'Upload'}
-                  </button>
-                </div>
+                    )}
+                  </>
+                )}
               </div>
+            )}
 
-              {uploadErr && (
-                <div className="px-5 py-2 text-[12px] font-medium text-red-600 bg-red-50" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {uploadErr}
-                </div>
-              )}
+          </section>
 
-              {filesLoading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
-              ) : clientFiles.length === 0 ? (
-                <div className="flex flex-col items-center gap-1 py-9 text-center">
-                  <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No files yet.</p>
-                  <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>JPG, PNG, WEBP or PDF, up to 10MB each.</p>
-                </div>
-              ) : (
-                <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {clientFiles.map(f => {
-                    const ext = f.name.split('.').pop()?.toUpperCase() ?? 'FILE';
-                    const isImg = /^(jpg|jpeg|png|webp)$/i.test(ext);
-                    return (
-                      <div key={f.key} className="flex items-center gap-3 px-5 py-3">
-                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-bold"
-                          style={{ background: isImg ? 'rgba(99,102,241,0.10)' : 'rgba(245,158,11,0.10)', color: isImg ? '#6366f1' : '#b45309' }}>
-                          {ext.slice(0, 3)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
-                            {f.name.replace(/^\d+_/, '')}
-                          </p>
-                          <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{fmtSize(f.size)}</p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <a href={f.url} target="_blank" rel="noopener noreferrer"
-                            className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
-                            style={{ color: 'var(--accent-base)' }}>
-                            View
-                          </a>
-                          <button onClick={() => handleDeleteFile(f.key)}
-                            className="rounded-md p-1 transition-colors hover:bg-red-50 hover:text-red-600"
-                            style={{ color: 'var(--text-tertiary)' }}>
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+          {/* ── FILES & PHOTOS ─────────────────────────────────────── */}
+          <section className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <input ref={imgInputRef} type="file" className="hidden" accept="image/*,.pdf"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+            <input ref={docInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+
+            <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <div>
+                <p className="flex items-center gap-2 text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
+                  <Paperclip className="h-4 w-4" style={{ color: 'var(--accent-base)' }} /> Files &amp; photos
+                </p>
+                <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                  Reference images, floor plans, signed approvals — anything that belongs with this client.
+                </p>
+              </div>
+              <div className="flex flex-shrink-0 items-center gap-2 ml-6">
+                <button onClick={() => docInputRef.current?.click()} disabled={uploading}
+                  className="rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors hover:bg-[var(--surface-muted)] disabled:opacity-50"
+                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+                  Document
+                </button>
+                <button onClick={() => imgInputRef.current?.click()} disabled={uploading}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold disabled:opacity-50"
+                  style={{ background: 'var(--accent-base)', color: '#fff' }}>
+                  {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  {uploading ? 'Uploading…' : 'Upload'}
+                </button>
+              </div>
+            </div>
+
+            {uploadErr && (
+              <div className="px-5 py-2 text-[12px] font-medium text-red-600 bg-red-50" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                {uploadErr}
+              </div>
+            )}
+
+            {filesLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
+            ) : clientFiles.length === 0 ? (
+              <div className="flex flex-col items-center gap-1 py-9 text-center">
+                <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>No files yet.</p>
+                <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>JPG, PNG, WEBP or PDF, up to 10MB each.</p>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                {clientFiles.map(f => {
+                  const ext = f.name.split('.').pop()?.toUpperCase() ?? 'FILE';
+                  const isImg = /^(jpg|jpeg|png|webp)$/i.test(ext);
+                  return (
+                    <div key={f.key} className="flex items-center gap-3 px-5 py-3">
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[10px] font-bold"
+                        style={{ background: isImg ? 'rgba(99,102,241,0.10)' : 'rgba(245,158,11,0.10)', color: isImg ? '#6366f1' : '#b45309' }}>
+                        {ext.slice(0, 3)}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </section>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
+                          {f.name.replace(/^\d+_/, '')}
+                        </p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{fmtSize(f.size)}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <a href={f.url} target="_blank" rel="noopener noreferrer"
+                          className="rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+                          style={{ color: 'var(--accent-base)' }}>
+                          View
+                        </a>
+                        <button onClick={() => handleDeleteFile(f.key)}
+                          className="rounded-md p-1 transition-colors hover:bg-red-50 hover:text-red-600"
+                          style={{ color: 'var(--text-tertiary)' }}>
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
         </div>
       </div>
@@ -1197,25 +1500,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 }
 
 /* ── Sub-components ─────────────────────────────────────────────────────────── */
-
-function ViewField({
-  label,
-  icon: Icon,
-  children,
-}: {
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <p className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-        <Icon className="h-3 w-3" /> {label}
-      </p>
-      <div className="text-[13px] font-medium">{children}</div>
-    </div>
-  );
-}
 
 function InlineField({
   label,
