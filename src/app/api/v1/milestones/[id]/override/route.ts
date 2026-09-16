@@ -64,34 +64,39 @@ export async function POST(
       return NextResponse.json({ error: 'Milestone not found' }, { status: 404 });
     }
 
+    // 'overdue' — just update status, no invoice or payment row needed
+    if (newStatus === 'overdue') {
+      const [updatedMilestone] = await db
+        .update(milestones)
+        .set({ paymentStatus: 'overdue' })
+        .where(eq(milestones.id, milestoneId))
+        .returning();
+      return NextResponse.json({ data: { milestone: updatedMilestone } });
+    }
+
+    // 'paid' — requires an invoice so we can create a payment record
     if (!milestone.invoiceId) {
       return NextResponse.json(
-        { error: 'Milestone has no invoice — trigger a payment link first' },
+        { error: 'No invoice found for this milestone. Send a payment link first to generate an invoice, then use Manual Override to mark it as paid.' },
         { status: 400 },
       );
     }
 
-    // Update milestone paymentStatus; set paidAt if status is 'paid'
-    const milestoneSet: Record<string, unknown> = { paymentStatus: newStatus };
-    if (newStatus === 'paid') {
-      milestoneSet.paidAt = sql`now()`;
-    }
-
     const [updatedMilestone] = await db
       .update(milestones)
-      .set(milestoneSet)
+      .set({ paymentStatus: 'paid', paidAt: sql`now()` })
       .where(eq(milestones.id, milestoneId))
       .returning();
 
-    // Insert payment audit row for manual override
-    // NOTE: payments.status is intentionally NOT set here — it defaults to 'pending' at DB level.
-    // IRON RULE: payments.status is written ONLY by the Razorpay webhook handler.
+    // Create a captured payment row — manual confirmation by owner is equivalent to a confirmed receipt
     const [payment] = await db
       .insert(payments)
       .values({
         tenantId: ctx.tenantId,
         invoiceId: milestone.invoiceId,
         amountPaise: milestone.amountPaise,
+        status: 'captured',
+        reconciledAt: new Date(),
         manualOverrideBy: ctx.dbUserId,
         manualOverrideNote: note,
       })

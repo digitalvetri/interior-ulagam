@@ -166,103 +166,6 @@ function EditProjectDialog({
   );
 }
 
-/* ── RecordPaymentDialog ────────────────────────────────────────────────────── */
-
-function RecordPaymentDialog({
-  projectId, onClose, onSaved,
-}: {
-  projectId: string;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [amountRupees, setAmountRupees] = useState('');
-  const [notes,        setNotes]        = useState('');
-  const [saving,       setSaving]       = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
-
-  async function handleSave() {
-    setError(null);
-    const parsed = parseFloat(amountRupees);
-    if (!amountRupees || isNaN(parsed) || parsed <= 0) {
-      setError('Please enter a valid amount'); return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/v1/projects/${projectId}/milestones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label:         notes.trim() || 'Payment received',
-          pctOfTotal:    0,
-          amountPaise:   Math.round(parsed * 100),
-          paymentStatus: 'paid',
-          paidAt:        new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) {
-        const json = await res.json() as { error?: unknown };
-        setError(typeof json.error === 'string' ? json.error : 'Failed to record payment');
-        return;
-      }
-      onSaved();
-      onClose();
-    } catch {
-      setError('Network error — please try again');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--success-soft)' }}>
-              <IndianRupee className="h-4 w-4" style={{ color: 'var(--success)' }} />
-            </div>
-            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Payment</h2>
-          </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
-            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-          </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-4">
-          <div>
-            <label className="studio-label block mb-1.5">Amount Received (₹)</label>
-            <input type="number" min="0.01" step="0.01" placeholder="e.g. 50000"
-              value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
-              className="studio-input w-full text-sm" autoFocus />
-          </div>
-          <div>
-            <label className="studio-label block mb-1.5">
-              Description <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
-            </label>
-            <input type="text" placeholder="e.g. Advance, Design approval payment…"
-              value={notes} onChange={e => setNotes(e.target.value)}
-              className="studio-input w-full text-sm" />
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
-          <button type="button" onClick={handleSave} disabled={saving}
-            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
-            <IndianRupee className="h-4 w-4" />
-            {saving ? 'Saving…' : 'Record Payment'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── AddExpenseDialog ───────────────────────────────────────────────────────── */
 
 function AddExpenseDialog({
@@ -429,7 +332,6 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [editOpen,        setEditOpen]        = useState(false);
-  const [paymentOpen,     setPaymentOpen]     = useState(false);
   const [expenseOpen,     setExpenseOpen]     = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoUploadErr,  setPhotoUploadErr]  = useState<string | null>(null);
@@ -525,10 +427,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
           className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
           <Edit2 className="h-4 w-4" />Edit
         </button>
-        <button type="button" onClick={() => setPaymentOpen(true)}
+        <Link href={`/projects/${id}/payments`}
           className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
-          <IndianRupee className="h-4 w-4" />Record Payment
-        </button>
+          <IndianRupee className="h-4 w-4" />Payments
+        </Link>
         <button type="button" onClick={() => setExpenseOpen(true)}
           className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
           <Receipt className="h-4 w-4" />Add Expense
@@ -591,10 +493,6 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Payments Received</h2>
               <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setPaymentOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
-                  <Plus className="h-3.5 w-3.5" />Record
-                </button>
                 <Link href={`/projects/${id}/payments`}
                   className="inline-flex items-center gap-0.5 text-xs font-medium"
                   style={{ color: 'var(--text-secondary)' }}>
@@ -606,10 +504,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             {paidMilestones.length === 0 ? (
               <div className="py-10 text-center">
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No payments recorded yet</p>
-                <button type="button" onClick={() => setPaymentOpen(true)}
+                <Link href={`/projects/${id}/payments`}
                   className="mt-3 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
-                  Record first payment →
-                </button>
+                  Set up milestone payments →
+                </Link>
               </div>
             ) : (
               <table className="w-full text-sm">
@@ -977,9 +875,8 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Dialogs */}
-      {editOpen    && <EditProjectDialog   project={project} onClose={() => setEditOpen(false)}    onSaved={loadAll} />}
-      {paymentOpen && <RecordPaymentDialog projectId={id}    onClose={() => setPaymentOpen(false)} onSaved={loadAll} />}
-      {expenseOpen && <AddExpenseDialog    projectId={id}    onClose={() => setExpenseOpen(false)} onSaved={loadAll} />}
+      {editOpen    && <EditProjectDialog project={project} onClose={() => setEditOpen(false)}    onSaved={loadAll} />}
+      {expenseOpen && <AddExpenseDialog  projectId={id}    onClose={() => setExpenseOpen(false)} onSaved={loadAll} />}
     </div>
   );
 }

@@ -51,6 +51,7 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise 
 
   async function handleSubmit() {
     if (!projectName.trim()) { setError('Project name is required'); return; }
+    if (!budget.trim()) { setError('Amount Quoted is required to seed payment milestones'); return; }
     setSubmitting(true); setError(null);
 
     const budgetPaise = budget.trim() ? rupeesToPaise(budget) : undefined;
@@ -166,7 +167,7 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                  ESTIMATED BUDGET (₹)
+                  AMOUNT QUOTED (₹) *
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-tertiary)' }}>₹</span>
