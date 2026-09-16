@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { leadFollowUps, leads } from '@/lib/db/schema';
@@ -36,9 +36,22 @@ export async function PATCH(
             eq(leadFollowUps.id, followUpId),
             eq(leadFollowUps.tenantId, ctx.tenantId),
           ));
+
+        // BR-2/B: Recompute followUpDate from next pending row (if any)
+        const [nextPending] = await tx
+          .select({ followUpDate: leadFollowUps.followUpDate })
+          .from(leadFollowUps)
+          .where(and(
+            eq(leadFollowUps.leadId, leadId),
+            eq(leadFollowUps.tenantId, ctx.tenantId),
+            isNull(leadFollowUps.completedAt),
+          ))
+          .orderBy(asc(leadFollowUps.followUpDate))
+          .limit(1);
+
         await tx
           .update(leads)
-          .set({ followUpDate: null, lastActivityAt: now })
+          .set({ followUpDate: nextPending?.followUpDate ?? null, lastActivityAt: now })
           .where(and(
             eq(leads.id, leadId),
             eq(leads.tenantId, ctx.tenantId),
@@ -58,6 +71,21 @@ export async function PATCH(
           { status: 422 },
         );
       }
+
+      // BR-3: Block reschedule on terminal leads; preserve historical follow-up rows
+      const [leadRow] = await db
+        .select({ stage: leads.stage })
+        .from(leads)
+        .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (!leadRow) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+      if (leadRow.stage === 'won' || leadRow.stage === 'lost') {
+        return NextResponse.json(
+          { error: 'Cannot reschedule a follow-up for a won or lost lead.' },
+          { status: 422 },
+        );
+      }
+
       await db.transaction(async (tx) => {
         await tx
           .update(leadFollowUps)

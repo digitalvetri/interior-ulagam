@@ -21,6 +21,12 @@ const CreateSiteVisitSchema = z.object({
   notes:      z.string().optional(),
 });
 
+function isUniqueViolation(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  const code = (e as { code?: string }).code;
+  return code === '23505' || e.message.includes('23505');
+}
+
 // ─── GET /api/v1/site-visits ─────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -92,29 +98,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    const [{ visitCount }] = await db
-      .select({ visitCount: count() })
-      .from(siteVisits)
-      .where(eq(siteVisits.tenantId, ctx.tenantId));
-    const visitNumber = `SV-${String(Number(visitCount) + 1).padStart(4, '0')}`;
+    // B-21: Retry on unique-violation in case of concurrent inserts
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      const [{ visitCount }] = await db
+        .select({ visitCount: count() })
+        .from(siteVisits)
+        .where(eq(siteVisits.tenantId, ctx.tenantId));
+      const visitNumber = `SV-${String(Number(visitCount) + 1).padStart(4, '0')}`;
 
-    const [visit] = await db
-      .insert(siteVisits)
-      .values({
-        tenantId: ctx.tenantId,
-        leadId,
-        scheduledAt: new Date(scheduledAt),
-        locationJson: { address },
-        designerId: designerId ?? null,
-        purpose:    purpose ?? null,
-        notes:      notes ?? null,
-        visitNumber,
-      })
-      .returning();
-
+      try {
+        const [visit] = await db
+          .insert(siteVisits)
+          .values({
+            tenantId: ctx.tenantId,
+            leadId,
+            scheduledAt: new Date(scheduledAt),
+            locationJson: { address },
+            designerId: designerId ?? null,
+            purpose:    purpose ?? null,
+            notes:      notes ?? null,
+            visitNumber,
+          })
+          .returning();
+        return NextResponse.json({ data: visit, message: 'Site visit scheduled' }, { status: 201 });
+      } catch (e) {
+        if (isUniqueViolation(e)) continue;
+        throw e;
+      }
+    }
     return NextResponse.json(
-      { data: visit, message: 'Site visit scheduled' },
-      { status: 201 },
+      { error: 'Failed to generate a unique visit number. Please try again.' },
+      { status: 500 },
     );
   } catch (e) {
     console.error('[POST /api/v1/site-visits]', e);

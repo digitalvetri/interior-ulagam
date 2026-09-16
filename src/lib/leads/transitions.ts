@@ -41,6 +41,8 @@ export async function applyStageTransition(
       stage: targetStage,
       lostReason: targetStage === 'lost' ? (lostReason ?? null) : null,
       lastActivityAt: new Date(),
+      // BR-3/B: Clear the follow-up pointer when the lead reaches a terminal stage
+      ...(targetStage === 'won' || targetStage === 'lost' ? { followUpDate: null } : {}),
     })
     .where(and(eq(leads.id, leadId), eq(leads.tenantId, tenantId)))
     .returning();

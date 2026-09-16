@@ -227,8 +227,16 @@ export async function PATCH(
   if (d.propertyType      !== undefined) updates.propertyType      = d.propertyType;
   if (d.projectLocation   !== undefined) updates.projectLocation   = d.projectLocation;
   if (d.projectValuePaise !== undefined) updates.projectValuePaise = d.projectValuePaise;
-  // Archive
-  if (d.archive !== undefined) updates.archivedAt = d.archive ? new Date() : null;
+  // Archive — owner/designer only (BR-5)
+  if (d.archive !== undefined) {
+    if (!['owner', 'designer'].includes(ctx.role)) {
+      return NextResponse.json(
+        { error: 'Only owners and designers can archive or unarchive leads' },
+        { status: 403 },
+      );
+    }
+    updates.archivedAt = d.archive ? new Date() : null;
+  }
 
   updates.lastActivityAt = new Date();
 
@@ -341,6 +349,20 @@ export async function DELETE(
   }
 
   try {
+    // CX-3: Block deletion of converted leads — FK RESTRICT would cause a 500
+    const [linkedProject] = await db
+      .select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .where(and(eq(projects.leadId, id), eq(projects.tenantId, ctx.tenantId)))
+      .limit(1);
+
+    if (linkedProject) {
+      return NextResponse.json(
+        { error: `Cannot delete this lead — it is linked to project "${linkedProject.name}". Archive the lead instead, or delete the project first.` },
+        { status: 422 },
+      );
+    }
+
     const [deleted] = await db
       .delete(leads)
       .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))

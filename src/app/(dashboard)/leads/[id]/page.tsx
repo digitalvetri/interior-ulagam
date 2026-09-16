@@ -680,10 +680,10 @@ export default function LeadDetailPage() {
     setSavingFU(true); setFUError(null); setFUSuccess(false);
     try {
       const followUpDateISO = new Date(followUpDate + 'T00:00:00').toISOString();
-      const dueDateLabel = new Date(followUpDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
       // Map lead stage to a value accepted by the follow-ups endpoint
-      const validFUStages = new Set(['new','contacted','qualified','site_visit','measurement','quotation','negotiation','won','lost','site_visit_scheduled','consultation_done','proposal_sent']);
+      // CX-5: measured and booked are valid active stages for follow-ups
+      const validFUStages = new Set(['new','contacted','qualified','site_visit','measurement','measured','booked','quotation','negotiation','won','lost','site_visit_scheduled','consultation_done','proposal_sent']);
       const fuStage = validFUStages.has(lead?.stage ?? '') ? (lead?.stage ?? 'new') : 'contacted';
 
       // 1. Create follow-up row (also updates lead.followUpDate + lastActivityAt via DB transaction)
@@ -698,10 +698,10 @@ export default function LeadDetailPage() {
           addToCalendar: true,
         }),
       });
-      if (!fuRes.ok) {
-        const j = await fuRes.json().catch(() => ({})) as { error?: string };
-        throw new Error(j.error ?? `Failed (${fuRes.status})`);
-      }
+      // B-3: Use the activity returned by the API (created atomically server-side)
+      const fuJson = await fuRes.json().catch(() => ({})) as { success?: boolean; activity?: LeadActivity; error?: string };
+      if (!fuRes.ok) throw new Error(fuJson.error ?? `Failed (${fuRes.status})`);
+      if (fuJson.activity) setActivities(prev => [fuJson.activity!, ...prev]);
 
       // 2. Refresh lead so At a Glance reflects the new followUpDate
       const leadRes = await fetch(`/api/v1/leads/${id}`);
@@ -715,23 +715,6 @@ export default function LeadDetailPage() {
       if (fuListRes.ok) {
         const fuListData = await fuListRes.json() as { data?: LeadFollowUp[] };
         setFollowUps(fuListData.data ?? []);
-      }
-
-      // 4. Always log to activity feed (not just when note exists)
-      const actRes = await fetch(`/api/v1/leads/${id}/activities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'follow_up',
-          title: `Follow-up scheduled — ${dueDateLabel}`,
-          description: followUpNote.trim() || null,
-          scheduledAt: followUpDateISO,
-          status: 'pending',
-        }),
-      });
-      if (actRes.ok) {
-        const actJson = await actRes.json() as { data?: LeadActivity };
-        if (actJson.data) setActivities(prev => [actJson.data!, ...prev]);
       }
 
       setFollowUpDate(''); setFollowUpNote('');

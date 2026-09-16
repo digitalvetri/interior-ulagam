@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { leadFollowUps, leads, users } from '@/lib/db/schema';
+import { leadActivities, leadFollowUps, leads, users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 const VALID_STAGES = [
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'measured', 'booked',
   'quotation', 'negotiation', 'won', 'lost',
   // legacy
   'site_visit_scheduled', 'consultation_done', 'proposal_sent',
@@ -96,7 +96,38 @@ export async function POST(
   const followUpDateObj = followUpDate ? new Date(followUpDate) : null;
 
   try {
-    await db.transaction(async (tx) => {
+    // BR-3/A: Block new follow-ups on terminal stages
+    const [leadRow] = await db
+      .select({ stage: leads.stage })
+      .from(leads)
+      .where(and(eq(leads.id, id), eq(leads.tenantId, ctx.tenantId)))
+      .limit(1);
+    if (!leadRow) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    if (leadRow.stage === 'won' || leadRow.stage === 'lost') {
+      return NextResponse.json(
+        { error: 'Cannot create a follow-up for a won or lost lead.' },
+        { status: 422 },
+      );
+    }
+
+    // BR-2/A: At most one pending follow-up per lead
+    const [existingPending] = await db
+      .select({ id: leadFollowUps.id })
+      .from(leadFollowUps)
+      .where(and(
+        eq(leadFollowUps.leadId, id),
+        eq(leadFollowUps.tenantId, ctx.tenantId),
+        isNull(leadFollowUps.completedAt),
+      ))
+      .limit(1);
+    if (existingPending) {
+      return NextResponse.json(
+        { error: 'This lead already has an active follow-up. Complete or reschedule it before adding a new one.' },
+        { status: 422 },
+      );
+    }
+
+    const activity = await db.transaction(async (tx) => {
       await tx.insert(leadFollowUps).values({
         tenantId:      ctx.tenantId,
         leadId:        id,
@@ -119,9 +150,35 @@ export async function POST(
           eq(leads.id, id),
           eq(leads.tenantId, ctx.tenantId),
         ));
+
+      // B-3: Atomic with the follow-up row; IST timezone for human-readable title
+      const activityTitle = followUpDateObj
+        ? `Follow-up scheduled — ${followUpDateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric' })}`
+        : 'Follow-up scheduled';
+      const [inserted] = await tx.insert(leadActivities).values({
+        tenantId:    ctx.tenantId,
+        leadId:      id,
+        type:        'follow_up',
+        title:       activityTitle,
+        description: comments ?? null,
+        scheduledAt: followUpDateObj,
+        status:      'pending',
+        createdBy:   ctx.dbUserId ?? undefined,
+      }).returning({
+        id:          leadActivities.id,
+        leadId:      leadActivities.leadId,
+        type:        leadActivities.type,
+        title:       leadActivities.title,
+        description: leadActivities.description,
+        scheduledAt: leadActivities.scheduledAt,
+        status:      leadActivities.status,
+        createdBy:   leadActivities.createdBy,
+        createdAt:   leadActivities.createdAt,
+      });
+      return inserted ?? null;
     });
 
-    return NextResponse.json({ success: true }, { status: 201 });
+    return NextResponse.json({ success: true, activity }, { status: 201 });
   } catch (e) {
     if (isMissingTable(e)) {
       return NextResponse.json({

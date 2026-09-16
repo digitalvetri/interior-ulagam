@@ -22,6 +22,10 @@ interface Employee {
   role: string;
 }
 
+// Sentinel used in the "Assigned To" Select so Radix does not misinterpret an
+// empty-string value as "no selection" (Radix treats "" === void 0 internally).
+const UNASSIGNED = '__unassigned__';
+
 // ─── Options (mirrors NewLeadDialog) ─────────────────────────────────────────
 
 const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
@@ -97,7 +101,7 @@ function fromLead(lead: Lead): FormState {
     source:          lead.source ?? 'whatsapp',
     priority:        lead.priority ?? '',
     stage:           lead.stage ?? 'new',
-    ownerId:         lead.ownerId ?? '',
+    ownerId:         lead.ownerId ?? UNASSIGNED,
     requirement:     lead.notes ?? '',
     expectedBudget:  lead.budgetBand ?? '',
     notes:           '',
@@ -187,7 +191,7 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
     if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
     if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
     if (form.priority)               payload.priority        = form.priority;
-    if (form.ownerId)                payload.ownerId         = form.ownerId;
+    payload.ownerId = form.ownerId === UNASSIGNED ? null : form.ownerId;
     if (form.expectedBudget)         payload.budgetBand      = form.expectedBudget;
 
     try {
@@ -329,6 +333,7 @@ export function EditLeadDialog({ lead, open, onOpenChange, onSuccess }: EditLead
                     <SelectValue placeholder="Choose team member…" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                     {employees.map(emp => (
                       <SelectItem key={emp.id} value={emp.id}>{emp.fullName}</SelectItem>
                     ))}
