@@ -960,6 +960,7 @@ export default function LeadDetailPage() {
         open={showSiteVisitModal}
         onOpenChange={setShowSiteVisitModal}
         defaultAddress={lead.projectLocation || [lead.contactCity, lead.pincode].filter(Boolean).join(', ')}
+        defaultDesignerId={lead.ownerId ?? ''}
         onSuccess={(visit) => {
           setSiteVisitsData(prev => [visit as SiteVisit, ...prev]);
           void handleSiteVisitSuccess();

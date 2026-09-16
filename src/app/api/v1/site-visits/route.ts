@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and, count, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { siteVisits, leads } from '@/lib/db/schema';
+import { siteVisits, leads, users, customers, notifications } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-
-// ─── Zod Schemas ─────────────────────────────────────────────────────────────
 
 const VISIT_PURPOSE_VALUES = [
   'initial', 'measurement', 'design_review',
@@ -36,7 +34,6 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const leadIdParam = searchParams.get('leadId');
 
-  // Validate optional leadId query param
   if (leadIdParam) {
     const leadIdParsed = z.string().uuid().safeParse(leadIdParam);
     if (!leadIdParsed.success) {
@@ -51,8 +48,30 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await db
-      .select()
+      .select({
+        id:           siteVisits.id,
+        leadId:       siteVisits.leadId,
+        projectId:    siteVisits.projectId,
+        designerId:   siteVisits.designerId,
+        visitNumber:  siteVisits.visitNumber,
+        status:       siteVisits.status,
+        purpose:      siteVisits.purpose,
+        scheduledAt:  siteVisits.scheduledAt,
+        completedAt:  siteVisits.completedAt,
+        locationJson: siteVisits.locationJson,
+        photos:       siteVisits.photos,
+        notes:        siteVisits.notes,
+        followUpNotes: siteVisits.followUpNotes,
+        createdAt:    siteVisits.createdAt,
+        designerName: users.fullName,
+        leadName:     leads.contactName,
+        leadPhone:    leads.contactPhone,
+        customerName: customers.fullName,
+      })
       .from(siteVisits)
+      .leftJoin(leads,     eq(siteVisits.leadId,     leads.id))
+      .leftJoin(users,     eq(siteVisits.designerId,  users.id))
+      .leftJoin(customers, eq(leads.customerId,        customers.id))
       .where(and(...conditions))
       .orderBy(desc(siteVisits.scheduledAt));
 
@@ -87,7 +106,6 @@ export async function POST(request: NextRequest) {
   const { leadId, scheduledAt, address, designerId, purpose, notes } = parsed.data;
 
   try {
-    // Verify the lead belongs to this tenant
     const [lead] = await db
       .select({ id: leads.id })
       .from(leads)
@@ -98,7 +116,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    // B-21: Retry on unique-violation in case of concurrent inserts
     const MAX_RETRIES = 3;
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       const [{ visitCount }] = await db
@@ -121,6 +138,23 @@ export async function POST(request: NextRequest) {
             visitNumber,
           })
           .returning();
+
+        // Notify assigned designer
+        if (designerId) {
+          const scheduledDate = new Date(scheduledAt).toLocaleDateString('en-IN', {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+          });
+          await db.insert(notifications).values({
+            tenantId: ctx.tenantId,
+            userId:   designerId,
+            severity: 'info',
+            title:    `Site visit scheduled — ${scheduledDate}`,
+            body:     address,
+            href:     `/site-visits/${visit.id}`,
+          });
+        }
+
         return NextResponse.json({ data: visit, message: 'Site visit scheduled' }, { status: 201 });
       } catch (e) {
         if (isUniqueViolation(e)) continue;

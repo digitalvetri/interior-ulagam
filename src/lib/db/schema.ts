@@ -73,7 +73,7 @@ export const quoteStatusEnum = pgEnum('quote_status', [
 ]);
 
 export const siteVisitStatusEnum = pgEnum('site_visit_status', [
-  'scheduled', 'in_progress', 'completed', 'cancelled',
+  'scheduled', 'in_progress', 'completed', 'cancelled', 'no_show',
 ]);
 
 export const followUpTypeEnum = pgEnum('follow_up_type', [

@@ -2,18 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { siteVisits } from '@/lib/db/schema';
+import { siteVisits, notifications } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { applyStageTransition } from '@/lib/leads/transitions';
+import { createFollowUp } from '@/lib/leads/createFollowUp';
+import type { FollowUpStage, FollowUpClientStatus } from '@/lib/leads/createFollowUp';
 
-// ─── Zod Schema ──────────────────────────────────────────────────────────────
+const VALID_STAGES = [
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'measured', 'booked',
+  'quotation', 'negotiation', 'won', 'lost',
+  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
+] as const;
+
+const VALID_STATUSES = [
+  'interested', 'not_interested', 'callback', 'meeting_scheduled',
+  'thinking', 'no_response', 'negotiating', 'deal_closed',
+] as const;
 
 const CompleteSiteVisitSchema = z.object({
-  notes: z.string().optional(),
+  notes:   z.string().optional(),
+  outcome: z.string().optional(),
+  photos:  z.array(z.string().url()).optional(),
+  followUp: z.object({
+    followUpDate:  z.string().datetime().nullable().optional(),
+    stage:         z.enum(VALID_STAGES),
+    clientStatus:  z.enum(VALID_STATUSES),
+    comments:      z.string().max(2000).optional(),
+    addToCalendar: z.boolean().default(true),
+  }).optional(),
 });
 
-// ─── POST /api/v1/site-visits/[id]/complete ──────────────────────────────────
-
+// POST /api/v1/site-visits/[id]/complete
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -23,8 +42,7 @@ export async function POST(
 
   const { id } = await params;
 
-  const idParsed = z.string().uuid().safeParse(id);
-  if (!idParsed.success) {
+  if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: 'Invalid site visit id' }, { status: 400 });
   }
 
@@ -32,7 +50,6 @@ export async function POST(
   try {
     body = await request.json();
   } catch {
-    // Body is optional for this endpoint — default to empty object
     body = {};
   }
 
@@ -45,7 +62,6 @@ export async function POST(
   }
 
   try {
-    // Fetch the visit first so we can get leadId and guard against not-found
     const [visit] = await db
       .select()
       .from(siteVisits)
@@ -56,7 +72,6 @@ export async function POST(
       return NextResponse.json({ error: 'Site visit not found' }, { status: 404 });
     }
 
-    // Guard: already completed
     if (visit.completedAt !== null) {
       return NextResponse.json(
         { error: 'Site visit is already marked as completed' },
@@ -64,12 +79,15 @@ export async function POST(
       );
     }
 
+    const { notes, outcome, photos, followUp } = parsed.data;
+
     const updateValues: Partial<typeof siteVisits.$inferInsert> = {
       completedAt: new Date(),
+      status:      'completed',
     };
-    if (parsed.data.notes !== undefined) {
-      updateValues.notes = parsed.data.notes;
-    }
+    if (notes   !== undefined) updateValues.notes         = notes;
+    if (outcome !== undefined) updateValues.followUpNotes = outcome;
+    if (photos  !== undefined && photos.length > 0) updateValues.photos = photos;
 
     const [updated] = await db
       .update(siteVisits)
@@ -77,9 +95,44 @@ export async function POST(
       .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)))
       .returning();
 
+    // Advance lead stage to measurement
     await applyStageTransition(visit.leadId, ctx.tenantId, ctx.dbUserId ?? null, 'measurement');
 
-    return NextResponse.json({ data: updated, message: 'Site visit marked as completed' });
+    // Create optional follow-up via shared service
+    let followUpWarning: string | undefined;
+    if (followUp) {
+      const fuResult = await createFollowUp({
+        tenantId:     ctx.tenantId,
+        leadId:       visit.leadId,
+        createdBy:    ctx.dbUserId,
+        followUpDate: followUp.followUpDate ? new Date(followUp.followUpDate) : null,
+        stage:        followUp.stage as FollowUpStage,
+        clientStatus: followUp.clientStatus as FollowUpClientStatus,
+        comments:     followUp.comments ?? null,
+        addToCalendar: followUp.addToCalendar,
+      });
+      if (!fuResult.ok) {
+        followUpWarning = fuResult.message;
+      }
+    }
+
+    // Notify assigned designer
+    if (visit.designerId) {
+      await db.insert(notifications).values({
+        tenantId: ctx.tenantId,
+        userId:   visit.designerId,
+        severity: 'success',
+        title:    'Site visit completed',
+        body:     outcome ?? notes ?? 'Visit has been marked as completed.',
+        href:     `/site-visits/${id}`,
+      });
+    }
+
+    return NextResponse.json({
+      data: updated,
+      message: 'Site visit marked as completed',
+      ...(followUpWarning ? { followUpWarning } : {}),
+    });
   } catch (e) {
     console.error('[POST /api/v1/site-visits/[id]/complete]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

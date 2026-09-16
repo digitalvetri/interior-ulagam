@@ -39,7 +39,11 @@ interface ReceivablesData {
 interface SiteVisit {
   id: string; leadId: string | null;
   scheduledAt: string; completedAt: string | null;
+  status: string;
   locationJson: { address?: string } | null;
+  visitNumber: string | null;
+  leadName: string | null;
+  purpose: string | null;
 }
 interface Task {
   id: string; title: string; dueAt: string | null; completedAt: string | null;
@@ -218,14 +222,14 @@ function KpiCard({
   return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
-/* ── Today visits widget (employee view) ───────────────────────────────── */
+/* ── Upcoming visits widget ────────────────────────────────────────────── */
 function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[]; loading: boolean }) {
   return (
     <div className="premium-card p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Home className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-          <h3 className="section-title">Today&apos;s Site Visits</h3>
+          <h3 className="section-title">Upcoming Site Visits</h3>
           {todayVisits.length > 0 && (
             <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
               style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
@@ -245,30 +249,32 @@ function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[];
         <div className="flex items-center gap-3 rounded-xl px-4 py-3.5"
           style={{ backgroundColor: 'var(--surface-muted)', border: '1px dashed var(--border-subtle)' }}>
           <Calendar className="h-5 w-5 flex-shrink-0" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No site visits today</p>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>No upcoming site visits</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {todayVisits.map(v => {
-            const time = new Date(v.scheduledAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+            const d = new Date(v.scheduledAt);
+            const dateLabel = isToday(v.scheduledAt)
+              ? d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+              : d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
             const address = v.locationJson?.address;
-            const isDone = !!v.completedAt;
             return (
               <Link
                 key={v.id}
-                href={v.leadId ? `/leads/${v.leadId}` : '/site-visits'}
+                href={`/site-visits/${v.id}`}
                 className="group flex gap-3 rounded-xl border p-3 transition-colors hover:border-[var(--accent-base)]"
-                style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)', opacity: isDone ? 0.6 : 1 }}
+                style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}
               >
                 <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: isDone ? 'var(--success-soft)' : 'var(--accent-soft)' }}>
-                  {isDone
-                    ? <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
-                    : <Clock        className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-                  }
+                  style={{ backgroundColor: 'var(--accent-soft)' }}>
+                  <Clock className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>{time}</p>
+                  <p className="text-sm font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
+                    {v.leadName ?? dateLabel}
+                  </p>
+                  <p className="text-[11px] tnum mt-0.5" style={{ color: 'var(--text-secondary)' }}>{dateLabel}</p>
                   {address && (
                     <div className="flex items-start gap-1 mt-0.5">
                       <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" style={{ color: 'var(--text-tertiary)' }} />
@@ -378,9 +384,15 @@ export default function DashboardPage() {
       if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
 
       const allVisits: SiteVisit[] = Array.isArray(sv?.data) ? sv.data : [];
+      const now = new Date();
+      const sevenDaysLater = new Date(now.getTime() + 7 * 86_400_000);
       setTodayVisits(
         allVisits
-          .filter(v => isToday(v.scheduledAt))
+          .filter(v => {
+            if (v.status !== 'scheduled') return false;
+            const d = new Date(v.scheduledAt);
+            return d >= now && d <= sevenDaysLater;
+          })
           .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
       );
       if (Array.isArray(ts?.data)) setMyTasks(ts.data);

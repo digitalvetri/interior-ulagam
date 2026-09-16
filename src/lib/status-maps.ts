@@ -82,6 +82,7 @@ export const SITE_VISIT_STATUS_MAP: StatusMap = {
   in_progress: { label: 'In Progress', bg: 'var(--warning-soft)', color: 'var(--warning-text)', dot: 'var(--warning)' },
   completed:   { label: 'Completed',   bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
   cancelled:   { label: 'Cancelled',   bg: 'var(--surface-muted)', color: 'var(--text-secondary)', dot: 'var(--text-tertiary)' },
+  no_show:     { label: 'No Show',     bg: '#FFFBEB', color: '#B45309', dot: '#F59E0B' },
 };
 
 export const MEASUREMENT_STATUS_MAP: StatusMap = {

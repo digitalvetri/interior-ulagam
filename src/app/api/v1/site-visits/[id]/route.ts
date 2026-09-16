@@ -2,18 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { siteVisits, leads, customers, users, measurementRounds } from '@/lib/db/schema';
+import {
+  siteVisits, leads, customers, users,
+  measurementRounds, leadActivities, notifications,
+} from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+
+const TERMINAL_STATUSES = new Set(['completed', 'cancelled', 'no_show']);
 
 const PatchSiteVisitSchema = z
   .object({
-    scheduledAt:    z.string().datetime(),
-    address:        z.string().min(1),
-    designerId:     z.string().uuid().nullable(),
-    notes:          z.string(),
-    followUpNotes:  z.string(),
-    purpose:        z.enum(['initial', 'measurement', 'design_review', 'site_inspection', 'material_inspection', 'final_inspection', 'other']),
-    projectId:      z.string().uuid().nullable(),
+    scheduledAt:   z.string().datetime(),
+    address:       z.string().min(1),
+    designerId:    z.string().uuid().nullable(),
+    notes:         z.string(),
+    followUpNotes: z.string(),
+    purpose:       z.enum(['initial', 'measurement', 'design_review', 'site_inspection', 'material_inspection', 'final_inspection', 'other']),
+    projectId:     z.string().uuid().nullable(),
+    status:        z.enum(['cancelled', 'no_show']),
   })
   .partial();
 
@@ -111,17 +117,43 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields provided to update' }, { status: 400 });
   }
 
-  const updates: Partial<typeof siteVisits.$inferInsert> = {};
-  const d = parsed.data;
-  if (d.scheduledAt   !== undefined) updates.scheduledAt   = new Date(d.scheduledAt);
-  if (d.address       !== undefined) updates.locationJson  = { address: d.address };
-  if (d.designerId    !== undefined) updates.designerId    = d.designerId;
-  if (d.notes         !== undefined) updates.notes         = d.notes;
-  if (d.followUpNotes !== undefined) updates.followUpNotes = d.followUpNotes;
-  if (d.purpose       !== undefined) updates.purpose       = d.purpose;
-  if (d.projectId     !== undefined) updates.projectId     = d.projectId;
-
   try {
+    // Fetch current visit to guard against terminal-state mutations
+    const [current] = await db
+      .select({
+        status:      siteVisits.status,
+        scheduledAt: siteVisits.scheduledAt,
+        leadId:      siteVisits.leadId,
+        designerId:  siteVisits.designerId,
+        locationJson: siteVisits.locationJson,
+      })
+      .from(siteVisits)
+      .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)))
+      .limit(1);
+
+    if (!current) return NextResponse.json({ error: 'Site visit not found' }, { status: 404 });
+
+    if (TERMINAL_STATUSES.has(current.status)) {
+      return NextResponse.json(
+        { error: `Cannot modify a ${current.status} visit.` },
+        { status: 409 },
+      );
+    }
+
+    const d = parsed.data;
+    const isReschedule = d.scheduledAt !== undefined;
+    const isStatusChange = d.status !== undefined;
+
+    const updates: Partial<typeof siteVisits.$inferInsert> = {};
+    if (d.scheduledAt   !== undefined) updates.scheduledAt   = new Date(d.scheduledAt);
+    if (d.address       !== undefined) updates.locationJson  = { address: d.address };
+    if (d.designerId    !== undefined) updates.designerId    = d.designerId;
+    if (d.notes         !== undefined) updates.notes         = d.notes;
+    if (d.followUpNotes !== undefined) updates.followUpNotes = d.followUpNotes;
+    if (d.purpose       !== undefined) updates.purpose       = d.purpose;
+    if (d.projectId     !== undefined) updates.projectId     = d.projectId;
+    if (isStatusChange)                updates.status        = d.status;
+
     const [updated] = await db
       .update(siteVisits)
       .set(updates)
@@ -129,6 +161,40 @@ export async function PATCH(
       .returning();
 
     if (!updated) return NextResponse.json({ error: 'Site visit not found' }, { status: 404 });
+
+    // Log reschedule in lead activity
+    if (isReschedule && current.leadId) {
+      const newDate = new Date(d.scheduledAt!);
+      const oldDate = current.scheduledAt;
+      const fmt = (dt: Date) => dt.toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      });
+      await db.insert(leadActivities).values({
+        tenantId:    ctx.tenantId,
+        leadId:      current.leadId,
+        type:        'note',
+        title:       `Site visit rescheduled — ${fmt(oldDate)} → ${fmt(newDate)}`,
+        description: d.address ? `New address: ${d.address}` : null,
+        scheduledAt: newDate,
+        status:      'pending',
+        createdBy:   ctx.dbUserId ?? undefined,
+      });
+    }
+
+    // Notify designer on cancel / no_show
+    if (isStatusChange && current.designerId) {
+      const label = d.status === 'cancelled' ? 'cancelled' : 'marked as no-show';
+      await db.insert(notifications).values({
+        tenantId: ctx.tenantId,
+        userId:   current.designerId,
+        severity: 'warning',
+        title:    `Site visit ${label}`,
+        body:     `The visit scheduled for ${current.scheduledAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })} has been ${label}.`,
+        href:     `/site-visits/${id}`,
+      });
+    }
+
     return NextResponse.json({ data: updated, message: 'Site visit updated' });
   } catch (e) {
     console.error('[PATCH /api/v1/site-visits/[id]]', e);

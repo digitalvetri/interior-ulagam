@@ -11,11 +11,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultAddress?: string;
+  defaultDesignerId?: string;
   onSuccess: (visit: SiteVisit) => void;
 }
 
 
-export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddress = '', onSuccess }: Props) {
+export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddress = '', defaultDesignerId = '', onSuccess }: Props) {
   const [fetchDone, setFetchDone] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
   const [address, setAddress]         = useState('');
@@ -30,7 +31,7 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
     setFetchDone(false);
     setScheduledAt('');
     setAddress(defaultAddress);
-    setDesignerId('');
+    setDesignerId(defaultDesignerId);
     setNotes('');
     setError(null);
 
@@ -41,7 +42,7 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
       })
       .catch(() => {})
       .finally(() => setFetchDone(true));
-  }, [open, defaultAddress]);
+  }, [open, defaultAddress, defaultDesignerId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
