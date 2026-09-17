@@ -602,10 +602,14 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             {paidMilestones.length === 0 ? (
               <div className="py-10 text-center">
                 <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No payments recorded yet</p>
-                <Link href={`/projects/${id}/payments`}
-                  className="mt-3 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
-                  Set up milestone payments →
-                </Link>
+                <button
+                  type="button"
+                  onClick={() => setPaymentOpen(true)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--accent-base)' }}
+                >
+                  <IndianRupee className="h-3.5 w-3.5" />Record Payment
+                </button>
               </div>
             ) : (
               <table className="w-full text-sm">
