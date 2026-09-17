@@ -908,12 +908,14 @@ function ExpensesTab() {
   const [logProjLd, setLogProjLd]     = useState(false);
   const [logProjId, setLogProjId]     = useState('');
   const [logCat, setLogCat]           = useState<(typeof EXP_CATEGORIES)[number]>('other');
-  const [logVendor, setLogVendor]     = useState('');
-  const [logAmount, setLogAmount]     = useState('');
-  const [logGstPct, setLogGstPct]     = useState(0);
-  const [logDesc, setLogDesc]         = useState('');
-  const [logSaving, setLogSaving]     = useState(false);
-  const [logError, setLogError]       = useState<string | null>(null);
+  const [logVendor, setLogVendor]         = useState('');
+  const [logVendorId, setLogVendorId]     = useState('');
+  const [logVendorList, setLogVendorList] = useState<{ id: string; name: string }[]>([]);
+  const [logAmount, setLogAmount]         = useState('');
+  const [logGstPct, setLogGstPct]         = useState(0);
+  const [logDesc, setLogDesc]             = useState('');
+  const [logSaving, setLogSaving]         = useState(false);
+  const [logError, setLogError]           = useState<string | null>(null);
 
   const fetchExpenses = useCallback(() => {
     setLoading(true);
@@ -926,12 +928,15 @@ function ExpensesTab() {
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
 
   function openLogExp() {
-    setLogOpen(true); setLogProjId(''); setLogCat('other'); setLogVendor('');
+    setLogOpen(true); setLogProjId(''); setLogCat('other'); setLogVendor(''); setLogVendorId('');
     setLogAmount(''); setLogGstPct(0); setLogDesc(''); setLogError(null); setLogProjLd(true);
     fetch('/api/v1/projects').then(r => r.json())
       .then(b => setLogProjList(Array.isArray(b.data) ? b.data : (b.data?.rows ?? [])))
       .catch(() => {})
       .finally(() => setLogProjLd(false));
+    fetch('/api/v1/vendors').then(r => r.json())
+      .then(b => setLogVendorList(Array.isArray(b.data) ? b.data : []))
+      .catch(() => {});
   }
 
   async function submitLogExp() {
@@ -950,6 +955,7 @@ function ExpensesTab() {
           amountPaise: amtPaise, gstPct: logGstPct, gstAmountPaise: gstAmtPaise,
           description: logDesc.trim() || undefined,
           vendorName: logVendor.trim() || undefined,
+          vendorId:   logVendorId || undefined,
         }),
       });
       const body = await res.json() as { error?: string };
@@ -1084,6 +1090,20 @@ function ExpensesTab() {
                   </div>
                 </div>
               )}
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Vendor (registered)</label>
+                <select value={logVendorId} onChange={e => {
+                  const sel = e.target.value;
+                  setLogVendorId(sel);
+                  if (sel) {
+                    const v = logVendorList.find(v => v.id === sel);
+                    if (v) setLogVendor(v.name);
+                  }
+                }} className={inputCls}>
+                  <option value="">Not in vendor list</option>
+                  {logVendorList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </div>
               <div>
                 <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Vendor / paid to</label>
                 <input type="text" value={logVendor} onChange={e => setLogVendor(e.target.value)}

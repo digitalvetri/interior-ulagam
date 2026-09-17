@@ -524,6 +524,7 @@ export const expenses = pgTable('expenses', {
   approvedBy: uuid('approved_by').references(() => users.id),
   approvedAt: timestamp('approved_at', { withTimezone: true }),
   vendorName: text('vendor_name'),
+  vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
   gstPct: integer('gst_pct').notNull().default(0),
   gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
   expenseNumber: text('expense_number'),

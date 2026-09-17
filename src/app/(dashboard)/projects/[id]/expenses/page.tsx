@@ -43,9 +43,17 @@ function LogExpenseModal({ projectId, onClose, onSuccess }: {
   const [description,  setDescription]  = useState('');
   const [receiptUrl,   setReceiptUrl]   = useState('');
   const [vendorName,   setVendorName]   = useState('');
+  const [vendorId,     setVendorId]     = useState('');
+  const [vendorList,   setVendorList]   = useState<{ id: string; name: string }[]>([]);
   const [gstPct,       setGstPct]       = useState(0);
   const [submitting,   setSub]          = useState(false);
   const [error,        setError]        = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/v1/vendors').then(r => r.json())
+      .then(b => setVendorList(Array.isArray(b.data) ? b.data : []))
+      .catch(() => {});
+  }, []);
 
   async function handleSubmit() {
     setError(null);
@@ -61,6 +69,7 @@ function LogExpenseModal({ projectId, onClose, onSuccess }: {
     if (description.trim()) payload.description = description.trim();
     if (receiptUrl.trim())  payload.receiptUrl  = receiptUrl.trim();
     if (vendorName.trim())  payload.vendorName  = vendorName.trim();
+    if (vendorId)           payload.vendorId    = vendorId;
 
     setSub(true);
     try {
@@ -130,6 +139,24 @@ function LogExpenseModal({ projectId, onClose, onSuccess }: {
           </div>
 
           {/* Vendor */}
+          {vendorList.length > 0 && (
+            <div>
+              <label className="studio-label block mb-1.5">
+                Vendor (registered) <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+              </label>
+              <select value={vendorId} onChange={e => {
+                const sel = e.target.value;
+                setVendorId(sel);
+                if (sel) {
+                  const v = vendorList.find(v => v.id === sel);
+                  if (v) setVendorName(v.name);
+                }
+              }} className="studio-input w-full text-sm">
+                <option value="">Not in vendor list</option>
+                {vendorList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+              </select>
+            </div>
+          )}
           <div>
             <label className="studio-label block mb-1.5">
               Vendor / Paid To <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
