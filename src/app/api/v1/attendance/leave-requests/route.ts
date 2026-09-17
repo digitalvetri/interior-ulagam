@@ -13,12 +13,13 @@ const CreateLeaveSchema = z.object({
   reason:    z.string().min(5).max(1000),
 });
 
-// GET /api/v1/attendance/leave-requests?status=pending|approved|rejected|all
+// GET /api/v1/attendance/leave-requests?status=pending|approved|rejected|all&mine=1
 export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const statusParam = request.nextUrl.searchParams.get('status') ?? 'all';
+  const mine = request.nextUrl.searchParams.get('mine') === '1';
 
   try {
     const conditions = [eq(leaveRequests.tenantId, ctx.tenantId)];
@@ -28,6 +29,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
       }
       conditions.push(eq(leaveRequests.status, statusParam as typeof valid[number]));
+    }
+    // Non-management roles can only see their own; mine=1 scopes any role to own rows.
+    const canSeeAll = ctx.role === 'owner' || ctx.role === 'accountant';
+    if (mine || !canSeeAll) {
+      conditions.push(eq(leaveRequests.userId, ctx.userId));
     }
 
     const rows = await db

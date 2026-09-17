@@ -46,10 +46,8 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Overview',
     roles: ALL_ROLES,
     items: [
-      // Owners see the studio command-centre dashboard
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ADMIN_ROLES,    exact: true },
-      // All other staff get their personal My Space dashboard
-      { href: '/my-space',  label: 'Dashboard', icon: LayoutDashboard, roles: MY_SPACE_ROLES, exact: true },
+      // All roles land on /dashboard — admin sees analytics view, staff see employee workspace
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_ROLES, exact: true },
     ],
   },
   {

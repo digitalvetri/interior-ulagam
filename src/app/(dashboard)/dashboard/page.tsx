@@ -7,6 +7,7 @@ import {
   Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
   Calendar, MapPin, Home,
   CheckSquare, Truck, Activity, Bell,
+  Plus, UserCheck, Plane, ListTodo,
 } from 'lucide-react';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import type { Lead } from '@/types/leads';
@@ -52,6 +53,15 @@ interface Task {
 interface PendingVendorDelivery {
   poNumber: string; vendorName: string | null; vendorContactName: string | null; expectedDeliveryAt: string | null;
 }
+interface AttendanceRecord {
+  id: string; date: string; status: string;
+  checkInAt: string | null; checkOutAt: string | null;
+}
+interface LeaveRequest {
+  id: string; leaveType: string; fromDate: string; toDate: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  reason: string | null; createdAt: string; userId: string;
+}
 
 /* ── Helpers ───────────────────────────────────────────────────────────── */
 function fmt(paise: number) {
@@ -95,6 +105,18 @@ function stageLabel(stage: string): string {
   };
   return MAP[stage] ?? stage;
 }
+function fmtTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+function fmtDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
+}
+const LEAVE_TYPE_LABEL: Record<string, string> = {
+  casual: 'Casual Leave', sick: 'Sick Leave', earned: 'Earned Leave',
+  unpaid: 'Unpaid Leave', maternity: 'Maternity Leave', paternity: 'Paternity Leave', comp_off: 'Comp Off',
+};
 
 /* ── Donut Chart ────────────────────────────────────────────────────────── */
 function DonutChart({ segments, size = 140 }: { segments: { value: number; color: string; label: string }[]; size?: number }) {
@@ -347,7 +369,7 @@ interface FollowUpCounts { overdue: number; dueToday: number; upcoming: number; 
 export default function DashboardPage() {
   const router = useRouter();
   const [firstName,  setFirstName]  = useState('');
-  const [isAdmin,    setIsAdmin]    = useState(true);
+  const [isAdmin,    setIsAdmin]    = useState(false);
 
   // Admin state
   const [leadStats,    setLeadStats]    = useState<LeadStats | null>(null);
@@ -365,6 +387,11 @@ export default function DashboardPage() {
   const [todayVisits,  setTodayVisits]  = useState<SiteVisit[]>([]);
   const [myTasks,      setMyTasks]      = useState<Task[]>([]);
   const [myProjects,   setMyProjects]   = useState<Project[]>([]);
+
+  // Employee-only state
+  const [todayAttd,   setTodayAttd]   = useState<AttendanceRecord | null>(null);
+  const [monthAttd,   setMonthAttd]   = useState<AttendanceRecord[]>([]);
+  const [myLeaves,    setMyLeaves]    = useState<LeaveRequest[]>([]);
 
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState(false);
@@ -445,6 +472,23 @@ export default function DashboardPage() {
         const ps = await fetch('/api/v1/projects?limit=20').then(r => r.json());
         if (Array.isArray(ps?.data)) {
           setMyProjects(ps.data.filter((p: Project) => p.lifecycleStage !== 'complete').slice(0, 5));
+        }
+
+        // Attendance + leave — fire and forget so they don't block the main skeleton
+        const uid = me?.data?.id ?? '';
+        if (uid) {
+          const todayStr = new Date().toISOString().split('T')[0];
+          const now = new Date();
+          const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+          Promise.all([
+            fetch(`/api/v1/attendance?date=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null),
+            fetch(`/api/v1/attendance?from=${monthStart}&to=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null),
+            fetch('/api/v1/attendance/leave-requests?mine=1').then(r => r.json()).catch(() => null),
+          ]).then(([atdDay, atdMon, leaveData]) => {
+            if (Array.isArray(atdDay?.data) && atdDay.data.length > 0) setTodayAttd(atdDay.data[0]);
+            if (Array.isArray(atdMon?.data)) setMonthAttd(atdMon.data);
+            if (Array.isArray(leaveData?.data)) setMyLeaves((leaveData.data as LeaveRequest[]).slice(0, 4));
+          }).catch(() => {});
         }
       }
     } catch { setLoadError(true); } finally { setLoading(false); }
@@ -989,6 +1033,27 @@ export default function DashboardPage() {
   /* ══════════════════════════════════════════════════════════════════════
      EMPLOYEE VIEW
      ══════════════════════════════════════════════════════════════════════ */
+
+  // Derived attendance stats
+  const daysPresent  = monthAttd.filter(r => ['present', 'late', 'half_day'].includes(r.status)).length;
+  const daysAbsent   = monthAttd.filter(r => r.status === 'absent').length;
+  const daysOnLeave  = monthAttd.filter(r => r.status === 'leave').length;
+  const totalWorkMin = (todayAttd?.checkInAt && todayAttd?.checkOutAt)
+    ? Math.round((new Date(todayAttd.checkOutAt).getTime() - new Date(todayAttd.checkInAt).getTime()) / 60_000)
+    : 0;
+
+  // Fixed "all caught up" — only true when genuinely nothing is pending
+  const overdueFU  = followUps?.overdue  ?? 0;
+  const dueTodayFU = followUps?.dueToday ?? 0;
+  const hasAnyPending = myTasks.length > 0 || overdueFU > 0 || dueTodayFU > 0;
+  const urgencySummary = [
+    myTasks.length > 0 ? `${myTasks.length} task${myTasks.length !== 1 ? 's' : ''} pending` : '',
+    overdueFU  > 0 ? `${overdueFU} overdue follow-up${overdueFU !== 1 ? 's' : ''}`            : '',
+    dueTodayFU > 0 ? `${dueTodayFU} follow-up${dueTodayFU !== 1 ? 's' : ''} due today`       : '',
+  ].filter(Boolean).join(' · ');
+
+  const initials = firstName ? firstName[0].toUpperCase() : '?';
+
   return (
     <div className="space-y-5 animate-fade-in p-4 lg:p-8">
 
@@ -1003,92 +1068,312 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Page heading */}
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-widest mb-1"
-          style={{ color: 'var(--text-tertiary)' }}>
-          My Workspace
-        </p>
-        <h1 className="text-2xl sm:text-3xl font-bold leading-none"
-          style={{ color: 'var(--text-heading)', letterSpacing: '-0.02em' }} suppressHydrationWarning>
-          {greeting()}{firstName ? `, ${firstName}` : ''}
-        </h1>
-      </div>
+      {/* ── HEADER CARD ───────────────────────────────────────────────── */}
+      <div className="rounded-2xl" style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-stretch gap-5 p-5 lg:p-6">
 
-      {/* Status bar */}
-      <div className="rounded-2xl px-5 py-4"
-        style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: '#34d399' }} />
-          <span className="text-xs font-medium" style={{ color: '#94a3b8' }} suppressHydrationWarning>{todayLabel()}</span>
+          {/* Left: Avatar + greeting + quick actions */}
+          <div className="flex items-start gap-4 flex-1 min-w-0">
+            <div className="h-14 w-14 rounded-2xl flex items-center justify-center flex-shrink-0 text-xl font-bold text-white select-none"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#34d399' }} />
+                <span className="text-xs font-medium" style={{ color: '#94a3b8' }} suppressHydrationWarning>{todayLabel()}</span>
+              </div>
+              <h1 className="text-xl font-bold text-white leading-tight" suppressHydrationWarning>
+                {greeting()}{firstName ? `, ${firstName}!` : '!'}
+              </h1>
+              <p className="text-sm mt-1 font-medium" style={{ color: hasAnyPending ? '#fca5a5' : '#6ee7b7' }}>
+                {loading ? 'Loading…' : hasAnyPending ? urgencySummary : 'All caught up. Have a great day!'}
+              </p>
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <Link href="/tasks"
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
+                  style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
+                  <Plus className="h-3.5 w-3.5" />New Task
+                </Link>
+                <Link href="/attendance"
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
+                  style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
+                  <Plane className="h-3.5 w-3.5" />Apply Leave
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Currently Working panel */}
+          <div className="rounded-xl px-4 py-3 lg:min-w-[190px] self-start lg:self-stretch flex flex-col justify-center"
+            style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(52,211,153,0.20)' }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#6ee7b7' }}>Currently Working</p>
+            {todayAttd?.checkInAt ? (
+              <>
+                <p className="text-lg font-bold text-white leading-none" suppressHydrationWarning>
+                  {fmtTime(todayAttd.checkInAt)}
+                  <span className="text-sm font-normal mx-1.5" style={{ color: '#64748b' }}>→</span>
+                  {todayAttd.checkOutAt ? fmtTime(todayAttd.checkOutAt) : <span style={{ color: '#64748b' }}>—</span>}
+                </p>
+                {totalWorkMin > 0 && (
+                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>Total: {fmtDuration(totalWorkMin)}</p>
+                )}
+                <div className="flex items-center gap-1.5 mt-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0"
+                    style={{ color: todayAttd.checkOutAt ? '#6ee7b7' : '#fbbf24' }} />
+                  <span className="text-xs font-semibold"
+                    style={{ color: todayAttd.checkOutAt ? '#6ee7b7' : '#fbbf24' }}>
+                    {todayAttd.checkOutAt ? 'Day complete' : 'Working'}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs" style={{ color: '#64748b' }}>No check-in recorded today</p>
+            )}
+          </div>
         </div>
-        <p className="text-base font-bold text-white">
-          {myTasks.length > 0
-            ? `${myTasks.length} task${myTasks.length !== 1 ? 's' : ''} pending today.`
-            : 'All caught up. Have a great day!'}
-        </p>
-        {followUps && (followUps.dueToday > 0 || followUps.overdue > 0) && (
-          <p className="mt-1 text-sm" style={{ color: '#94a3b8' }}>
-            {followUps.overdue > 0 && <span style={{ color: '#fca5a5' }}>{followUps.overdue} overdue follow-up{followUps.overdue !== 1 ? 's' : ''}</span>}
-            {followUps.overdue > 0 && followUps.dueToday > 0 && <span> · </span>}
-            {followUps.dueToday > 0 && <span style={{ color: '#fcd34d' }}>{followUps.dueToday} due today</span>}
-          </p>
-        )}
       </div>
 
-      {/* My tasks + Today's visits */}
+      {/* ── KPI CARDS ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Days Present */}
+        <div className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--success-soft)' }}>
+            <UserCheck className="h-5 w-5" style={{ color: 'var(--success-text)' }} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Days Present</p>
+            {loading ? <div className="skeleton h-7 w-10 mt-1 rounded" /> : (
+              <p className="text-2xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{daysPresent}</p>
+            )}
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>This month</p>
+          </div>
+        </div>
+
+        {/* Days Absent */}
+        <div className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--danger-soft)' }}>
+            <AlertCircle className="h-5 w-5" style={{ color: 'var(--danger)' }} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Days Absent</p>
+            {loading ? <div className="skeleton h-7 w-10 mt-1 rounded" /> : (
+              <p className="text-2xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{daysAbsent}</p>
+            )}
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>This month</p>
+          </div>
+        </div>
+
+        {/* On Leave */}
+        <div className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--warning-soft)' }}>
+            <Plane className="h-5 w-5" style={{ color: 'var(--warning-text)' }} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>On Leave</p>
+            {loading ? <div className="skeleton h-7 w-10 mt-1 rounded" /> : (
+              <p className="text-2xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{daysOnLeave}</p>
+            )}
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>This month</p>
+          </div>
+        </div>
+
+        {/* Tasks Pending */}
+        <div className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: '#ede9fe' }}>
+            <ListTodo className="h-5 w-5" style={{ color: '#7c3aed' }} />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Tasks Pending</p>
+            {loading ? <div className="skeleton h-7 w-10 mt-1 rounded" /> : (
+              <p className="text-2xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{myTasks.length}</p>
+            )}
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>Assigned to me</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── ROW 1: My Tasks + Site Visits ─────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <MyTasksWidget myTasks={myTasks} loading={loading} />
         <TodayVisitsWidget todayVisits={todayVisits} loading={loading} />
       </div>
 
-      {/* My Projects */}
-      <div className="premium-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <FolderKanban className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-            <h3 className="section-title">My Projects</h3>
+      {/* ── ROW 2: My Projects + Follow-ups/Leave Requests ────────────── */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+
+        {/* My Projects */}
+        <div className="premium-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FolderKanban className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+              <h3 className="section-title">My Projects</h3>
+            </div>
+            <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+              All →
+            </Link>
           </div>
-          <Link href="/projects" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-            All →
-          </Link>
+          {loading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+            </div>
+          ) : myProjects.length === 0 ? (
+            <p className="text-sm py-4 text-center" style={{ color: 'var(--text-secondary)' }}>
+              No active projects assigned to you.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {myProjects.map(p => {
+                const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
+                const s   = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
+                const client = p.customerFullName || p.leadContactName;
+                return (
+                  <Link key={p.id} href={`/projects/${p.id}`}
+                    className="block rounded-xl border p-2.5 transition-colors hover:border-[var(--accent-base)]"
+                    style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}>
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
+                        style={{ backgroundColor: s.bg, color: s.text }}>
+                        {s.label}
+                      </span>
+                    </div>
+                    {client && (
+                      <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>
+                    )}
+                    <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)' }} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </div>
-        {loading ? (
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
+
+        {/* Right column: Follow-ups stacked over Leave Requests */}
+        <div className="flex flex-col gap-4">
+
+          {/* Follow-ups / Overdue Actions */}
+          <div className="premium-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Bell className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                <h3 className="section-title">Follow-ups &amp; Actions</h3>
+              </div>
+              <Link href="/leads" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                All leads →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-8 w-full rounded-lg" />)}
+              </div>
+            ) : !followUps || followUps.total === 0 ? (
+              <p className="text-sm py-3 text-center" style={{ color: 'var(--text-secondary)' }}>No follow-ups scheduled.</p>
+            ) : (
+              <div className="space-y-2">
+                {overdueFU > 0 && (
+                  <Link href="/leads?followup=overdue"
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:opacity-80"
+                    style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger)' }}>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--danger)' }} />
+                      <span className="text-sm font-semibold" style={{ color: 'var(--danger)' }}>
+                        {overdueFU} overdue follow-up{overdueFU !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <ChevronRight className="h-4 w-4" style={{ color: 'var(--danger)' }} />
+                  </Link>
+                )}
+                {dueTodayFU > 0 && (
+                  <Link href="/leads?followup=today"
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:opacity-80"
+                    style={{ background: 'var(--warning-soft)', border: '1px solid var(--warning-text)' }}>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--warning-text)' }} />
+                      <span className="text-sm font-semibold" style={{ color: 'var(--warning-text)' }}>
+                        {dueTodayFU} due today
+                      </span>
+                    </div>
+                    <ChevronRight className="h-4 w-4" style={{ color: 'var(--warning-text)' }} />
+                  </Link>
+                )}
+                {followUps.upcoming > 0 && (
+                  <Link href="/leads?followup=upcoming"
+                    className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:opacity-80"
+                    style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+                      <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                        {followUps.upcoming} upcoming
+                      </span>
+                    </div>
+                    <ChevronRight className="h-4 w-4" style={{ color: 'var(--text-tertiary)' }} />
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
-        ) : myProjects.length === 0 ? (
-          <p className="text-sm py-4 text-center" style={{ color: 'var(--text-secondary)' }}>
-            No active projects assigned to you.
-          </p>
-        ) : (
-          <div className="space-y-1.5">
-            {myProjects.map(p => {
-              const pct = STAGE_PROGRESS[p.lifecycleStage] ?? 0;
-              const s   = STAGE_META[p.lifecycleStage] ?? { label: p.lifecycleStage, bg: 'var(--surface-muted)', text: 'var(--text-secondary)' };
-              const client = p.customerFullName || p.leadContactName;
-              return (
-                <Link key={p.id} href={`/projects/${p.id}`}
-                  className="block rounded-xl border p-2.5 transition-colors hover:border-[var(--accent-base)]"
-                  style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-app)' }}>
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-[13px] font-bold truncate" style={{ color: 'var(--text-heading)' }}>{p.name}</p>
-                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap"
-                      style={{ backgroundColor: s.bg, color: s.text }}>
-                      {s.label}
-                    </span>
-                  </div>
-                  {client && (
-                    <p className="text-[11px] mb-1.5 truncate" style={{ color: 'var(--text-secondary)' }}>{client}</p>
-                  )}
-                  <div className="h-1 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-muted)' }}>
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: 'var(--accent-base)' }} />
-                  </div>
-                </Link>
-              );
-            })}
+
+          {/* Leave Requests */}
+          <div className="premium-card p-5 flex-1">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Plane className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+                <h3 className="section-title">My Leave Requests</h3>
+              </div>
+              <Link href="/attendance" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
+                All →
+              </Link>
+            </div>
+            {loading ? (
+              <div className="space-y-2">
+                {[...Array(2)].map((_, i) => <div key={i} className="skeleton h-12 w-full rounded-xl" />)}
+              </div>
+            ) : myLeaves.length === 0 ? (
+              <p className="text-sm py-3 text-center" style={{ color: 'var(--text-secondary)' }}>No leave requests yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {myLeaves.map(lr => {
+                  const statusColors: Record<string, { bg: string; text: string }> = {
+                    pending:   { bg: 'var(--warning-soft)',  text: 'var(--warning-text)' },
+                    approved:  { bg: 'var(--success-soft)',  text: 'var(--success-text)' },
+                    rejected:  { bg: 'var(--danger-soft)',   text: 'var(--danger)' },
+                    cancelled: { bg: 'var(--surface-muted)', text: 'var(--text-secondary)' },
+                  };
+                  const sc = statusColors[lr.status] ?? statusColors.cancelled;
+                  return (
+                    <div key={lr.id} className="flex items-center justify-between rounded-xl border px-3 py-2.5"
+                      style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-app)' }}>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                          {LEAVE_TYPE_LABEL[lr.leaveType] ?? lr.leaveType}
+                        </p>
+                        <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                          {lr.fromDate} – {lr.toDate}
+                        </p>
+                      </div>
+                      <span className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide flex-shrink-0 ml-2"
+                        style={{ background: sc.bg, color: sc.text }}>
+                        {lr.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+
+        </div>
       </div>
 
     </div>

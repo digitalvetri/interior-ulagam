@@ -1231,7 +1231,7 @@ function ExpensesTab() {
             </div>
 
             {/* Table */}
-            <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="rounded-2xl border" style={{ borderColor: 'var(--border-subtle)', overflow: 'clip' }}>
               {filtered.length === 0 ? (
                 <div className="py-10 text-center">
                   <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No expenses match your filter.</p>
@@ -1300,7 +1300,7 @@ function ExpensesTab() {
           </div>
 
           {/* Right sidebar: By category */}
-          <div className="w-52 flex-shrink-0 rounded-2xl p-5 space-y-4"
+          <div className="w-52 flex-shrink-0 rounded-2xl p-5 space-y-4 sticky top-4"
             style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
             <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>By category</p>
             <div className="space-y-3.5">
