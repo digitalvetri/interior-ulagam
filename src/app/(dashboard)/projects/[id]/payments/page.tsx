@@ -22,7 +22,7 @@ const STATUS_CONFIG: Record<MilestonePaymentStatus, { label: string; bg: string;
 
 /* ── Send Payment Link Modal ───────────────────────────────────────────────── */
 
-interface SendLinkForm { clientName: string; contactPhone: string; placeOfSupply: string; isInterstate: boolean; }
+interface SendLinkForm { clientName: string; contactPhone: string; placeOfSupply: string; gstType: 'intrastate' | 'interstate' | null; }
 
 function SendLinkModal({
   milestone, onClose, onSuccess,
@@ -31,7 +31,7 @@ function SendLinkModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [form, setForm]       = useState<SendLinkForm>({ clientName: '', contactPhone: '', placeOfSupply: '', isInterstate: false });
+  const [form, setForm]       = useState<SendLinkForm>({ clientName: '', contactPhone: '', placeOfSupply: '', gstType: null });
   const [sending, setSending] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [shortUrl, setShortUrl] = useState<string | null>(null);
@@ -51,7 +51,9 @@ function SendLinkModal({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientName: form.clientName.trim(), contactPhone: form.contactPhone.trim(),
-          placeOfSupply: form.placeOfSupply.trim() || undefined, isInterstate: form.isInterstate,
+          placeOfSupply: form.placeOfSupply.trim() || undefined,
+          isInterstate: form.gstType === 'interstate',
+          noGst: form.gstType === null,
         }),
       });
       if (!res.ok) {
@@ -137,15 +139,25 @@ function SendLinkModal({
                   <input type="text" value={form.placeOfSupply} onChange={e => set('placeOfSupply', e.target.value)}
                     placeholder="Tamil Nadu" className="studio-input w-full text-sm" />
                 </div>
-                <label className="flex items-center gap-3 cursor-pointer px-1">
-                  <div className="relative w-10 h-6 rounded-full transition-colors flex-shrink-0"
-                    style={{ background: form.isInterstate ? 'var(--accent-base)' : 'var(--border-strong)' }}
-                    onClick={() => set('isInterstate', !form.isInterstate)}>
-                    <div className="absolute top-1 w-4 h-4 bg-[var(--surface-card)] rounded-full transition-all"
-                      style={{ left: form.isInterstate ? 22 : 4 }} />
+                <div>
+                  <label className="block text-xs font-semibold mb-2 studio-label">GST TYPE</label>
+                  <div className="flex flex-wrap gap-5">
+                    {(['intrastate', 'interstate'] as const).map(type => (
+                      <label key={type} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={form.gstType === type}
+                          onChange={() => set('gstType', type)}
+                          onClick={() => { if (form.gstType === type) set('gstType', null); }}
+                          className="accent-purple-600"
+                        />
+                        <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
+                          {type === 'intrastate' ? 'Intrastate — 9% CGST + 9% SGST' : 'Interstate — 18% IGST'}
+                        </span>
+                      </label>
+                    ))}
                   </div>
-                  <span className="text-sm" style={{ color: 'var(--text-heading)' }}>Interstate supply (IGST 18%)</span>
-                </label>
+                </div>
               </div>
               {error && (
                 <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">

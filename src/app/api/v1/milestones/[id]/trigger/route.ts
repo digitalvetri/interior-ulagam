@@ -12,6 +12,7 @@ const TriggerSchema = z.object({
   contactPhone: z.string().min(1),
   placeOfSupply: z.string().optional(),
   isInterstate: z.boolean().optional(),
+  noGst: z.boolean().optional(),
 });
 
 export async function POST(
@@ -37,7 +38,7 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
   }
 
-  const { clientName, contactPhone, placeOfSupply, isInterstate = false } = parsed.data;
+  const { clientName, contactPhone, placeOfSupply, isInterstate = false, noGst = false } = parsed.data;
 
   try {
     // a. Verify milestone belongs to tenant via JOIN
@@ -78,9 +79,9 @@ export async function POST(
     const subtotalPaise = milestone.amountPaise;
 
     // d. GST calculation
-    const igstPaise = isInterstate ? Math.round(subtotalPaise * 0.18) : 0;
-    const cgstPaise = isInterstate ? 0 : Math.round(subtotalPaise * 0.09);
-    const sgstPaise = isInterstate ? 0 : Math.round(subtotalPaise * 0.09);
+    const igstPaise = noGst ? 0 : (isInterstate ? Math.round(subtotalPaise * 0.18) : 0);
+    const cgstPaise = noGst ? 0 : (isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
+    const sgstPaise = noGst ? 0 : (isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
 
     // e. Insert invoice
     const [invoice] = await db

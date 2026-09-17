@@ -91,6 +91,7 @@ const CreateSchema = z.object({
   invoiceDate:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   subtotalPaise: z.number().int().nonnegative(),
   isInterstate:  z.boolean().default(false),
+  noGst:         z.boolean().default(false),
   placeOfSupply: z.string().max(100).optional(),
 });
 
@@ -131,9 +132,9 @@ export async function POST(request: NextRequest) {
 
   // GST — mirror milestone trigger convention
   const subtotalPaise = p.subtotalPaise;
-  const igstPaise  = p.isInterstate ? Math.round(subtotalPaise * 0.18) : 0;
-  const cgstPaise  = p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09);
-  const sgstPaise  = p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09);
+  const igstPaise  = p.noGst ? 0 : (p.isInterstate ? Math.round(subtotalPaise * 0.18) : 0);
+  const cgstPaise  = p.noGst ? 0 : (p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
+  const sgstPaise  = p.noGst ? 0 : (p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
 
   try {
     const [invoice] = await db

@@ -79,7 +79,7 @@ export default function InvoicesPage() {
   const [invNumber, setInvNumber] = useState('');
   const [invDate, setInvDate] = useState('');
   const [subtotalInput, setSubtotalInput] = useState('');
-  const [isInterstate, setIsInterstate] = useState(false);
+  const [gstType, setGstType] = useState<'intrastate' | 'interstate' | null>(null);
 
   const fetchInvoices = useCallback(() => {
     setLoading(true);
@@ -104,7 +104,7 @@ export default function InvoicesPage() {
     setInvNumber(`INV-${year}-${String(rows.length + 1).padStart(4, '0')}`);
     setInvDate(today);
     setSubtotalInput('');
-    setIsInterstate(false);
+    setGstType(null);
     setModalOpen(true);
 
     setProjectsLoading(true);
@@ -163,7 +163,8 @@ export default function InvoicesPage() {
           invoiceNumber: invNumber.trim(),
           invoiceDate:   invDate,
           subtotalPaise,
-          isInterstate,
+          isInterstate: gstType === 'interstate',
+          noGst: gstType === null,
         }),
       });
       const body = await res.json();
@@ -179,9 +180,9 @@ export default function InvoicesPage() {
 
   // ── Derived values for GST preview ────────────────────────────────────────
   const subtotalPaise = Math.round(parseFloat(subtotalInput || '0') * 100);
-  const igstPaise   = isInterstate ? Math.round(subtotalPaise * 0.18) : 0;
-  const cgstPaise   = isInterstate ? 0 : Math.round(subtotalPaise * 0.09);
-  const sgstPaise   = isInterstate ? 0 : Math.round(subtotalPaise * 0.09);
+  const igstPaise   = gstType === 'interstate' ? Math.round(subtotalPaise * 0.18) : 0;
+  const cgstPaise   = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
+  const sgstPaise   = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
   const totalPaise  = subtotalPaise + cgstPaise + sgstPaise + igstPaise;
   const canCreate   = invNumber.trim().length > 0 && invDate.length > 0 && subtotalPaise > 0 && !!selProjectId;
 
@@ -355,30 +356,23 @@ export default function InvoicesPage() {
                     GST Type
                   </label>
                   <div className="flex flex-wrap gap-5">
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        checked={!isInterstate}
-                        onChange={() => setIsInterstate(false)}
-                        className="accent-purple-600"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
-                        Intrastate — 9% CGST + 9% SGST
-                      </span>
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        checked={isInterstate}
-                        onChange={() => setIsInterstate(true)}
-                        className="accent-purple-600"
-                      />
-                      <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
-                        Interstate — 18% IGST
-                      </span>
-                    </label>
+                    {(['intrastate', 'interstate'] as const).map(type => (
+                      <label key={type} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={gstType === type}
+                          onChange={() => setGstType(type)}
+                          onClick={() => { if (gstType === type) setGstType(null); }}
+                          className="accent-purple-600"
+                        />
+                        <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
+                          {type === 'intrastate' ? 'Intrastate — 9% CGST + 9% SGST' : 'Interstate — 18% IGST'}
+                        </span>
+                      </label>
+                    ))}
                   </div>
                 </div>
+
 
                 {/* GST summary */}
                 <div
@@ -391,14 +385,15 @@ export default function InvoicesPage() {
                       {formatRupees(subtotalPaise)}
                     </span>
                   </div>
-                  {isInterstate ? (
+                  {gstType === 'interstate' && (
                     <div className="flex justify-between text-sm">
                       <span style={{ color: 'var(--text-secondary)' }}>IGST 18%</span>
                       <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {formatRupees(igstPaise)}
                       </span>
                     </div>
-                  ) : (
+                  )}
+                  {gstType === 'intrastate' && (
                     <>
                       <div className="flex justify-between text-sm">
                         <span style={{ color: 'var(--text-secondary)' }}>CGST 9%</span>
@@ -629,7 +624,7 @@ export default function InvoicesPage() {
               </thead>
               <tbody>
                 {filtered.map((inv, idx) => {
-                  const taxPaise = inv.isInterstate ? inv.igstPaise : inv.cgstPaise + inv.sgstPaise;
+                  const taxPaise = inv.igstPaise + inv.cgstPaise + inv.sgstPaise;
                   const total    = inv.subtotalPaise + taxPaise;
                   const status   = inv.paymentStatus ?? 'pending';
                   const cfg      = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
@@ -688,9 +683,11 @@ export default function InvoicesPage() {
                       <td className="px-4 py-3.5 text-right tabular-nums font-bold"
                         style={{ color: 'var(--text-heading)' }}>
                         {formatRupees(total)}
-                        <div className="text-[10px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
-                          +{formatRupees(taxPaise)} {inv.isInterstate ? 'IGST' : 'GST'}
-                        </div>
+                        {taxPaise > 0 && (
+                          <div className="text-[10px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                            +{formatRupees(taxPaise)} {inv.isInterstate ? 'IGST' : 'GST'}
+                          </div>
+                        )}
                       </td>
 
                       {/* PDF */}

@@ -126,7 +126,7 @@ function InvoicesTab() {
   const [invNumber, setInvNumber]       = useState('');
   const [invDate, setInvDate]           = useState('');
   const [subtotalInput, setSubtotal]    = useState('');
-  const [isInterstate, setInterstate]   = useState(false);
+  const [gstType, setGstType]            = useState<'intrastate' | 'interstate' | null>(null);
 
   const fetchInvoices = useCallback(() => {
     setLoading(true);
@@ -143,7 +143,7 @@ function InvoicesTab() {
     const today = new Date().toISOString().slice(0, 10);
     setStep(1); setCreateError(null); setSelProject(''); setSelMile('');
     setMilestones([]); setInvNumber(`INV-${new Date().getFullYear()}-${String(rows.length + 1).padStart(4, '0')}`);
-    setInvDate(today); setSubtotal(''); setInterstate(false); setModal(true);
+    setInvDate(today); setSubtotal(''); setGstType(null); setModal(true);
     setProjLoading(true);
     fetch('/api/v1/projects').then(r => r.json())
       .then(b => {
@@ -178,7 +178,7 @@ function InvoicesTab() {
         body: JSON.stringify({
           projectId: selProjectId, milestoneId: selMilestoneId || undefined,
           invoiceNumber: invNumber.trim(), invoiceDate: invDate,
-          subtotalPaise: sub, isInterstate,
+          subtotalPaise: sub, isInterstate: gstType === 'interstate', noGst: gstType === null,
         }),
       });
       const body = await res.json();
@@ -192,9 +192,9 @@ function InvoicesTab() {
   }
 
   const sub = Math.round(parseFloat(subtotalInput || '0') * 100);
-  const igst = isInterstate ? Math.round(sub * 0.18) : 0;
-  const cgst = isInterstate ? 0 : Math.round(sub * 0.09);
-  const sgst = isInterstate ? 0 : Math.round(sub * 0.09);
+  const igst = gstType === 'interstate' ? Math.round(sub * 0.18) : 0;
+  const cgst = gstType === 'intrastate' ? Math.round(sub * 0.09) : 0;
+  const sgst = gstType === 'intrastate' ? Math.round(sub * 0.09) : 0;
   const total = sub + cgst + sgst + igst;
   const canCreate = invNumber.trim().length > 0 && invDate.length > 0 && sub > 0 && !!selProjectId;
 
@@ -288,11 +288,17 @@ function InvoicesTab() {
                 <div>
                   <label className={`${labelCls} mb-2`} style={{ color: 'var(--text-secondary)' }}>GST Type</label>
                   <div className="flex flex-wrap gap-5">
-                    {[false, true].map(inter => (
-                      <label key={String(inter)} className="flex cursor-pointer items-center gap-2">
-                        <input type="radio" checked={isInterstate === inter} onChange={() => setInterstate(inter)} className="accent-purple-600" />
+                    {(['intrastate', 'interstate'] as const).map(type => (
+                      <label key={type} className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={gstType === type}
+                          onChange={() => setGstType(type)}
+                          onClick={() => { if (gstType === type) setGstType(null); }}
+                          className="accent-purple-600"
+                        />
                         <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
-                          {inter ? 'Interstate — 18% IGST' : 'Intrastate — 9% CGST + 9% SGST'}
+                          {type === 'intrastate' ? 'Intrastate — 9% CGST + 9% SGST' : 'Interstate — 18% IGST'}
                         </span>
                       </label>
                     ))}
@@ -301,7 +307,7 @@ function InvoicesTab() {
                 <div className="space-y-2 rounded-xl p-4" style={{ background: 'var(--surface-muted)' }}>
                   {[
                     ['Subtotal', sub],
-                    ...(isInterstate ? [['IGST 18%', igst]] : [['CGST 9%', cgst], ['SGST 9%', sgst]]),
+                    ...(gstType === 'interstate' ? [['IGST 18%', igst]] : gstType === 'intrastate' ? [['CGST 9%', cgst], ['SGST 9%', sgst]] : []),
                   ].map(([lbl, val]) => (
                     <div key={String(lbl)} className="flex justify-between text-sm">
                       <span style={{ color: 'var(--text-secondary)' }}>{lbl}</span>
