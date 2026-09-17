@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import path from "path";
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -45,9 +44,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  turbopack: {
-    root: path.resolve(__dirname),
-  },
+  turbopack: {},
   experimental: {
     optimizePackageImports: [
       'lucide-react',
