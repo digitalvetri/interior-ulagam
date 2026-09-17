@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category');
+  const vendorId = searchParams.get('vendorId');
 
   try {
     const conditions = [eq(materials.tenantId, ctx.tenantId)];
@@ -48,6 +49,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid category filter' }, { status: 400 });
       }
       conditions.push(eq(materials.category, categoryParsed.data));
+    }
+
+    if (vendorId) {
+      conditions.push(eq(materials.vendorId, vendorId));
     }
 
     const rows = await db
