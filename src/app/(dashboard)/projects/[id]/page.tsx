@@ -294,8 +294,9 @@ function AddExpenseDialog({
     if (!amountRupees || isNaN(parsed) || parsed <= 0) {
       setError('Please enter a valid amount'); return;
     }
-    const amountPaise    = Math.round(parsed * 100);
-    const gstAmountPaise = gstPct > 0 ? Math.round(amountPaise * gstPct / (100 + gstPct)) : 0;
+    const basePaise      = Math.round(parsed * 100);
+    const gstAmountPaise = gstPct > 0 ? Math.round(basePaise * gstPct / 100) : 0;
+    const amountPaise    = basePaise + gstAmountPaise;
     setSaving(true);
     try {
       const res = await fetch('/api/v1/expenses', {
@@ -373,7 +374,7 @@ function AddExpenseDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="studio-label block mb-1.5">Amount (₹) incl. GST</label>
+              <label className="studio-label block mb-1.5">Amount (₹) excl. GST</label>
               <input type="number" min="0.01" step="0.01" placeholder="e.g. 1500"
                 value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
                 className="studio-input w-full text-sm" />
@@ -392,10 +393,10 @@ function AddExpenseDialog({
           </div>
           {/* Live GST breakdown */}
           {(() => {
-            const total = parseFloat(amountRupees);
-            if (!amountRupees || isNaN(total) || total <= 0) return null;
-            const gstAmt  = gstPct > 0 ? total * gstPct / (100 + gstPct) : 0;
-            const base    = total - gstAmt;
+            const base = parseFloat(amountRupees);
+            if (!amountRupees || isNaN(base) || base <= 0) return null;
+            const gstAmt = gstPct > 0 ? base * gstPct / 100 : 0;
+            const total  = base + gstAmt;
             return (
               <div className="rounded-xl px-4 py-3 text-xs space-y-1.5" style={{ background: 'var(--surface-muted)' }}>
                 <div className="flex justify-between text-[var(--text-secondary)]">
@@ -405,7 +406,7 @@ function AddExpenseDialog({
                 {gstPct > 0 && (
                   <div className="flex justify-between text-[var(--text-secondary)]">
                     <span>GST ({gstPct}%)</span>
-                    <span className="font-medium text-amber-600">₹{gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span className="font-medium text-amber-600">+ ₹{gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t pt-1.5 font-semibold" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
