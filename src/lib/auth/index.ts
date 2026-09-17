@@ -1,4 +1,3 @@
-import { cache } from 'react';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
@@ -31,15 +30,7 @@ function toRole(value: unknown): UserRole {
   return ROLE_ALIASES[value] ?? 'designer';
 }
 
-/**
- * Resolve the session and the caller's tenant. Returns null when unauthenticated,
- * or when the account somehow has no tenant — treated as unauthenticated rather
- * than trusted.
- */
-// cache() deduplicates this call within a single server render pass — if multiple
-// server components or route segments call getAuthContext() in the same request,
-// only one session lookup + DB query runs.
-const loadContext = cache(async (): Promise<TenantContext | null> => {
+async function loadContext(): Promise<TenantContext | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
 
@@ -60,7 +51,7 @@ const loadContext = cache(async (): Promise<TenantContext | null> => {
     tenantId: row.tenantId,
     role: toRole(row.role),
   };
-});
+}
 
 export async function requireAuth(): Promise<TenantContext> {
   const ctx = await loadContext();
