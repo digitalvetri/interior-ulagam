@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowUpRight, Check, ChevronDown, ChevronRight,
+  AlertCircle, ArrowUpRight, Calendar, Check, ChevronDown, ChevronRight,
   Download, FileSpreadsheet, FileText, HandCoins, IndianRupee,
-  Loader2, Plus, Receipt, Search, TrendingUp, Truck, Wallet, X, Zap,
+  Loader2, Plus, Receipt, Search, Tag, TrendingDown, TrendingUp, Truck,
+  Users, Wallet, X, Zap,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 
@@ -45,7 +46,8 @@ interface OverviewPayload {
 
 interface ExpenseRow {
   id: string; projectId: string; category: string; amountPaise: number;
-  description: string | null; receiptUrl: string | null; createdAt: string;
+  description: string | null; receiptUrl: string | null; vendorName: string | null;
+  gstPct: number; createdAt: string;
 }
 
 interface VendorPayable {
@@ -874,11 +876,31 @@ function PaymentsTab() {
 
 // ─── Expenses Tab ──────────────────────────────────────────────────────────────
 
+const EXP_CAT_CFG: Record<string, { label: string; bg: string; color: string; dot: string; bar: string }> = {
+  petty_cash: { label: 'Petty Cash', bg: '#F8FAFC', color: '#64748B', dot: '#94A3B8', bar: '#94A3B8' },
+  transport:  { label: 'Transport',  bg: '#EFF6FF', color: '#2563EB', dot: '#3B82F6', bar: '#3B82F6' },
+  labour:     { label: 'Labour',     bg: '#FFF7ED', color: '#C2410C', dot: '#F97316', bar: '#F97316' },
+  material:   { label: 'Material',   bg: '#F5F3FF', color: '#7C3AED', dot: '#8B5CF6', bar: '#8B5CF6' },
+  other:      { label: 'Other',      bg: '#F0FDF4', color: '#15803D', dot: '#22C55E', bar: '#22C55E' },
+};
+
+function ExpCatBadge({ category }: { category: string }) {
+  const cfg = EXP_CAT_CFG[category] ?? EXP_CAT_CFG.other;
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap"
+      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.dot}30` }}>
+      <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+      {cfg.label}
+    </span>
+  );
+}
+
 function ExpensesTab() {
   const router = useRouter();
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCat]   = useState('');
+  const [search, setSearch]   = useState('');
 
   // Log Expense modal
   const [logOpen, setLogOpen]         = useState(false);
@@ -915,9 +937,10 @@ function ExpensesTab() {
   async function submitLogExp() {
     setLogError(null);
     if (!logProjId) { setLogError('Please select a project'); return; }
-    const amtPaise = Math.round(parseFloat(logAmount || '0') * 100);
-    if (amtPaise <= 0) { setLogError('Enter a valid amount'); return; }
-    const gstAmtPaise = logGstPct > 0 ? Math.round(amtPaise * logGstPct / (100 + logGstPct)) : 0;
+    const basePaise    = Math.round(parseFloat(logAmount || '0') * 100);
+    if (basePaise <= 0) { setLogError('Enter a valid amount'); return; }
+    const gstAmtPaise  = logGstPct > 0 ? Math.round(basePaise * logGstPct / 100) : 0;
+    const amtPaise     = basePaise + gstAmtPaise;
     setLogSaving(true);
     try {
       const res = await fetch('/api/v1/expenses', {
@@ -937,8 +960,39 @@ function ExpensesTab() {
     } finally { setLogSaving(false); }
   }
 
-  const filtered = catFilter ? rows.filter(r => r.category === catFilter) : rows;
-  const totalPaise = filtered.reduce((s, r) => s + r.amountPaise, 0);
+  // ── Derived stats ──────────────────────────────────────────────────────────
+  const totalPaise = rows.reduce((s, r) => s + r.amountPaise, 0);
+
+  const now = new Date();
+  const thisMonthPaise = rows
+    .filter(e => { const d = new Date(e.createdAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); })
+    .reduce((s, e) => s + e.amountPaise, 0);
+
+  const catTotals = useMemo(() =>
+    EXP_CATEGORIES.map(cat => ({
+      category: cat,
+      totalPaise: rows.filter(r => r.category === cat).reduce((s, r) => s + r.amountPaise, 0),
+    })).filter(c => c.totalPaise > 0).sort((a, b) => b.totalPaise - a.totalPaise),
+  [rows]);
+
+  const topCat = catTotals[0] ?? null;
+  const vendorCount = new Set(rows.map(r => r.vendorName).filter(Boolean)).size;
+  const maxCatTotal = catTotals[0]?.totalPaise ?? 1;
+
+  // ── Filtered rows ──────────────────────────────────────────────────────────
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return rows.filter(r => {
+      const matchCat = !catFilter || r.category === catFilter;
+      const matchQ   = !q || (r.description ?? '').toLowerCase().includes(q) || (r.vendorName ?? '').toLowerCase().includes(q);
+      return matchCat && matchQ;
+    });
+  }, [rows, catFilter, search]);
+
+  // ── GST live calc for modal ────────────────────────────────────────────────
+  const logBase   = parseFloat(logAmount);
+  const logGstAmt = (!isNaN(logBase) && logBase > 0 && logGstPct > 0) ? logBase * logGstPct / 100 : 0;
+  const logTotal  = (!isNaN(logBase) && logBase > 0) ? logBase + logGstAmt : 0;
 
   return (
     <div className="space-y-5">
@@ -950,7 +1004,7 @@ function ExpensesTab() {
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
               <div>
-                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Log Expense</h2>
+                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Expense</h2>
                 <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>Record a project expense or overhead</p>
               </div>
               <button onClick={() => !logSaving && setLogOpen(false)}
@@ -975,22 +1029,27 @@ function ExpensesTab() {
               <div>
                 <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Category *</label>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  {EXP_CATEGORIES.map(c => (
-                    <button key={c} type="button" onClick={() => setLogCat(c)}
-                      className="rounded-full border px-3 py-1 text-xs font-semibold transition-all"
-                      style={{
-                        borderColor: logCat === c ? 'var(--accent-base)' : 'var(--border-subtle)',
-                        background:  logCat === c ? 'var(--accent-soft)' : 'var(--surface-card)',
-                        color:       logCat === c ? 'var(--accent-base)' : 'var(--text-secondary)',
-                      }}>
-                      {EXP_LABEL[c]}
-                    </button>
-                  ))}
+                  {EXP_CATEGORIES.map(c => {
+                    const cfg = EXP_CAT_CFG[c];
+                    const active = logCat === c;
+                    return (
+                      <button key={c} type="button" onClick={() => setLogCat(c)}
+                        className="flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-medium transition-all"
+                        style={{
+                          borderColor: active ? cfg.dot : 'transparent',
+                          background:  active ? cfg.bg : 'var(--surface-muted)',
+                          color:       active ? cfg.color : 'var(--text-secondary)',
+                        }}>
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? cfg.dot : 'var(--text-tertiary)' }} />
+                        {cfg.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount incl. GST (₹) *</label>
+                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount excl. GST (₹) *</label>
                   <input type="number" min="0.01" step="0.01" value={logAmount}
                     onChange={e => setLogAmount(e.target.value)} className={inputCls} placeholder="e.g. 5000" />
                 </div>
@@ -1001,6 +1060,30 @@ function ExpensesTab() {
                   </select>
                 </div>
               </div>
+              {/* Live GST breakdown */}
+              {!isNaN(logBase) && logBase > 0 && (
+                <div className="rounded-xl px-4 py-3 text-xs space-y-1.5" style={{ background: 'var(--surface-muted)' }}>
+                  <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
+                    <span>Base amount</span>
+                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                      ₹{logBase.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  {logGstPct > 0 && (
+                    <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
+                      <span>GST ({logGstPct}%)</span>
+                      <span className="font-medium text-amber-600">
+                        + ₹{logGstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-1.5 font-semibold"
+                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
+                    <span>Total paid</span>
+                    <span>₹{logTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Vendor / paid to</label>
                 <input type="text" value={logVendor} onChange={e => setLogVendor(e.target.value)}
@@ -1019,70 +1102,211 @@ function ExpensesTab() {
                 style={{ color: 'var(--text-secondary)' }}>Cancel</button>
               <button onClick={submitLogExp} disabled={logSaving || !logProjId}
                 className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
-                {logSaving ? 'Saving…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Log Expense</>}
+                {logSaving ? 'Saving…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Save Expense</>}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid grid-cols-2 gap-4">
-          <StatCard label="Total expenses" value={formatRupees(totalPaise)} icon={Receipt} iconBg="#FEF3CD" iconColor="#D97706" />
-          <StatCard label="Entries" value={String(filtered.length)} icon={FileText} iconBg="var(--surface-muted)" iconColor="var(--text-tertiary)" />
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          {rows.length > 0 && (
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {rows.length} {rows.length === 1 ? 'entry' : 'entries'} · {formatRupees(totalPaise)} booked
+            </p>
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          <select value={catFilter} onChange={e => setCat(e.target.value)}
-            className="h-9 rounded-xl border px-3 text-sm outline-none"
-            style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)' }}>
-            <option value="">All categories</option>
-            {EXP_CATEGORIES.map(c => <option key={c} value={c}>{EXP_LABEL[c]}</option>)}
-          </select>
-          <button onClick={openLogExp} className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px] shrink-0">
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />Add Expense
-          </button>
-        </div>
+        <button onClick={openLogExp}
+          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 shrink-0"
+          style={{ background: 'var(--text-heading)' }}>
+          <Plus className="h-4 w-4" strokeWidth={2.25} />Record Expense
+        </button>
       </div>
+
+      {/* 4 KPI cards */}
+      {rows.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#FEF3CD' }}>
+              <TrendingDown className="h-5 w-5" style={{ color: '#D97706' }} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Total Expenses</p>
+              <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{formatRupees(totalPaise)}</p>
+            </div>
+          </div>
+          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-soft)' }}>
+              <Calendar className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>This Month</p>
+              <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>
+                {thisMonthPaise > 0 ? formatRupees(thisMonthPaise) : '—'}
+              </p>
+            </div>
+          </div>
+          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: topCat ? EXP_CAT_CFG[topCat.category]?.bg ?? 'var(--surface-muted)' : 'var(--surface-muted)' }}>
+              <Tag className="h-5 w-5" style={{ color: topCat ? EXP_CAT_CFG[topCat.category]?.dot ?? 'var(--text-tertiary)' : 'var(--text-tertiary)' }} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Top Category</p>
+              {topCat ? (
+                <>
+                  <p className="text-base font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>
+                    {EXP_CAT_CFG[topCat.category]?.label ?? topCat.category}
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatRupees(topCat.totalPaise)}</p>
+                </>
+              ) : <p className="text-base font-bold mt-0.5" style={{ color: 'var(--text-tertiary)' }}>—</p>}
+            </div>
+          </div>
+          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F0FDF4' }}>
+              <Users className="h-5 w-5" style={{ color: '#16A34A' }} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Vendors</p>
+              <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{vendorCount}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>
-      ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border p-12 text-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-          <Receipt className="mx-auto mb-3 h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No expenses yet</p>
+      ) : rows.length === 0 ? (
+        <div className="rounded-2xl border p-16 text-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+          <Receipt className="mx-auto mb-3 h-12 w-12" style={{ color: 'var(--text-tertiary)' }} />
+          <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-heading)' }}>No expenses yet</p>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Record your first expense to get started.</p>
+          <button onClick={openLogExp}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white"
+            style={{ background: 'var(--text-heading)' }}>
+            <Plus className="h-4 w-4" />Record Expense
+          </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead><tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Date','Category','Description','Amount','Receipt'].map(h => (
-                  <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {filtered.map(e => (
-                  <tr key={e.id} className="hover:bg-[var(--surface-muted)] cursor-pointer" style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                    onClick={() => router.push(`/expenses/${e.id}`)}>
-                    <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      {new Date(e.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                        {EXP_LABEL[e.category] ?? e.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-primary)' }}>{e.description ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}</td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>{formatRupees(e.amountPaise)}</td>
-                    <td className="px-4 py-3">
-                      {e.receiptUrl
-                        ? <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70" style={{ color: 'var(--accent-base)' }}><Download className="h-3.5 w-3.5" /> View</a>
-                        : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="flex gap-5 items-start">
+          {/* Table + filter */}
+          <div className="flex-1 min-w-0 space-y-3">
+            {/* Filter bar */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
+                <input type="text" placeholder="Search description or vendor…" value={search} onChange={e => setSearch(e.target.value)}
+                  className="h-9 w-full rounded-xl border pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)' }} />
+              </div>
+              <select value={catFilter} onChange={e => setCat(e.target.value)}
+                className="h-9 rounded-xl border px-3 pr-8 text-sm outline-none"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)', minWidth: '150px' }}>
+                <option value="">All categories</option>
+                {EXP_CATEGORIES.map(c => <option key={c} value={c}>{EXP_LABEL[c]}</option>)}
+              </select>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
+              {filtered.length === 0 ? (
+                <div className="py-10 text-center">
+                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No expenses match your filter.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead><tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                        {['Date','Description','Category','Vendor','Amount','Receipt'].map((h, i) => (
+                          <th key={h} className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide${i === 4 ? ' text-right' : ''}`}
+                            style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>
+                        {filtered.map((e, idx) => (
+                          <tr key={e.id} className="hover:bg-[var(--surface-muted)] cursor-pointer"
+                            style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
+                            onClick={() => router.push(`/expenses/${e.id}`)}>
+                            <td className="px-4 py-3.5 tabular-nums text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
+                              {new Date(e.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </td>
+                            <td className="px-4 py-3.5 text-xs font-medium" style={{ color: 'var(--text-heading)', maxWidth: '180px' }}>
+                              {e.description
+                                ? <span className="line-clamp-1">{e.description}</span>
+                                : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <ExpCatBadge category={e.category} />
+                            </td>
+                            <td className="px-4 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                              {e.vendorName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <span className="font-bold tabular-nums text-sm" style={{ color: '#EA580C' }}>
+                                {formatRupees(e.amountPaise)}
+                              </span>
+                              {e.gstPct > 0 && (
+                                <div className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>incl. {e.gstPct}% GST</div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {e.receiptUrl
+                                ? <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" onClick={ev => ev.stopPropagation()}
+                                    className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70"
+                                    style={{ color: 'var(--accent-base)' }}><Download className="h-3.5 w-3.5" />View</a>
+                                : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3"
+                    style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                    <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
+                    </span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
+                      {formatRupees(filtered.reduce((s, r) => s + r.amountPaise, 0))}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right sidebar: By category */}
+          <div className="w-52 flex-shrink-0 rounded-2xl p-5 space-y-4"
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>By category</p>
+            <div className="space-y-3.5">
+              {catTotals.map(({ category, totalPaise: catTotal }) => {
+                const cfg  = EXP_CAT_CFG[category] ?? EXP_CAT_CFG.other;
+                const barW = Math.round((catTotal / maxCatTotal) * 100);
+                const pct  = Math.round((catTotal / totalPaise) * 100);
+                const disp = catTotal >= 100000
+                  ? `₹${(catTotal / 100000).toFixed(1)}L`
+                  : catTotal >= 1000
+                  ? `₹${(catTotal / 100 / 1000).toFixed(1)}K`
+                  : formatRupees(catTotal);
+                return (
+                  <div key={category}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{cfg.label}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>{disp}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${barW}%`, background: cfg.bar }} />
+                    </div>
+                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>{pct}% of total</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
