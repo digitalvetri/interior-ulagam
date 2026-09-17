@@ -13,18 +13,6 @@ const RecordSchema = z.object({
   paidAt:    z.string().datetime().optional(),
 });
 
-interface PoLine { totalPaise?: number; qty?: number; unitRatePaise?: number }
-
-function poTotalPaise(linesJson: unknown): number {
-  if (!Array.isArray(linesJson)) return 0;
-  return (linesJson as PoLine[]).reduce((sum, l) => {
-    if (typeof l.totalPaise === 'number') return sum + l.totalPaise;
-    const qty  = typeof l.qty           === 'number' ? l.qty           : 0;
-    const rate = typeof l.unitRatePaise  === 'number' ? l.unitRatePaise  : 0;
-    return sum + qty * rate;
-  }, 0);
-}
-
 // GET /api/v1/purchase-orders/[id]/vendor-payments
 export async function GET(
   _req: NextRequest,
@@ -69,10 +57,9 @@ export async function POST(
 
   const [po] = await db
     .select({
-      id:        purchaseOrders.id,
-      vendorId:  purchaseOrders.vendorId,
-      linesJson: purchaseOrders.linesJson,
-      status:    purchaseOrders.status,
+      id:       purchaseOrders.id,
+      vendorId: purchaseOrders.vendorId,
+      status:   purchaseOrders.status,
     })
     .from(purchaseOrders)
     .where(and(eq(purchaseOrders.id, poId), eq(purchaseOrders.tenantId, ctx.tenantId)))
@@ -127,7 +114,7 @@ export async function POST(
     })
     .returning();
 
-  // Sync advancePaidPaise and derive PO status from total actual payments
+  // Sync advancePaidPaise from actual vendor_payments totals (do not touch status — GRN drives that)
   const allPayments = await db
     .select({ amountPaise: vendorPayments.amountPaise })
     .from(vendorPayments)
@@ -139,12 +126,10 @@ export async function POST(
     );
 
   const totalPaidPaise = allPayments.reduce((s, p) => s + p.amountPaise, 0);
-  const poOrderTotal   = poTotalPaise(po.linesJson);
-  const newStatus      = totalPaidPaise >= poOrderTotal && poOrderTotal > 0 ? 'complete' : 'partial';
 
   await db
     .update(purchaseOrders)
-    .set({ advancePaidPaise: totalPaidPaise, status: newStatus })
+    .set({ advancePaidPaise: totalPaidPaise })
     .where(
       and(
         eq(purchaseOrders.id, poId),

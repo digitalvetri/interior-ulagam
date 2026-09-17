@@ -1009,4 +1009,5 @@ export const vendorPayments = pgTable('vendor_payments', {
 }, (t) => [
   index('vendor_payments_tenant_idx').on(t.tenantId),
   index('vendor_payments_vendor_idx').on(t.vendorId),
+  uniqueIndex('vendor_payments_po_ref_uq').on(t.purchaseOrderId, t.reference).where(sql`reference IS NOT NULL`),
 ]);
