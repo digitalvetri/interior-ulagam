@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { purchaseOrders } from '@/lib/db/schema';
+import { purchaseOrders, vendors, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
@@ -44,7 +44,24 @@ export async function GET(
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: po });
+    // Enrich with vendor and project names
+    const [vendorRow, projectRow] = await Promise.all([
+      po.vendorId
+        ? db.select({ name: vendors.name, phone: vendors.phone }).from(vendors).where(eq(vendors.id, po.vendorId)).then(r => r[0] ?? null)
+        : null,
+      po.projectId
+        ? db.select({ name: projects.name }).from(projects).where(eq(projects.id, po.projectId)).then(r => r[0] ?? null)
+        : null,
+    ]);
+
+    return NextResponse.json({
+      data: {
+        ...po,
+        vendorName: vendorRow?.name ?? null,
+        vendorPhone: po.vendorPhone ?? vendorRow?.phone ?? null,
+        projectName: projectRow?.name ?? null,
+      },
+    });
   } catch (err) {
     console.error('[purchase-orders/:id GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
