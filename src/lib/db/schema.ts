@@ -118,7 +118,7 @@ export const workOrderPriorityEnum = pgEnum('work_order_priority', [
 ]);
 
 export const leadActivityTypeEnum = pgEnum('lead_activity_type', [
-  'call', 'whatsapp', 'note', 'site_visit', 'meeting', 'stage_change', 'follow_up',
+  'call', 'whatsapp', 'note', 'site_visit', 'meeting', 'stage_change', 'follow_up', 'task',
 ]);
 export const followUpStatusEnum = pgEnum('follow_up_status', [
   'pending', 'completed', 'overdue', 'rescheduled', 'cancelled',
@@ -889,7 +889,9 @@ export const tasks = pgTable('tasks', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'in_progress' | 'done'
   assignedTo: uuid('assigned_to').references(() => users.id),
+  createdBy: uuid('created_by').references(() => users.id),
   relatedType: text('related_type'), // 'lead' | 'project' | 'quote' | 'invoice'
   relatedId: uuid('related_id'),
   dueAt: timestamp('due_at', { withTimezone: true }),
@@ -898,6 +900,7 @@ export const tasks = pgTable('tasks', {
   ...timestamps,
 }, (t) => [
   index('tasks_tenant_assigned_idx').on(t.tenantId, t.assignedTo),
+  index('tasks_tenant_status_idx').on(t.tenantId, t.status),
 ]);
 
 // ─── Design Deliverables (rich version) ──────────────────────────────────────

@@ -54,7 +54,7 @@ interface SiteVisit {
 }
 interface Task {
   id: string; title: string; dueAt: string | null; completedAt: string | null;
-  relatedType: string | null;
+  status: string; createdBy: string | null; relatedType: string | null;
 }
 interface PendingVendorDelivery {
   poNumber: string; vendorName: string | null; vendorContactName: string | null; expectedDeliveryAt: string | null;
@@ -320,7 +320,30 @@ function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[];
 }
 
 /* ── My tasks widget (employee view) ───────────────────────────────────── */
-function MyTasksWidget({ myTasks, loading }: { myTasks: Task[]; loading: boolean }) {
+function MyTasksWidget({
+  myTasks, loading, myUserId, onTasksChange,
+}: {
+  myTasks: Task[];
+  loading: boolean;
+  myUserId: string;
+  onTasksChange: (tasks: Task[]) => void;
+}) {
+  async function patchStatus(task: Task, newStatus: 'in_progress' | 'done') {
+    const res = await fetch(`/api/v1/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!res.ok) return;
+    // Remove 'done' tasks from the active list; update status for in_progress
+    if (newStatus === 'done') {
+      onTasksChange(myTasks.filter(t => t.id !== task.id));
+    } else {
+      const json = await res.json();
+      onTasksChange(myTasks.map(t => t.id === task.id ? { ...t, ...json.data } : t));
+    }
+  }
+
   return (
     <div className="premium-card p-5">
       <div className="flex items-center justify-between mb-4">
@@ -343,22 +366,68 @@ function MyTasksWidget({ myTasks, loading }: { myTasks: Task[]; loading: boolean
           {[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
         </div>
       ) : myTasks.length === 0 ? (
-        <p className="text-sm py-3" style={{ color: 'var(--text-secondary)' }}>No pending tasks assigned to you.</p>
+        <p className="text-sm py-3" style={{ color: 'var(--text-secondary)' }}>No active tasks assigned to you.</p>
       ) : (
         <div className="space-y-1.5">
           {myTasks.slice(0, 5).map(t => {
-            const overdue = t.dueAt && new Date(t.dueAt) < new Date();
+            const overdue    = t.dueAt && new Date(t.dueAt) < new Date() && t.status !== 'done';
+            const isAssigned = t.createdBy && t.createdBy !== myUserId;
+            const inProgress = t.status === 'in_progress';
             return (
-              <div key={t.id} className="flex items-center gap-2.5 rounded-lg px-3 py-2"
-                style={{ backgroundColor: 'var(--surface-muted)' }}>
-                <Clock className="h-3.5 w-3.5 flex-shrink-0"
-                  style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }} />
-                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text-primary)' }}>{t.title}</span>
+              <div key={t.id}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2"
+                style={{
+                  backgroundColor: inProgress ? 'var(--accent-soft)' : 'var(--surface-muted)',
+                  border: inProgress ? '1px solid var(--accent-base)' : '1px solid transparent',
+                }}>
+                {/* Status badge */}
+                <span
+                  className="rounded-full px-2 py-0.5 text-[10px] font-bold flex-shrink-0"
+                  style={{
+                    backgroundColor: inProgress ? 'var(--accent-base)' : 'var(--surface-card)',
+                    color:           inProgress ? '#fff' : 'var(--text-tertiary)',
+                  }}>
+                  {inProgress ? 'In Progress' : 'Pending'}
+                </span>
+
+                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
+                  {t.title}
+                  {isAssigned && (
+                    <span className="ml-1.5 text-[10px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                      (assigned)
+                    </span>
+                  )}
+                </span>
+
                 {t.dueAt && (
                   <span className="text-[10px] flex-shrink-0"
                     style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
                     {new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                   </span>
+                )}
+
+                {/* Quick-action buttons */}
+                {t.status === 'pending' && (
+                  <button
+                    type="button"
+                    onClick={() => patchStatus(t, 'in_progress')}
+                    className="flex-shrink-0 text-[11px] font-semibold rounded-md px-2 py-0.5 transition-colors"
+                    style={{ backgroundColor: 'var(--accent-base)', color: '#fff' }}
+                    title="Start task"
+                  >
+                    Start
+                  </button>
+                )}
+                {t.status === 'in_progress' && (
+                  <button
+                    type="button"
+                    onClick={() => patchStatus(t, 'done')}
+                    className="flex-shrink-0 text-[11px] font-semibold rounded-md px-2 py-0.5 transition-colors"
+                    style={{ backgroundColor: 'var(--success)', color: '#fff' }}
+                    title="Mark as done"
+                  >
+                    Done
+                  </button>
                 )}
               </div>
             );
@@ -549,6 +618,8 @@ export default function DashboardPage() {
   const [myTasks,      setMyTasks]      = useState<Task[]>([]);
   const [myProjects,   setMyProjects]   = useState<Project[]>([]);
 
+  const [myUserId, setMyUserId] = useState('');
+
   // Employee-only state
   const [todayAttd,   setTodayAttd]   = useState<AttendanceRecord | null>(null);
   const [monthAttd,   setMonthAttd]   = useState<AttendanceRecord[]>([]);
@@ -566,12 +637,13 @@ export default function DashboardPage() {
       const [me, sv, ts] = await Promise.all([
         fetch('/api/v1/me').then(r => r.json()),
         fetch('/api/v1/site-visits').then(r => r.json()),
-        fetch('/api/v1/tasks?assigned=me&status=pending&limit=10').then(r => r.json()),
+        fetch('/api/v1/tasks?assigned=me&status=active&limit=10').then(r => r.json()),
       ]);
 
       const admin = !!(me?.data?.isAdmin || me?.data?.role === 'owner');
       setIsAdmin(admin);
       if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
+      if (me?.data?.id)       setMyUserId(me.data.id);
 
       const allVisits: SiteVisit[] = Array.isArray(sv?.data) ? sv.data : [];
       const now = new Date();
@@ -1366,7 +1438,12 @@ export default function DashboardPage() {
 
       {/* ── ROW 1: My Tasks + Site Visits ─────────────────────────────── */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <MyTasksWidget myTasks={myTasks} loading={loading} />
+        <MyTasksWidget
+          myTasks={myTasks}
+          loading={loading}
+          myUserId={myUserId}
+          onTasksChange={setMyTasks}
+        />
         <TodayVisitsWidget todayVisits={todayVisits} loading={loading} />
       </div>
 

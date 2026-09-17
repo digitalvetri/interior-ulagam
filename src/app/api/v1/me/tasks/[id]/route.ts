@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { tasks } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
-// PATCH /api/v1/me/tasks/:id — toggle complete or update a task I own
+const UpdateSchema = z.object({
+  status: z.enum(['pending', 'in_progress', 'done']).optional(),
+  // legacy boolean compat — kept so existing callers don't break
+  completed: z.boolean().optional(),
+});
+
+// PATCH /api/v1/me/tasks/:id — update status of a task assigned to me
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -17,30 +24,33 @@ export async function PATCH(
   try { body = await request.json(); }
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
-  const { completed } = body as { completed?: boolean };
+  const parsed = UpdateSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
 
-  try {
-    const [existing] = await db
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(and(
-        eq(tasks.id, id),
-        eq(tasks.tenantId, ctx.tenantId),
-        eq(tasks.assignedTo, ctx.userId),
-      ))
-      .limit(1);
+  const [existing] = await db
+    .select({ id: tasks.id, status: tasks.status })
+    .from(tasks)
+    .where(and(eq(tasks.id, id), eq(tasks.tenantId, ctx.tenantId), eq(tasks.assignedTo, ctx.userId)))
+    .limit(1);
 
-    if (!existing) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+  if (!existing) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
 
-    const [row] = await db
-      .update(tasks)
-      .set({ completedAt: completed ? new Date() : null })
-      .where(eq(tasks.id, id))
-      .returning();
-
-    return NextResponse.json({ data: row });
-  } catch (e) {
-    console.error('[PATCH /api/v1/me/tasks/:id]', e);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  // Resolve target status — prefer explicit status, fall back to legacy boolean
+  let newStatus = parsed.data.status;
+  if (!newStatus && parsed.data.completed !== undefined) {
+    newStatus = parsed.data.completed ? 'done' : 'pending';
   }
+  if (!newStatus) return NextResponse.json({ error: 'No update provided' }, { status: 400 });
+
+  const updates: Partial<typeof tasks.$inferInsert> = { status: newStatus };
+
+  // Sync completedAt
+  if (newStatus === 'done' && existing.status !== 'done') {
+    updates.completedAt = new Date();
+  } else if (newStatus !== 'done' && existing.status === 'done') {
+    updates.completedAt = null;
+  }
+
+  const [row] = await db.update(tasks).set(updates).where(eq(tasks.id, id)).returning();
+  return NextResponse.json({ data: row });
 }

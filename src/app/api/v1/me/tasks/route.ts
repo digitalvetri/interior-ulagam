@@ -68,7 +68,9 @@ export async function POST(request: NextRequest) {
       .values({
         tenantId:   ctx.tenantId,
         title:      parsed.data.title,
+        status:     'pending',
         assignedTo: ctx.userId,
+        createdBy:  ctx.userId,
         dueAt:      parsed.data.dueAt ? new Date(parsed.data.dueAt) : null,
         notes:      parsed.data.notes ?? null,
       })

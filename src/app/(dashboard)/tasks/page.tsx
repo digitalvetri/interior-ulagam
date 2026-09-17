@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { CheckCircle2, Circle, Plus, Clock, Link2, Trash2 } from 'lucide-react';
+import { CheckCircle2, Circle, Plus, Clock, Link2, Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState }  from '@/components/ui/EmptyState';
@@ -8,8 +8,10 @@ import { EmptyState }  from '@/components/ui/EmptyState';
 interface Task {
   id: string;
   title: string;
+  status: string;
   assignedTo: string | null;
   assigneeName: string | null;
+  createdBy: string | null;
   relatedType: 'lead' | 'project' | 'quote' | 'invoice' | null;
   relatedId: string | null;
   dueAt: string | null;
@@ -31,29 +33,37 @@ function relatedHref(type: string | null, id: string | null): string | null {
   return map[type] ? `${map[type]}/${id}` : null;
 }
 
-function dueBadge(dueAt: string | null, completedAt: string | null) {
-  if (completedAt || !dueAt) return null;
+function dueBadge(dueAt: string | null, status: string) {
+  if (status === 'done' || !dueAt) return null;
   const diff = Math.ceil((new Date(dueAt).getTime() - Date.now()) / 86_400_000);
-  if (diff < 0)  return { label: `${Math.abs(diff)}d overdue`, bg: 'var(--danger-soft)', color: 'var(--danger)' };
+  if (diff < 0)   return { label: `${Math.abs(diff)}d overdue`, bg: 'var(--danger-soft)',  color: 'var(--danger)'      };
   if (diff === 0) return { label: 'Due today',                  bg: 'var(--warning-soft)', color: 'var(--warning-text)' };
   if (diff <= 3)  return { label: `Due in ${diff}d`,            bg: 'var(--warning-soft)', color: 'var(--warning-text)' };
   return null;
 }
 
+function statusBadge(status: string) {
+  if (status === 'in_progress') return { label: 'In Progress', bg: 'var(--accent-soft)',   color: 'var(--accent-text)'   };
+  if (status === 'done')        return { label: 'Done',         bg: 'var(--success-soft)',  color: 'var(--success-text)'  };
+  return null; // 'pending' gets no extra badge
+}
+
 function TaskRow({
-  task, onToggle, onDelete,
-}: { task: Task; onToggle: () => void; onDelete: () => void }) {
-  const badge  = dueBadge(task.dueAt, task.completedAt);
+  task, isOwner, myId, onToggle, onDelete,
+}: { task: Task; isOwner: boolean; myId: string | null; onToggle: () => void; onDelete: () => void }) {
+  const done   = task.status === 'done';
+  const badge  = dueBadge(task.dueAt, task.status);
+  const stBadge = statusBadge(task.status);
   const href   = relatedHref(task.relatedType, task.relatedId);
-  const done   = !!task.completedAt;
+  const canDelete = isOwner || (task.createdBy === myId && task.assignedTo === myId);
 
   return (
     <div
       className="flex items-start gap-3 rounded-xl border px-4 py-3 transition-colors"
       style={{
-        borderColor: 'var(--border-subtle)',
+        borderColor:     'var(--border-subtle)',
         backgroundColor: 'var(--surface-card)',
-        opacity: done ? 0.6 : 1,
+        opacity:          done ? 0.6 : 1,
       }}
     >
       <button
@@ -71,23 +81,27 @@ function TaskRow({
         <p
           className="text-sm font-semibold leading-snug"
           style={{
-            color: 'var(--text-heading)',
+            color:          'var(--text-heading)',
             textDecoration: done ? 'line-through' : 'none',
           }}
         >
           {task.title}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-2">
+          {stBadge && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{ backgroundColor: stBadge.bg, color: stBadge.color }}>
+              {stBadge.label}
+            </span>
+          )}
           {task.assigneeName && (
             <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
               → {task.assigneeName}
             </span>
           )}
           {badge && (
-            <span
-              className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-              style={{ backgroundColor: badge.bg, color: badge.color }}
-            >
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{ backgroundColor: badge.bg, color: badge.color }}>
               {badge.label}
             </span>
           )}
@@ -109,21 +123,23 @@ function TaskRow({
         </div>
       </div>
 
-      <button
-        onClick={onDelete}
-        className="flex-shrink-0 opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
-        style={{ color: 'var(--danger)' }}
-        title="Delete task"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      {canDelete && (
+        <button
+          onClick={onDelete}
+          className="flex-shrink-0 opacity-0 hover:opacity-100 focus:opacity-100 transition-opacity"
+          style={{ color: 'var(--danger)' }}
+          title="Delete task"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }
 
 function CreateTaskDialog({
-  users, onClose, onCreated,
-}: { users: UserOption[]; onClose: () => void; onCreated: (t: Task) => void }) {
+  users, isOwner, onClose, onCreated,
+}: { users: UserOption[]; isOwner: boolean; onClose: () => void; onCreated: (t: Task) => void }) {
   const [title,      setTitle]      = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [dueAt,      setDueAt]      = useState('');
@@ -159,9 +175,7 @@ function CreateTaskDialog({
         <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-heading)' }}>New Task</h2>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-              Title *
-            </label>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Title *</label>
             <input
               className="input-field w-full"
               value={title} onChange={e => setTitle(e.target.value)}
@@ -170,19 +184,17 @@ function CreateTaskDialog({
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
+            {isOwner && (
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Assign to</label>
+                <select className="input-field w-full" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
+                  <option value="">— Unassigned —</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+                </select>
+              </div>
+            )}
             <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Assign to
-              </label>
-              <select className="input-field w-full" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
-                <option value="">— Unassigned —</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-                Due date
-              </label>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Due date</label>
               <input
                 type="date"
                 className="input-field w-full"
@@ -191,9 +203,7 @@ function CreateTaskDialog({
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
-              Notes
-            </label>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Notes</label>
             <textarea
               className="input-field w-full"
               rows={2}
@@ -202,9 +212,7 @@ function CreateTaskDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">
-              Cancel
-            </button>
+            <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
             <button type="submit" disabled={saving || !title.trim()} className="btn-primary px-4 py-2 text-sm rounded-lg">
               {saving ? 'Creating…' : 'Create Task'}
             </button>
@@ -216,13 +224,15 @@ function CreateTaskDialog({
 }
 
 export default function TasksPage() {
-  const [tab,       setTab]       = useState<'mine' | 'all'>('mine');
-  const [tasks,     setTasks]     = useState<Task[]>([]);
-  const [userList,  setUserList]  = useState<UserOption[]>([]);
-  const [myId,      setMyId]      = useState<string | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [showDone,  setShowDone]  = useState(false);
-  const [creating,  setCreating]  = useState(false);
+  const [tab,      setTab]      = useState<'mine' | 'all'>('mine');
+  const [tasks,    setTasks]    = useState<Task[]>([]);
+  const [userList, setUserList] = useState<UserOption[]>([]);
+  const [myId,     setMyId]     = useState<string | null>(null);
+  const [isOwner,  setIsOwner]  = useState(false);
+  const [loading,  setLoading]  = useState(true);
+  const [showDone, setShowDone] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -233,6 +243,8 @@ export default function TasksPage() {
         fetch('/api/v1/employees').then(r => r.json()),
       ]);
       if (me?.data?.id) setMyId(me.data.id);
+      const owner = me?.data?.role === 'owner' || me?.data?.isAdmin === true;
+      setIsOwner(owner);
       if (Array.isArray(ts?.data)) setTasks(ts.data);
       if (Array.isArray(us?.data)) setUserList(us.data.map((u: { id: string; fullName: string }) => ({ id: u.id, fullName: u.fullName })));
     } finally { setLoading(false); }
@@ -241,16 +253,19 @@ export default function TasksPage() {
   useEffect(() => { load(); }, []);
 
   async function toggleDone(task: Task) {
-    const newVal = task.completedAt ? null : new Date().toISOString();
-    const res = await fetch(`/api/v1/tasks/${task.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ completedAt: newVal }),
-    });
-    if (res.ok) {
-      const json = await res.json();
-      setTasks(prev => prev.map(t => t.id === task.id ? json.data : t));
-    }
+    const newStatus = task.status === 'done' ? 'pending' : 'done';
+    setToggling(task.id);
+    try {
+      const res = await fetch(`/api/v1/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTasks(prev => prev.map(t => t.id === task.id ? json.data : t));
+      }
+    } finally { setToggling(null); }
   }
 
   async function deleteTask(id: string) {
@@ -260,11 +275,13 @@ export default function TasksPage() {
 
   const displayed = tasks.filter(t => {
     if (tab === 'mine' && myId && t.assignedTo !== myId) return false;
-    if (!showDone && t.completedAt) return false;
+    if (!showDone && t.status === 'done') return false;
     return true;
   });
 
-  const pendingCount = tasks.filter(t => !t.completedAt && (tab === 'all' || t.assignedTo === myId)).length;
+  const pendingCount = tasks.filter(t =>
+    t.status !== 'done' && (tab === 'all' || t.assignedTo === myId),
+  ).length;
 
   return (
     <div className="space-y-4 p-4 lg:p-6 animate-fade-in">
@@ -278,28 +295,45 @@ export default function TasksPage() {
         }
       />
 
-      {/* Tabs */}
+      {/* Tabs — only owner sees "All Tasks" */}
       <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: 'var(--surface-muted)', width: 'fit-content' }}>
-        {(['mine', 'all'] as const).map(t => (
+        <button
+          onClick={() => setTab('mine')}
+          className="rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors"
+          style={{
+            backgroundColor: tab === 'mine' ? 'var(--surface-card)' : 'transparent',
+            color:            tab === 'mine' ? 'var(--text-heading)' : 'var(--text-secondary)',
+            boxShadow:        tab === 'mine' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+          }}
+        >
+          My Work
+          {tab === 'mine' && pendingCount > 0 && (
+            <span className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+              style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+              {pendingCount}
+            </span>
+          )}
+        </button>
+
+        {isOwner && (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            onClick={() => setTab('all')}
             className="rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors"
             style={{
-              backgroundColor: tab === t ? 'var(--surface-card)' : 'transparent',
-              color:            tab === t ? 'var(--text-heading)' : 'var(--text-secondary)',
-              boxShadow:        tab === t ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+              backgroundColor: tab === 'all' ? 'var(--surface-card)' : 'transparent',
+              color:            tab === 'all' ? 'var(--text-heading)' : 'var(--text-secondary)',
+              boxShadow:        tab === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
             }}
           >
-            {t === 'mine' ? 'My Work' : 'All Tasks'}
-            {t === 'mine' && pendingCount > 0 && (
+            All Tasks
+            {tab === 'all' && pendingCount > 0 && (
               <span className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                 style={{ backgroundColor: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
                 {pendingCount}
               </span>
             )}
           </button>
-        ))}
+        )}
       </div>
 
       {/* Show completed toggle */}
@@ -330,12 +364,20 @@ export default function TasksPage() {
       ) : (
         <div className="space-y-2">
           {displayed.map(t => (
-            <TaskRow
-              key={t.id}
-              task={t}
-              onToggle={() => toggleDone(t)}
-              onDelete={() => deleteTask(t.id)}
-            />
+            <div key={t.id} style={{ position: 'relative' }}>
+              {toggling === t.id && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/60">
+                  <Loader2 className="h-4 w-4 animate-spin" style={{ color: 'var(--accent-base)' }} />
+                </div>
+              )}
+              <TaskRow
+                task={t}
+                isOwner={isOwner}
+                myId={myId}
+                onToggle={() => toggleDone(t)}
+                onDelete={() => deleteTask(t.id)}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -343,6 +385,7 @@ export default function TasksPage() {
       {creating && (
         <CreateTaskDialog
           users={userList}
+          isOwner={isOwner}
           onClose={() => setCreating(false)}
           onCreated={task => setTasks(prev => [task, ...prev])}
         />
