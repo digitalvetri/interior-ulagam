@@ -11,6 +11,12 @@ import {
 } from 'lucide-react';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import type { Lead } from '@/types/leads';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface LeadStats {
@@ -363,6 +369,161 @@ function MyTasksWidget({ myTasks, loading }: { myTasks: Task[]; loading: boolean
   );
 }
 
+/* ── Quick-action dialogs ───────────────────────────────────────────────── */
+const LEAVE_TYPES = [
+  { value: 'casual',    label: 'Casual Leave'    },
+  { value: 'sick',      label: 'Sick Leave'      },
+  { value: 'earned',    label: 'Earned Leave'    },
+  { value: 'unpaid',    label: 'Unpaid Leave'    },
+  { value: 'comp_off',  label: 'Comp Off'        },
+  { value: 'maternity', label: 'Maternity Leave' },
+  { value: 'paternity', label: 'Paternity Leave' },
+];
+
+function NewTaskDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
+  const [title,  setTitle]  = useState('');
+  const [dueAt,  setDueAt]  = useState('');
+  const [notes,  setNotes]  = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState<string | null>(null);
+
+  function handleClose() {
+    setTitle(''); setDueAt(''); setNotes(''); setError(null);
+    onClose();
+  }
+
+  async function handleSave() {
+    if (!title.trim()) return;
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch('/api/v1/me/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), dueAt: dueAt || null, notes: notes || null }),
+      });
+      if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Failed to create task'); return; }
+      handleClose();
+      onCreated();
+    } catch { setError('Network error. Please try again.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="dt-title">Task title</Label>
+            <Input id="dt-title" placeholder="What needs to be done?" value={title}
+              onChange={e => setTitle(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && title.trim()) handleSave(); }}
+              autoFocus />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dt-due">Due date <span className="text-gray-400 font-normal">(optional)</span></Label>
+            <Input id="dt-due" type="date" value={dueAt} onChange={e => setDueAt(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="dt-notes">Notes <span className="text-gray-400 font-normal">(optional)</span></Label>
+            <Textarea id="dt-notes" placeholder="Any additional details…" value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving || !title.trim()}>
+            {saving ? 'Saving…' : 'Create Task'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ApplyLeaveDialog({ open, onClose, onSubmitted }: { open: boolean; onClose: () => void; onSubmitted: () => void }) {
+  const [leaveType, setLeaveType] = useState('casual');
+  const [fromDate,  setFromDate]  = useState('');
+  const [toDate,    setToDate]    = useState('');
+  const [reason,    setReason]    = useState('');
+  const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+
+  const days = fromDate && toDate
+    ? Math.max(0, Math.round((new Date(toDate).getTime() - new Date(fromDate).getTime()) / 86_400_000) + 1)
+    : 0;
+
+  function handleClose() {
+    setLeaveType('casual'); setFromDate(''); setToDate(''); setReason(''); setError(null);
+    onClose();
+  }
+
+  async function handleSubmit() {
+    if (!fromDate || !toDate || !reason.trim()) return;
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch('/api/v1/me/leave-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leaveType, fromDate, toDate, reason: reason.trim() }),
+      });
+      if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Failed to submit request'); return; }
+      handleClose();
+      onSubmitted();
+    } catch { setError('Network error. Please try again.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Apply for Leave</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <Label>Leave type</Label>
+            <Select value={leaveType} onValueChange={setLeaveType}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {LEAVE_TYPES.map(lt => (
+                  <SelectItem key={lt.value} value={lt.value}>{lt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="dl-from">From</Label>
+              <Input id="dl-from" type="date" value={fromDate}
+                onChange={e => { setFromDate(e.target.value); if (!toDate || e.target.value > toDate) setToDate(e.target.value); }} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dl-to">To</Label>
+              <Input id="dl-to" type="date" value={toDate} min={fromDate} onChange={e => setToDate(e.target.value)} />
+            </div>
+          </div>
+          {days > 0 && <p className="text-[13px] text-gray-500">{days} day{days !== 1 ? 's' : ''} selected</p>}
+          <div className="space-y-1.5">
+            <Label htmlFor="dl-reason">Reason</Label>
+            <Textarea id="dl-reason" placeholder="Brief reason for leave…" value={reason}
+              onChange={e => setReason(e.target.value)} rows={3} />
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving || !fromDate || !toDate || !reason.trim()}>
+            {saving ? 'Submitting…' : 'Submit Request'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────────────────────── */
 interface FollowUpCounts { overdue: number; dueToday: number; upcoming: number; total: number; }
 
@@ -392,6 +553,8 @@ export default function DashboardPage() {
   const [todayAttd,   setTodayAttd]   = useState<AttendanceRecord | null>(null);
   const [monthAttd,   setMonthAttd]   = useState<AttendanceRecord[]>([]);
   const [myLeaves,    setMyLeaves]    = useState<LeaveRequest[]>([]);
+  const [showTask,    setShowTask]    = useState(false);
+  const [showLeave,   setShowLeave]   = useState(false);
 
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState(false);
@@ -1090,16 +1253,16 @@ export default function DashboardPage() {
                 {loading ? 'Loading…' : hasAnyPending ? urgencySummary : 'All caught up. Have a great day!'}
               </p>
               <div className="flex items-center gap-2 mt-3 flex-wrap">
-                <Link href="/tasks"
+                <button type="button" onClick={() => setShowTask(true)}
                   className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
                   style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
                   <Plus className="h-3.5 w-3.5" />New Task
-                </Link>
-                <Link href="/attendance"
+                </button>
+                <button type="button" onClick={() => setShowLeave(true)}
                   className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-80"
                   style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
                   <Plane className="h-3.5 w-3.5" />Apply Leave
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -1375,6 +1538,23 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      <NewTaskDialog
+        open={showTask}
+        onClose={() => setShowTask(false)}
+        onCreated={() => {
+          fetch('/api/v1/tasks?assigned=me&status=pending&limit=10').then(r => r.json())
+            .then(j => { if (Array.isArray(j?.data)) setMyTasks(j.data); }).catch(() => {});
+        }}
+      />
+      <ApplyLeaveDialog
+        open={showLeave}
+        onClose={() => setShowLeave(false)}
+        onSubmitted={() => {
+          fetch('/api/v1/attendance/leave-requests?mine=1').then(r => r.json())
+            .then(j => { if (Array.isArray(j?.data)) setMyLeaves((j.data as LeaveRequest[]).slice(0, 4)); }).catch(() => {});
+        }}
+      />
 
     </div>
   );
