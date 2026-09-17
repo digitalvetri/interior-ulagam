@@ -20,6 +20,7 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
   const [fetchDone, setFetchDone] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
   const [address, setAddress]         = useState('');
+  const [purpose, setPurpose]         = useState('');
   const [designerId, setDesignerId]   = useState('');
   const [notes, setNotes]             = useState('');
   const [team, setTeam]               = useState<TeamMember[]>([]);
@@ -31,6 +32,7 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
     setFetchDone(false);
     setScheduledAt('');
     setAddress(defaultAddress);
+    setPurpose('');
     setDesignerId(defaultDesignerId);
     setNotes('');
     setError(null);
@@ -57,6 +59,7 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
         scheduledAt: parsedDate.toISOString(),
         address: address.trim() || 'TBD',
       };
+      if (purpose) body.purpose = purpose;
       if (designerId) body.designerId = designerId;
       if (notes.trim()) body.notes = notes.trim();
 
@@ -134,6 +137,21 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
                 placeholder="Site address"
                 className={inputCls}
               />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Purpose
+              </label>
+              <select value={purpose} onChange={e => setPurpose(e.target.value)} className={inputCls}>
+                <option value="">Select purpose</option>
+                <option value="initial">Initial Visit</option>
+                <option value="measurement">Measurement</option>
+                <option value="design_review">Design Review</option>
+                <option value="site_inspection">Site Inspection</option>
+                <option value="material_inspection">Material Inspection</option>
+                <option value="final_inspection">Final Inspection</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             {team.length > 0 && (
               <div>
