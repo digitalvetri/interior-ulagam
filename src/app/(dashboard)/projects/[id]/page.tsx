@@ -390,6 +390,31 @@ function AddExpenseDialog({
               </select>
             </div>
           </div>
+          {/* Live GST breakdown */}
+          {(() => {
+            const total = parseFloat(amountRupees);
+            if (!amountRupees || isNaN(total) || total <= 0) return null;
+            const gstAmt  = gstPct > 0 ? total * gstPct / (100 + gstPct) : 0;
+            const base    = total - gstAmt;
+            return (
+              <div className="rounded-xl px-4 py-3 text-xs space-y-1.5" style={{ background: 'var(--surface-muted)' }}>
+                <div className="flex justify-between text-[var(--text-secondary)]">
+                  <span>Base amount (excl. GST)</span>
+                  <span className="font-medium text-[var(--text-primary)]">₹{base.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                {gstPct > 0 && (
+                  <div className="flex justify-between text-[var(--text-secondary)]">
+                    <span>GST ({gstPct}%)</span>
+                    <span className="font-medium text-amber-600">₹{gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-1.5 font-semibold" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
+                  <span>Total paid</span>
+                  <span>₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            );
+          })()}
           <div>
             <label className="studio-label block mb-1.5">Description</label>
             <input type="text" placeholder="Brief description of the expense"
