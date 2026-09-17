@@ -972,7 +972,7 @@ export const attendanceRecords = pgTable('attendance_records', {
   ...timestamps,
 }, (t) => [
   index('attendance_tenant_date_idx').on(t.tenantId, t.date),
-  index('attendance_user_date_idx').on(t.userId, t.date),
+  uniqueIndex('attendance_user_date_idx').on(t.userId, t.date),
 ]);
 
 export const leaveRequests = pgTable('leave_requests', {

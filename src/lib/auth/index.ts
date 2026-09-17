@@ -21,9 +21,13 @@ export interface TenantContext {
 }
 
 const ROLES: readonly UserRole[] = ['owner', 'designer', 'supervisor', 'accountant'];
+// 'admin' is a migration alias for 'owner'; 'employee' falls back to 'designer'.
+const ROLE_ALIASES: Record<string, UserRole> = { admin: 'owner', employee: 'designer' };
 
 function toRole(value: unknown): UserRole {
-  return ROLES.includes(value as UserRole) ? (value as UserRole) : 'designer';
+  if (typeof value !== 'string') return 'designer';
+  if (ROLES.includes(value as UserRole)) return value as UserRole;
+  return ROLE_ALIASES[value] ?? 'designer';
 }
 
 /**
