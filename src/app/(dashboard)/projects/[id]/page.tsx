@@ -3,13 +3,14 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Edit2, Plus, Camera,
+  Edit2, Plus, Receipt, Camera,
   ChevronRight, X, AlertTriangle, IndianRupee,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { STAGE_STYLE_MAP, LIFECYCLE_STAGE_LABELS, LIFECYCLE_STAGE_ORDER } from '@/types/deliverables';
 import type { ProjectStage } from '@/types/deliverables';
 import type { Milestone } from '@/types/milestones';
+import type { Expense, ExpenseCategory } from '@/types/accounts';
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
 
@@ -36,6 +37,18 @@ interface SiteLog {
   progressPct: number | null;
   createdAt: string;
 }
+
+/* ── Category config ────────────────────────────────────────────────────────── */
+
+const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; color: string }> = {
+  petty_cash: { label: 'Petty Cash', color: 'var(--text-secondary)' },
+  transport:  { label: 'Transport',  color: 'var(--accent-base)' },
+  labour:     { label: 'Labour',     color: '#F97316' },
+  material:   { label: 'Material',   color: '#9333EA' },
+  other:      { label: 'Other',      color: 'var(--text-secondary)' },
+};
+
+const ALL_CATEGORIES: ExpenseCategory[] = ['petty_cash', 'transport', 'labour', 'material', 'other'];
 
 /* ── EditProjectDialog ──────────────────────────────────────────────────────── */
 
@@ -250,6 +263,185 @@ function RecordPaymentDialog({
   );
 }
 
+/* ── AddExpenseDialog ───────────────────────────────────────────────────────── */
+
+function AddExpenseDialog({
+  projectId, onClose, onSaved,
+}: {
+  projectId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const CATEGORY_FULL: Record<ExpenseCategory, { label: string; bg: string; color: string; dot: string }> = {
+    petty_cash: { label: 'Petty Cash', bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+    transport:  { label: 'Transport',  bg: 'var(--accent-soft)',   color: 'var(--accent-text)',  dot: 'var(--accent-base)' },
+    labour:     { label: 'Labour',     bg: 'var(--warning-soft)',  color: '#C2410C',             dot: '#F97316' },
+    material:   { label: 'Material',   bg: 'var(--accent-soft)',   color: '#6B21A8',             dot: 'var(--accent-base)' },
+    other:      { label: 'Other',      bg: 'var(--surface-muted)', color: 'var(--text-primary)', dot: 'var(--text-tertiary)' },
+  };
+
+  const [category,     setCategory]     = useState<ExpenseCategory>('petty_cash');
+  const [amountRupees, setAmountRupees] = useState('');
+  const [description,  setDescription]  = useState('');
+  const [vendorName,   setVendorName]   = useState('');
+  const [gstPct,       setGstPct]       = useState(0);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+
+  async function handleSave() {
+    setError(null);
+    const parsed = parseFloat(amountRupees);
+    if (!amountRupees || isNaN(parsed) || parsed <= 0) {
+      setError('Please enter a valid amount'); return;
+    }
+    const basePaise      = Math.round(parsed * 100);
+    const gstAmountPaise = gstPct > 0 ? Math.round(basePaise * gstPct / 100) : 0;
+    const amountPaise    = basePaise + gstAmountPaise;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/v1/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          category,
+          amountPaise,
+          gstPct,
+          gstAmountPaise,
+          ...(description.trim() ? { description: description.trim() } : {}),
+          ...(vendorName.trim()  ? { vendorName:  vendorName.trim()  } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setError(json.error ?? 'Failed to log expense');
+        return;
+      }
+      onSaved();
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--warning-soft)' }}>
+              <Receipt className="h-4 w-4" style={{ color: '#F97316' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Log Expense</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <label className="studio-label block mb-2">Category</label>
+            <div className="flex flex-wrap gap-2">
+              {ALL_CATEGORIES.map(cat => {
+                const cfg    = CATEGORY_FULL[cat];
+                const active = category === cat;
+                return (
+                  <button key={cat} type="button" onClick={() => setCategory(cat)}
+                    className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border-2 transition-all"
+                    style={{
+                      borderColor: active ? cfg.dot : 'transparent',
+                      background:  active ? cfg.bg : 'var(--surface-muted)',
+                      color:       active ? cfg.color : 'var(--text-secondary)',
+                    }}>
+                    <span className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: active ? cfg.dot : 'var(--text-tertiary)' }} />
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">
+              Vendor / Paid To <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+            </label>
+            <input type="text" placeholder="e.g. Raj Carpentry Works"
+              value={vendorName} onChange={e => setVendorName(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">Amount (₹) excl. GST</label>
+              <input type="number" min="0.01" step="0.01" placeholder="e.g. 1500"
+                value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
+                className="studio-input w-full text-sm" />
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">GST Rate</label>
+              <select value={gstPct} onChange={e => setGstPct(Number(e.target.value))}
+                className="studio-input w-full text-sm">
+                <option value={0}>0% (No GST)</option>
+                <option value={5}>5%</option>
+                <option value={12}>12%</option>
+                <option value={18}>18%</option>
+                <option value={28}>28%</option>
+              </select>
+            </div>
+          </div>
+          {/* Live GST breakdown */}
+          {(() => {
+            const base = parseFloat(amountRupees);
+            if (!amountRupees || isNaN(base) || base <= 0) return null;
+            const gstAmt = gstPct > 0 ? base * gstPct / 100 : 0;
+            const total  = base + gstAmt;
+            return (
+              <div className="rounded-xl px-4 py-3 text-xs space-y-1.5" style={{ background: 'var(--surface-muted)' }}>
+                <div className="flex justify-between text-[var(--text-secondary)]">
+                  <span>Base amount (excl. GST)</span>
+                  <span className="font-medium text-[var(--text-primary)]">₹{base.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                {gstPct > 0 && (
+                  <div className="flex justify-between text-[var(--text-secondary)]">
+                    <span>GST ({gstPct}%)</span>
+                    <span className="font-medium text-amber-600">+ ₹{gstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t pt-1.5 font-semibold" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
+                  <span>Total paid</span>
+                  <span>₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              </div>
+            );
+          })()}
+          <div>
+            <label className="studio-label block mb-1.5">Description</label>
+            <input type="text" placeholder="Brief description of the expense"
+              value={description} onChange={e => setDescription(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <Receipt className="h-4 w-4" />
+            {saving ? 'Saving…' : 'Save Expense'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────────────────────────── */
 
 export default function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -257,12 +449,14 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
 
   const [project,    setProject]    = useState<Project | null>(null);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [expenses,   setExpenses]   = useState<Expense[]>([]);
   const [siteLogs,   setSiteLogs]   = useState<SiteLog[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [editOpen,        setEditOpen]        = useState(false);
   const [paymentOpen,     setPaymentOpen]     = useState(false);
+  const [expenseOpen,     setExpenseOpen]     = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoUploadErr,  setPhotoUploadErr]  = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -270,19 +464,22 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const loadAll = useCallback(async () => {
     setLoading(true); setFetchError(null);
     try {
-      const [pRes, mRes, lRes] = await Promise.all([
+      const [pRes, mRes, eRes, lRes] = await Promise.all([
         fetch(`/api/v1/projects/${id}`),
         fetch(`/api/v1/projects/${id}/milestones`),
+        fetch(`/api/v1/projects/${id}/expenses`),
         fetch(`/api/v1/projects/${id}/site-logs`),
       ]);
       if (!pRes.ok) { setFetchError('Project not found'); setLoading(false); return; }
-      const [pd, md, ld] = await Promise.all([
+      const [pd, md, ed, ld] = await Promise.all([
         pRes.json() as Promise<{ data: Project }>,
         mRes.json() as Promise<{ data: Milestone[] }>,
+        eRes.json() as Promise<{ data: Expense[] }>,
         lRes.json() as Promise<{ data: SiteLog[] }>,
       ]);
       setProject(pd.data);
       setMilestones(md.data ?? []);
+      setExpenses(ed.data ?? []);
       setSiteLogs(ld.data ?? []);
     } catch {
       setFetchError('Failed to load project data');
@@ -298,6 +495,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const paidMilestones     = milestones.filter(m => m.paymentStatus === 'paid');
   const receivedPaise      = paidMilestones.reduce((s, m) => s + m.amountPaise, 0);
   const outstandingPaise   = Math.max(0, contractPaise - receivedPaise);
+  const totalExpensesPaise = expenses.reduce((s, e) => s + e.amountPaise, 0);
   const collectionPct      = contractPaise > 0 ? Math.round((receivedPaise / contractPaise) * 100) : 0;
   const clientName         = project?.customerFullName ?? project?.leadContactName ?? null;
   const stage              = project ? STAGE_STYLE_MAP[project.lifecycleStage] : null;
@@ -356,6 +554,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         <button type="button" onClick={() => setPaymentOpen(true)}
           className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
           <IndianRupee className="h-4 w-4" />Record Payment
+        </button>
+        <button type="button" onClick={() => setExpenseOpen(true)}
+          className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
+          <Receipt className="h-4 w-4" />Add Expense
         </button>
       </div>
 
@@ -474,6 +676,88 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                   </tr>
                 </tfoot>
               </table>
+            )}
+          </div>
+
+          {/* Site Expenses */}
+          <div className="rounded-2xl border overflow-hidden"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Site Expenses</h2>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setExpenseOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+                  <Plus className="h-3.5 w-3.5" />Add
+                </button>
+                <Link href={`/projects/${id}/expenses`}
+                  className="inline-flex items-center gap-0.5 text-xs font-medium"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  All<ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+
+            {expenses.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No expenses logged yet</p>
+                <button type="button" onClick={() => setExpenseOpen(true)}
+                  className="mt-3 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+                  Log first expense →
+                </button>
+              </div>
+            ) : (
+              <>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                      <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Date</th>
+                      <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Category</th>
+                      <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Description</th>
+                      <th className="px-5 py-2.5 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {expenses.slice(0, 8).map((e, idx) => (
+                      <tr key={e.id}
+                        className="hover:bg-[var(--surface-muted)] transition-colors"
+                        style={{ borderBottom: idx < Math.min(expenses.length, 8) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {new Date(e.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                        </td>
+                        <td className="px-5 py-3 text-xs font-medium"
+                          style={{ color: CATEGORY_CONFIG[e.category].color }}>
+                          {CATEGORY_CONFIG[e.category].label}
+                        </td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {e.description ?? e.vendorName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>
+                          {formatRupees(e.amountPaise)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                      <td colSpan={3} className="px-5 py-3 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                        Total Expenses
+                      </td>
+                      <td className="px-5 py-3 text-right text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
+                        {formatRupees(totalExpensesPaise)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+                {expenses.length > 8 && (
+                  <div className="px-5 py-3" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                    <Link href={`/projects/${id}/expenses`} className="text-xs font-medium"
+                      style={{ color: 'var(--accent-base)' }}>
+                      View all {expenses.length} expenses →
+                    </Link>
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -701,9 +985,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
               </p>
               <div className="space-y-2.5">
                 {[
-                  { label: 'Contract',     amount: contractPaise,   color: 'var(--text-heading)' },
-                  { label: 'Received',     amount: receivedPaise,   color: 'var(--success)' },
-                  { label: 'Outstanding',  amount: outstandingPaise, color: outstandingPaise > 0 ? 'var(--danger)' : 'var(--text-heading)' },
+                  { label: 'Contract',           amount: contractPaise,                       color: 'var(--text-heading)' },
+                  { label: 'Received',            amount: receivedPaise,                       color: 'var(--success)' },
+                  { label: 'Expenses',            amount: totalExpensesPaise,                  color: '#F97316' },
+                  { label: 'Balance (Rcv − Exp)', amount: receivedPaise - totalExpensesPaise,  color: receivedPaise >= totalExpensesPaise ? 'var(--text-heading)' : 'var(--danger)' },
                 ].map(({ label, amount, color }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</span>
@@ -720,6 +1005,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       {/* Dialogs */}
       {editOpen    && <EditProjectDialog project={project} onClose={() => setEditOpen(false)}    onSaved={loadAll} />}
       {paymentOpen && <RecordPaymentDialog projectId={id}  onClose={() => setPaymentOpen(false)} onSaved={loadAll} />}
+      {expenseOpen && <AddExpenseDialog  projectId={id}    onClose={() => setExpenseOpen(false)} onSaved={loadAll} />}
     </div>
   );
 }
