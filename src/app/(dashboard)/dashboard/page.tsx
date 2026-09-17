@@ -373,20 +373,10 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setLoadError(false);
     try {
-      // Fire all fetches in parallel — no waterfall between admin-check and data.
-      // Admin-only endpoints return quickly for non-admins; the tradeoff is worth
-      // eliminating a full sequential round-trip on every dashboard load.
-      const [me, sv, ts, fuRes, ls, ps, rs, ao, pos, rl] = await Promise.all([
+      const [me, sv, ts] = await Promise.all([
         fetch('/api/v1/me').then(r => r.json()),
         fetch('/api/v1/site-visits').then(r => r.json()),
         fetch('/api/v1/tasks?assigned=me&status=pending&limit=10').then(r => r.json()),
-        fetch('/api/v1/dashboard/follow-ups').then(r => r.ok ? r.json() : null).catch(() => null),
-        fetch('/api/v1/leads/stats').then(r => r.json()).catch(() => null),
-        fetch('/api/v1/projects?limit=50').then(r => r.json()),
-        fetch('/api/v1/accounts/receivables').then(r => r.json()).catch(() => null),
-        fetch('/api/v1/analytics/overview').then(r => r.json()).catch(() => null),
-        fetch('/api/v1/purchase-orders?limit=20').then(r => r.json()).catch(() => null),
-        fetch('/api/v1/leads?limit=15').then(r => r.json()).catch(() => null),
       ]);
 
       const admin = !!(me?.data?.isAdmin || me?.data?.role === 'owner');
@@ -406,9 +396,21 @@ export default function DashboardPage() {
           .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
       );
       if (Array.isArray(ts?.data)) setMyTasks(ts.data);
-      if (fuRes?.data) setFollowUps(fuRes.data);
+
+      fetch('/api/v1/dashboard/follow-ups')
+        .then(r => r.ok ? r.json() : null)
+        .then(j => j?.data && setFollowUps(j.data))
+        .catch(() => {});
 
       if (admin) {
+        const [ls, ps, rs, ao, pos, rl] = await Promise.all([
+          fetch('/api/v1/leads/stats').then(r => r.json()),
+          fetch('/api/v1/projects').then(r => r.json()),
+          fetch('/api/v1/accounts/receivables').then(r => r.json()),
+          fetch('/api/v1/analytics/overview').then(r => r.json()),
+          fetch('/api/v1/purchase-orders?limit=20').then(r => r.json()),
+          fetch('/api/v1/leads?limit=15').then(r => r.json()),
+        ]);
         if (ls?.data?.counts) setLeadStats(ls.data.counts);
         if (ls?.data?.budgets) setLeadBudgets(ls.data.budgets);
         if (Array.isArray(ps?.data)) {
@@ -440,6 +442,7 @@ export default function DashboardPage() {
         }
         if (Array.isArray(rl?.data)) setRecentLeads(rl.data);
       } else {
+        const ps = await fetch('/api/v1/projects?limit=20').then(r => r.json());
         if (Array.isArray(ps?.data)) {
           setMyProjects(ps.data.filter((p: Project) => p.lifecycleStage !== 'complete').slice(0, 5));
         }

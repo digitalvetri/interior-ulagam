@@ -30,6 +30,11 @@ function toRole(value: unknown): UserRole {
   return ROLE_ALIASES[value] ?? 'designer';
 }
 
+/**
+ * Resolve the session and the caller's tenant. Returns null when unauthenticated,
+ * or when the account somehow has no tenant — treated as unauthenticated rather
+ * than trusted.
+ */
 async function loadContext(): Promise<TenantContext | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
