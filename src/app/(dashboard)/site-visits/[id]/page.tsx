@@ -498,7 +498,7 @@ export default function SiteVisitDetailPage() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--accent-base)' }}>
-                  Client
+                  {visit.customerId ? 'Client' : 'Lead'}
                 </p>
                 <p className="text-base font-bold leading-snug truncate" style={{ color: 'var(--text-heading)' }}>
                   {visit.customerName ?? visit.leadName ?? '—'}
