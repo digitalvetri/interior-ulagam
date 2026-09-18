@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { milestones, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -36,7 +36,7 @@ export async function POST(
       .select({ id: milestones.id, projectId: milestones.projectId })
       .from(milestones)
       .innerJoin(projects, eq(milestones.projectId, projects.id))
-      .where(eq(milestones.id, id))
+      .where(and(eq(milestones.id, id), eq(projects.tenantId, ctx.tenantId)))
       .limit(1);
 
     if (!ms) return NextResponse.json({ error: 'Not found' }, { status: 404 });
