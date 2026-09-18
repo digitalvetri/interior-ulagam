@@ -137,6 +137,18 @@ export const attendanceStatusEnum = pgEnum('attendance_status', [
   'present', 'absent', 'leave', 'half_day', 'late', 'holiday',
 ]);
 
+export const invoiceLifecycleStatusEnum = pgEnum('invoice_lifecycle_status', [
+  'draft', 'issued', 'part_paid', 'paid', 'void',
+]);
+
+export const paymentModeEnum = pgEnum('payment_mode', [
+  'upi', 'cash', 'bank', 'cheque', 'card', 'razorpay',
+]);
+
+export const payeeTypeEnum = pgEnum('payee_type', [
+  'vendor', 'staff', 'office', 'other',
+]);
+
 export const leaveTypeEnum = pgEnum('leave_type', [
   'casual', 'sick', 'earned', 'unpaid', 'maternity', 'paternity', 'comp_off',
 ]);
@@ -427,8 +439,17 @@ export const invoices = pgTable('invoices', {
   irn: text('irn'),
   qrCodeUrl: text('qr_code_url'),
   pdfUrl: text('pdf_url'),
+  // Finance v2 additions
+  status: invoiceLifecycleStatusEnum('status').notNull().default('draft'),
+  issuedAt: timestamp('issued_at', { withTimezone: true }),
+  dueDate: date('due_date'),
+  voidedAt: timestamp('voided_at', { withTimezone: true }),
+  voidReason: text('void_reason'),
   ...timestamps,
-});
+}, (t) => [
+  index('invoices_status_tenant_idx').on(t.tenantId, t.status),
+  index('invoices_due_date_idx').on(t.dueDate),
+]);
 
 export const milestones = pgTable('milestones', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -441,13 +462,17 @@ export const milestones = pgTable('milestones', {
   paymentStatus: paymentStatusEnum('payment_status').notNull().default('pending'),
   paidAt: timestamp('paid_at', { withTimezone: true }),
   razorpayLinkId: text('razorpay_link_id'),
+  // Finance v2 additions
+  promisedAt: timestamp('promised_at', { withTimezone: true }),
+  promisedNote: text('promised_note'),
   ...timestamps,
 });
 
 export const payments = pgTable('payments', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
-  invoiceId: uuid('invoice_id').notNull().references(() => invoices.id, { onDelete: 'cascade' }),
+  // Nullable: a receipt may be recorded before an invoice is raised ("unlinked receipt")
+  invoiceId: uuid('invoice_id').references(() => invoices.id, { onDelete: 'set null' }),
   razorpayLinkId: text('razorpay_link_id'),
   razorpayPaymentId: text('razorpay_payment_id').unique(),
   amountPaise: integer('amount_paise').notNull(),
@@ -456,8 +481,20 @@ export const payments = pgTable('payments', {
   reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
   manualOverrideBy: uuid('manual_override_by').references(() => users.id),
   manualOverrideNote: text('manual_override_note'),
+  // Finance v2 additions
+  receiptNumber: text('receipt_number').unique(),
+  mode: paymentModeEnum('mode'),
+  reference: text('reference'),
+  receivedAt: timestamp('received_at', { withTimezone: true }),
+  recordedBy: uuid('recorded_by').references(() => users.id),
+  note: text('note'),
+  customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
   ...timestamps,
-});
+}, (t) => [
+  index('payments_received_at_tenant_idx').on(t.tenantId, t.receivedAt),
+  index('payments_customer_idx').on(t.customerId),
+]);
 
 export const siteLogs = pgTable('site_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -528,9 +565,16 @@ export const expenses = pgTable('expenses', {
   gstPct: integer('gst_pct').notNull().default(0),
   gstAmountPaise: integer('gst_amount_paise').notNull().default(0),
   expenseNumber: text('expense_number'),
+  // Finance v2 additions
+  dueDate: date('due_date'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
+  paymentMode: text('payment_mode'),
+  payeeType: payeeTypeEnum('payee_type'),
   ...timestamps,
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index('expenses_due_date_idx').on(t.dueDate),
+]);
 
 export const snagItems = pgTable('snag_items', {
   id: uuid('id').primaryKey().defaultRandom(),

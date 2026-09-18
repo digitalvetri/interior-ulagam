@@ -7,12 +7,9 @@ import {
   ArrowLeft, Download, ExternalLink, IndianRupee, Loader2, Plus, Zap, HandCoins,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
 import { formatRupees } from '@/lib/utils';
 import type { InvoiceDetail, InvoicePayment } from '@/types/accounts';
 
@@ -22,11 +19,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
-  const [dialogOpen,   setDialogOpen]   = useState(false);
-  const [amountRupees, setAmountRupees] = useState('');
-  const [note,         setNote]         = useState('');
-  const [submitting,   setSubmitting]   = useState(false);
-  const [submitError,  setSubmitError]  = useState<string | null>(null);
+  const [drawerOpen,    setDrawerOpen]    = useState(false);
+  const [issuing,       setIssuing]       = useState(false);
+  const [voidOpen,      setVoidOpen]      = useState(false);
+  const [voidReason,    setVoidReason]    = useState('');
+  const [voiding,       setVoiding]       = useState(false);
+  const [voidError,     setVoidError]     = useState<string | null>(null);
 
   const [pdfGenerating, setPdfGenerating] = useState(false);
   const [pdfError,      setPdfError]      = useState<string | null>(null);
@@ -49,46 +47,31 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => { loadInvoice(); }, [loadInvoice]);
 
-  function openDialog() {
-    setAmountRupees('');
-    setNote('');
-    setSubmitError(null);
-    setDialogOpen(true);
+  async function issueInvoice() {
+    setIssuing(true);
+    try {
+      await fetch(`/api/v1/invoices/${id}/issue`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      loadInvoice();
+    } finally { setIssuing(false); }
   }
 
-  async function submitPayment() {
-    setSubmitError(null);
-    const rupees = Number(amountRupees.replace(/,/g, ''));
-    if (!Number.isFinite(rupees) || rupees <= 0) {
-      setSubmitError('Enter a valid amount in rupees.');
-      return;
-    }
-    if (!note.trim()) {
-      setSubmitError('A note is required (e.g. cheque #, UPI ref, cash receipt).');
-      return;
-    }
-    setSubmitting(true);
+  async function doVoid() {
+    if (!voidReason.trim()) return;
+    setVoiding(true); setVoidError(null);
     try {
-      const res = await fetch(`/api/v1/invoices/${id}/payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountPaise: Math.round(rupees * 100), note: note.trim() }),
+      const res = await fetch(`/api/v1/invoices/${id}/void`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voidReason: voidReason.trim() }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setSubmitError(body?.error ?? 'Failed to record payment.');
+        const b = await res.json().catch(() => ({}));
+        setVoidError(b?.error ?? 'Failed to void invoice.');
         return;
       }
-      const body = await res.json().catch(() => ({}));
-      const pid = body?.data?.id as string | undefined;
-      setLastPaymentId(pid ?? null);
-      setDialogOpen(false);
+      setVoidOpen(false); setVoidReason('');
       loadInvoice();
-    } catch {
-      setSubmitError('Network error. Try again.');
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setVoidError('Network error. Try again.'); }
+    finally { setVoiding(false); }
   }
 
   if (loading) {
@@ -173,6 +156,18 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <StatusBadge module="invoices" status={invoice.status ?? 'draft'} />
+            {invoice.status === 'draft' && (
+              <button
+                onClick={issueInvoice}
+                disabled={issuing}
+                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all disabled:opacity-60"
+                style={{ borderColor: 'var(--accent-base)', color: 'var(--accent-base)' }}
+              >
+                {issuing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                Issue invoice
+              </button>
+            )}
             {lastPaymentId && (
               <button
                 onClick={async () => {
@@ -227,13 +222,22 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               {pdfGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               Download PDF
             </button>
-            {!isFullyPaid && (
+            {!isFullyPaid && invoice.status !== 'draft' && invoice.status !== 'void' && (
               <button
-                onClick={openDialog}
+                onClick={() => setDrawerOpen(true)}
                 className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                 style={{ background: 'var(--accent-base)' }}
               >
                 <Plus className="h-4 w-4" /> Record payment
+              </button>
+            )}
+            {invoice.status !== 'paid' && invoice.status !== 'void' && (
+              <button
+                onClick={() => { setVoidReason(''); setVoidOpen(true); }}
+                className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium"
+                style={{ borderColor: 'var(--danger-soft)', color: 'var(--danger)' }}
+              >
+                Void
               </button>
             )}
             {pdfError && <span className="text-xs" style={{ color: 'var(--danger)' }}>{pdfError}</span>}
@@ -339,7 +343,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </h2>
           {!isFullyPaid && (
             <button
-              onClick={openDialog}
+              onClick={() => setDrawerOpen(true)}
               className="inline-flex items-center gap-1.5 text-xs font-semibold transition-opacity hover:opacity-70"
               style={{ color: 'var(--accent-base)' }}
             >
@@ -418,50 +422,58 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {/* Record payment dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record a payment</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="pay-amount">Amount (₹)</Label>
-              <Input
-                id="pay-amount"
-                type="text"
-                inputMode="decimal"
-                placeholder={`Outstanding: ${formatRupees(outstandingPaise)}`}
-                value={amountRupees}
-                onChange={(e) => setAmountRupees(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="pay-note">Note</Label>
-              <Textarea
-                id="pay-note"
-                placeholder="e.g. UPI reference 4a8b…, cheque #1234, cash receipt"
-                rows={3}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                disabled={submitting}
-              />
-            </div>
-            {submitError && (
-              <p className="text-xs" style={{ color: 'var(--danger)' }}>{submitError}</p>
+      <RecordPaymentDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onSuccess={(_paymentId) => { setDrawerOpen(false); loadInvoice(); }}
+        defaultInvoiceId={id}
+        defaultProjectId={detail?.invoice.projectId}
+        contextLabel={detail ? `${detail.invoice.invoiceNumber}${detail.project?.name ? ` — ${detail.project.name}` : ''}` : undefined}
+      />
+
+      {/* Void confirmation overlay */}
+      {voidOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.45)' }}
+          onClick={() => { if (!voiding) setVoidOpen(false); }}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl p-6 space-y-4"
+            style={{ background: 'var(--surface-1)', border: '1px solid var(--border-subtle)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Void invoice
+            </h2>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              A voided invoice cannot be collected. Provide a reason:
+            </p>
+            <Textarea
+              rows={3}
+              placeholder="e.g. Duplicate, issued in error, superseded by revised invoice"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              disabled={voiding}
+            />
+            {voidError && (
+              <p className="text-xs" style={{ color: 'var(--danger)' }}>{voidError}</p>
             )}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setVoidOpen(false)} disabled={voiding}>
+                Cancel
+              </Button>
+              <Button
+                onClick={doVoid}
+                disabled={voiding || !voidReason.trim()}
+                style={{ background: 'var(--danger)', color: '#fff', border: 'none' }}
+              >
+                {voiding ? 'Voiding…' : 'Void invoice'}
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
-              Cancel
-            </Button>
-            <Button onClick={submitPayment} disabled={submitting}>
-              {submitting ? 'Recording…' : 'Record payment'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }

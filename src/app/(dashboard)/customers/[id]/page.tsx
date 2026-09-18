@@ -799,7 +799,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               {([
                 { key: 'overview'    as Tab, label: 'Overview',    icon: <LayoutGrid     className="h-3.5 w-3.5" /> },
                 { key: 'projects'    as Tab, label: 'Projects',    icon: <FolderKanban   className="h-3.5 w-3.5" /> },
-                { key: 'payments'    as Tab, label: 'Payments',    icon: <Wallet         className="h-3.5 w-3.5" /> },
+                { key: 'payments'    as Tab, label: 'Accounts',    icon: <Wallet         className="h-3.5 w-3.5" /> },
                 { key: 'service'     as Tab, label: 'Service',     icon: <Wrench         className="h-3.5 w-3.5" /> },
                 { key: 'activity'    as Tab, label: 'Activity',    icon: <Activity       className="h-3.5 w-3.5" /> },
               ] as const).map((t) => (
@@ -905,7 +905,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Financial Summary</p>
                       <button onClick={() => setTab('payments')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
-                        Payments →
+                        Accounts →
                       </button>
                     </div>
                     <div className="px-5 divide-y" style={{ borderColor: 'var(--border-subtle)' }}>

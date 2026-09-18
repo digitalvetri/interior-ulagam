@@ -13,6 +13,7 @@ import {
   CheckSquare,
   UserCircle,
   Store,
+  Receipt,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -80,10 +81,11 @@ export const NAV_GROUPS: NavGroup[] = [
 
   {
     key: 'finance',
-    label: 'Finance',
+    label: 'Accounts & Payments',
     roles: FINANCE_ROLES,
     items: [
-      { href: '/finance', label: 'Accounts', icon: Wallet, roles: FINANCE_ROLES },
+      { href: '/finance',   label: 'Accounts', icon: Wallet,   roles: FINANCE_ROLES },
+      { href: '/invoices',  label: 'Invoices', icon: Receipt,  roles: FINANCE_ROLES },
     ],
   },
   {
@@ -94,8 +96,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // Admin / owner / accountant see studio-wide reporting
       { href: '/reports',             label: 'Reports',           icon: BarChart3,     roles: FINANCE_ROLES  },
       { href: '/attendance',          label: 'Attendance',        icon: CalendarCheck, roles: FINANCE_ROLES  },
-      // All roles use the unified /tasks page (role-aware: owners see All Tasks tab, others see only their tasks)
-      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: ALL_ROLES      },
+      // Employees use /tasks for their assigned work; owners assign tasks via lead/project pages directly
+      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: MY_SPACE_ROLES },
       { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: MY_SPACE_ROLES },
     ],
   },

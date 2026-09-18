@@ -102,7 +102,7 @@ export async function GET(
       subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number;
       projectId: string; createdAt: Date;
     }> = [];
-    let paymentRows: Array<{ id: string; invoiceId: string; amountPaise: number; createdAt: Date; }> = [];
+    let paymentRows: Array<{ id: string; invoiceId: string | null; amountPaise: number; createdAt: Date; }> = [];
 
     if (projectIds.length > 0) {
       invoiceRows = await db
@@ -131,7 +131,11 @@ export async function GET(
             createdAt:   payments.createdAt,
           })
           .from(payments)
-          .where(and(inArray(payments.invoiceId, invoiceIds), ne(payments.status, 'pending')))
+          .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
+          .where(and(
+            inArray(invoices.id, invoiceIds),
+            ne(payments.status, 'pending'),
+          ))
           .orderBy(desc(payments.createdAt));
       }
 

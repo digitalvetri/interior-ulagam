@@ -20,7 +20,7 @@ export interface ReceivableRow {
 
 export interface PaymentRow {
   id: string;
-  invoiceId: string;
+  invoiceId: string | null;
   projectId: string | null;
   projectName: string | null;
   invoiceNumber: string | null;

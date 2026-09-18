@@ -9,6 +9,7 @@ import {
 import { formatRupees } from '@/lib/utils';
 import { Milestone, MilestonePaymentStatus } from '@/types/milestones';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
@@ -295,6 +296,7 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
 
   const [sendOpen,      setSendOpen]      = useState(false);
   const [overrideOpen,  setOverrideOpen]  = useState(false);
+  const [recordOpen,    setRecordOpen]    = useState(false);
   const [activeMilestone, setActiveMilestone] = useState<Milestone | null>(null);
 
   const loadMilestones = useCallback(() => {
@@ -475,6 +477,12 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
                       </button>
                     )}
                     <button type="button"
+                      onClick={() => { setActiveMilestone(m); setRecordOpen(true); }}
+                      className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
+                      <Plus className="h-3.5 w-3.5" />
+                      Record Payment
+                    </button>
+                    <button type="button"
                       onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
                       className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
                       <Settings2 className="h-3.5 w-3.5" />
@@ -517,6 +525,15 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
           onSuccess={loadMilestones}
         />
       )}
+      <RecordPaymentDrawer
+        open={recordOpen}
+        onClose={() => { setRecordOpen(false); setActiveMilestone(null); }}
+        onSuccess={() => { setRecordOpen(false); setActiveMilestone(null); loadMilestones(); }}
+        defaultInvoiceId={activeMilestone?.invoiceId ?? undefined}
+        defaultProjectId={projectId}
+        defaultAmountPaise={activeMilestone?.amountPaise}
+        contextLabel={activeMilestone?.label}
+      />
     </div>
   );
 }

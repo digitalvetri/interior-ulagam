@@ -30,7 +30,7 @@ interface InvoiceRow {
 
 interface PaymentRow {
   id: string;
-  invoiceId: string;
+  invoiceId: string | null;
   amountPaise: number;
   status: string;
   reconciledAt: string | null;

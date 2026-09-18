@@ -2,7 +2,9 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
 import { formatRupees } from '@/lib/utils';
 
 type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue';
@@ -84,6 +86,7 @@ export default function PaymentDetailPage({
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -279,6 +282,16 @@ export default function PaymentDetailPage({
 
         {/* RIGHT — sidebar */}
         <div className="sticky top-6 self-start space-y-4">
+          {/* Record payment */}
+          {milestone.paymentStatus !== 'paid' && (
+            <Button
+              className="w-full"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-1.5" /> Record payment
+            </Button>
+          )}
+
           {/* Related card */}
           <div
             className="rounded-2xl border p-5"
@@ -317,6 +330,16 @@ export default function PaymentDetailPage({
           </div>
         </div>
       </div>
+
+      <RecordPaymentDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onSuccess={() => { setDrawerOpen(false); loadData(); }}
+        defaultInvoiceId={milestone.invoiceId ?? undefined}
+        defaultProjectId={milestone.projectId}
+        defaultAmountPaise={milestone.amountPaise}
+        contextLabel={`${milestone.label}${project ? ` — ${project.name}` : ''}`}
+      />
     </div>
   );
 }

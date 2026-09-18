@@ -100,7 +100,24 @@ export const WORK_ORDER_STATUS_MAP: StatusMap = {
   cancelled:   { label: 'Cancelled',   bg: 'var(--danger-soft)',   color: 'var(--danger)',         dot: 'var(--danger)' },
 };
 
-export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests' | 'site_visits' | 'measurements' | 'work_orders';
+export const INVOICE_STATUS_MAP: StatusMap = {
+  draft:     { label: 'Draft',     bg: 'var(--surface-muted)', color: 'var(--text-secondary)',  dot: 'var(--text-tertiary)' },
+  issued:    { label: 'Issued',    bg: '#EEF2FF',              color: '#4338CA',                dot: '#818CF8' },
+  part_paid: { label: 'Part-paid', bg: '#FFF7ED',              color: '#C2410C',                dot: '#FB923C' },
+  paid:      { label: 'Paid',      bg: 'var(--success-soft)',  color: 'var(--success-text)',    dot: 'var(--success)' },
+  void:      { label: 'Void',      bg: 'var(--danger-soft)',   color: 'var(--danger)',          dot: 'var(--danger)' },
+};
+
+export const PAYMENT_MODE_MAP: StatusMap = {
+  upi:      { label: 'UPI',      bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
+  cash:     { label: 'Cash',     bg: 'var(--success-soft)',  color: 'var(--success-text)' },
+  bank:     { label: 'Bank',     bg: '#EFF6FF',              color: '#1D4ED8' },
+  cheque:   { label: 'Cheque',   bg: '#F0FDF4',              color: '#15803D' },
+  card:     { label: 'Card',     bg: '#FDF4FF',              color: '#9333EA' },
+  razorpay: { label: 'Razorpay', bg: '#FFF7ED',              color: '#C2410C' },
+};
+
+export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests' | 'site_visits' | 'measurements' | 'work_orders' | 'invoices' | 'payment_modes';
 
 export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
   leads:            LEAD_STATUS_MAP,
@@ -113,4 +130,6 @@ export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
   site_visits:      SITE_VISIT_STATUS_MAP,
   measurements:     MEASUREMENT_STATUS_MAP,
   work_orders:      WORK_ORDER_STATUS_MAP,
+  invoices:         INVOICE_STATUS_MAP,
+  payment_modes:    PAYMENT_MODE_MAP,
 };

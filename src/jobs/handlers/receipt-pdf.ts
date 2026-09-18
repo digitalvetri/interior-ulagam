@@ -29,6 +29,9 @@ export const receiptPdf = defineJob(
 
       if (!payment) throw new Error(`Payment ${paymentId} not found`);
 
+      const invoiceId = payment.invoiceId;
+      if (!invoiceId) throw new Error(`Payment ${paymentId} has no linked invoice`);
+
       const [invoice] = await db
         .select({
           invoiceNumber: invoices.invoiceNumber,
@@ -36,7 +39,7 @@ export const receiptPdf = defineJob(
           projectId:     invoices.projectId,
         })
         .from(invoices)
-        .where(eq(invoices.id, payment.invoiceId))
+        .where(eq(invoices.id, invoiceId))
         .limit(1);
 
       if (!invoice) throw new Error(`Invoice for payment ${paymentId} not found`);

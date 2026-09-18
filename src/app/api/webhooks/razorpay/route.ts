@@ -5,6 +5,7 @@ import { payments, milestones } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { enqueue } from '@/jobs/queue';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
+import { nextReceiptNumber } from '@/lib/finance/receipt-number';
 
 interface RazorpayPaymentEntity {
   id: string;
@@ -57,10 +58,11 @@ export async function POST(request: NextRequest) {
       // Idempotency: find payment row by razorpayLinkId
       const [existingPayment] = await db
         .select({
-          id: payments.id,
-          status: payments.status,
+          id:                payments.id,
+          tenantId:          payments.tenantId,
+          status:            payments.status,
           razorpayPaymentId: payments.razorpayPaymentId,
-          invoiceId: payments.invoiceId,
+          invoiceId:         payments.invoiceId,
         })
         .from(payments)
         .where(eq(payments.razorpayLinkId, rpLinkId));
@@ -77,12 +79,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Update payment row: status='captured', razorpayPaymentId, reconciledAt
+      const receiptNumber = await nextReceiptNumber(existingPayment.tenantId);
       await db
         .update(payments)
         .set({
-          status: 'captured',
+          status:            'captured',
           razorpayPaymentId: rpPaymentId,
-          reconciledAt: sql`now()`,
+          reconciledAt:      sql`now()`,
+          receivedAt:        sql`now()`,
+          mode:              'razorpay',
+          receiptNumber,
         })
         .where(eq(payments.id, existingPayment.id));
 

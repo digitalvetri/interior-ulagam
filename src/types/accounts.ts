@@ -14,6 +14,11 @@ export interface Invoice {
   projectId: string;
   invoiceNumber: string;
   invoiceDate: string; // ISO date string (yyyy-mm-dd)
+  status: 'draft' | 'issued' | 'part_paid' | 'paid' | 'void';
+  issuedAt: string | null;
+  dueDate: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
   subtotalPaise: number;
   cgstPaise: number;
   sgstPaise: number;
