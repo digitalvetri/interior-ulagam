@@ -56,14 +56,21 @@ export async function GET(_request: NextRequest) {
       .where(and(eq(leads.tenantId, ctx.tenantId), isNull(leads.archivedAt)))
       .groupBy(leads.stage);
 
+    // Legacy stage values that predate the current stage enum
+    const LEGACY_STAGE_MAP: Partial<Record<LeadStage, keyof LeadStatsResponse>> = {
+      site_visit_scheduled: 'site_visit',
+      consultation_done:    'qualified',
+      proposal_sent:        'quotation',
+    };
+
     const counts: LeadStatsResponse = { ...ZERO_STATS };
     const budgets: Record<string, number> = { ...ZERO_STATS };
     for (const row of rows) {
       const stage = row.stage as LeadStage;
-      const key = stage as keyof LeadStatsResponse;
-      if (key in counts) {
-        counts[key] = row.count;
-        budgets[stage] = Number(row.sumPaise);
+      const canonical = (LEGACY_STAGE_MAP[stage] ?? stage) as keyof LeadStatsResponse;
+      if (canonical in counts) {
+        counts[canonical] += row.count;
+        budgets[canonical] = (budgets[canonical] ?? 0) + Number(row.sumPaise);
       }
     }
 

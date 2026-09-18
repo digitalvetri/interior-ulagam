@@ -91,8 +91,14 @@ function relDate(iso: string): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 function fmtBudgetBand(band: string): string {
-  // "10l_25l" → "10L – 25L"
-  return band.replace(/(\d+(?:\.\d+)?)l/gi, (_, n: string) => `${n}L`).replace(/_/g, ' – ');
+  if (!band) return '';
+  const fmtNum = (s: string) =>
+    s.replace(/(\d+(?:\.\d+)?)cr/i, '$1 Cr').replace(/(\d+(?:\.\d+)?)l/i, '$1L');
+  if (band.startsWith('above_')) return `Above ${fmtNum(band.slice(6))}`;
+  if (band.startsWith('below_')) return `Below ${fmtNum(band.slice(6))}`;
+  const parts = band.split('_');
+  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} – ${fmtNum(parts[1])}`;
+  return band.replace(/_/g, ' ');
 }
 const SOURCE_LABELS: Record<string, string> = {
   instagram: 'Instagram', whatsapp: 'WhatsApp', referral: 'Referral',
@@ -778,7 +784,7 @@ export default function LeadDetailPage() {
         setFollowUpsLoaded(true);
       })
       .catch(() => setFollowUpsLoaded(true));
-  }, [activeTab, followUpsLoaded, id]);
+  }, [followUpsLoaded, id]);
 
   // Load lead tasks + current user role
   useEffect(() => {
@@ -856,8 +862,10 @@ export default function LeadDetailPage() {
         return;
       }
       const now = new Date().toISOString();
+      // Find the next pending follow-up before updating state, so we preserve its date
+      const nextPending = followUps.find(f => f.id !== fu.id && !f.completedAt);
       setFollowUps(prev => prev.map(f => f.id === fu.id ? { ...f, completedAt: now } : f));
-      setLead(prev => prev ? { ...prev, followUpDate: null, lastActivityAt: now } : prev);
+      setLead(prev => prev ? { ...prev, followUpDate: nextPending?.followUpDate ?? null, lastActivityAt: now } : prev);
     } catch (e) {
       setFollowUpActionError(e instanceof Error ? e.message : 'Failed to mark follow-up done');
     } finally {
@@ -1001,7 +1009,7 @@ export default function LeadDetailPage() {
 
   /* ── Derived ─────────────────────────────────────────── */
   const priorityCfg  = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
-  const isWon        = lead.stage === 'won' || lead.stage === 'booked';
+  const isWon        = lead.stage === 'won';
   const isLost       = lead.stage === 'lost';
   const isTerminal   = isWon || isLost;
   const initials     = lead.contactName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();

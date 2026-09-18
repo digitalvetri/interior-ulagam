@@ -72,8 +72,9 @@ export async function GET(request: NextRequest) {
     items.sort((a, b) => b.daysLate - a.daysLate);
 
     const totalOutstandingPaise = items.reduce((s, i) => s + i.amountPaise, 0);
+    // Include items marked 'overdue' by webhook even when no invoiceDueDate is set
     const totalOverduePaise = items
-      .filter(i => i.daysLate > 0)
+      .filter(i => i.daysLate > 0 || i.paymentStatus === 'overdue')
       .reduce((s, i) => s + i.amountPaise, 0);
     const linkSentPaise = items
       .filter(i => i.paymentStatus === 'link_sent' && i.daysLate === 0)

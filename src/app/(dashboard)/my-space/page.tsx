@@ -92,7 +92,12 @@ function NewTaskDialog({ open, onClose }: { open: boolean; onClose: () => void }
       const res = await fetch('/api/v1/me/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), dueAt: dueAt || null, notes: notes || null }),
+        body: JSON.stringify({
+          title: title.trim(),
+          // Input type="date" gives "YYYY-MM-DD"; route requires full ISO datetime
+          dueAt: dueAt ? new Date(dueAt + 'T00:00:00').toISOString() : null,
+          notes: notes || null,
+        }),
       });
       if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Failed to create task'); return; }
       handleClose();
@@ -246,7 +251,8 @@ function GreetingBanner() {
   useEffect(() => {
     fetch('/api/v1/me/profile').then(r => r.json()).then(j => setProfile(j.data));
     fetch('/api/v1/me/tasks?status=pending').then(r => r.json()).then(j => setTaskCount((j.data ?? []).length));
-    fetch('/api/v1/projects').then(r => r.json()).then(j => setProjectCount((j.data ?? []).length));
+    // ?assignedTo=me so non-owner employees only count projects they are on
+    fetch('/api/v1/projects?assignedTo=me').then(r => r.json()).then(j => setProjectCount((j.data ?? []).length));
   }, []);
 
   const firstName = profile?.fullName?.split(' ')[0] ?? '';

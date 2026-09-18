@@ -34,8 +34,10 @@ export async function GET(request: NextRequest) {
       conditions.push(gte(attendanceRecords.date, from));
       conditions.push(lte(attendanceRecords.date, to));
     }
-    if (userId) {
-      conditions.push(eq(attendanceRecords.userId, userId));
+    // BUG-003: non-owner roles are restricted to their own records only
+    const effectiveUserId = ctx.role === 'owner' ? userId : ctx.userId;
+    if (effectiveUserId) {
+      conditions.push(eq(attendanceRecords.userId, effectiveUserId));
     }
 
     const rows = await db

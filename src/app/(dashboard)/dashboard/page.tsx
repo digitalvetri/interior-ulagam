@@ -524,7 +524,12 @@ function NewTaskDialog({ open, onClose, onCreated }: { open: boolean; onClose: (
       const res = await fetch('/api/v1/me/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: title.trim(), dueAt: dueAt || null, notes: notes || null }),
+        body: JSON.stringify({
+          title: title.trim(),
+          // Input type="date" gives "YYYY-MM-DD"; route requires full ISO datetime
+          dueAt: dueAt ? new Date(dueAt + 'T00:00:00').toISOString() : null,
+          notes: notes || null,
+        }),
       });
       if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Failed to create task'); return; }
       handleClose();
@@ -1323,10 +1328,19 @@ export default function DashboardPage() {
   async function handleCheckIn() {
     setCheckingIn(true);
     try {
-      const res = await fetch('/api/v1/attendance/self', {
+      // Collect GPS if available; proceed without it if denied or unavailable
+      let gps: { latitude?: number; longitude?: number } = {};
+      try {
+        const pos = await new Promise<GeolocationPosition>((res, rej) =>
+          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+        );
+        gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      } catch { /* geolocation denied or unavailable */ }
+
+      const res = await fetch('/api/v1/me/check-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkin' }),
+        body: JSON.stringify(gps),
       });
       if (res.ok) {
         const json = await res.json();
@@ -1338,11 +1352,7 @@ export default function DashboardPage() {
   async function handleCheckOut() {
     setCheckingOut(true);
     try {
-      const res = await fetch('/api/v1/attendance/self', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'checkout' }),
-      });
+      const res = await fetch('/api/v1/me/check-out', { method: 'POST' });
       if (res.ok) {
         const json = await res.json();
         setTodayAttd(json.data);

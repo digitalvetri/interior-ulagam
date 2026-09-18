@@ -51,7 +51,6 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise 
 
   async function handleSubmit() {
     if (!projectName.trim()) { setError('Project name is required'); return; }
-    if (!budget.trim()) { setError('Amount Quoted is required to seed payment milestones'); return; }
     setSubmitting(true); setError(null);
 
     const budgetPaise = budget.trim() ? rupeesToPaise(budget) : undefined;

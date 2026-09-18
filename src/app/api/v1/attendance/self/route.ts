@@ -24,8 +24,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { action } = parsed.data;
-  const todayStr = new Date().toISOString().split('T')[0];
   const now = new Date();
+  // Use IST (UTC+5:30) date to avoid recording yesterday's date for employees
+  // working after 18:30 UTC (midnight IST). Matches /api/v1/me/check-in behaviour.
+  const istDate = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  const todayStr = istDate.toISOString().slice(0, 10);
 
   try {
     const [existing] = await db

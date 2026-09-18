@@ -83,6 +83,7 @@ export async function POST(
   let customerId = lead.customerId;
   let projectId: string | undefined;
 
+  try {
   await db.transaction(async (tx) => {
     // 3. Ensure a customer record exists for this lead
     if (!customerId) {
@@ -105,13 +106,18 @@ export async function POST(
         customerId = inserted.id;
       } else {
         const [existing] = await tx
-          .select({ id: customers.id })
+          .select({ id: customers.id, leadId: customers.leadId })
           .from(customers)
           .where(and(
             eq(customers.tenantId, ctx.tenantId),
             eq(customers.phone, lead.contactPhone),
           ))
           .limit(1);
+        if (!existing) throw new Error('INTERNAL: customer lookup failed after conflict');
+        // Prevent silently merging unrelated contacts with the same phone
+        if (existing.leadId && existing.leadId !== leadId) {
+          throw Object.assign(new Error('PHONE_CONFLICT'), { code: 'PHONE_CONFLICT' });
+        }
         customerId = existing.id;
       }
 
@@ -179,6 +185,17 @@ export async function POST(
       })
       .where(eq(leads.id, leadId));
   });
+
+  } catch (err) {
+    if (err instanceof Error && err.message === 'PHONE_CONFLICT') {
+      return NextResponse.json(
+        { error: 'A customer with this phone number is already linked to a different lead. Update the phone number or merge the contacts first.' },
+        { status: 409 },
+      );
+    }
+    console.error('[POST /leads/[id]/convert]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 
   if (!projectId) return NextResponse.json({ error: 'Failed to create project' }, { status: 500 });
   return NextResponse.json({ data: { projectId } }, { status: 201 });

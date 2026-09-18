@@ -5,7 +5,7 @@ import { projects, leads, customers, milestones } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
 import { applyStageTransition } from '@/lib/leads/transitions';
-import { eq, and, desc, inArray, asc, ne } from 'drizzle-orm';
+import { eq, and, desc, inArray, asc, ne, sql } from 'drizzle-orm';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -37,7 +37,15 @@ export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const assignedTo = _request.nextUrl.searchParams.get('assignedTo');
+
   try {
+    const baseWhere = eq(projects.tenantId, ctx.tenantId);
+    // ?assignedTo=me — filter to projects where the caller is in designerIds
+    const where = assignedTo === 'me'
+      ? and(baseWhere, sql`${projects.designerIds} @> ARRAY[${ctx.userId}]::text[]`)
+      : baseWhere;
+
     const rows = await db
       .select({
         id:                 projects.id,
@@ -61,7 +69,7 @@ export async function GET(_request: NextRequest) {
       .from(projects)
       .leftJoin(customers, eq(projects.customerId, customers.id))
       .leftJoin(leads, eq(projects.leadId, leads.id))
-      .where(eq(projects.tenantId, ctx.tenantId))
+      .where(where)
       .orderBy(desc(projects.createdAt));
 
     // Enrich with milestone data: collected paise + next unpaid milestone label
