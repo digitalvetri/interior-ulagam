@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -59,10 +59,24 @@ interface GstSummary {
   outputPaise: number; inputPaise: number; netPaise: number;
   cgstPaise: number; sgstPaise: number; igstPaise: number;
 }
-
+interface GstOutputRow {
+  id: string; invoiceNumber: string; issuedAt: string | null;
+  subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number;
+  projectName: string | null; clientName: string | null;
+  hsnSacLinesJson: unknown;
+}
+interface GstExpenseRow {
+  id: string; expenseNumber: string | null; description: string | null;
+  category: string; gstPct: number; amountPaise: number; gstAmountPaise: number;
+  paidAt: string | null; createdAt: string;
+}
+interface GstHsnLine {
+  hsnSac?: string | null; amountPaise: number;
+  cgstPaise?: number; sgstPaise?: number; igstPaise?: number;
+}
 interface GstData {
   year: number; month: number; summary: GstSummary;
-  outputRows: InvoiceRow[]; inputRows: ExpenseRow[];
+  outputRows: GstOutputRow[]; inputRows: GstExpenseRow[];
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -803,7 +817,7 @@ function ToPayTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const now = Date.now();
+  const [now] = useState(() => Date.now());
 
   const enriched: EnrichedExpense[] = rows.map(r => {
     const ref = r.dueDate ? new Date(r.dueDate) : new Date(r.createdAt);
@@ -972,11 +986,13 @@ function ExpensesTab() {
   }, []);
 
   // KPIs
-  const nowMs         = Date.now();
-  const monthStart    = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  const totalAll      = rows.reduce((s, r) => s + r.amountPaise, 0);
-  const thisMonth     = rows.filter(r => new Date(r.createdAt).getTime() >= monthStart)
-                            .reduce((s, r) => s + r.amountPaise, 0);
+  const monthStart = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  }, []);
+  const totalAll   = rows.reduce((s, r) => s + r.amountPaise, 0);
+  const thisMonth  = rows.filter(r => new Date(r.createdAt).getTime() >= monthStart)
+                         .reduce((s, r) => s + r.amountPaise, 0);
   const vendorCount   = new Set(rows.map(r => r.vendorName).filter(Boolean)).size;
 
   // Category breakdown (all rows, for sidebar)
@@ -998,9 +1014,6 @@ function ExpensesTab() {
     return true;
   });
   const filtTotal = filtered.reduce((s, r) => s + r.amountPaise, 0);
-
-  // Suppress unused nowMs warning
-  void nowMs;
 
   return (
     <div className="space-y-5">
@@ -1191,12 +1204,22 @@ function ExpensesTab() {
 
 // ─── GST Tab ──────────────────────────────────────────────────────────────────
 
+const GST_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const GST_MON_SHORT   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function fmtDateLong(iso: string | null | undefined) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, '0')} ${GST_MON_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 function GstTab() {
-  const now = new Date();
-  const [year,  setYear]  = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [data,  setData]  = useState<GstData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [year,       setYear]   = useState(() => new Date().getFullYear());
+  const [month,      setMonth]  = useState(() => new Date().getMonth() + 1);
+  const [todayYear]             = useState(() => new Date().getFullYear());
+  const [todayMonth]            = useState(() => new Date().getMonth() + 1);
+  const [data,       setData]   = useState<GstData | null>(null);
+  const [loading,    setLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -1207,177 +1230,271 @@ function GstTab() {
       .finally(() => setLoading(false));
   }, [year, month]);
 
-  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // Rolling 12 months starting from current
+  const pills = useMemo(() => {
+    const out: { year: number; month: number; label: string }[] = [];
+    let y = todayYear, m = todayMonth;
+    for (let i = 0; i < 12; i++) {
+      out.push({ year: y, month: m, label: y === todayYear ? GST_MON_SHORT[m - 1] : `${GST_MON_SHORT[m - 1]} ${y}` });
+      m--;
+      if (m === 0) { m = 12; y--; }
+    }
+    return out;
+  }, [todayYear, todayMonth]);
+
+  const activePill = pills.find(p => p.month === month && p.year === year);
+  const monthLabel = `${GST_MON_SHORT[month - 1]} ${year}`;
+  const monthFull  = `${GST_MONTH_NAMES[month - 1]} ${year}`;
+
+  // HSN summary — group hsnSacLinesJson from all output rows by (hsnSac, rate)
+  const hsnSummary = useMemo(() => {
+    if (!data?.outputRows) return [];
+    const map = new Map<string, { hsnSac: string; rate: number; taxable: number; cgst: number; sgst: number; igst: number }>();
+    for (const row of data.outputRows) {
+      const lines = Array.isArray(row.hsnSacLinesJson) ? (row.hsnSacLinesJson as GstHsnLine[]) : [];
+      for (const line of lines) {
+        const tax  = (line.cgstPaise ?? 0) + (line.sgstPaise ?? 0) + (line.igstPaise ?? 0);
+        const rate = line.amountPaise > 0 ? Math.round(tax * 100 / line.amountPaise) : 0;
+        const key  = `${line.hsnSac ?? '9987'}-${rate}`;
+        const cur  = map.get(key);
+        if (cur) {
+          cur.taxable += line.amountPaise;
+          cur.cgst    += line.cgstPaise ?? 0;
+          cur.sgst    += line.sgstPaise ?? 0;
+          cur.igst    += line.igstPaise ?? 0;
+        } else {
+          map.set(key, { hsnSac: line.hsnSac ?? '9987', rate, taxable: line.amountPaise, cgst: line.cgstPaise ?? 0, sgst: line.sgstPaise ?? 0, igst: line.igstPaise ?? 0 });
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.rate - b.rate);
+  }, [data]);
+
+  // Output table totals
+  const outTotals = useMemo(() => {
+    if (!data?.outputRows) return { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 };
+    return data.outputRows.reduce((a, r) => ({
+      taxable: a.taxable + r.subtotalPaise,
+      cgst:    a.cgst + r.cgstPaise,
+      sgst:    a.sgst + r.sgstPaise,
+      igst:    a.igst + r.igstPaise,
+      total:   a.total + r.cgstPaise + r.sgstPaise + r.igstPaise,
+    }), { taxable: 0, cgst: 0, sgst: 0, igst: 0, total: 0 });
+  }, [data]);
+
+  // Input credit totals for KPI (taxable = amountPaise - gstAmountPaise)
+  const inputTaxable = useMemo(() =>
+    (data?.inputRows ?? []).reduce((s, r) => s + r.amountPaise - r.gstAmountPaise, 0),
+  [data]);
+
+  const TH = 'px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide';
+  const TD = 'px-4 py-3 text-xs tabular-nums';
 
   return (
     <div className="space-y-5">
 
-      {/* Month + year picker */}
-      <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-        <div className="flex flex-wrap items-center gap-2">
-          {MONTHS.map((m, i) => (
-            <button key={m} onClick={() => setMonth(i + 1)}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={{
-                background: month === i + 1 ? 'var(--accent-base)' : 'var(--surface-muted)',
-                color:      month === i + 1 ? '#fff'                : 'var(--text-secondary)',
-              }}>
-              {m}
-            </button>
-          ))}
-          <input type="number" value={year} min={2020} max={2099}
-            onChange={e => setYear(Number(e.target.value))}
-            className="ml-auto w-20 rounded-lg border px-3 py-1.5 text-xs text-center font-semibold"
-            style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-page)', color: 'var(--text-primary)' }} />
-        </div>
+      {/* Month pills + export button */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {pills.map(p => (
+          <button key={`${p.year}-${p.month}`}
+            onClick={() => { setYear(p.year); setMonth(p.month); }}
+            className="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+            style={{
+              background: p.month === month && p.year === year ? 'var(--accent-base)' : 'var(--surface-muted)',
+              color:      p.month === month && p.year === year ? '#fff' : 'var(--text-secondary)',
+            }}>
+            {p.label}
+          </button>
+        ))}
+        <button className="ml-auto flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold whitespace-nowrap"
+          style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}>
+          <Download className="h-3.5 w-3.5" />
+          Export {activePill?.label ?? monthLabel} as PDF
+        </button>
       </div>
 
       {loading ? <TabSkeleton /> : data ? (
         <>
-          {/* Summary KPIs */}
-          <div className="grid grid-cols-3 gap-3">
-            <KpiCard
-              label="Output Tax Collected" value={formatRupees(data.summary.outputPaise)}
-              accent="var(--danger)" icon={TrendingUp}
-              sub={`CGST ${formatRupees(data.summary.cgstPaise)} + SGST ${formatRupees(data.summary.sgstPaise)}`}
-            />
-            <KpiCard
-              label="Input Credit (ITC)" value={formatRupees(data.summary.inputPaise)}
-              accent="var(--success)" icon={TrendingDown}
-            />
-            <KpiCard
-              label={data.summary.netPaise >= 0 ? 'Net Payable' : 'Net Refund'}
-              value={formatRupees(Math.abs(data.summary.netPaise))}
-              accent={data.summary.netPaise > 0 ? 'var(--danger)' : 'var(--success)'}
-              icon={BarChart3}
-            />
+          {/* KPI cards */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-base)' }}>Output Tax Collected</p>
+              <p className="text-3xl font-black tabular-nums" style={{ color: 'var(--accent-base)' }}>{formatRupees(data.summary.outputPaise)}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Taxable: {formatRupees(outTotals.taxable)}</p>
+            </div>
+            <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-base)' }}>Input Credit (Expenses)</p>
+              <p className="text-3xl font-black tabular-nums" style={{ color: 'var(--accent-base)' }}>{formatRupees(data.summary.inputPaise)}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>Taxable: {formatRupees(inputTaxable)}</p>
+            </div>
+            <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: '#b45309' }}>Net Payable — {monthFull}</p>
+              <p className="text-3xl font-black tabular-nums" style={{ color: '#b45309' }}>{formatRupees(Math.abs(data.summary.netPaise))}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                CGST {formatRupees(data.summary.cgstPaise)} · SGST {formatRupees(data.summary.sgstPaise)} · IGST {formatRupees(data.summary.igstPaise)}
+              </p>
+            </div>
           </div>
 
-          {/* GSTR-3B summary box */}
+          {/* OUTPUT TAX — INVOICES ISSUED */}
           <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="px-5 py-3 flex items-center gap-2"
-              style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <BarChart3 className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-              <p className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>GSTR-3B — Net payable this month</p>
+            <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>Output Tax — Invoices Issued</p>
             </div>
-            <div className="grid grid-cols-2 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-5 py-4 space-y-2" style={{ background: 'var(--surface-card)' }}>
-                <p className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>Output</p>
-                {[
-                  { label: 'CGST', val: data.summary.cgstPaise },
-                  { label: 'SGST', val: data.summary.sgstPaise },
-                  { label: 'IGST', val: data.summary.igstPaise },
-                ].map(row => (
-                  <div key={row.label} className="flex justify-between text-xs">
-                    <span style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
-                    <span className="font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                      {formatRupees(row.val)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="px-5 py-4 space-y-2" style={{ background: 'var(--surface-card)' }}>
-                <p className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>Input Credit</p>
-                <div className="flex justify-between text-xs">
-                  <span style={{ color: 'var(--text-secondary)' }}>ITC available</span>
-                  <span className="font-semibold tabular-nums" style={{ color: 'var(--success-text)' }}>
-                    {formatRupees(data.summary.inputPaise)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Net payable</span>
-                  <span className="font-bold tabular-nums"
-                    style={{ color: data.summary.netPaise > 0 ? 'var(--danger)' : 'var(--success-text)' }}>
-                    {formatRupees(Math.abs(data.summary.netPaise))}
-                  </span>
-                </div>
-              </div>
-            </div>
+            {data.outputRows.length === 0 ? (
+              <p className="px-5 py-6 text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>No invoices issued this month</p>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    {['Invoice','Date','Client','Taxable','CGST','SGST','IGST','GST Total'].map(h => (
+                      <th key={h} className={TH} style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {data.outputRows.map(r => (
+                    <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
+                      onClick={() => { window.location.href = `/invoices/${r.id}`; }}>
+                      <td className="px-4 py-3 text-xs font-mono font-semibold" style={{ color: 'var(--accent-base)' }}>{r.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{fmtDateLong(r.issuedAt)}</td>
+                      <td className="px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{r.clientName ?? r.projectName ?? '—'}</td>
+                      <td className={TD} style={{ color: 'var(--text-primary)' }}>{formatRupees(r.subtotalPaise)}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(r.cgstPaise)}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(r.sgstPaise)}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(r.igstPaise)}</td>
+                      <td className={`${TD} font-bold`} style={{ color: 'var(--accent-base)' }}>{formatRupees(r.cgstPaise + r.sgstPaise + r.igstPaise)}</td>
+                    </tr>
+                  ))}
+                  {/* Total row */}
+                  <tr style={{ background: 'var(--surface-muted)', borderTop: '2px solid var(--border-subtle)' }}>
+                    <td className="px-4 py-3 text-xs font-bold" style={{ color: 'var(--text-heading)' }} colSpan={3}>Total</td>
+                    <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.taxable)}</td>
+                    <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.cgst)}</td>
+                    <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.sgst)}</td>
+                    <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.igst)}</td>
+                    <td className={`${TD} font-bold`} style={{ color: 'var(--accent-base)' }}>{formatRupees(outTotals.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
           </div>
 
-          {/* Output invoices table */}
-          {data.outputRows.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                Output tax — issued invoices
-              </p>
-              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                      {['Invoice #', 'Project', 'Date', 'Taxable', 'CGST', 'SGST', 'IGST'].map(h => (
-                        <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
-                          style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                    {data.outputRows.map(r => (
-                      <tr key={r.id} className="cursor-pointer hover:opacity-80"
-                        style={{ background: 'var(--surface-card)' }}
-                        onClick={() => window.location.href = `/invoices/${r.id}`}>
-                        <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--accent-base)' }}>{r.invoiceNumber}</td>
-                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.projectName ?? '—'}</td>
-                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{fmtDate(r.issuedAt)}</td>
-                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.subtotalPaise)}</td>
-                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.cgstPaise)}</td>
-                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.sgstPaise)}</td>
-                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.igstPaise)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* HSN SUMMARY (FOR GSTR-1) */}
+          {hsnSummary.length > 0 && (
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>HSN Summary (for GSTR-1)</p>
               </div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    {['HSN / SAC','Rate','Taxable','CGST','SGST','IGST','Tax Total'].map(h => (
+                      <th key={h} className={TH} style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {hsnSummary.map((h, i) => (
+                    <tr key={i} style={{ background: 'var(--surface-card)' }}>
+                      <td className="px-4 py-3 text-xs font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{h.hsnSac}</td>
+                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{h.rate}%</td>
+                      <td className={TD} style={{ color: 'var(--text-primary)' }}>{formatRupees(h.taxable)}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(h.cgst)}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(h.sgst)}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(h.igst)}</td>
+                      <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(h.cgst + h.sgst + h.igst)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* Input expenses table */}
-          {data.inputRows.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-                Input credit — expenses with GST
-              </p>
-              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                      {['Exp #', 'Description', 'Category', 'GST %', 'GST Amount'].map(h => (
-                        <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
-                          style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                    {data.inputRows.map(r => (
-                      <tr key={r.id} className="cursor-pointer hover:opacity-80"
-                        style={{ background: 'var(--surface-card)' }}
-                        onClick={() => window.location.href = `/expenses/${r.id}`}>
-                        <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
-                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
-                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{EXP_LABEL[r.category] ?? r.category}</td>
-                        <td className="px-5 py-3 text-xs">{r.gstPct}%</td>
-                        <td className="px-5 py-3 text-xs font-bold tabular-nums" style={{ color: 'var(--success-text)' }}>
-                          {formatRupees(r.gstAmountPaise)}
-                        </td>
-                      </tr>
+          {/* INPUT CREDIT — EXPENSES WITH GST */}
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>Input Credit — Expenses with GST</p>
+            </div>
+            {data.inputRows.length === 0 ? (
+              <div className="px-5 py-10 text-center">
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>No GST-captured expenses for {monthFull}.</p>
+                <p className="text-xs max-w-md mx-auto" style={{ color: 'var(--text-tertiary)' }}>
+                  Log expenses under the Expenses tab — expand &quot;Add GST details&quot; and enter the GST rate to capture input credit here.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full">
+                <thead>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    {['Exp #','Description','Category','GST %','Taxable','GST Amount'].map(h => (
+                      <th key={h} className={TH} style={{ color: 'var(--text-tertiary)' }}>{h}</th>
                     ))}
-                  </tbody>
-                </table>
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {data.inputRows.map(r => (
+                    <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
+                      onClick={() => { window.location.href = `/expenses/${r.id}`; }}>
+                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{EXP_LABEL[r.category] ?? r.category}</td>
+                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{r.gstPct}%</td>
+                      <td className={TD} style={{ color: 'var(--text-primary)' }}>{formatRupees(r.amountPaise - r.gstAmountPaise)}</td>
+                      <td className={`${TD} font-bold`} style={{ color: 'var(--success-text)' }}>{formatRupees(r.gstAmountPaise)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* GSTR-3B — NET PAYABLE THIS MONTH */}
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>GSTR-3B — Net Payable This Month</p>
+            </div>
+            <div className="p-5">
+              <div className="grid grid-cols-3 gap-6">
+                {[
+                  { label: 'CGST Payable', out: data.summary.cgstPaise, credit: 0 },
+                  { label: 'SGST Payable', out: data.summary.sgstPaise, credit: 0 },
+                  { label: 'IGST Payable', out: data.summary.igstPaise, credit: 0 },
+                ].map(col => {
+                  const net = col.out - col.credit;
+                  return (
+                    <div key={col.label} className="space-y-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>{col.label}</p>
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: 'var(--accent-base)' }}>Output</span>
+                        <span className="tabular-nums font-semibold" style={{ color: 'var(--text-primary)' }}>{formatRupees(col.out)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span style={{ color: 'var(--accent-base)' }}>Credit</span>
+                        <span className="tabular-nums" style={{ color: 'var(--accent-base)' }}>−{formatRupees(col.credit)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                        <span className="font-bold" style={{ color: 'var(--text-heading)' }}>Net</span>
+                        <span className="tabular-nums font-bold" style={{ color: 'var(--text-heading)' }}>{formatRupees(net)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-5 pt-4 border-t flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>Total net payable to government</p>
+                <p className="text-2xl font-black tabular-nums" style={{ color: 'var(--text-heading)' }}>{formatRupees(Math.abs(data.summary.netPaise))}</p>
               </div>
             </div>
-          )}
-
-          {data.outputRows.length === 0 && data.inputRows.length === 0 && (
-            <EmptyState icon={BarChart3} title="No GST activity" sub="No invoices issued or expenses with GST this month" />
-          )}
-
-          <p className="text-xs rounded-xl px-4 py-3"
-            style={{ background: 'var(--warning-soft)', color: 'var(--warning-text)' }}>
-            ⚠ Estimate only — carry-forward credits, RCM liability, and prior-period advances are not reflected. Confirm final figures with your CA.
-          </p>
+            <div className="px-5 py-3 border-t" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
+              <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+                Estimate only. Carry-forward credits, RCM liability and advances from prior months are not reflected — confirm final figures with your CA.
+              </p>
+            </div>
+          </div>
         </>
       ) : (
-        <EmptyState icon={BarChart3} title="No data for this period" sub="Select a different month or year" />
+        <EmptyState icon={BarChart3} title="No data for this period" sub="Select a different month" />
       )}
     </div>
   );
