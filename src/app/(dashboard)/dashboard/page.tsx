@@ -764,31 +764,26 @@ export default function DashboardPage() {
         }
         if (Array.isArray(rl?.data)) setRecentLeads(rl.data);
       } else {
-        const [ts, ps] = await Promise.all([
+        const uid = me?.data?.id ?? '';
+        const todayStr = new Date().toISOString().split('T')[0];
+        const nowDate  = new Date();
+        const monthStart = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-01`;
+
+        const [ts, ps, atdDay, atdMon, leaveData] = await Promise.all([
           fetch('/api/v1/tasks?assigned=me&status=active&limit=10').then(r => r.json()),
           fetch('/api/v1/projects?limit=20').then(r => r.json()),
+          uid ? fetch(`/api/v1/attendance?date=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+          uid ? fetch(`/api/v1/attendance?from=${monthStart}&to=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
+          fetch('/api/v1/attendance/leave-requests?mine=1').then(r => r.json()).catch(() => null),
         ]);
+
         if (Array.isArray(ts?.data)) setMyTasks(ts.data);
         if (Array.isArray(ps?.data)) {
           setMyProjects(ps.data.filter((p: Project) => p.lifecycleStage !== 'complete').slice(0, 5));
         }
-
-        // Attendance + leave — fire and forget so they don't block the main skeleton
-        const uid = me?.data?.id ?? '';
-        if (uid) {
-          const todayStr = new Date().toISOString().split('T')[0];
-          const now = new Date();
-          const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-          Promise.all([
-            fetch(`/api/v1/attendance?date=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null),
-            fetch(`/api/v1/attendance?from=${monthStart}&to=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null),
-            fetch('/api/v1/attendance/leave-requests?mine=1').then(r => r.json()).catch(() => null),
-          ]).then(([atdDay, atdMon, leaveData]) => {
-            if (Array.isArray(atdDay?.data) && atdDay.data.length > 0) setTodayAttd(atdDay.data[0]);
-            if (Array.isArray(atdMon?.data)) setMonthAttd(atdMon.data);
-            if (Array.isArray(leaveData?.data)) setMyLeaves((leaveData.data as LeaveRequest[]).slice(0, 4));
-          }).catch(() => {});
-        }
+        if (Array.isArray(atdDay?.data) && atdDay.data.length > 0) setTodayAttd(atdDay.data[0]);
+        if (Array.isArray(atdMon?.data)) setMonthAttd(atdMon.data);
+        if (Array.isArray(leaveData?.data)) setMyLeaves((leaveData.data as LeaveRequest[]).slice(0, 4));
       }
     } catch { setLoadError(true); } finally { setLoading(false); }
   }, []);

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const projectIdParam = searchParams.get('projectId');
   const limitParam     = searchParams.get('limit');
-  const limit          = limitParam ? Math.min(parseInt(limitParam, 10) || 50, 200) : undefined;
+  const limit          = Math.min(parseInt(limitParam ?? '500', 10) || 500, 1000);
 
   const COLS = {
     id:            payments.id,
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       .where(eq(payments.tenantId, ctx.tenantId))
       .orderBy(desc(payments.createdAt));
 
-    const rows = limit ? await q.limit(limit) : await q;
+    const rows = await q.limit(limit);
     return NextResponse.json({ data: rows });
   } catch (err) {
     console.error('[payments GET]', err);

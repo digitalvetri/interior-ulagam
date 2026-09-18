@@ -5,6 +5,63 @@ import { db } from '@/lib/db';
 import { leadFollowUps, leads } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string; followUpId: string }> },
+) {
+  const { id: leadId, followUpId } = await params;
+  const ctx = await getAuthContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const now = new Date();
+
+  try {
+    await db.transaction(async (tx) => {
+      // Verify ownership and delete
+      const deleted = await tx
+        .delete(leadFollowUps)
+        .where(and(
+          eq(leadFollowUps.id, followUpId),
+          eq(leadFollowUps.tenantId, ctx.tenantId),
+          eq(leadFollowUps.leadId, leadId),
+        ))
+        .returning({ id: leadFollowUps.id });
+
+      if (deleted.length === 0) {
+        throw Object.assign(new Error('NOT_FOUND'), { code: 'NOT_FOUND' });
+      }
+
+      // Recompute leads.followUpDate from next pending row
+      const [nextPending] = await tx
+        .select({ followUpDate: leadFollowUps.followUpDate })
+        .from(leadFollowUps)
+        .where(and(
+          eq(leadFollowUps.leadId, leadId),
+          eq(leadFollowUps.tenantId, ctx.tenantId),
+          isNull(leadFollowUps.completedAt),
+        ))
+        .orderBy(asc(leadFollowUps.followUpDate))
+        .limit(1);
+
+      await tx
+        .update(leads)
+        .set({ followUpDate: nextPending?.followUpDate ?? null, lastActivityAt: now })
+        .where(and(
+          eq(leads.id, leadId),
+          eq(leads.tenantId, ctx.tenantId),
+        ));
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (e) {
+    if (e instanceof Error && e.message === 'NOT_FOUND') {
+      return NextResponse.json({ error: 'Follow-up not found' }, { status: 404 });
+    }
+    console.error('[DELETE /api/v1/leads/[id]/follow-ups/[followUpId]]', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 const PatchSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('mark_done') }),
   z.object({ action: z.literal('reschedule'), followUpDate: z.string().datetime() }),
