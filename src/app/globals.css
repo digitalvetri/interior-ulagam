@@ -233,7 +233,7 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background: #0F172A;
+  background: linear-gradient(180deg, #131545 0%, #1a1e6e 55%, #1f246e 100%);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   /* Scoped tokens — resolve for all children inside the dark navy sidebar */
   --text-heading:   #E2E8F0;
@@ -805,7 +805,7 @@ body {
 
 /* ── Dark mode overrides for global CSS classes ─────────────────────────── */
 [data-theme="dark"] .studio-sidebar {
-  background: #0A0F1E;
+  background: linear-gradient(180deg, #0c0e38 0%, #131660 55%, #161b62 100%);
   border-right-color: rgba(255, 255, 255, 0.05);
 }
 [data-theme="dark"] .nav-item { color: var(--text-secondary); }

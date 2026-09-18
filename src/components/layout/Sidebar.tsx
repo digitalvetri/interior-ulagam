@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { NAV_GROUPS } from '@/lib/nav-items';
 import { Menu, X, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
+import { ThreeParticleCanvas } from '@/components/ui/ThreeParticleCanvas';
 
 // ─── Single nav item ─────────────────────────────────────────────────────────
 
@@ -286,7 +287,7 @@ export function Sidebar() {
   return (
     <>
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between px-4" style={{ background: '#0F172A', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between px-4" style={{ background: 'linear-gradient(90deg, #131545 0%, #1a1e6e 100%)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center rounded bg-white p-0.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -318,20 +319,33 @@ export function Sidebar() {
       {/* ── Mobile drawer ──────────────────────────────────────────── */}
       <aside
         className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-72 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ position: 'fixed' }}
       >
-        <SidebarBody
-          role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
-          iconOnly={false} onNavigate={closeMenu} onSignOut={handleSignOut}
-        />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+          <ThreeParticleCanvas particleCount={70} />
+        </div>
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <SidebarBody
+            role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
+            iconOnly={false} onNavigate={closeMenu} onSignOut={handleSignOut}
+          />
+        </div>
       </aside>
 
       {/* ── Desktop sidebar ────────────────────────────────────────── */}
       <aside
         className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
-        <SidebarBody
-          role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
-        />
+        {/* Three.js particle canvas — fixed behind all sidebar content */}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+          <ThreeParticleCanvas particleCount={80} />
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          <SidebarBody
+            role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
+          />
+        </div>
 
         {/* Collapse / expand toggle */}
         <button

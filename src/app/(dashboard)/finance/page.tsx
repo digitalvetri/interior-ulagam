@@ -1,1464 +1,1326 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  AlertCircle, ArrowUpRight, Calendar, Check, ChevronDown, ChevronRight,
-  Download, FileSpreadsheet, FileText, HandCoins, IndianRupee,
-  Loader2, Plus, Receipt, Search, Tag, TrendingDown, TrendingUp, Truck,
-  Users, Wallet, X, Zap,
+  BarChart3, ChevronDown, Download, FileSpreadsheet,
+  HandCoins, IndianRupee, MoreVertical,
+  Plus, Receipt, TrendingDown, TrendingUp, Wallet, CheckCircle2,
+  Clock, Building2,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
+import { StatusBadge } from '@/components/ui/StatusBadge';
+import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
+import { Button } from '@/components/ui/button';
+import { OverviewTab } from './_OverviewTab';
+import type { OverviewData, VendorPayableRow } from './_OverviewTab';
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type Tab = 'invoices' | 'payments' | 'expenses' | 'vendor_payables';
-
-type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue' | 'partial';
+type Tab = 'overview' | 'to-collect' | 'received' | 'to-pay' | 'expenses' | 'gst';
 
 interface InvoiceRow {
   id: string; projectId: string; projectName: string; clientName: string | null;
-  invoiceNumber: string; invoiceDate: string;
+  invoiceNumber: string; invoiceDate: string; issuedAt: string | null;
+  dueDate: string | null; status: string;
   subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number;
-  isInterstate: boolean; irn: string | null; pdfUrl: string | null;
-  paymentStatus: PaymentStatus | null;
+  isInterstate: boolean; pdfUrl: string | null;
 }
 
-interface OverviewPayload {
-  kpis: {
-    outstandingPaise: number; overduePaise: number; openReceivableCount: number;
-    collected30dPaise: number; collected30dCount: number;
-    collectedAllTimePaise: number; collectedAllTimeCount: number;
-  };
-  receivables: {
-    id: string; projectId: string; projectName: string; clientName: string | null;
-    label: string; amountPaise: number;
-    paymentStatus: 'pending' | 'link_sent' | 'overdue'; daysSinceCreation: number;
-  }[];
-  payments: {
-    id: string; invoiceId: string; projectId: string | null; projectName: string | null;
-    invoiceNumber: string | null; amountPaise: number; status: string;
-    source: 'razorpay' | 'manual'; reference: string | null;
-    reconciledAt: string | null; createdAt: string;
-  }[];
+interface ReceivedRow {
+  id: string; receiptNumber: string | null; receivedAt: string | null;
+  createdAt: string; amountPaise: number; status: string; mode: string | null;
+  reference: string | null; note: string | null;
+  invoiceId: string | null; invoiceNumber: string | null;
+  projectId: string | null; projectName: string | null;
+  customerId: string | null; clientName: string | null;
+}
+
+interface ToCollectRow {
+  id: string; projectId: string; projectName: string;
+  label: string; amountPaise: number;
+  paymentStatus: 'pending' | 'link_sent' | 'overdue';
+  createdAt: string; daysSinceCreation: number;
+  daysLate: number; dueDate: string | null;
+  clientName: string | null; clientPhone: string | null;
+  promisedAt: string | null; lastContactedAt: string | null;
+  healthStatus: string | null; customerId: string | null;
 }
 
 interface ExpenseRow {
   id: string; projectId: string; category: string; amountPaise: number;
-  description: string | null; receiptUrl: string | null; vendorName: string | null;
-  gstPct: number; createdAt: string;
+  description: string | null; vendorName: string | null; gstPct: number;
+  gstAmountPaise: number; createdAt: string; paidAt: string | null;
+  dueDate: string | null; expenseNumber: string | null;
 }
 
-interface VendorPayable {
-  vendorId: string; vendorName: string; poCount: number;
-  totalOrderedPaise: number; advancePaidPaise: number; netPayablePaise: number;
+interface GstSummary {
+  outputPaise: number; inputPaise: number; netPaise: number;
+  cgstPaise: number; sgstPaise: number; igstPaise: number;
 }
 
-interface ProjOption { id: string; name: string; customerFullName?: string | null; leadContactName?: string | null }
-interface MilestoneOption { id: string; label: string; amountPaise: number; paymentStatus: string; invoiceId?: string | null }
-interface InvoiceOption { id: string; invoiceNumber: string; subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number; paymentStatus: string; }
+interface GstData {
+  year: number; month: number; summary: GstSummary;
+  outputRows: InvoiceRow[]; inputRows: ExpenseRow[];
+}
 
-// ─── Constants ─────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-  { key: 'invoices',        label: 'Invoices',          icon: FileText    },
-  { key: 'payments',        label: 'Payments received', icon: HandCoins   },
-  { key: 'expenses',        label: 'Expenses',          icon: Receipt     },
-  { key: 'vendor_payables', label: 'Vendor payables',   icon: Truck       },
+  { key: 'overview',   label: 'Overview',    icon: Wallet      },
+  { key: 'to-collect', label: 'To Collect',  icon: TrendingUp  },
+  { key: 'received',   label: 'Received',    icon: HandCoins   },
+  { key: 'to-pay',     label: 'To Pay',      icon: TrendingDown },
+  { key: 'expenses',   label: 'Expenses',    icon: Receipt     },
+  { key: 'gst',        label: 'GST',         icon: BarChart3   },
 ];
 
-const INV_STATUS: Record<PaymentStatus, { label: string; bg: string; color: string; border: string }> = {
-  paid:      { label: 'Paid',        bg: 'var(--success-soft)',  color: 'var(--success-text)',   border: 'rgba(15,157,110,0.24)' },
-  overdue:   { label: 'Outstanding', bg: '#FEE2E2',              color: '#B91C1C',               border: '#FCA5A5'               },
-  link_sent: { label: 'Issued',      bg: '#EEF2FF',              color: '#4338CA',               border: 'rgba(67,56,202,0.22)'  },
-  pending:   { label: 'Draft',       bg: 'var(--surface-muted)', color: 'var(--text-secondary)', border: 'var(--border-subtle)'  },
-  partial:   { label: 'Partial',     bg: '#FFF7ED',              color: '#C2410C',               border: 'rgba(194,65,12,0.22)'  },
-};
-
-const RCV_STATUS: Record<string, { label: string; bg: string; color: string }> = {
-  pending:   { label: 'Pending',   bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
-  link_sent: { label: 'Link sent', bg: '#FEF9C3',              color: '#92400E'                },
-  overdue:   { label: 'Overdue',   bg: 'var(--danger-soft)',   color: 'var(--danger)'          },
-};
-
-const PAY_STATUS: Record<string, { label: string; bg: string; color: string }> = {
-  captured: { label: 'Received', bg: '#D1FAE5', color: '#059669' },
-  pending:  { label: 'Pending',  bg: '#FEF3CD', color: '#D97706' },
-  failed:   { label: 'Failed',   bg: 'var(--danger-soft)', color: 'var(--danger)' },
-};
-
-const EXP_CATEGORIES = ['petty_cash','transport','labour','material','other'] as const;
 const EXP_LABEL: Record<string, string> = {
-  petty_cash: 'Petty Cash', transport: 'Transport', labour: 'Labour',
-  material: 'Material', other: 'Other',
+  petty_cash: 'Petty Cash', transport: 'Transport',
+  labour: 'Labour', material: 'Material', other: 'Other',
 };
 
-const inputCls = 'studio-input w-full h-10';
-const labelCls = 'mb-1.5 block text-[12px] font-semibold uppercase tracking-wide';
+const MODE_COLOR: Record<string, { bg: string; color: string }> = {
+  upi:      { bg: 'rgba(99,102,241,0.12)',  color: '#4f46e5' },
+  cash:     { bg: 'rgba(16,185,129,0.12)',  color: '#059669' },
+  bank:     { bg: 'rgba(59,130,246,0.12)',  color: '#2563eb' },
+  cheque:   { bg: 'rgba(245,158,11,0.12)',  color: '#b45309' },
+  card:     { bg: 'rgba(236,72,153,0.12)',  color: '#be185d' },
+  razorpay: { bg: 'rgba(79,70,229,0.12)',   color: '#4338ca' },
+};
 
-// ─── Helper ────────────────────────────────────────────────────────────────────
+const TODAY = new Date().toISOString().split('T')[0];
 
-function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
-function startOfMonth(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
-function startOfPrevMonth(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)); }
-function endOfPrevMonth(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 0)); }
-function startOfFY(d: Date) {
-  const y = d.getUTCMonth() >= 3 ? d.getUTCFullYear() : d.getUTCFullYear() - 1;
-  return new Date(Date.UTC(y, 3, 1));
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtDate(iso: string | null | undefined, fallback = '—') {
+  if (!iso) return fallback;
+  return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
 }
 
-// ─── Invoices Tab ──────────────────────────────────────────────────────────────
+function daysAgo(iso: string) {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
 
-function InvoicesTab() {
-  const [rows, setRows]       = useState<InvoiceRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [query, setQuery]     = useState('');
-  const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all' | 'outstanding'>('all');
-  const [modalOpen, setModal] = useState(false);
-  const [step, setStep]       = useState<1 | 2>(1);
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [projectList, setProjectList]   = useState<ProjOption[]>([]);
-  const [projLoading, setProjLoading]   = useState(false);
-  const [selProjectId, setSelProject]   = useState('');
-  const [milestoneList, setMilestones]  = useState<MilestoneOption[]>([]);
-  const [milLoading, setMilLoading]     = useState(false);
-  const [selMilestoneId, setSelMile]    = useState('');
-  const [invNumber, setInvNumber]       = useState('');
-  const [invDate, setInvDate]           = useState('');
-  const [subtotalInput, setSubtotal]    = useState('');
-  const [gstType, setGstType]            = useState<'intrastate' | 'interstate' | null>(null);
+// ─── Shared UI atoms ──────────────────────────────────────────────────────────
 
-  const fetchInvoices = useCallback(() => {
+function TabSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      {[80, 60, 90, 70, 55].map((w, i) => (
+        <div key={i} className="flex gap-3 items-center">
+          <div className="h-10 rounded-xl flex-1" style={{ background: 'var(--surface-muted)' }} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <div className="h-14 w-14 rounded-2xl flex items-center justify-center"
+        style={{ background: 'var(--surface-muted)' }}>
+        <Icon className="h-7 w-7" style={{ color: 'var(--text-tertiary)' }} />
+      </div>
+      <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{title}</p>
+      <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>
+    </div>
+  );
+}
+
+function KpiCard({
+  label, value, sub, href, accent, icon: Icon,
+}: {
+  label: string; value: string; sub?: string; href?: string;
+  accent?: string; icon?: React.ElementType;
+}) {
+  const inner = (
+    <div className="relative rounded-2xl border p-5 overflow-hidden flex flex-col gap-1.5"
+      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+      {accent && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: accent }} />
+      )}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+        {Icon && (
+          <div className="h-8 w-8 rounded-xl flex items-center justify-center"
+            style={{ background: accent ? `${accent}18` : 'var(--surface-muted)' }}>
+            <Icon className="h-4 w-4" style={{ color: accent ?? 'var(--text-tertiary)' }} />
+          </div>
+        )}
+      </div>
+      <p className="text-2xl font-bold tabular-nums" style={{ color: accent ?? 'var(--text-heading)' }}>{value}</p>
+      {sub && <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>}
+      {href && (
+        <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--accent-base)' }}>View all →</p>
+      )}
+    </div>
+  );
+  if (href) return <Link href={href} className="block hover:opacity-90 transition-opacity">{inner}</Link>;
+  return inner;
+}
+
+function ModeBadge({ mode }: { mode: string | null }) {
+  if (!mode) return <span style={{ color: 'var(--text-tertiary)' }}>—</span>;
+  const cfg = MODE_COLOR[mode] ?? { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
+  return (
+    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+      style={{ background: cfg.bg, color: cfg.color }}>
+      {mode}
+    </span>
+  );
+}
+
+function ActionsMenu({ items }: { items: { label: string; onClick: () => void; danger?: boolean }[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+      <button onClick={() => setOpen(o => !o)}
+        className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+        style={{ color: 'var(--text-tertiary)' }}>
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-9 z-30 min-w-[160px] rounded-xl border py-1 shadow-xl"
+          style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+          {items.map(item => (
+            <button key={item.label} onClick={() => { item.onClick(); setOpen(false); }}
+              className="flex w-full items-center px-4 py-2.5 text-sm hover:opacity-70 transition-opacity text-left"
+              style={{ color: item.danger ? 'var(--danger)' : 'var(--text-primary)' }}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── To Collect Tab ───────────────────────────────────────────────────────────
+
+type AgingFilter = 'all' | '0-30' | '31-60' | '60+';
+
+function waLink(phone: string | null, clientName: string | null, projectName: string): string {
+  const num = (phone ?? '').replace(/\D/g, '');
+  const name = clientName ?? projectName;
+  const msg = encodeURIComponent(`Hi ${name}, this is a gentle reminder about the pending payment for ${projectName}. Please let us know when you can arrange it. Thank you!`);
+  return `https://wa.me/${num}?text=${msg}`;
+}
+
+const WA_ICON = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
+    <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.556 4.115 1.528 5.845L.057 23.882l6.204-1.626A11.934 11.934 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.817 9.817 0 01-5.003-1.373l-.358-.213-3.722.976.994-3.632-.234-.373A9.786 9.786 0 012.182 12C2.182 6.578 6.578 2.182 12 2.182S21.818 6.578 21.818 12 17.422 21.818 12 21.818z"/>
+  </svg>
+);
+
+const AVATAR_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f97316','#14b8a6','#3b82f6','#10b981','#f43f5e'];
+
+function ClientAvatar({ name }: { name: string }) {
+  const idx = name.split('').reduce((s, c) => s + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
+  const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return (
+    <div className="flex-shrink-0 flex items-center justify-center rounded-full text-[13px] font-bold text-white"
+      style={{ width: 40, height: 40, background: AVATAR_COLORS[idx] }}>
+      {initials || '?'}
+    </div>
+  );
+}
+
+const HEALTH_CFG: Record<string, { label: string; bg: string; color: string }> = {
+  hot:      { label: 'Hot',      bg: '#fff7ed', color: '#c2410c' },
+  healthy:  { label: 'Healthy',  bg: '#f0fdf4', color: '#15803d' },
+  at_risk:  { label: 'At Risk',  bg: '#fff1f2', color: '#be123c' },
+  inactive: { label: 'Inactive', bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+};
+
+function HealthBadge({ status }: { status: string | null }) {
+  if (!status) return null;
+  const c = HEALTH_CFG[status];
+  if (!c) return null;
+  return (
+    <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+      style={{ background: c.bg, color: c.color }}>
+      {c.label}
+    </span>
+  );
+}
+
+function DarkKpiCard({ label, value, sub, gradient, icon: Icon }: {
+  label: string; value: string; sub?: string; gradient: string; icon?: React.ElementType;
+}) {
+  return (
+    <div className="rounded-2xl p-4 relative overflow-hidden flex-shrink-0 min-w-[156px]"
+      style={{ background: gradient }}>
+      {Icon && <Icon className="absolute right-3 top-3 opacity-[0.18]" style={{ width: 34, height: 34, color: '#fff' }} />}
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-2"
+        style={{ color: 'rgba(255,255,255,0.6)' }}>{label}</p>
+      <p className="text-[20px] font-bold text-white tabular-nums leading-tight">{value}</p>
+      {sub && <p className="text-[11px] mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{sub}</p>}
+    </div>
+  );
+}
+
+function CollectionDonut({ overduePaise, linkSentPaise, notYetDuePaise }: {
+  overduePaise: number; linkSentPaise: number; notYetDuePaise: number;
+}) {
+  const total = overduePaise + linkSentPaise + notYetDuePaise;
+  const fmtS = (p: number) => {
+    const r = p / 100;
+    if (r >= 100_000) return `₹${(r / 100_000).toFixed(1)}L`;
+    if (r >= 1_000)   return `₹${(r / 1_000).toFixed(0)}K`;
+    return `₹${Math.round(r)}`;
+  };
+  const SEGS = [
+    { paise: overduePaise,   color: '#ef4444', label: 'Overdue'     },
+    { paise: linkSentPaise,  color: '#f59e0b', label: 'Link Sent'   },
+    { paise: notYetDuePaise, color: '#14b8a6', label: 'Not Yet Due' },
+  ];
+  if (total === 0) return (
+    <div className="flex flex-col items-center py-2">
+      <svg width={110} height={110} viewBox="0 0 110 110">
+        <circle cx={55} cy={55} r={42} fill="none" stroke="var(--border-subtle)" strokeWidth={13} />
+      </svg>
+      <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>No data</p>
+    </div>
+  );
+  const CX = 55, CY = 55, R = 42, SW = 13;
+  let cursor = -90;
+  const arcs = SEGS.filter(s => s.paise > 0).map(seg => {
+    const angle = (seg.paise / total) * 360;
+    const a1 = cursor * (Math.PI / 180);
+    const a2 = (cursor + angle - 0.8) * (Math.PI / 180);
+    const x1 = CX + R * Math.cos(a1), y1 = CY + R * Math.sin(a1);
+    const x2 = CX + R * Math.cos(a2), y2 = CY + R * Math.sin(a2);
+    const large = angle > 180 ? 1 : 0;
+    cursor += angle;
+    return { d: `M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2}`, color: seg.color };
+  });
+  return (
+    <div>
+      <div className="flex justify-center mb-3">
+        <svg width={110} height={110} viewBox="0 0 110 110">
+          {arcs.map((a, i) => (
+            <path key={i} d={a.d} fill="none" stroke={a.color} strokeWidth={SW} strokeLinecap="round" />
+          ))}
+          <text x={55} y={51} textAnchor="middle" fill="var(--text-heading)" fontSize={12} fontWeight={700}>{fmtS(total)}</text>
+          <text x={55} y={65} textAnchor="middle" fill="var(--text-tertiary)" fontSize={8.5}>total</text>
+        </svg>
+      </div>
+      <div className="space-y-2">
+        {SEGS.map(s => (
+          <div key={s.label} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: s.color }} />
+              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
+            </div>
+            <span className="text-[12px] font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>{fmtS(s.paise)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ToCollectTab({ onRefresh }: { onRefresh?: () => void }) {
+  const [rows, setRows]             = useState<ToCollectRow[]>([]);
+  const [totals, setTotals]         = useState({ totalOutstandingPaise: 0, totalOverduePaise: 0, linkSentPaise: 0, notYetDuePaise: 0 });
+  const [loading, setLoading]       = useState(true);
+  const [aging, setAging]           = useState<AgingFilter>('all');
+  const [drawer, setDrawer]         = useState<{ open: boolean; item?: ToCollectRow }>({ open: false });
+  const [recentPmts, setRecentPmts] = useState<Array<{ id: string; clientName: string | null; amountPaise: number; mode: string | null; createdAt: string; status: string }>>([]);
+
+  const load = useCallback(() => {
     setLoading(true);
-    fetch('/api/v1/invoices')
+    fetch('/api/v1/accounts/receivables')
       .then(r => r.json())
-      .then(b => setRows((b.data ?? []) as InvoiceRow[]))
+      .then(b => {
+        setRows((b.data?.items ?? []) as ToCollectRow[]);
+        setTotals({
+          totalOutstandingPaise: b.data?.totalOutstandingPaise ?? 0,
+          totalOverduePaise:     b.data?.totalOverduePaise     ?? 0,
+          linkSentPaise:         b.data?.linkSentPaise         ?? 0,
+          notYetDuePaise:        b.data?.notYetDuePaise        ?? 0,
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+  useEffect(() => { load(); }, [load]);
 
-  function openModal() {
-    const today = new Date().toISOString().slice(0, 10);
-    setStep(1); setCreateError(null); setSelProject(''); setSelMile('');
-    setMilestones([]); setInvNumber(`INV-${new Date().getFullYear()}-${String(rows.length + 1).padStart(4, '0')}`);
-    setInvDate(today); setSubtotal(''); setGstType(null); setModal(true);
-    setProjLoading(true);
-    fetch('/api/v1/projects').then(r => r.json())
-      .then(b => {
-        const list = Array.isArray(b.data) ? b.data : (b.data?.rows ?? []);
-        setProjectList(list as ProjOption[]);
-      })
-      .catch(() => {})
-      .finally(() => setProjLoading(false));
-  }
+  useEffect(() => {
+    fetch('/api/v1/payments?limit=5')
+      .then(r => r.json())
+      .then(b => { if (Array.isArray(b.data)) setRecentPmts(b.data.slice(0, 5)); })
+      .catch(() => {});
+  }, []);
 
-  function handleProjectChange(id: string) {
-    setSelProject(id); setSelMile(''); setMilestones([]); setSubtotal('');
-    if (!id) return;
-    setMilLoading(true);
-    fetch(`/api/v1/projects/${id}/milestones`).then(r => r.json())
-      .then(b => {
-        const all = (b.data ?? []) as MilestoneOption[];
-        setMilestones(all.filter(m => m.paymentStatus !== 'paid' && !m.invoiceId));
-      })
-      .catch(() => {})
-      .finally(() => setMilLoading(false));
-  }
+  const AGING_FILTERS: { key: AgingFilter; label: string }[] = [
+    { key: 'all',   label: 'All'        },
+    { key: '0-30',  label: '0–30 late'  },
+    { key: '31-60', label: '31–60 late' },
+    { key: '60+',   label: '60+ late'   },
+  ];
 
-  async function handleCreate() {
-    const sub = Math.round(parseFloat(subtotalInput || '0') * 100);
-    if (sub <= 0 || !invNumber.trim() || !invDate || !selProjectId) return;
-    setCreating(true); setCreateError(null);
-    try {
-      const res = await fetch('/api/v1/invoices', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          projectId: selProjectId, milestoneId: selMilestoneId || undefined,
-          invoiceNumber: invNumber.trim(), invoiceDate: invDate,
-          subtotalPaise: sub, isInterstate: gstType === 'interstate', noGst: gstType === null,
-        }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? 'Failed');
-      fetchInvoices(); setModal(false);
-    } catch (e) {
-      setCreateError(e instanceof Error ? e.message : 'Failed');
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  const sub = Math.round(parseFloat(subtotalInput || '0') * 100);
-  const igst = gstType === 'interstate' ? Math.round(sub * 0.18) : 0;
-  const cgst = gstType === 'intrastate' ? Math.round(sub * 0.09) : 0;
-  const sgst = gstType === 'intrastate' ? Math.round(sub * 0.09) : 0;
-  const total = sub + cgst + sgst + igst;
-  const canCreate = invNumber.trim().length > 0 && invDate.length > 0 && sub > 0 && !!selProjectId;
-
-  const filtered = rows.filter(r => {
-    const status = r.paymentStatus ?? 'pending';
-    if (statusFilter === 'outstanding' && status !== 'overdue') return false;
-    if (statusFilter !== 'all' && statusFilter !== 'outstanding' && status !== statusFilter) return false;
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return (
-      r.invoiceNumber.toLowerCase().includes(q) ||
-      r.projectName.toLowerCase().includes(q) ||
-      (r.clientName ?? '').toLowerCase().includes(q)
-    );
+  const displayed = rows.filter(r => {
+    if (aging === '0-30')  return r.daysLate >= 1  && r.daysLate <= 30;
+    if (aging === '31-60') return r.daysLate >= 31 && r.daysLate <= 60;
+    if (aging === '60+')   return r.daysLate > 60;
+    return true;
   });
-  const totalPaise = rows.reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
-  const outstanding = rows.filter(r => r.paymentStatus !== 'paid')
-    .reduce((s, r) => s + r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise, 0);
+
+  const clientCount = new Set(rows.map(r => r.clientName ?? r.projectId)).size;
+
+  if (loading) return <TabSkeleton />;
 
   return (
-    <div className="space-y-5">
-      {/* New Invoice modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !creating && setModal(false)} />
-          <div className="relative mx-4 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div>
-                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>New Invoice</h2>
-                <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  Step {step} of 2 — {step === 1 ? 'Select project & milestone' : 'Invoice details & GST'}
-                </p>
-              </div>
-              <button onClick={() => !creating && setModal(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--surface-muted)]"
-                style={{ color: 'var(--text-secondary)' }}>
-                <X className="h-4 w-4" />
+    <div className="flex gap-5 items-start">
+
+      {/* ── Main content ───────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 space-y-5">
+
+        {/* KPI cards */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard
+            label="Total Outstanding" icon={Wallet}
+            value={formatRupees(totals.totalOutstandingPaise)}
+            sub={`${clientCount} client${clientCount !== 1 ? 's' : ''}`}
+          />
+          <KpiCard
+            label="Overdue" icon={TrendingUp}
+            value={formatRupees(totals.totalOverduePaise)}
+            sub={`${rows.filter(r => r.daysLate > 0).length} milestone${rows.filter(r => r.daysLate > 0).length !== 1 ? 's' : ''}`}
+            accent="var(--error)"
+          />
+          <KpiCard
+            label="Link Sent" icon={IndianRupee}
+            value={formatRupees(totals.linkSentPaise)}
+            sub={`${rows.filter(r => r.paymentStatus === 'link_sent').length} sent`}
+          />
+          <KpiCard
+            label="Not Yet Due" icon={Clock}
+            value={formatRupees(totals.notYetDuePaise)}
+            sub={`${rows.filter(r => r.paymentStatus === 'pending' && r.daysLate === 0).length} pending`}
+          />
+        </div>
+
+        {/* Filter pills + section heading */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 15 }}>⚡</span>
+            <h3 className="text-[15px] font-bold" style={{ color: 'var(--text-heading)' }}>
+              Chase these today
+            </h3>
+            <span className="rounded-full px-2 py-0.5 text-[11px] font-bold"
+              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+              {displayed.length}
+            </span>
+          </div>
+          <div className="flex gap-1.5 flex-wrap">
+            {AGING_FILTERS.map(f => (
+              <button key={f.key} onClick={() => setAging(f.key)}
+                className="rounded-full px-3 py-1 text-[12px] font-semibold border transition-colors"
+                style={{
+                  background:  aging === f.key ? 'var(--text-heading)' : 'transparent',
+                  color:       aging === f.key ? 'var(--surface-app)'  : 'var(--text-secondary)',
+                  borderColor: aging === f.key ? 'var(--text-heading)' : 'var(--border-subtle)',
+                }}>
+                {f.label}
               </button>
-            </div>
-            {step === 1 && (
-              <div className="space-y-4 p-6">
-                <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Project *</label>
-                  {projLoading ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : (
-                    <select value={selProjectId} onChange={e => handleProjectChange(e.target.value)} className={inputCls}>
-                      <option value="">Select a project…</option>
-                      {projectList.map(p => {
-                        const c = p.customerFullName ?? p.leadContactName ?? null;
-                        return <option key={p.id} value={p.id}>{p.name}{c ? ` — ${c}` : ''}</option>;
-                      })}
-                    </select>
-                  )}
-                </div>
-                {selProjectId && (
-                  <div>
-                    <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
-                      Milestone <span className="font-normal normal-case">(optional)</span>
-                    </label>
-                    {milLoading ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : (
-                      <select value={selMilestoneId} onChange={e => {
-                        setSelMile(e.target.value);
-                        const m = milestoneList.find(x => x.id === e.target.value);
-                        if (m) setSubtotal(String(m.amountPaise / 100));
-                        else setSubtotal('');
-                      }} className={inputCls}>
-                        <option value="">No milestone — enter custom amount</option>
-                        {milestoneList.map(m => <option key={m.id} value={m.id}>{m.label} — {formatRupees(m.amountPaise)}</option>)}
-                      </select>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-            {step === 2 && (
-              <div className="space-y-4 p-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Invoice Number *</label>
-                    <input type="text" value={invNumber} onChange={e => setInvNumber(e.target.value)} className={inputCls} placeholder="INV-2026-0001" />
-                  </div>
-                  <div>
-                    <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Invoice Date *</label>
-                    <input type="date" value={invDate} onChange={e => setInvDate(e.target.value)} className="studio-input h-10 w-full px-3" />
-                  </div>
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount before GST (₹) *</label>
-                  <input type="number" min="0" step="0.01" value={subtotalInput} onChange={e => setSubtotal(e.target.value)} className={inputCls} placeholder="e.g. 50000" />
-                </div>
-                <div>
-                  <label className={`${labelCls} mb-2`} style={{ color: 'var(--text-secondary)' }}>GST Type</label>
-                  <div className="flex flex-wrap gap-5">
-                    {(['intrastate', 'interstate'] as const).map(type => (
-                      <label key={type} className="flex cursor-pointer items-center gap-2">
-                        <input
-                          type="radio"
-                          checked={gstType === type}
-                          onChange={() => setGstType(type)}
-                          onClick={() => { if (gstType === type) setGstType(null); }}
-                          className="accent-purple-600"
-                        />
-                        <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
-                          {type === 'intrastate' ? 'Intrastate — 9% CGST + 9% SGST' : 'Interstate — 18% IGST'}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2 rounded-xl p-4" style={{ background: 'var(--surface-muted)' }}>
-                  {[
-                    ['Subtotal', sub],
-                    ...(gstType === 'interstate' ? [['IGST 18%', igst]] : gstType === 'intrastate' ? [['CGST 9%', cgst], ['SGST 9%', sgst]] : []),
-                  ].map(([lbl, val]) => (
-                    <div key={String(lbl)} className="flex justify-between text-sm">
-                      <span style={{ color: 'var(--text-secondary)' }}>{lbl}</span>
-                      <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>{formatRupees(Number(val))}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between border-t pt-2 text-sm font-bold" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-                    <span>Total</span><span className="tabular-nums">{formatRupees(total)}</span>
-                  </div>
-                </div>
-                {createError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{createError}</p>}
-              </div>
-            )}
-            <div className="flex items-center justify-between border-t px-6 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
-              {step === 1 ? (
-                <>
-                  <button onClick={() => setModal(false)} className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)]" style={{ color: 'var(--text-secondary)' }}>Cancel</button>
-                  <button onClick={() => setStep(2)} disabled={!selProjectId} className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
-                    Next <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.25} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => setStep(1)} disabled={creating} className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)] disabled:opacity-40" style={{ color: 'var(--text-secondary)' }}>← Back</button>
-                  <button onClick={handleCreate} disabled={!canCreate || creating} className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
-                    {creating ? 'Creating…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Create Invoice</>}
-                  </button>
-                </>
-              )}
-            </div>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 flex-1">
-          <StatCard label="Total Invoiced" value={formatRupees(totalPaise)} icon={IndianRupee} iconBg="#E8F5F0" iconColor="#2D8A6A" valueColor="#2D8A6A" />
-          <StatCard label="Outstanding" value={formatRupees(outstanding)} icon={AlertCircle}
-            iconBg={outstanding > 0 ? '#FEF3CD' : '#E8F5F0'} iconColor={outstanding > 0 ? '#D97706' : '#2D8A6A'} />
-          <StatCard label="Invoices" value={String(rows.length)} icon={FileText} iconBg="#EDE9FE" iconColor="#7C3AED" />
-        </div>
-        <button onClick={openModal} className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px] shrink-0">
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />New Invoice
-        </button>
-      </div>
-
-      {/* Filter pills + search */}
-      <div className="overflow-hidden rounded-2xl border" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              { key: 'all',         label: 'All' },
-              { key: 'outstanding', label: 'Outstanding' },
-              { key: 'pending',     label: 'Draft' },
-              { key: 'link_sent',   label: 'Issued' },
-              { key: 'partial',     label: 'Partial' },
-              { key: 'paid',        label: 'Paid' },
-            ] as { key: typeof statusFilter; label: string }[]).map(({ key, label }) => {
-              const count = key === 'all'         ? rows.length
-                          : key === 'outstanding' ? rows.filter(r => r.paymentStatus === 'overdue').length
-                          : rows.filter(r => (r.paymentStatus ?? 'pending') === key).length;
-              if (key !== 'all' && key !== 'outstanding' && count === 0) return null;
-              const active = statusFilter === key;
+        {/* Row list */}
+        {displayed.length === 0 ? (
+          <EmptyState icon={CheckCircle2} title="Nothing to collect" sub="All caught up!" />
+        ) : (
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+            {displayed.map((r, idx) => {
+              const displayName = r.clientName ?? r.projectName;
               return (
-                <button key={key} type="button" onClick={() => setStatusFilter(key)}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-medium transition-all"
-                  style={active
-                    ? { background: 'var(--accent-base)', color: '#fff', borderColor: 'var(--accent-base)' }
-                    : { background: 'transparent', color: 'var(--text-secondary)', borderColor: 'var(--border-strong)' }
-                  }>
-                  {label}
-                  <span className="tabular-nums" style={{ opacity: 0.75 }}>{count}</span>
-                </button>
+                <div key={r.id} className="px-5 py-4"
+                  style={{
+                    background:   'var(--surface-card)',
+                    borderBottom: idx < displayed.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                  }}>
+
+                  {/* Avatar + info + badge + amount */}
+                  <div className="flex items-center gap-3">
+                    <ClientAvatar name={displayName} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-[14px] font-bold leading-snug" style={{ color: 'var(--text-heading)' }}>
+                          {displayName}
+                          {r.clientName && r.projectName !== r.clientName && (
+                            <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>
+                              {' '}— {r.projectName}
+                            </span>
+                          )}
+                        </p>
+                        <HealthBadge status={r.healthStatus} />
+                      </div>
+                      <p className="text-[12px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                        {r.label}
+                        {r.daysLate > 0 && (
+                          <span className="font-semibold ml-1.5" style={{ color: '#f97316' }}>
+                            · {r.daysLate}d late
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                    <p className="text-[17px] font-bold tabular-nums flex-shrink-0"
+                      style={{ color: 'var(--text-heading)', letterSpacing: '-0.01em' }}>
+                      {formatRupees(r.amountPaise)}
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mt-3">
+                    <a href={waLink(r.clientPhone, r.clientName, r.projectName)}
+                      target="_blank" rel="noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold border transition-opacity hover:opacity-80"
+                      style={{ borderColor: '#86efac', color: '#16a34a', background: '#f0fdf4' }}>
+                      {WA_ICON}WhatsApp
+                    </a>
+                    <button
+                      onClick={() => setDrawer({ open: true, item: r })}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold border transition-opacity hover:opacity-80"
+                      style={{ borderColor: 'var(--accent-base)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
+                      <IndianRupee className="h-3 w-3" />Record Payment
+                    </button>
+                    <Link href={`/projects/${r.projectId}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold border transition-colors"
+                      style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'transparent' }}>
+                      <Receipt className="h-3 w-3" />View Project
+                    </Link>
+                  </div>
+                </div>
               );
             })}
           </div>
-          <div className="relative min-w-[200px] max-w-xs flex-1">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-            <input type="text" placeholder="Search invoice #, client, project…" value={query} onChange={e => setQuery(e.target.value)}
-              className="studio-input h-8 w-full text-sm" style={{ paddingLeft: '2.25rem' }} />
-            {query && (
-              <button type="button" onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2">
-                <X className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />
-              </button>
-            )}
+        )}
+      </div>
+
+      {/* ── Right sidebar ───────────────────────────────────────────── */}
+      <div className="w-64 flex-shrink-0 space-y-4 sticky top-4">
+
+        {/* Quick Actions */}
+        <div className="rounded-2xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-3"
+            style={{ color: 'var(--text-tertiary)' }}>Quick Actions</p>
+          <div className="space-y-2">
+            <button
+              onClick={() => setDrawer({ open: true })}
+              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold transition-colors"
+              style={{ background: 'var(--accent-base)', color: '#fff' }}>
+              <Plus className="h-4 w-4 flex-shrink-0" />Record Payment
+            </button>
+            <Link href="/invoices"
+              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold border transition-colors"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'transparent' }}>
+              <Receipt className="h-4 w-4 flex-shrink-0" />View Invoices
+            </Link>
+            <Link href="/customers"
+              className="w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-semibold border transition-colors"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'transparent' }}>
+              <Building2 className="h-4 w-4 flex-shrink-0" />All Clients
+            </Link>
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-14 text-center">
-            <Receipt className="h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
-            <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-              {query || statusFilter !== 'all' ? 'No invoices match your filters.' : 'No invoices yet.'}
-            </p>
-            {(query || statusFilter !== 'all') && (
-              <button type="button" onClick={() => { setQuery(''); setStatusFilter('all'); }}
-                className="text-xs font-medium" style={{ color: 'var(--accent-base)' }}>Clear filters</button>
-            )}
-          </div>
-        ) : (
+        {/* Collection Summary donut */}
+        <div className="rounded-2xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-3"
+            style={{ color: 'var(--text-tertiary)' }}>Collection Summary</p>
+          <CollectionDonut
+            overduePaise={totals.totalOverduePaise}
+            linkSentPaise={totals.linkSentPaise}
+            notYetDuePaise={totals.notYetDuePaise}
+          />
+        </div>
+
+        {/* Recent Activity */}
+        <div className="rounded-2xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-3"
+            style={{ color: 'var(--text-tertiary)' }}>Recent Activity</p>
+          {recentPmts.length === 0 ? (
+            <p className="text-xs py-1" style={{ color: 'var(--text-tertiary)' }}>No recent payments</p>
+          ) : (
+            <div className="space-y-3">
+              {recentPmts.map(p => {
+                const captured = p.status === 'captured';
+                const dt = new Date(p.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                return (
+                  <div key={p.id} className="flex items-start gap-2.5">
+                    <span className="h-2 w-2 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ background: captured ? '#16a34a' : '#f97316' }} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-semibold leading-snug truncate"
+                        style={{ color: 'var(--text-heading)' }}>
+                        {captured ? 'Payment received' : 'Payment pending'}
+                        {p.clientName ? ` from ${p.clientName}` : ''}
+                      </p>
+                      <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                        {formatRupees(p.amountPaise)} · {dt}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      <RecordPaymentDrawer
+        open={drawer.open}
+        onClose={() => setDrawer({ open: false })}
+        contextLabel={drawer.item ? `${drawer.item.projectName} — ${drawer.item.label}` : undefined}
+        defaultAmountPaise={drawer.item?.amountPaise}
+        defaultProjectId={drawer.item?.projectId}
+        onSuccess={() => { setDrawer({ open: false }); load(); onRefresh?.(); }}
+      />
+    </div>
+  );
+}
+
+// ─── Received Tab ─────────────────────────────────────────────────────────────
+
+const MODE_PILLS = [
+  { key: 'upi',        label: 'UPI'         },
+  { key: 'cash',       label: 'Cash'        },
+  { key: 'bank',       label: 'Bank (NEFT)' },
+  { key: 'cheque',     label: 'Cheque'      },
+  { key: 'card',       label: 'Card'        },
+  { key: 'razorpay',   label: 'Razorpay'    },
+  { key: 'not-linked', label: 'Not linked'  },
+];
+
+function ReceivedTab({ onOpen }: { onOpen: () => void }) {
+  const [rows, setRows]       = useState<ReceivedRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modeFilter, setMode] = useState<string>('');
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch('/api/v1/payments')
+      .then(r => r.json())
+      .then(b => setRows((b.data ?? []) as ReceivedRow[]))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const captured   = rows.filter(r => r.status === 'captured');
+  const totalPaise = captured.reduce((s, r) => s + r.amountPaise, 0);
+
+  const filtered = captured.filter(r => {
+    if (!modeFilter)                return true;
+    if (modeFilter === 'not-linked') return !r.invoiceId && !r.projectId;
+    return r.mode === modeFilter;
+  });
+
+  if (loading) return <TabSkeleton />;
+
+  return (
+    <div className="space-y-5">
+
+      {/* Header row: total on left, filter pills on right */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-widest mb-1"
+            style={{ color: 'var(--text-tertiary)' }}>Payments Received</p>
+          <p className="text-4xl font-bold tabular-nums"
+            style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
+            {formatRupees(totalPaise)}
+          </p>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
+            {captured.length} payment{captured.length !== 1 ? 's' : ''} in total
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {MODE_PILLS.map(p => (
+            <button key={p.key}
+              onClick={() => setMode(prev => prev === p.key ? '' : p.key)}
+              className="rounded-full px-3.5 py-1.5 text-[12px] font-semibold border transition-colors"
+              style={{
+                background:  modeFilter === p.key ? 'var(--text-heading)' : 'transparent',
+                color:       modeFilter === p.key ? 'var(--surface-app)'  : 'var(--text-secondary)',
+                borderColor: modeFilter === p.key ? 'var(--text-heading)' : 'var(--border-subtle)',
+              }}>
+              {p.label}
+            </button>
+          ))}
+          <button onClick={onOpen}
+            className="flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[12px] font-semibold ml-1"
+            style={{ background: 'var(--accent-base)', color: '#fff' }}>
+            <Plus className="h-3.5 w-3.5" />Record
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <EmptyState icon={HandCoins} title="No payments received" sub="Recorded payments will appear here" />
+      ) : (
+        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full border-collapse" style={{ fontSize: 13 }}>
               <thead>
-                <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['INVOICE #', 'CLIENT', 'PROJECT/SO', 'INVOICE DATE', 'STATUS', 'AMOUNT', ''].map((h, i) => (
-                    <th key={i} className="px-4 py-3 text-xs font-semibold tracking-wide"
-                      style={{ color: 'var(--text-secondary)', textAlign: h === 'AMOUNT' ? 'right' : 'left' }}>{h}</th>
+                <tr style={{ background: 'var(--surface-muted)', borderBottom: '2px solid var(--border-subtle)' }}>
+                  {[
+                    { label: 'Number',          align: 'left'  },
+                    { label: 'Date',            align: 'left'  },
+                    { label: 'Client',          align: 'left'  },
+                    { label: 'For',             align: 'left'  },
+                    { label: 'Mode',            align: 'left'  },
+                    { label: 'Reference',       align: 'left'  },
+                    { label: 'On a Bill',       align: 'right' },
+                    { label: 'Against the Job', align: 'right' },
+                    { label: 'Total',           align: 'right' },
+                  ].map(h => (
+                    <th key={h.label}
+                      className={`px-4 py-3 text-[11px] font-bold uppercase tracking-widest whitespace-nowrap text-${h.align}`}
+                      style={{ color: 'var(--text-tertiary)' }}>
+                      {h.label}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((inv, idx) => {
-                  const taxPaise = inv.isInterstate ? inv.igstPaise : inv.cgstPaise + inv.sgstPaise;
-                  const total    = inv.subtotalPaise + taxPaise;
-                  const status   = inv.paymentStatus ?? 'pending';
-                  const cfg      = INV_STATUS[status] ?? INV_STATUS.pending;
+                {filtered.map((r, idx) => {
+                  const onBill    = r.invoiceId ? r.amountPaise : null;
+                  const againstJob = !r.invoiceId && r.projectId ? r.amountPaise : null;
+                  const forLabel  = r.invoiceId
+                    ? (r.invoiceNumber ?? 'Bill')
+                    : (r.projectName ?? '—');
+
                   return (
-                    <tr key={inv.id} className="group hover:bg-[var(--surface-muted)]"
-                      style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-
-                      {/* INVOICE # */}
-                      <td className="px-4 py-3.5">
-                        <Link href={`/invoices/${inv.id}`} className="font-semibold font-mono text-sm hover:underline" style={{ color: 'var(--accent-base)' }}>
-                          {inv.invoiceNumber}
-                        </Link>
-                        {inv.irn && (
-                          <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                            style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>e-Invoice</span>
-                        )}
+                    <tr key={r.id}
+                      style={{
+                        background:   'var(--surface-card)',
+                        borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                        cursor: 'default',
+                      }}>
+                      {/* Number */}
+                      <td className="px-4 py-3.5 font-semibold tabular-nums whitespace-nowrap"
+                        style={{ color: 'var(--text-heading)' }}>
+                        {r.receiptNumber ?? '—'}
                       </td>
-
-                      {/* CLIENT */}
-                      <td className="px-4 py-3.5 max-w-[150px] truncate">
-                        <span className="font-medium text-sm" style={{ color: 'var(--text-heading)' }}>
-                          {inv.clientName ?? '—'}
-                        </span>
+                      {/* Date */}
+                      <td className="px-4 py-3.5 whitespace-nowrap"
+                        style={{ color: 'var(--text-secondary)' }}>
+                        {fmtDate(r.receivedAt ?? r.createdAt, '—')}
                       </td>
-
-                      {/* PROJECT/SO */}
-                      <td className="px-4 py-3.5 max-w-[170px] truncate">
-                        <Link href={`/projects/${inv.projectId}`} className="text-sm hover:underline" style={{ color: 'var(--text-secondary)' }}>
-                          {inv.projectName}
-                        </Link>
+                      {/* Client */}
+                      <td className="px-4 py-3.5 font-medium" style={{ color: 'var(--text-heading)', maxWidth: 180 }}>
+                        <span className="truncate block">{r.clientName ?? '—'}</span>
                       </td>
-
-                      {/* INVOICE DATE */}
-                      <td className="px-4 py-3.5 tabular-nums text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {new Date(inv.invoiceDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </td>
-
-                      {/* STATUS */}
-                      <td className="px-4 py-3.5">
-                        <span className="inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
-                          style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>{cfg.label}</span>
-                      </td>
-
-                      {/* AMOUNT */}
-                      <td className="px-4 py-3.5 text-right tabular-nums font-bold" style={{ color: 'var(--text-heading)' }}>
-                        {formatRupees(total)}
-                        <div className="text-[10px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
-                          +{formatRupees(taxPaise)} {inv.isInterstate ? 'IGST' : 'GST'}
-                        </div>
-                      </td>
-
-                      {/* PDF */}
-                      <td className="px-3 py-3.5 text-right">
-                        {inv.pdfUrl
-                          ? <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer"
-                              className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 text-xs font-medium transition-all hover:opacity-70"
-                              style={{ color: 'var(--text-secondary)' }}><Download className="h-3.5 w-3.5" />PDF</a>
-                          : <Link href={`/invoices/${inv.id}`}
-                              className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 text-xs transition-all"
-                              style={{ color: 'var(--text-tertiary)' }}><FileText className="h-3.5 w-3.5" />View</Link>
+                      {/* For */}
+                      <td className="px-4 py-3.5" style={{ maxWidth: 180 }}>
+                        {r.invoiceId
+                          ? <Link href={`/invoices/${r.invoiceId}`}
+                              className="font-semibold hover:underline truncate block"
+                              style={{ color: 'var(--accent-base)' }}>
+                              {forLabel}
+                            </Link>
+                          : <span className="truncate block" style={{ color: 'var(--text-secondary)' }}>{forLabel}</span>
                         }
+                      </td>
+                      {/* Mode */}
+                      <td className="px-4 py-3.5">
+                        <ModeBadge mode={r.mode} />
+                      </td>
+                      {/* Reference */}
+                      <td className="px-4 py-3.5" style={{ color: 'var(--text-secondary)' }}>
+                        {r.reference ?? '—'}
+                      </td>
+                      {/* On a Bill */}
+                      <td className="px-4 py-3.5 text-right tabular-nums"
+                        style={{ color: onBill != null ? 'var(--text-heading)' : 'var(--text-tertiary)', fontWeight: onBill != null ? 600 : 400 }}>
+                        {onBill != null ? formatRupees(onBill) : '—'}
+                      </td>
+                      {/* Against the Job */}
+                      <td className="px-4 py-3.5 text-right tabular-nums"
+                        style={{ color: againstJob != null ? 'var(--text-heading)' : 'var(--text-tertiary)', fontWeight: againstJob != null ? 600 : 400 }}>
+                        {againstJob != null ? formatRupees(againstJob) : '—'}
+                      </td>
+                      {/* Total */}
+                      <td className="px-4 py-3.5 text-right tabular-nums font-bold"
+                        style={{ color: 'var(--text-heading)' }}>
+                        {formatRupees(r.amountPaise)}
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-            {(query || statusFilter !== 'all') && (
-              <div className="flex justify-between px-4 py-2 text-xs"
-                style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
-                <span>{filtered.length} of {rows.length}</span>
-                <button type="button" onClick={() => { setQuery(''); setStatusFilter('all'); }}
-                  className="font-medium" style={{ color: 'var(--accent-base)' }}>Clear filters</button>
-              </div>
-            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Payments Tab ──────────────────────────────────────────────────────────────
+// ─── To Pay Tab ───────────────────────────────────────────────────────────────
 
-function PaymentsTab() {
-  const router = useRouter();
-  const [data, setData]         = useState<OverviewPayload | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [search, setSearch]     = useState('');
-  const [tallyOpen, setTally]   = useState(false);
-  const [exportErr, setExErr]   = useState<string | null>(null);
-  const [busyExp, setBusy]      = useState<string | null>(null);
-  const today = useMemo(() => new Date(), []);
-  const [tallyFrom, setTFrom]   = useState(isoDate(startOfMonth(today)));
-  const [tallyTo, setTTo]       = useState(isoDate(today));
+function ToPayTab({ data, onRecordPayment }: { data: OverviewData | null; onRecordPayment: () => void }) {
+  const vendorPayables = data?.vendorPayables ?? [];
+  const toPayVendor    = data?.kpis.toPayVendorPaise ?? 0;
+  const outstanding    = vendorPayables.filter(po => po.total_amount_paise - po.paid_amount_paise > 0);
 
-  // Record Payment modal
-  const [recOpen, setRecOpen]         = useState(false);
-  const [recProjList, setRecProjList] = useState<ProjOption[]>([]);
-  const [recProjLd, setRecProjLd]     = useState(false);
-  const [recProjId, setRecProjId]     = useState('');
-  const [recInvList, setRecInvList]   = useState<InvoiceOption[]>([]);
-  const [recInvLd, setRecInvLd]       = useState(false);
-  const [recInvId, setRecInvId]       = useState('');
-  const [recAmount, setRecAmount]     = useState('');
-  const [recNote, setRecNote]         = useState('');
-  const [recSaving, setRecSaving]     = useState(false);
-  const [recError, setRecError]       = useState<string | null>(null);
+  if (!data) return <TabSkeleton />;
 
-  const fetchData = useCallback(() => {
-    setLoading(true);
-    fetch('/api/v1/accounts/overview').then(r => r.json())
-      .then(res => { setData(res.data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  function openRecPay() {
-    setRecOpen(true); setRecProjId(''); setRecInvList([]); setRecInvId('');
-    setRecAmount(''); setRecNote(''); setRecError(null); setRecProjLd(true);
-    fetch('/api/v1/projects').then(r => r.json())
-      .then(b => setRecProjList(Array.isArray(b.data) ? b.data : (b.data?.rows ?? [])))
-      .catch(() => {})
-      .finally(() => setRecProjLd(false));
-  }
-
-  function handleRecProj(id: string) {
-    setRecProjId(id); setRecInvList([]); setRecInvId(''); setRecAmount('');
-    if (!id) return;
-    setRecInvLd(true);
-    fetch(`/api/v1/invoices?projectId=${id}`).then(r => r.json())
-      .then(b => setRecInvList(
-        ((b.data ?? []) as InvoiceOption[]).filter(inv => inv.paymentStatus !== 'paid')
-      ))
-      .catch(() => {})
-      .finally(() => setRecInvLd(false));
-  }
-
-  function handleRecInv(id: string) {
-    setRecInvId(id);
-    const inv = recInvList.find(x => x.id === id);
-    if (inv) {
-      const total = inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
-      setRecAmount(String(total / 100));
-    } else { setRecAmount(''); }
-  }
-
-  async function submitRecPay() {
-    setRecError(null);
-    if (!recInvId) { setRecError('Please select an invoice'); return; }
-    const amtPaise = Math.round(parseFloat(recAmount || '0') * 100);
-    if (amtPaise <= 0) { setRecError('Enter a valid amount'); return; }
-    if (!recNote.trim()) { setRecError('Reference / note is required'); return; }
-    setRecSaving(true);
-    try {
-      const res = await fetch(`/api/v1/invoices/${recInvId}/payments`, {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ amountPaise: amtPaise, note: recNote.trim() }),
-      });
-      const body = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(body.error ?? 'Failed');
-      setRecOpen(false); fetchData();
-    } catch (e) {
-      setRecError(e instanceof Error ? e.message : 'Failed');
-    } finally { setRecSaving(false); }
-  }
-
-  async function dlExport(url: string, filename: string) {
-    setExErr(null);
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(a.href);
-    } catch { setExErr('Export failed — please try again.'); }
-  }
-
-  async function dlTally(kind: string) {
-    if (!tallyFrom || !tallyTo) { setExErr('Pick a date range first.'); return; }
-    if (tallyFrom > tallyTo)   { setExErr('"From" must be before "To".'); return; }
-    setBusy(kind);
-    const ext  = kind.endsWith('xml') ? 'xml' : 'csv';
-    const type = kind.includes('sales') ? 'sales' : 'receipts';
-    try { await dlExport(`/api/v1/exports/${kind}?from=${tallyFrom}&to=${tallyTo}`, `tally_${type}_${tallyFrom}_to_${tallyTo}.${ext}`); }
-    finally { setBusy(null); }
-  }
-
-  function applyPreset(p: 'this-month' | 'last-month' | 'fy') {
-    const now = new Date();
-    if (p === 'this-month') { setTFrom(isoDate(startOfMonth(now))); setTTo(isoDate(now)); }
-    else if (p === 'last-month') { setTFrom(isoDate(startOfPrevMonth(now))); setTTo(isoDate(endOfPrevMonth(now))); }
-    else { setTFrom(isoDate(startOfFY(now))); setTTo(isoDate(now)); }
-  }
-
-  const filteredRcv = useMemo(() => {
-    if (!data) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return data.receivables;
-    return data.receivables.filter(r =>
-      r.projectName.toLowerCase().includes(q) || r.label.toLowerCase().includes(q) || (r.clientName ?? '').toLowerCase().includes(q));
-  }, [data, search]);
-
-  const filteredPay = useMemo(() => {
-    if (!data) return [];
-    const q = search.trim().toLowerCase();
-    if (!q) return data.payments;
-    return data.payments.filter(p =>
-      (p.projectName ?? '').toLowerCase().includes(q) || (p.invoiceNumber ?? '').toLowerCase().includes(q));
-  }, [data, search]);
-
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>;
-  if (!data)   return <div className="p-4 text-sm text-red-600">Failed to load accounts data.</div>;
-
-  const k = data.kpis;
   return (
     <div className="space-y-5">
-      {/* Record Payment modal */}
-      {recOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !recSaving && setRecOpen(false)} />
-          <div className="relative mx-4 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div>
-                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Payment</h2>
-                <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>Log a manual payment received outside Razorpay</p>
-              </div>
-              <button onClick={() => !recSaving && setRecOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--surface-muted)]"
-                style={{ color: 'var(--text-secondary)' }}>
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Project *</label>
-                {recProjLd ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : (
-                  <select value={recProjId} onChange={e => handleRecProj(e.target.value)} className={inputCls}>
-                    <option value="">Select a project…</option>
-                    {recProjList.map(p => {
-                      const c = p.customerFullName ?? p.leadContactName ?? null;
-                      return <option key={p.id} value={p.id}>{p.name}{c ? ` — ${c}` : ''}</option>;
-                    })}
-                  </select>
-                )}
-              </div>
-              {recProjId && (
-                <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Invoice *</label>
-                  {recInvLd ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : recInvList.length === 0 ? (
-                    <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No unpaid invoices for this project.</p>
-                  ) : (
-                    <select value={recInvId} onChange={e => handleRecInv(e.target.value)} className={inputCls}>
-                      <option value="">Select an invoice…</option>
-                      {recInvList.map(inv => {
-                        const total = inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
-                        return <option key={inv.id} value={inv.id}>{inv.invoiceNumber} — {formatRupees(total)}</option>;
-                      })}
-                    </select>
-                  )}
-                </div>
-              )}
-              {recInvId && (
-                <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount received (₹) *</label>
-                  <input type="number" min="0.01" step="0.01" value={recAmount}
-                    onChange={e => setRecAmount(e.target.value)} className={inputCls} placeholder="e.g. 57330" />
-                </div>
-              )}
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Reference / note *</label>
-                <input type="text" value={recNote} onChange={e => setRecNote(e.target.value)}
-                  className={inputCls} placeholder="UTR / cheque no. / cash receipt details" />
-              </div>
-              {recError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{recError}</p>}
-            </div>
-            <div className="flex items-center justify-between border-t px-6 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
-              <button onClick={() => !recSaving && setRecOpen(false)}
-                className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)]"
-                style={{ color: 'var(--text-secondary)' }}>Cancel</button>
-              <button onClick={submitRecPay} disabled={recSaving || !recInvId}
-                className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
-                {recSaving ? 'Saving…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Record Payment</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Outstanding"      value={formatRupees(k.outstandingPaise)}      icon={Wallet}     iconBg="#FEF3CD" iconColor="#D97706" sub={`${k.openReceivableCount} to collect`} />
-        <StatCard label="Overdue"          value={formatRupees(k.overduePaise)}          icon={AlertCircle} iconBg={k.overduePaise > 0 ? 'var(--danger-soft)' : 'var(--surface-muted)'} iconColor={k.overduePaise > 0 ? 'var(--danger)' : 'var(--text-tertiary)'} />
-        <StatCard label="Collected · 30d"  value={formatRupees(k.collected30dPaise)}     icon={TrendingUp} iconBg="#D1FAE5" iconColor="#059669" sub={`${k.collected30dCount} payments`} />
-        <StatCard label="Collected · Total" value={formatRupees(k.collectedAllTimePaise)} icon={HandCoins} iconBg="#DBEAFE" iconColor="#2563EB" sub={`${k.collectedAllTimeCount} transactions`} />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <KpiCard label="Total Payable" value={formatRupees(toPayVendor)}
+          accent="var(--warning-text)" icon={TrendingDown} />
+        <KpiCard label="Vendors" value={String(outstanding.length)}
+          sub="with outstanding balance" icon={Building2} />
       </div>
 
-      {/* Search + action */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-          <input type="text" placeholder="Search project, client…" value={search} onChange={e => setSearch(e.target.value)}
-            className="h-9 w-full rounded-xl border bg-[var(--surface-card)] pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
-            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
-        </div>
-        <button onClick={openRecPay} className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-[13px] shrink-0">
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />Record Payment
-        </button>
-      </div>
-
-      {/* Receivables */}
-      {filteredRcv.length > 0 && (
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Outstanding receivables</p>
-          <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead><tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Project','Client','Milestone','Amount','Status','Age',''].map(h => (
-                    <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody>
-                  {filteredRcv.map(r => {
-                    const cfg = RCV_STATUS[r.paymentStatus] ?? RCV_STATUS.pending;
-                    return (
-                      <tr key={r.id} className="hover:bg-[var(--surface-muted)] cursor-pointer" style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                        onClick={() => router.push(`/payments/${r.id}`)}>
-                        <td className="px-4 py-3"><span className="font-medium" style={{ color: 'var(--text-heading)' }}>{r.projectName}</span></td>
-                        <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{r.clientName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}</td>
-                        <td className="px-4 py-3 text-sm" style={{ color: 'var(--text-secondary)' }}>{r.label}</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>{formatRupees(r.amountPaise)}</td>
-                        <td className="px-4 py-3"><span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span></td>
-                        <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>{r.daysSinceCreation}d</td>
-                        <td className="px-4 py-3 text-right"><ArrowUpRight className="h-4 w-4 ml-auto" style={{ color: 'var(--text-tertiary)' }} /></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payments received */}
-      {filteredPay.length > 0 && (
-        <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Payments received</p>
-          <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead><tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Date','Project','Invoice','Amount','Status','Source'].map(h => (
-                    <th key={h} className="px-4 py-3 text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody>
-                  {filteredPay.map(p => {
-                    const cfg = PAY_STATUS[p.status] ?? PAY_STATUS.pending;
-                    return (
-                      <tr key={p.id} className="hover:bg-[var(--surface-muted)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                        <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--text-secondary)' }}>{new Date(p.reconciledAt ?? p.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                        <td className="px-4 py-3">{p.projectId && p.projectName ? <Link href={`/projects/${p.projectId}`} className="font-medium hover:underline" style={{ color: 'var(--text-heading)' }}>{p.projectName}</Link> : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}</td>
-                        <td className="px-4 py-3">{p.invoiceNumber ? <Link href={`/invoices/${p.invoiceId}`} className="font-mono text-xs hover:underline" style={{ color: 'var(--text-primary)' }}>{p.invoiceNumber}</Link> : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}</td>
-                        <td className="px-4 py-3 text-right font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>{formatRupees(p.amountPaise)}</td>
-                        <td className="px-4 py-3"><span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span></td>
-                        <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{p.source === 'razorpay' ? <Zap className="h-3 w-3" style={{ color: '#3B82F6' }} /> : <HandCoins className="h-3 w-3" style={{ color: 'var(--text-tertiary)' }} />}{p.source === 'razorpay' ? 'Razorpay' : 'Manual'}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tally Export */}
-      {exportErr && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{exportErr}</div>}
-      <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-        <button type="button" onClick={() => setTally(!tallyOpen)}
-          className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left hover:bg-[var(--surface-muted)]">
-          <div className="flex items-center gap-3">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: '#ECFDF5' }}>
-              <FileSpreadsheet className="h-4 w-4" style={{ color: '#059669' }} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Tally Export</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Import sales &amp; receipt vouchers into Tally Prime</p>
-            </div>
-          </div>
-          <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform" style={{ color: 'var(--text-tertiary)', transform: tallyOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-        </button>
-        {tallyOpen && (
-          <div className="space-y-4 px-5 pb-5" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            <div className="flex flex-wrap items-end gap-3 pt-4">
-              {([{ lbl: 'From', val: tallyFrom, setter: setTFrom }, { lbl: 'To', val: tallyTo, setter: setTTo }] as const).map(({ lbl, val, setter }) => (
-                <div key={lbl} className="flex flex-col gap-1">
-                  <label className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{lbl}</label>
-                  <input type="date" value={val} onChange={e => setter(e.target.value)}
-                    className="h-9 rounded-lg border px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
-                    style={{ width: '160px', borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)' }} />
-                </div>
-              ))}
-              <div className="flex gap-1.5 pb-px">
-                {(['this-month','last-month','fy'] as const).map(p => (
-                  <button key={p} type="button" onClick={() => applyPreset(p)}
-                    className="rounded-lg border px-3 py-1.5 text-[12px] font-medium hover:bg-[var(--surface-muted)]"
-                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}>
-                    {p === 'this-month' ? 'This month' : p === 'last-month' ? 'Last month' : 'FY-to-date'}
-                  </button>
+      {outstanding.length === 0 ? (
+        <EmptyState icon={CheckCircle2} title="No outstanding vendor bills" sub="All vendor payments are up to date" />
+      ) : (
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                {['Vendor', 'PO #', 'Project', 'Total', 'Paid', 'Balance', 'Status', ''].map(h => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
+                    style={{ color: 'var(--text-tertiary)' }}>{h}</th>
                 ))}
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                { title: 'Sales Vouchers', desc: 'Invoices raised in range', csvKind: 'tally-sales-csv', xmlKind: 'tally-sales-xml' },
-                { title: 'Receipt Vouchers', desc: 'Payments captured in range', csvKind: 'tally-receipts-csv', xmlKind: 'tally-receipts-xml' },
-              ].map(({ title, desc, csvKind, xmlKind }) => (
-                <div key={title} className="flex items-center justify-between gap-4 rounded-xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>{title}</p>
-                    <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5">
-                    {[['CSV', csvKind], ['XML', xmlKind]].map(([lbl, kind]) => (
-                      <button key={lbl} type="button" onClick={() => dlTally(kind as string)} disabled={busyExp === kind}
-                        className="btn-primary inline-flex items-center gap-1.5 px-3 py-1.5 text-[12px] disabled:opacity-60">
-                        {busyExp === kind ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (lbl === 'CSV' ? <FileText className="h-3.5 w-3.5" /> : <FileSpreadsheet className="h-3.5 w-3.5" />)}
-                        {lbl}
+              </tr>
+            </thead>
+            <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+              {outstanding.map(po => {
+                const balance = po.total_amount_paise - po.paid_amount_paise;
+                return (
+                  <tr key={po.id}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ background: 'var(--surface-card)' }}
+                    onClick={() => window.location.href = `/vendor-payables/${po.id}`}>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ background: 'var(--warning-soft)' }}>
+                          <Building2 className="h-3.5 w-3.5" style={{ color: 'var(--warning-text)' }} />
+                        </div>
+                        <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{po.vendor_name}</p>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>{po.po_number}</td>
+                    <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{po.project_name}</td>
+                    <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{formatRupees(po.total_amount_paise)}</td>
+                    <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--success-text)' }}>{formatRupees(po.paid_amount_paise)}</td>
+                    <td className="px-5 py-3.5 font-bold tabular-nums" style={{ color: 'var(--warning-text)' }}>
+                      {formatRupees(balance)}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <StatusBadge module="pos" status={po.status} />
+                    </td>
+                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
+                      <button onClick={onRecordPayment}
+                        className="rounded-lg px-3 py-1.5 text-xs font-semibold"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                        Pay
                       </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Expenses Tab ──────────────────────────────────────────────────────────────
-
-const EXP_CAT_CFG: Record<string, { label: string; bg: string; color: string; dot: string; bar: string }> = {
-  petty_cash: { label: 'Petty Cash', bg: '#F8FAFC', color: '#64748B', dot: '#94A3B8', bar: '#94A3B8' },
-  transport:  { label: 'Transport',  bg: '#EFF6FF', color: '#2563EB', dot: '#3B82F6', bar: '#3B82F6' },
-  labour:     { label: 'Labour',     bg: '#FFF7ED', color: '#C2410C', dot: '#F97316', bar: '#F97316' },
-  material:   { label: 'Material',   bg: '#F5F3FF', color: '#7C3AED', dot: '#8B5CF6', bar: '#8B5CF6' },
-  other:      { label: 'Other',      bg: '#F0FDF4', color: '#15803D', dot: '#22C55E', bar: '#22C55E' },
-};
-
-function ExpCatBadge({ category }: { category: string }) {
-  const cfg = EXP_CAT_CFG[category] ?? EXP_CAT_CFG.other;
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap"
-      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.dot}30` }}>
-      <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
-      {cfg.label}
-    </span>
-  );
-}
+// ─── Expenses Tab ─────────────────────────────────────────────────────────────
 
 function ExpensesTab() {
-  const router = useRouter();
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [catFilter, setCat]   = useState('');
-  const [search, setSearch]   = useState('');
+  const [catFilter, setCat]   = useState<string>('all');
 
-  // Log Expense modal
-  const [logOpen, setLogOpen]         = useState(false);
-  const [logProjList, setLogProjList] = useState<ProjOption[]>([]);
-  const [logProjLd, setLogProjLd]     = useState(false);
-  const [logProjId, setLogProjId]     = useState('');
-  const [logCat, setLogCat]           = useState<(typeof EXP_CATEGORIES)[number]>('other');
-  const [logVendor, setLogVendor]         = useState('');
-  const [logVendorId, setLogVendorId]     = useState('');
-  const [logVendorList, setLogVendorList] = useState<{ id: string; name: string }[]>([]);
-  const [logAmount, setLogAmount]         = useState('');
-  const [logGstPct, setLogGstPct]         = useState(0);
-  const [logDesc, setLogDesc]             = useState('');
-  const [logSaving, setLogSaving]         = useState(false);
-  const [logError, setLogError]           = useState<string | null>(null);
-
-  const fetchExpenses = useCallback(() => {
+  useEffect(() => {
     setLoading(true);
-    fetch('/api/v1/expenses').then(r => r.json())
+    fetch('/api/v1/expenses')
+      .then(r => r.json())
       .then(b => setRows((b.data ?? []) as ExpenseRow[]))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+  const CATS = ['all', 'petty_cash', 'transport', 'labour', 'material', 'other'];
+  const filtered  = rows.filter(r => catFilter === 'all' || r.category === catFilter);
+  const totalAll  = rows.reduce((s, r) => s + r.amountPaise, 0);
+  const totalFilt = filtered.reduce((s, r) => s + r.amountPaise, 0);
 
-  function openLogExp() {
-    setLogOpen(true); setLogProjId(''); setLogCat('other'); setLogVendor(''); setLogVendorId('');
-    setLogAmount(''); setLogGstPct(0); setLogDesc(''); setLogError(null); setLogProjLd(true);
-    fetch('/api/v1/projects').then(r => r.json())
-      .then(b => setLogProjList(Array.isArray(b.data) ? b.data : (b.data?.rows ?? [])))
-      .catch(() => {})
-      .finally(() => setLogProjLd(false));
-    fetch('/api/v1/vendors').then(r => r.json())
-      .then(b => setLogVendorList(Array.isArray(b.data) ? b.data : []))
-      .catch(() => {});
-  }
-
-  async function submitLogExp() {
-    setLogError(null);
-    if (!logProjId) { setLogError('Please select a project'); return; }
-    const basePaise    = Math.round(parseFloat(logAmount || '0') * 100);
-    if (basePaise <= 0) { setLogError('Enter a valid amount'); return; }
-    const gstAmtPaise  = logGstPct > 0 ? Math.round(basePaise * logGstPct / 100) : 0;
-    const amtPaise     = basePaise + gstAmtPaise;
-    setLogSaving(true);
-    try {
-      const res = await fetch('/api/v1/expenses', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          projectId: logProjId, category: logCat,
-          amountPaise: amtPaise, gstPct: logGstPct, gstAmountPaise: gstAmtPaise,
-          description: logDesc.trim() || undefined,
-          vendorName: logVendor.trim() || undefined,
-          vendorId:   logVendorId || undefined,
-        }),
-      });
-      const body = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(body.error ?? 'Failed');
-      setLogOpen(false); fetchExpenses();
-    } catch (e) {
-      setLogError(e instanceof Error ? e.message : 'Failed');
-    } finally { setLogSaving(false); }
-  }
-
-  // ── Derived stats ──────────────────────────────────────────────────────────
-  const totalPaise = rows.reduce((s, r) => s + r.amountPaise, 0);
-
-  const now = new Date();
-  const thisMonthPaise = rows
-    .filter(e => { const d = new Date(e.createdAt); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth(); })
-    .reduce((s, e) => s + e.amountPaise, 0);
-
-  const catTotals = useMemo(() =>
-    EXP_CATEGORIES.map(cat => ({
-      category: cat,
-      totalPaise: rows.filter(r => r.category === cat).reduce((s, r) => s + r.amountPaise, 0),
-    })).filter(c => c.totalPaise > 0).sort((a, b) => b.totalPaise - a.totalPaise),
-  [rows]);
-
-  const topCat = catTotals[0] ?? null;
-  const vendorCount = new Set(rows.map(r => r.vendorName).filter(Boolean)).size;
-  const maxCatTotal = catTotals[0]?.totalPaise ?? 1;
-
-  // ── Filtered rows ──────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return rows.filter(r => {
-      const matchCat = !catFilter || r.category === catFilter;
-      const matchQ   = !q || (r.description ?? '').toLowerCase().includes(q) || (r.vendorName ?? '').toLowerCase().includes(q);
-      return matchCat && matchQ;
-    });
-  }, [rows, catFilter, search]);
-
-  // ── GST live calc for modal ────────────────────────────────────────────────
-  const logBase   = parseFloat(logAmount);
-  const logGstAmt = (!isNaN(logBase) && logBase > 0 && logGstPct > 0) ? logBase * logGstPct / 100 : 0;
-  const logTotal  = (!isNaN(logBase) && logBase > 0) ? logBase + logGstAmt : 0;
+  // Category breakdown
+  const catTotals = CATS.slice(1).map(c => ({
+    key: c,
+    label: EXP_LABEL[c] ?? c,
+    paise: rows.filter(r => r.category === c).reduce((s, r) => s + r.amountPaise, 0),
+  })).filter(c => c.paise > 0).sort((a, b) => b.paise - a.paise);
 
   return (
     <div className="space-y-5">
-      {/* Log Expense modal */}
-      {logOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => !logSaving && setLogOpen(false)} />
-          <div className="relative mx-4 w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div>
-                <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Expense</h2>
-                <p className="mt-0.5 text-xs" style={{ color: 'var(--text-secondary)' }}>Record a project expense or overhead</p>
-              </div>
-              <button onClick={() => !logSaving && setLogOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--surface-muted)]"
-                style={{ color: 'var(--text-secondary)' }}>
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Project *</label>
-                {logProjLd ? <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Loading…</p> : (
-                  <select value={logProjId} onChange={e => setLogProjId(e.target.value)} className={inputCls}>
-                    <option value="">Select a project…</option>
-                    {logProjList.map(p => {
-                      const c = p.customerFullName ?? p.leadContactName ?? null;
-                      return <option key={p.id} value={p.id}>{p.name}{c ? ` — ${c}` : ''}</option>;
-                    })}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Category *</label>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {EXP_CATEGORIES.map(c => {
-                    const cfg = EXP_CAT_CFG[c];
-                    const active = logCat === c;
-                    return (
-                      <button key={c} type="button" onClick={() => setLogCat(c)}
-                        className="flex items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-medium transition-all"
-                        style={{
-                          borderColor: active ? cfg.dot : 'transparent',
-                          background:  active ? cfg.bg : 'var(--surface-muted)',
-                          color:       active ? cfg.color : 'var(--text-secondary)',
-                        }}>
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: active ? cfg.dot : 'var(--text-tertiary)' }} />
-                        {cfg.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Amount excl. GST (₹) *</label>
-                  <input type="number" min="0.01" step="0.01" value={logAmount}
-                    onChange={e => setLogAmount(e.target.value)} className={inputCls} placeholder="e.g. 5000" />
-                </div>
-                <div>
-                  <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>GST rate</label>
-                  <select value={logGstPct} onChange={e => setLogGstPct(Number(e.target.value))} className={inputCls}>
-                    {[0, 5, 12, 18, 28].map(r => <option key={r} value={r}>{r}%</option>)}
-                  </select>
-                </div>
-              </div>
-              {/* Live GST breakdown */}
-              {!isNaN(logBase) && logBase > 0 && (
-                <div className="rounded-xl px-4 py-3 text-xs space-y-1.5" style={{ background: 'var(--surface-muted)' }}>
-                  <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
-                    <span>Base amount</span>
-                    <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                      ₹{logBase.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                  {logGstPct > 0 && (
-                    <div className="flex justify-between" style={{ color: 'var(--text-secondary)' }}>
-                      <span>GST ({logGstPct}%)</span>
-                      <span className="font-medium text-amber-600">
-                        + ₹{logGstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t pt-1.5 font-semibold"
-                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
-                    <span>Total paid</span>
-                    <span>₹{logTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Vendor (registered)</label>
-                <select value={logVendorId} onChange={e => {
-                  const sel = e.target.value;
-                  setLogVendorId(sel);
-                  if (sel) {
-                    const v = logVendorList.find(v => v.id === sel);
-                    if (v) setLogVendor(v.name);
-                  }
-                }} className={inputCls}>
-                  <option value="">Not in vendor list</option>
-                  {logVendorList.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Vendor / paid to</label>
-                <input type="text" value={logVendor} onChange={e => setLogVendor(e.target.value)}
-                  className={inputCls} placeholder="Vendor name or payee" />
-              </div>
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>Description</label>
-                <input type="text" value={logDesc} onChange={e => setLogDesc(e.target.value)}
-                  className={inputCls} placeholder="Brief description of the expense" />
-              </div>
-              {logError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{logError}</p>}
-            </div>
-            <div className="flex items-center justify-between border-t px-6 py-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)' }}>
-              <button onClick={() => !logSaving && setLogOpen(false)}
-                className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--surface-card)]"
-                style={{ color: 'var(--text-secondary)' }}>Cancel</button>
-              <button onClick={submitLogExp} disabled={logSaving || !logProjId}
-                className="btn-primary inline-flex items-center gap-1.5 px-4 py-2 text-[13px] disabled:opacity-40">
-                {logSaving ? 'Saving…' : <><Check className="h-3.5 w-3.5" strokeWidth={2.25} />Save Expense</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <KpiCard label="Total Expenses" value={formatRupees(totalAll)} accent="var(--danger)" icon={TrendingDown} />
+        <KpiCard label="Showing" value={formatRupees(totalFilt)}
+          sub={catFilter === 'all' ? 'all categories' : (EXP_LABEL[catFilter] ?? catFilter)} />
+      </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          {rows.length > 0 && (
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {rows.length} {rows.length === 1 ? 'entry' : 'entries'} · {formatRupees(totalPaise)} booked
-            </p>
+      <div className="flex flex-col gap-5 lg:flex-row">
+        {/* Main table */}
+        <div className="flex-1 space-y-3 min-w-0">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            {CATS.map(c => (
+              <button key={c} onClick={() => setCat(c)}
+                className="rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
+                style={{
+                  background: catFilter === c ? 'var(--accent-base)' : 'var(--surface-muted)',
+                  color:      catFilter === c ? '#fff'                : 'var(--text-secondary)',
+                }}>
+                {c === 'all' ? 'All' : EXP_LABEL[c] ?? c}
+              </button>
+            ))}
+          </div>
+
+          {loading ? <TabSkeleton /> : filtered.length === 0 ? (
+            <EmptyState icon={Receipt} title="No expenses found" sub="Logged expenses will appear here" />
+          ) : (
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    {['Date', 'Description', 'Category', 'Vendor', 'GST', 'Amount', 'Status'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
+                        style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {filtered.map(r => (
+                    <tr key={r.id}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ background: 'var(--surface-card)' }}
+                      onClick={() => window.location.href = `/expenses/${r.id}`}>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                        {fmtDate(r.paidAt ?? r.createdAt)}
+                      </td>
+                      <td className="px-5 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {r.description ?? '—'}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                          style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+                          {EXP_LABEL[r.category] ?? r.category}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {r.vendorName ?? '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {r.gstPct > 0 ? `${r.gstPct}%` : '—'}
+                      </td>
+                      <td className="px-5 py-3.5 font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                        {formatRupees(r.amountPaise)}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        {r.paidAt
+                          ? <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                              style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>Paid</span>
+                          : <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
+                              style={{ background: 'var(--warning-soft)', color: 'var(--warning-text)' }}>Unpaid</span>
+                        }
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-        <button onClick={openLogExp}
-          className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 shrink-0"
-          style={{ background: 'var(--text-heading)' }}>
-          <Plus className="h-4 w-4" strokeWidth={2.25} />Record Expense
-        </button>
-      </div>
 
-      {/* 4 KPI cards */}
-      {rows.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#FEF3CD' }}>
-              <TrendingDown className="h-5 w-5" style={{ color: '#D97706' }} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Total Expenses</p>
-              <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{formatRupees(totalPaise)}</p>
-            </div>
-          </div>
-          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'var(--accent-soft)' }}>
-              <Calendar className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>This Month</p>
-              <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>
-                {thisMonthPaise > 0 ? formatRupees(thisMonthPaise) : '—'}
+        {/* Category sidebar */}
+        {catTotals.length > 0 && (
+          <div className="w-full lg:w-56 shrink-0">
+            <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-tertiary)' }}>
+                By category
               </p>
-            </div>
-          </div>
-          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: topCat ? EXP_CAT_CFG[topCat.category]?.bg ?? 'var(--surface-muted)' : 'var(--surface-muted)' }}>
-              <Tag className="h-5 w-5" style={{ color: topCat ? EXP_CAT_CFG[topCat.category]?.dot ?? 'var(--text-tertiary)' : 'var(--text-tertiary)' }} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Top Category</p>
-              {topCat ? (
-                <>
-                  <p className="text-base font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>
-                    {EXP_CAT_CFG[topCat.category]?.label ?? topCat.category}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{formatRupees(topCat.totalPaise)}</p>
-                </>
-              ) : <p className="text-base font-bold mt-0.5" style={{ color: 'var(--text-tertiary)' }}>—</p>}
-            </div>
-          </div>
-          <div className="rounded-2xl p-4 flex items-start gap-3" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F0FDF4' }}>
-              <Users className="h-5 w-5" style={{ color: '#16A34A' }} />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Vendors</p>
-              <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-heading)' }}>{vendorCount}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl border p-16 text-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-          <Receipt className="mx-auto mb-3 h-12 w-12" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-heading)' }}>No expenses yet</p>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-secondary)' }}>Record your first expense to get started.</p>
-          <button onClick={openLogExp}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white"
-            style={{ background: 'var(--text-heading)' }}>
-            <Plus className="h-4 w-4" />Record Expense
-          </button>
-        </div>
-      ) : (
-        <div className="flex gap-5 items-start">
-          {/* Table + filter */}
-          <div className="flex-1 min-w-0 space-y-3">
-            {/* Filter bar */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
-                <input type="text" placeholder="Search description or vendor…" value={search} onChange={e => setSearch(e.target.value)}
-                  className="h-9 w-full rounded-xl border pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
-                  style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)' }} />
+              <div className="space-y-3">
+                {catTotals.map(c => {
+                  const pct = totalAll > 0 ? Math.round((c.paise / totalAll) * 100) : 0;
+                  return (
+                    <div key={c.key}>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{c.label}</p>
+                        <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                          {formatRupees(c.paise)}
+                        </p>
+                      </div>
+                      <div className="h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
+                        <div className="h-1.5 rounded-full"
+                          style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+                      </div>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{pct}% of total</p>
+                    </div>
+                  );
+                })}
               </div>
-              <select value={catFilter} onChange={e => setCat(e.target.value)}
-                className="h-9 rounded-xl border px-3 pr-8 text-sm outline-none"
-                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)', color: 'var(--text-heading)', minWidth: '150px' }}>
-                <option value="">All categories</option>
-                {EXP_CATEGORIES.map(c => <option key={c} value={c}>{EXP_LABEL[c]}</option>)}
-              </select>
-            </div>
-
-            {/* Table */}
-            <div className="rounded-2xl border" style={{ borderColor: 'var(--border-subtle)', overflow: 'clip' }}>
-              {filtered.length === 0 ? (
-                <div className="py-10 text-center">
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No expenses match your filter.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead><tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                        {['Date','Description','Category','Vendor','Amount','Receipt'].map((h, i) => (
-                          <th key={h} className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide${i === 4 ? ' text-right' : ''}`}
-                            style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                        ))}
-                      </tr></thead>
-                      <tbody>
-                        {filtered.map((e, idx) => (
-                          <tr key={e.id} className="hover:bg-[var(--surface-muted)] cursor-pointer"
-                            style={{ borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
-                            onClick={() => router.push(`/expenses/${e.id}`)}>
-                            <td className="px-4 py-3.5 tabular-nums text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                              {new Date(e.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </td>
-                            <td className="px-4 py-3.5 text-xs font-medium" style={{ color: 'var(--text-heading)', maxWidth: '180px' }}>
-                              {e.description
-                                ? <span className="line-clamp-1">{e.description}</span>
-                                : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              <ExpCatBadge category={e.category} />
-                            </td>
-                            <td className="px-4 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                              {e.vendorName ?? <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                            </td>
-                            <td className="px-4 py-3.5 text-right">
-                              <span className="font-bold tabular-nums text-sm" style={{ color: '#EA580C' }}>
-                                {formatRupees(e.amountPaise)}
-                              </span>
-                              {e.gstPct > 0 && (
-                                <div className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>incl. {e.gstPct}% GST</div>
-                              )}
-                            </td>
-                            <td className="px-4 py-3.5">
-                              {e.receiptUrl
-                                ? <a href={e.receiptUrl} target="_blank" rel="noopener noreferrer" onClick={ev => ev.stopPropagation()}
-                                    className="inline-flex items-center gap-1 text-xs font-medium hover:opacity-70"
-                                    style={{ color: 'var(--accent-base)' }}><Download className="h-3.5 w-3.5" />View</a>
-                                : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="flex items-center justify-between px-4 py-3"
-                    style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                      {filtered.length} {filtered.length === 1 ? 'entry' : 'entries'}
-                    </span>
-                    <span className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
-                      {formatRupees(filtered.reduce((s, r) => s + r.amountPaise, 0))}
-                    </span>
-                  </div>
-                </>
-              )}
             </div>
           </div>
-
-          {/* Right sidebar: By category */}
-          <div className="w-52 flex-shrink-0 rounded-2xl p-5 space-y-4 sticky top-4"
-            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-            <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>By category</p>
-            <div className="space-y-3.5">
-              {catTotals.map(({ category, totalPaise: catTotal }) => {
-                const cfg  = EXP_CAT_CFG[category] ?? EXP_CAT_CFG.other;
-                const barW = Math.round((catTotal / maxCatTotal) * 100);
-                const pct  = Math.round((catTotal / totalPaise) * 100);
-                const disp = catTotal >= 100000
-                  ? `₹${(catTotal / 100000).toFixed(1)}L`
-                  : catTotal >= 1000
-                  ? `₹${(catTotal / 100 / 1000).toFixed(1)}K`
-                  : formatRupees(catTotal);
-                return (
-                  <div key={category}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{cfg.label}</span>
-                      <span className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>{disp}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${barW}%`, background: cfg.bar }} />
-                    </div>
-                    <p className="text-[10px] mt-1" style={{ color: 'var(--text-tertiary)' }}>{pct}% of total</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Vendor Payables Tab ───────────────────────────────────────────────────────
+// ─── GST Tab ──────────────────────────────────────────────────────────────────
 
-function VendorPayablesTab() {
-  const [rows, setRows]       = useState<VendorPayable[]>([]);
-  const [loading, setLoading] = useState(true);
+function GstTab() {
+  const now = new Date();
+  const [year,  setYear]  = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [data,  setData]  = useState<GstData | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch('/api/v1/finance/vendor-payables').then(r => r.json())
-      .then(b => setRows((b.data ?? []) as VendorPayable[]))
+    setLoading(true);
+    fetch(`/api/v1/finance/gst?year=${year}&month=${month}`)
+      .then(r => r.json())
+      .then(b => setData(b.data ?? null))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [year, month]);
 
-  const totalNetPaise = rows.reduce((s, r) => s + r.netPayablePaise, 0);
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard label="Total net payable" value={formatRupees(totalNetPaise)} icon={Truck} iconBg="#FEF3CD" iconColor="#D97706" />
-        <StatCard label="Vendors" value={String(rows.length)} icon={IndianRupee} iconBg="var(--surface-muted)" iconColor="var(--text-tertiary)" />
+
+      {/* Month + year picker */}
+      <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
+        <div className="flex flex-wrap items-center gap-2">
+          {MONTHS.map((m, i) => (
+            <button key={m} onClick={() => setMonth(i + 1)}
+              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+              style={{
+                background: month === i + 1 ? 'var(--accent-base)' : 'var(--surface-muted)',
+                color:      month === i + 1 ? '#fff'                : 'var(--text-secondary)',
+              }}>
+              {m}
+            </button>
+          ))}
+          <input type="number" value={year} min={2020} max={2099}
+            onChange={e => setYear(Number(e.target.value))}
+            className="ml-auto w-20 rounded-lg border px-3 py-1.5 text-xs text-center font-semibold"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-page)', color: 'var(--text-primary)' }} />
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-2xl border p-12 text-center" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-          <Truck className="mx-auto mb-3 h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>No open purchase orders</p>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead><tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Vendor','POs','Ordered value','Advance paid','Net payable'].map((h, i) => (
-                  <th key={h} className={`px-4 py-3 text-[11px] font-bold uppercase tracking-wide${i >= 2 ? ' text-right' : ''}`} style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.vendorId} className="hover:bg-[var(--surface-muted)]" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                    <td className="px-4 py-3 font-medium" style={{ color: 'var(--text-heading)' }}>
-                      <Link href="/vendors" className="hover:underline">{r.vendorName}</Link>
-                    </td>
-                    <td className="px-4 py-3 tabular-nums text-sm" style={{ color: 'var(--text-secondary)' }}>{r.poCount}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-medium" style={{ color: 'var(--text-heading)' }}>{formatRupees(r.totalOrderedPaise)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums text-sm" style={{ color: 'var(--text-secondary)' }}>{formatRupees(r.advancePaidPaise)}</td>
-                    <td className="px-4 py-3 text-right tabular-nums font-bold" style={{ color: r.netPayablePaise > 0 ? '#D97706' : 'var(--text-heading)' }}>
-                      {formatRupees(r.netPayablePaise)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {loading ? <TabSkeleton /> : data ? (
+        <>
+          {/* Summary KPIs */}
+          <div className="grid grid-cols-3 gap-3">
+            <KpiCard
+              label="Output Tax Collected" value={formatRupees(data.summary.outputPaise)}
+              accent="var(--danger)" icon={TrendingUp}
+              sub={`CGST ${formatRupees(data.summary.cgstPaise)} + SGST ${formatRupees(data.summary.sgstPaise)}`}
+            />
+            <KpiCard
+              label="Input Credit (ITC)" value={formatRupees(data.summary.inputPaise)}
+              accent="var(--success)" icon={TrendingDown}
+            />
+            <KpiCard
+              label={data.summary.netPaise >= 0 ? 'Net Payable' : 'Net Refund'}
+              value={formatRupees(Math.abs(data.summary.netPaise))}
+              accent={data.summary.netPaise > 0 ? 'var(--danger)' : 'var(--success)'}
+              icon={BarChart3}
+            />
           </div>
-        </div>
+
+          {/* GSTR-3B summary box */}
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+            <div className="px-5 py-3 flex items-center gap-2"
+              style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+              <BarChart3 className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+              <p className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>GSTR-3B — Net payable this month</p>
+            </div>
+            <div className="grid grid-cols-2 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="px-5 py-4 space-y-2" style={{ background: 'var(--surface-card)' }}>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>Output</p>
+                {[
+                  { label: 'CGST', val: data.summary.cgstPaise },
+                  { label: 'SGST', val: data.summary.sgstPaise },
+                  { label: 'IGST', val: data.summary.igstPaise },
+                ].map(row => (
+                  <div key={row.label} className="flex justify-between text-xs">
+                    <span style={{ color: 'var(--text-secondary)' }}>{row.label}</span>
+                    <span className="font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                      {formatRupees(row.val)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="px-5 py-4 space-y-2" style={{ background: 'var(--surface-card)' }}>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-tertiary)' }}>Input Credit</p>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: 'var(--text-secondary)' }}>ITC available</span>
+                  <span className="font-semibold tabular-nums" style={{ color: 'var(--success-text)' }}>
+                    {formatRupees(data.summary.inputPaise)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>Net payable</span>
+                  <span className="font-bold tabular-nums"
+                    style={{ color: data.summary.netPaise > 0 ? 'var(--danger)' : 'var(--success-text)' }}>
+                    {formatRupees(Math.abs(data.summary.netPaise))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Output invoices table */}
+          {data.outputRows.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                Output tax — issued invoices
+              </p>
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                      {['Invoice #', 'Project', 'Date', 'Taxable', 'CGST', 'SGST', 'IGST'].map(h => (
+                        <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
+                          style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {data.outputRows.map(r => (
+                      <tr key={r.id} className="cursor-pointer hover:opacity-80"
+                        style={{ background: 'var(--surface-card)' }}
+                        onClick={() => window.location.href = `/invoices/${r.id}`}>
+                        <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--accent-base)' }}>{r.invoiceNumber}</td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.projectName ?? '—'}</td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{fmtDate(r.issuedAt)}</td>
+                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.subtotalPaise)}</td>
+                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.cgstPaise)}</td>
+                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.sgstPaise)}</td>
+                        <td className="px-5 py-3 text-xs tabular-nums">{formatRupees(r.igstPaise)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Input expenses table */}
+          {data.inputRows.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                Input credit — expenses with GST
+              </p>
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                      {['Exp #', 'Description', 'Category', 'GST %', 'GST Amount'].map(h => (
+                        <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
+                          style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    {data.inputRows.map(r => (
+                      <tr key={r.id} className="cursor-pointer hover:opacity-80"
+                        style={{ background: 'var(--surface-card)' }}
+                        onClick={() => window.location.href = `/expenses/${r.id}`}>
+                        <td className="px-5 py-3 font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{EXP_LABEL[r.category] ?? r.category}</td>
+                        <td className="px-5 py-3 text-xs">{r.gstPct}%</td>
+                        <td className="px-5 py-3 text-xs font-bold tabular-nums" style={{ color: 'var(--success-text)' }}>
+                          {formatRupees(r.gstAmountPaise)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {data.outputRows.length === 0 && data.inputRows.length === 0 && (
+            <EmptyState icon={BarChart3} title="No GST activity" sub="No invoices issued or expenses with GST this month" />
+          )}
+
+          <p className="text-xs rounded-xl px-4 py-3"
+            style={{ background: 'var(--warning-soft)', color: 'var(--warning-text)' }}>
+            ⚠ Estimate only — carry-forward credits, RCM liability, and prior-period advances are not reflected. Confirm final figures with your CA.
+          </p>
+        </>
+      ) : (
+        <EmptyState icon={BarChart3} title="No data for this period" sub="Select a different month or year" />
       )}
     </div>
   );
 }
 
-// ─── Shared stat card ──────────────────────────────────────────────────────────
-
-function StatCard({ label, value, sub, icon: Icon, iconBg, iconColor, valueColor }: {
-  label: string; value: string; sub?: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  iconBg: string; iconColor: string; valueColor?: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border p-3.5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ background: iconBg }}>
-        <Icon className="h-4 w-4" style={{ color: iconColor }} />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
-        <p className="text-lg font-bold tabular-nums leading-tight" style={{ color: valueColor ?? 'var(--text-heading)' }}>{value}</p>
-        {sub && <p className="truncate text-[10px]" style={{ color: 'var(--text-secondary)' }}>{sub}</p>}
-      </div>
-    </div>
-  );
-}
-
-// ─── Page ──────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function FinancePage() {
-  const [activeTab, setTab] = useState<Tab>('invoices');
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const tab          = (searchParams.get('tab') ?? 'overview') as Tab;
+
+  const [overview, setOverview]   = useState<OverviewData | null>(null);
+  const [ovLoading, setOvL]       = useState(true);
+  const [globalDrawer, setGlobal] = useState(false);
+  const [tallyOpen, setTallyOpen] = useState(false);
+  const tallyRef = useRef<HTMLDivElement>(null);
+
+  const fetchOverview = useCallback(() => {
+    setOvL(true);
+    fetch('/api/v1/finance/overview')
+      .then(r => r.json())
+      .then(b => setOverview(b.data ?? null))
+      .catch(() => {})
+      .finally(() => setOvL(false));
+  }, []);
+
+  // Initial load + 30-second auto-refresh
+  useEffect(() => {
+    fetchOverview();
+    const interval = setInterval(fetchOverview, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchOverview]);
+
+  useEffect(() => {
+    if (!tallyOpen) return;
+    const h = (e: MouseEvent) => { if (!tallyRef.current?.contains(e.target as Node)) setTallyOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [tallyOpen]);
+
+  function setTab(t: Tab) { router.push(`/finance?tab=${t}`); }
+
+  const activeTab = TABS.find(t => t.key === tab) ?? TABS[0];
 
   return (
-    <div className="space-y-0">
-      {/* Header */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 px-8 py-6" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-        <div>
-          <h1 className="page-title">Finance</h1>
-          <p className="page-subtitle">Invoices · Payments · Expenses · Vendor payables</p>
-        </div>
-      </header>
+    <div className="flex flex-col min-h-full" style={{ background: 'var(--surface-page)' }}>
 
-      {/* Tab bar */}
-      <div className="flex gap-0 overflow-x-auto border-b px-8" style={{ borderColor: 'var(--border-subtle)' }}>
-        {TABS.map(({ key, label, icon: Icon }) => {
-          const active = activeTab === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap"
-              style={{
-                borderBottomColor: active ? 'var(--accent-base)' : 'transparent',
-                color: active ? 'var(--accent-base)' : 'var(--text-secondary)',
-              }}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
+      {/* ── Page header ─────────────────────────────────────────── */}
+      <div className="px-6 pt-6 pb-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl flex items-center justify-center"
+                style={{ background: 'var(--accent-soft)' }}>
+                <Wallet className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />
+              </div>
+              <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>Accounts</h1>
+            </div>
+            <p className="text-xs mt-1 ml-11" style={{ color: 'var(--text-tertiary)' }}>
+              {activeTab.label} — every rupee in and out, at a glance
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Tally export */}
+            <div ref={tallyRef} className="relative">
+              <button onClick={() => setTallyOpen(o => !o)}
+                className="flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}>
+                <FileSpreadsheet className="h-4 w-4" />
+                Export
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {tallyOpen && (
+                <div className="absolute right-0 top-11 z-30 min-w-[180px] rounded-xl border py-1 shadow-xl"
+                  style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+                  <Link href="/api/v1/accounts/tally-export?format=xml" target="_blank"
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:opacity-70"
+                    style={{ color: 'var(--text-primary)' }}>
+                    <Download className="h-3.5 w-3.5" /> Tally XML
+                  </Link>
+                  <Link href="/api/v1/accounts/tally-export?format=csv" target="_blank"
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:opacity-70"
+                    style={{ color: 'var(--text-primary)' }}>
+                    <FileSpreadsheet className="h-3.5 w-3.5" /> CSV
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => setGlobal(true)}
+              className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-opacity hover:opacity-90"
+              style={{ background: 'var(--accent-base)', color: '#fff' }}>
+              <Plus className="h-4 w-4" /> Record payment
             </button>
-          );
-        })}
+          </div>
+        </div>
+
+        {/* ── Tab bar (underline style) ──────────────────────────── */}
+        <div className="flex gap-0 overflow-x-auto" style={{ borderBottom: '2px solid var(--border-subtle)' }}>
+          {TABS.map(t => {
+            const Icon   = t.icon;
+            const active = tab === t.key;
+            return (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className="relative flex items-center gap-2 px-5 py-3 text-sm font-semibold whitespace-nowrap transition-colors"
+                style={{ color: active ? 'var(--accent-base)' : 'var(--text-secondary)' }}>
+                <Icon className="h-4 w-4" />
+                {t.label}
+                {active && (
+                  <span className="absolute bottom-[-2px] left-0 right-0 h-0.5 rounded-full"
+                    style={{ background: 'var(--accent-base)' }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Tab content */}
-      <div className="p-6">
-        {activeTab === 'invoices'        && <InvoicesTab />}
-        {activeTab === 'payments'        && <PaymentsTab />}
-        {activeTab === 'expenses'        && <ExpensesTab />}
-        {activeTab === 'vendor_payables' && <VendorPayablesTab />}
+      {/* ── Tab content ─────────────────────────────────────────── */}
+      <div className="flex-1 px-6 py-6">
+        {tab === 'overview'   && <OverviewTab data={ovLoading ? null : overview} onRecordPayment={() => setGlobal(true)} />}
+        {tab === 'to-collect' && <ToCollectTab onRefresh={() => { fetchOverview(); }} />}
+        {tab === 'received'   && <ReceivedTab  onOpen={() => setGlobal(true)} />}
+        {tab === 'to-pay'     && <ToPayTab     data={ovLoading ? null : overview} onRecordPayment={() => setGlobal(true)} />}
+        {tab === 'expenses'   && <ExpensesTab />}
+        {tab === 'gst'        && <GstTab />}
       </div>
+
+      {/* Global record-payment drawer */}
+      <RecordPaymentDrawer
+        open={globalDrawer}
+        onClose={() => setGlobal(false)}
+        onSuccess={() => { setGlobal(false); fetchOverview(); }}
+      />
     </div>
   );
 }

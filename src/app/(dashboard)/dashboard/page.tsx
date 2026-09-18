@@ -7,9 +7,10 @@ import {
   Target, CheckCircle2, AlertCircle, Clock, ChevronRight,
   Calendar, MapPin, Home,
   CheckSquare, Truck, Activity, Bell,
-  Plus, UserCheck, Plane, ListTodo,
+  Plus, UserCheck, Plane, ListTodo, Loader2, ArrowRight,
 } from 'lucide-react';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
+import { ThreeParticleCanvas } from '@/components/ui/ThreeParticleCanvas';
 import type { Lead } from '@/types/leads';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -328,110 +329,165 @@ function MyTasksWidget({
   myUserId: string;
   onTasksChange: (tasks: Task[]) => void;
 }) {
+  const [patching, setPatching] = useState<string | null>(null);
+
   async function patchStatus(task: Task, newStatus: 'in_progress' | 'done') {
-    const res = await fetch(`/api/v1/tasks/${task.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
-    });
-    if (!res.ok) return;
-    // Remove 'done' tasks from the active list; update status for in_progress
-    if (newStatus === 'done') {
-      onTasksChange(myTasks.filter(t => t.id !== task.id));
-    } else {
-      const json = await res.json();
-      onTasksChange(myTasks.map(t => t.id === task.id ? { ...t, ...json.data } : t));
-    }
+    setPatching(task.id);
+    try {
+      const res = await fetch(`/api/v1/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) return;
+      if (newStatus === 'done') {
+        onTasksChange(myTasks.filter(t => t.id !== task.id));
+      } else {
+        const json = await res.json();
+        onTasksChange(myTasks.map(t => t.id === task.id ? { ...t, ...json.data } : t));
+      }
+    } finally { setPatching(null); }
   }
+
+  const now           = new Date();
+  const todayEnd      = new Date(); todayEnd.setHours(23, 59, 59, 999);
+  const activeCount   = myTasks.length;
+  const overdueCount  = myTasks.filter(t => t.dueAt && new Date(t.dueAt) < now).length;
+  const dueTodayCount = myTasks.filter(t => {
+    if (!t.dueAt) return false;
+    const d = new Date(t.dueAt);
+    return d >= now && d <= todayEnd;
+  }).length;
 
   return (
     <div className="premium-card p-5">
-      <div className="flex items-center justify-between mb-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <CheckSquare className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
-          <h3 className="section-title">My Tasks</h3>
-          {myTasks.length > 0 && (
-            <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full text-[10px] font-bold"
-              style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-              {myTasks.length}
+          <h3 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>My Tasks</h3>
+        </div>
+        <Link href="/tasks"
+          className="flex items-center gap-1 text-[11px] font-semibold hover:underline"
+          style={{ color: 'var(--accent-base)' }}>
+          View all <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      {/* Summary chips */}
+      {!loading && activeCount > 0 && (
+        <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+          <span className="flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5"
+            style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--accent-base)' }} />
+            {activeCount} Active
+          </span>
+          {dueTodayCount > 0 && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5"
+              style={{ background: 'var(--warning-soft)', color: 'var(--warning-text)' }}>
+              <Clock className="h-2.5 w-2.5" />
+              {dueTodayCount} Due Today
+            </span>
+          )}
+          {overdueCount > 0 && (
+            <span className="flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5"
+              style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>
+              <AlertCircle className="h-2.5 w-2.5" />
+              {overdueCount} Overdue
             </span>
           )}
         </div>
-        <Link href="/tasks" className="text-xs font-semibold hover:underline" style={{ color: 'var(--accent-base)' }}>
-          All →
-        </Link>
-      </div>
+      )}
+
+      {/* Loading */}
       {loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map(i => <div key={i} className="skeleton h-10 rounded-lg" />)}
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-[52px] rounded-lg" />)}
         </div>
       ) : myTasks.length === 0 ? (
-        <p className="text-sm py-3" style={{ color: 'var(--text-secondary)' }}>No active tasks assigned to you.</p>
+        <div className="flex flex-col items-center py-5 text-center">
+          <div className="h-9 w-9 rounded-full flex items-center justify-center mb-2"
+            style={{ background: 'var(--success-soft)' }}>
+            <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success-text)' }} />
+          </div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>All clear!</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>No active tasks assigned to you</p>
+        </div>
       ) : (
         <div className="space-y-1.5">
           {myTasks.slice(0, 5).map(t => {
-            const overdue    = t.dueAt && new Date(t.dueAt) < new Date() && t.status !== 'done';
-            const isAssigned = t.createdBy && t.createdBy !== myUserId;
+            const dueDate    = t.dueAt ? new Date(t.dueAt) : null;
+            const overdue    = !!(dueDate && dueDate < now);
+            const dueToday   = !!(dueDate && !overdue && dueDate <= todayEnd);
+            const isAssigned = !!(t.createdBy && t.createdBy !== myUserId);
             const inProgress = t.status === 'in_progress';
+            const isPatching = patching === t.id;
+
+            const borderColor = overdue    ? 'var(--danger)'
+                              : inProgress ? 'var(--accent-base)'
+                              : dueToday   ? 'var(--warning-text)'
+                              : 'var(--border-subtle)';
+
             return (
               <div key={t.id}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2"
-                style={{
-                  backgroundColor: inProgress ? 'var(--accent-soft)' : 'var(--surface-muted)',
-                  border: inProgress ? '1px solid var(--accent-base)' : '1px solid transparent',
-                }}>
-                {/* Status badge */}
-                <span
-                  className="rounded-full px-2 py-0.5 text-[10px] font-bold flex-shrink-0"
-                  style={{
-                    backgroundColor: inProgress ? 'var(--accent-base)' : 'var(--surface-card)',
-                    color:           inProgress ? '#fff' : 'var(--text-tertiary)',
-                  }}>
-                  {inProgress ? 'In Progress' : 'Pending'}
-                </span>
+                className="rounded-lg px-3 py-2.5 flex items-center gap-2.5"
+                style={{ background: 'var(--surface-muted)', borderLeft: `3px solid ${borderColor}` }}>
 
-                <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--text-primary)' }}>
-                  {t.title}
-                  {isAssigned && (
-                    <span className="ml-1.5 text-[10px] font-normal" style={{ color: 'var(--text-tertiary)' }}>
-                      (assigned)
-                    </span>
-                  )}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold leading-tight truncate" style={{ color: 'var(--text-heading)' }}>
+                    {t.title}
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    {inProgress && (
+                      <span className="text-[10px] font-bold rounded-full px-1.5 py-0"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                        In Progress
+                      </span>
+                    )}
+                    {t.relatedType && (
+                      <span className="text-[10px] capitalize" style={{ color: 'var(--text-tertiary)' }}>
+                        {t.relatedType}
+                      </span>
+                    )}
+                    {dueDate && (
+                      <span className="text-[10px]"
+                        style={{ color: overdue ? 'var(--danger)' : dueToday ? 'var(--warning-text)' : 'var(--text-tertiary)' }}>
+                        {overdue   ? `Overdue · ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
+                         : dueToday ? 'Due today'
+                         : `Due ${dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                      </span>
+                    )}
+                    {isAssigned && !inProgress && (
+                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Assigned</span>
+                    )}
+                  </div>
+                </div>
 
-                {t.dueAt && (
-                  <span className="text-[10px] flex-shrink-0"
-                    style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
-                    {new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </span>
-                )}
-
-                {/* Quick-action buttons */}
-                {t.status === 'pending' && (
-                  <button
-                    type="button"
-                    onClick={() => patchStatus(t, 'in_progress')}
-                    className="flex-shrink-0 text-[11px] font-semibold rounded-md px-2 py-0.5 transition-colors"
-                    style={{ backgroundColor: 'var(--accent-base)', color: '#fff' }}
-                    title="Start task"
-                  >
+                {isPatching ? (
+                  <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin" style={{ color: 'var(--text-tertiary)' }} />
+                ) : t.status === 'pending' ? (
+                  <button type="button" onClick={() => patchStatus(t, 'in_progress')}
+                    className="flex-shrink-0 text-[11px] font-bold rounded-md px-2.5 py-1 whitespace-nowrap"
+                    style={{ border: '1px solid var(--accent-base)', color: 'var(--accent-base)', background: 'transparent' }}>
                     Start
                   </button>
-                )}
-                {t.status === 'in_progress' && (
-                  <button
-                    type="button"
-                    onClick={() => patchStatus(t, 'done')}
-                    className="flex-shrink-0 text-[11px] font-semibold rounded-md px-2 py-0.5 transition-colors"
-                    style={{ backgroundColor: 'var(--success)', color: '#fff' }}
-                    title="Mark as done"
-                  >
-                    Done
+                ) : inProgress ? (
+                  <button type="button" onClick={() => patchStatus(t, 'done')}
+                    className="flex-shrink-0 text-[11px] font-bold rounded-md px-2.5 py-1 whitespace-nowrap"
+                    style={{ background: 'var(--success)', color: '#fff' }}>
+                    Done ✓
                   </button>
-                )}
+                ) : null}
               </div>
             );
           })}
+          {myTasks.length > 5 && (
+            <Link href="/tasks"
+              className="block text-center text-[11px] font-semibold pt-1 hover:underline"
+              style={{ color: 'var(--text-secondary)' }}>
+              +{myTasks.length - 5} more tasks
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -624,8 +680,10 @@ export default function DashboardPage() {
   const [todayAttd,   setTodayAttd]   = useState<AttendanceRecord | null>(null);
   const [monthAttd,   setMonthAttd]   = useState<AttendanceRecord[]>([]);
   const [myLeaves,    setMyLeaves]    = useState<LeaveRequest[]>([]);
-  const [showTask,    setShowTask]    = useState(false);
-  const [showLeave,   setShowLeave]   = useState(false);
+  const [showTask,     setShowTask]     = useState(false);
+  const [showLeave,    setShowLeave]    = useState(false);
+  const [checkingIn,   setCheckingIn]   = useState(false);
+  const [checkingOut,  setCheckingOut]  = useState(false);
 
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState(false);
@@ -634,10 +692,9 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     setLoadError(false);
     try {
-      const [me, sv, ts] = await Promise.all([
+      const [me, sv] = await Promise.all([
         fetch('/api/v1/me').then(r => r.json()),
         fetch('/api/v1/site-visits').then(r => r.json()),
-        fetch('/api/v1/tasks?assigned=me&status=active&limit=10').then(r => r.json()),
       ]);
 
       const admin = !!(me?.data?.isAdmin || me?.data?.role === 'owner');
@@ -657,8 +714,6 @@ export default function DashboardPage() {
           })
           .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
       );
-      if (Array.isArray(ts?.data)) setMyTasks(ts.data);
-
       fetch('/api/v1/dashboard/follow-ups')
         .then(r => r.ok ? r.json() : null)
         .then(j => j?.data && setFollowUps(j.data))
@@ -704,7 +759,11 @@ export default function DashboardPage() {
         }
         if (Array.isArray(rl?.data)) setRecentLeads(rl.data);
       } else {
-        const ps = await fetch('/api/v1/projects?limit=20').then(r => r.json());
+        const [ts, ps] = await Promise.all([
+          fetch('/api/v1/tasks?assigned=me&status=active&limit=10').then(r => r.json()),
+          fetch('/api/v1/projects?limit=20').then(r => r.json()),
+        ]);
+        if (Array.isArray(ts?.data)) setMyTasks(ts.data);
         if (Array.isArray(ps?.data)) {
           setMyProjects(ps.data.filter((p: Project) => p.lifecycleStage !== 'complete').slice(0, 5));
         }
@@ -800,21 +859,6 @@ export default function DashboardPage() {
         href: v.leadId ? `/leads/${v.leadId}` : '/site-visits',
       };
     }),
-    ...myTasks.slice(0, 2).map(t => {
-      const overdue = !!(t.dueAt && new Date(t.dueAt) < new Date());
-      return {
-        key: t.id,
-        Icon: CheckSquare,
-        iconBg: overdue ? 'var(--warning-soft)' : 'var(--surface-muted)',
-        iconFg: overdue ? 'var(--warning-text)' : 'var(--text-secondary)',
-        title: t.title,
-        sub: t.dueAt ? `Due ${new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : 'No due date',
-        badge: overdue ? 'Overdue' : 'Pending',
-        badgeBg: overdue ? 'var(--warning-soft)' : 'var(--surface-muted)',
-        badgeFg: overdue ? 'var(--warning-text)' : 'var(--text-secondary)',
-        href: '/tasks',
-      };
-    }),
   ];
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -855,45 +899,52 @@ export default function DashboardPage() {
         </div>
 
         {/* Hero banner */}
-        <div className="rounded-2xl p-4 sm:p-6 relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#34d399' }} />
-            <span className="text-xs font-medium" style={{ color: '#cbd5e1' }} suppressHydrationWarning>{todayLabel()}</span>
+        <div className="rounded-2xl relative overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #131545 0%, #1e2268 55%, #252a7a 100%)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          {/* Three.js particle canvas */}
+          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+            <ThreeParticleCanvas particleCount={80} />
           </div>
-          <p className="text-sm mb-1" style={{ color: '#94a3b8' }} suppressHydrationWarning>
-            {greeting()}{firstName ? `, ${firstName}` : ''}
-          </p>
-          {loading ? (
-            <div className="h-7 w-72 rounded-lg mb-4" style={{ background: 'rgba(255,255,255,0.08)' }} />
-          ) : (
-            <h2 className="text-2xl font-bold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
-              {overdueCount > 0
-                ? `${overdueCount} overdue payment${overdueCount !== 1 ? 's' : ''} to follow up.`
-                : activeLeads > 0
-                  ? `${activeLeads} active lead${activeLeads !== 1 ? 's' : ''} in your pipeline.`
-                  : 'All caught up. Great work!'}
-            </h2>
-          )}
-          {!loading && (
-            <div className="flex flex-wrap gap-2">
-              {activeLeads > 0 && (
-                <Link href="/leads"
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
-                  style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
-                  <Users className="h-3 w-3" />{activeLeads} active lead{activeLeads !== 1 ? 's' : ''}
-                </Link>
-              )}
-              {overdueCount > 0 && (
-                <Link href="/finance"
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-                  style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.28)', color: '#fca5a5' }}>
-                  <AlertCircle className="h-3 w-3" />{overdueCount} overdue
-                </Link>
-              )}
+          {/* Content */}
+          <div className="p-4 sm:p-6" style={{ position: 'relative', zIndex: 1 }}>
+            <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+              <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#34d399' }} />
+              <span className="text-xs font-medium" style={{ color: '#cbd5e1' }} suppressHydrationWarning>{todayLabel()}</span>
             </div>
-          )}
+            <p className="text-sm mb-1" style={{ color: '#94a3b8' }} suppressHydrationWarning>
+              {greeting()}{firstName ? `, ${firstName}` : ''}
+            </p>
+            {loading ? (
+              <div className="h-7 w-72 rounded-lg mb-4" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            ) : (
+              <h2 className="text-2xl font-bold text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
+                {overdueCount > 0
+                  ? `${overdueCount} overdue payment${overdueCount !== 1 ? 's' : ''} to follow up.`
+                  : activeLeads > 0
+                    ? `${activeLeads} active lead${activeLeads !== 1 ? 's' : ''} in your pipeline.`
+                    : 'All caught up. Great work!'}
+              </h2>
+            )}
+            {!loading && (
+              <div className="flex flex-wrap gap-2">
+                {activeLeads > 0 && (
+                  <Link href="/leads"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+                    style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.14)' }}>
+                    <Users className="h-3 w-3" />{activeLeads} active lead{activeLeads !== 1 ? 's' : ''}
+                  </Link>
+                )}
+                {overdueCount > 0 && (
+                  <Link href="/finance"
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                    style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.28)', color: '#fca5a5' }}>
+                    <AlertCircle className="h-3 w-3" />{overdueCount} overdue
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -1269,6 +1320,36 @@ export default function DashboardPage() {
      EMPLOYEE VIEW
      ══════════════════════════════════════════════════════════════════════ */
 
+  async function handleCheckIn() {
+    setCheckingIn(true);
+    try {
+      const res = await fetch('/api/v1/attendance/self', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkin' }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTodayAttd(json.data);
+      }
+    } finally { setCheckingIn(false); }
+  }
+
+  async function handleCheckOut() {
+    setCheckingOut(true);
+    try {
+      const res = await fetch('/api/v1/attendance/self', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'checkout' }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTodayAttd(json.data);
+      }
+    } finally { setCheckingOut(false); }
+  }
+
   // Derived attendance stats
   const daysPresent  = monthAttd.filter(r => ['present', 'late', 'half_day'].includes(r.status)).length;
   const daysAbsent   = monthAttd.filter(r => r.status === 'absent').length;
@@ -1304,8 +1385,12 @@ export default function DashboardPage() {
       )}
 
       {/* ── HEADER CARD ───────────────────────────────────────────────── */}
-      <div className="rounded-2xl" style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="flex flex-col lg:flex-row items-start lg:items-stretch gap-5 p-5 lg:p-6">
+      <div className="rounded-2xl relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #131545 0%, #1e2268 55%, #252a7a 100%)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        {/* Three.js particle canvas */}
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <ThreeParticleCanvas particleCount={70} />
+        </div>
+        <div className="flex flex-col lg:flex-row items-start lg:items-stretch gap-5 p-5 lg:p-6" style={{ position: 'relative', zIndex: 1 }}>
 
           {/* Left: Avatar + greeting + quick actions */}
           <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -1339,31 +1424,50 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Right: Currently Working panel */}
+          {/* Right: Attendance panel */}
           <div className="rounded-xl px-4 py-3 lg:min-w-[190px] self-start lg:self-stretch flex flex-col justify-center"
             style={{ background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(52,211,153,0.20)' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#6ee7b7' }}>Currently Working</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#6ee7b7' }}>Attendance</p>
             {todayAttd?.checkInAt ? (
               <>
-                <p className="text-lg font-bold text-white leading-none" suppressHydrationWarning>
+                <p className="text-base font-bold text-white leading-none" suppressHydrationWarning>
                   {fmtTime(todayAttd.checkInAt)}
                   <span className="text-sm font-normal mx-1.5" style={{ color: '#64748b' }}>→</span>
                   {todayAttd.checkOutAt ? fmtTime(todayAttd.checkOutAt) : <span style={{ color: '#64748b' }}>—</span>}
                 </p>
                 {totalWorkMin > 0 && (
-                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>Total: {fmtDuration(totalWorkMin)}</p>
+                  <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>{fmtDuration(totalWorkMin)}</p>
                 )}
-                <div className="flex items-center gap-1.5 mt-2">
-                  <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0"
-                    style={{ color: todayAttd.checkOutAt ? '#6ee7b7' : '#fbbf24' }} />
-                  <span className="text-xs font-semibold"
-                    style={{ color: todayAttd.checkOutAt ? '#6ee7b7' : '#fbbf24' }}>
-                    {todayAttd.checkOutAt ? 'Day complete' : 'Working'}
-                  </span>
+                <div className="mt-2">
+                  {todayAttd.checkOutAt ? (
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" style={{ color: '#6ee7b7' }} />
+                      <span className="text-xs font-semibold" style={{ color: '#6ee7b7' }}>Day complete</span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCheckOut}
+                      disabled={checkingOut}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+                      style={{ background: '#6ee7b7', color: '#064e3b' }}>
+                      {checkingOut ? 'Saving…' : 'Check Out'}
+                    </button>
+                  )}
                 </div>
               </>
             ) : (
-              <p className="text-xs" style={{ color: '#64748b' }}>No check-in recorded today</p>
+              <>
+                <p className="text-xs mb-2" style={{ color: '#64748b' }}>Not checked in yet</p>
+                <button
+                  type="button"
+                  onClick={handleCheckIn}
+                  disabled={checkingIn}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
+                  style={{ background: '#6ee7b7', color: '#064e3b' }}>
+                  {checkingIn ? 'Saving…' : 'Check In'}
+                </button>
+              </>
             )}
           </div>
         </div>
