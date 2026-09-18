@@ -195,6 +195,7 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

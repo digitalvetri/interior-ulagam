@@ -27,11 +27,15 @@ export async function POST(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    if (existing.status !== 'sent' && existing.status !== 'approved') {
+    if (existing.status !== 'sent' && existing.status !== 'accepted') {
       return NextResponse.json(
-        { error: 'Only sent or approved quotes can be accepted' },
+        { error: 'Only sent quotes can be accepted' },
         { status: 422 },
       );
+    }
+
+    if (existing.status === 'accepted') {
+      return NextResponse.json({ error: 'Quote is already accepted' }, { status: 422 });
     }
 
     const now = new Date();
@@ -39,7 +43,7 @@ export async function POST(
     const [updated] = await db
       .update(quotes)
       .set({
-        status: 'approved',
+        status: 'accepted',
         acceptedAt: now,
         approvedAt: existing.approvedAt ?? now,
       })

@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   let body: unknown;
   try { body = await request.json(); }
