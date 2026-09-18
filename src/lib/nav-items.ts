@@ -94,8 +94,8 @@ export const NAV_GROUPS: NavGroup[] = [
       // Admin / owner / accountant see studio-wide reporting
       { href: '/reports',             label: 'Reports',           icon: BarChart3,     roles: FINANCE_ROLES  },
       { href: '/attendance',          label: 'Attendance',        icon: CalendarCheck, roles: FINANCE_ROLES  },
-      // All staff see their own task + attendance pages
-      { href: '/my-space/tasks',      label: 'My Tasks',          icon: CheckSquare,   roles: MY_SPACE_ROLES },
+      // All roles use the unified /tasks page (role-aware: owners see All Tasks tab, others see only their tasks)
+      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: ALL_ROLES      },
       { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: MY_SPACE_ROLES },
     ],
   },

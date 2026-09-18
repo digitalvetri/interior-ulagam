@@ -120,61 +120,63 @@ function NewTaskForm({ onSuccess }: { onSuccess: () => void }) {
     finally { setSaving(false); }
   }
 
-  if (!open) {
-    return (
+  return (
+    <>
       <button
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 active:scale-95 transition-all"
         style={{ background: 'var(--accent-base)' }}>
         <Plus size={16} /> Add Task
       </button>
-    );
-  }
 
-  return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border p-4 space-y-3"
-      style={{ borderColor: 'var(--accent-base)40', background: 'var(--accent-base)04' }}>
-      <div className="flex items-center justify-between">
-        <p className="font-semibold text-sm">New Task</p>
-        <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
-          <X size={16} />
-        </button>
-      </div>
-      <input
-        autoFocus
-        value={title}
-        onChange={e => setTitle(e.target.value)}
-        placeholder="Task title..."
-        className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 bg-white"
-        style={{ borderColor: 'var(--border)' }}
-      />
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="block text-[11px] font-semibold text-gray-400 mb-1 uppercase tracking-wider">Due Date</label>
-          <input type="date" value={dueAt} onChange={e => setDueAt(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none"
-            style={{ borderColor: 'var(--border)' }} />
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl"
+            style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-lg font-bold" style={{ color: 'var(--text-heading)' }}>New Task</p>
+              <button type="button" onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                autoFocus
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Task title..."
+                className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 bg-white"
+                style={{ borderColor: 'var(--border-subtle)' }}
+              />
+              <div>
+                <label className="block text-[11px] font-semibold mb-1 uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Due Date</label>
+                <input type="date" value={dueAt} onChange={e => setDueAt(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none"
+                  style={{ borderColor: 'var(--border-subtle)' }} />
+              </div>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="Optional notes..."
+                rows={2}
+                className="w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none resize-none"
+                style={{ borderColor: 'var(--border-subtle)' }} />
+              {error && (
+                <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle size={13} /> {error}</div>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <button type="button" onClick={() => setOpen(false)}
+                  className="px-4 py-2 rounded-xl border text-sm text-gray-600 hover:bg-gray-50"
+                  style={{ borderColor: 'var(--border-subtle)' }}>Cancel</button>
+                <button type="submit" disabled={saving}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
+                  style={{ background: 'var(--accent-base)' }}>
+                  {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Save
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
-      <textarea value={notes} onChange={e => setNotes(e.target.value)}
-        placeholder="Optional notes..."
-        rows={2}
-        className="w-full px-3 py-2 rounded-xl border text-sm bg-white focus:outline-none resize-none"
-        style={{ borderColor: 'var(--border)' }} />
-      {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle size={13} /> {error}</div>
       )}
-      <div className="flex gap-2">
-        <button type="submit" disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-sm font-semibold disabled:opacity-60"
-          style={{ background: 'var(--accent-base)' }}>
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Save
-        </button>
-        <button type="button" onClick={() => setOpen(false)}
-          className="px-4 py-2 rounded-xl border text-sm text-gray-600 hover:bg-gray-50"
-          style={{ borderColor: 'var(--border)' }}>Cancel</button>
-      </div>
-    </form>
+    </>
   );
 }
 
