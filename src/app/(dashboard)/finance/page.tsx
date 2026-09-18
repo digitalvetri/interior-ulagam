@@ -7,7 +7,7 @@ import {
   BarChart3, ChevronDown, Download, FileSpreadsheet,
   HandCoins, IndianRupee, MoreVertical,
   Plus, Receipt, TrendingDown, TrendingUp, Wallet, CheckCircle2,
-  Clock, Building2,
+  Clock, Building2, Search,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -52,7 +52,7 @@ interface ExpenseRow {
   id: string; projectId: string; category: string; amountPaise: number;
   description: string | null; vendorName: string | null; gstPct: number;
   gstAmountPaise: number; createdAt: string; paidAt: string | null;
-  dueDate: string | null; expenseNumber: string | null;
+  dueDate: string | null; expenseNumber: string | null; receiptUrl: string | null;
 }
 
 interface GstSummary {
@@ -79,6 +79,14 @@ const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
 const EXP_LABEL: Record<string, string> = {
   petty_cash: 'Petty Cash', transport: 'Transport',
   labour: 'Labour', material: 'Material', other: 'Other',
+};
+
+const CAT_DOT: Record<string, string> = {
+  petty_cash: '#f97316',
+  transport:  '#3b82f6',
+  labour:     '#10b981',
+  material:   '#8b5cf6',
+  other:      '#94a3b8',
 };
 
 const MODE_COLOR: Record<string, { bg: string; color: string }> = {
@@ -939,10 +947,20 @@ function ToPayTab() {
 
 // ─── Expenses Tab ─────────────────────────────────────────────────────────────
 
+const CATS_LIST = ['petty_cash', 'transport', 'labour', 'material', 'other'] as const;
+
+function fmtCompact(paise: number) {
+  const r = paise / 100;
+  if (r >= 1_00_000) return `₹${(r / 1_00_000).toFixed(1)}L`;
+  if (r >= 1_000)    return `₹${(r / 1_000).toFixed(1)}K`;
+  return `₹${Math.round(r)}`;
+}
+
 function ExpensesTab() {
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCat]   = useState<string>('all');
+  const [search, setSearch]   = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -953,90 +971,179 @@ function ExpensesTab() {
       .finally(() => setLoading(false));
   }, []);
 
-  const CATS = ['all', 'petty_cash', 'transport', 'labour', 'material', 'other'];
-  const filtered  = rows.filter(r => catFilter === 'all' || r.category === catFilter);
-  const totalAll  = rows.reduce((s, r) => s + r.amountPaise, 0);
-  const totalFilt = filtered.reduce((s, r) => s + r.amountPaise, 0);
+  // KPIs
+  const nowMs         = Date.now();
+  const monthStart    = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const totalAll      = rows.reduce((s, r) => s + r.amountPaise, 0);
+  const thisMonth     = rows.filter(r => new Date(r.createdAt).getTime() >= monthStart)
+                            .reduce((s, r) => s + r.amountPaise, 0);
+  const vendorCount   = new Set(rows.map(r => r.vendorName).filter(Boolean)).size;
 
-  // Category breakdown
-  const catTotals = CATS.slice(1).map(c => ({
-    key: c,
-    label: EXP_LABEL[c] ?? c,
+  // Category breakdown (all rows, for sidebar)
+  const catTotals = CATS_LIST.map(c => ({
+    key:   c,
+    label: EXP_LABEL[c],
     paise: rows.filter(r => r.category === c).reduce((s, r) => s + r.amountPaise, 0),
   })).filter(c => c.paise > 0).sort((a, b) => b.paise - a.paise);
+  const topCat = catTotals[0];
+
+  // Filtered rows
+  const filtered = rows.filter(r => {
+    if (catFilter !== 'all' && r.category !== catFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (r.description ?? '').toLowerCase().includes(q) ||
+             (r.vendorName  ?? '').toLowerCase().includes(q);
+    }
+    return true;
+  });
+  const filtTotal = filtered.reduce((s, r) => s + r.amountPaise, 0);
+
+  // Suppress unused nowMs warning
+  void nowMs;
 
   return (
     <div className="space-y-5">
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <KpiCard label="Total Expenses" value={formatRupees(totalAll)} accent="var(--danger)" icon={TrendingDown} />
-        <KpiCard label="Showing" value={formatRupees(totalFilt)}
-          sub={catFilter === 'all' ? 'all categories' : (EXP_LABEL[catFilter] ?? catFilter)} />
+
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+          <span className="font-semibold tabular-nums">{filtered.length}</span> entries
+          {' · '}
+          <span className="font-semibold tabular-nums">{formatRupees(filtTotal)}</span> booked
+        </p>
+        <button className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold"
+          style={{ background: 'var(--text-heading)', color: 'var(--surface-app)' }}>
+          <Plus className="h-3.5 w-3.5" />Record Expense
+        </button>
+      </div>
+
+      {/* 4 KPI cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <KpiCard label="Total Expenses" value={formatRupees(totalAll)} icon={TrendingDown} accent="var(--danger)" />
+        <KpiCard label="This Month"     value={formatRupees(thisMonth)} icon={Receipt} />
+        <KpiCard label="Top Category"
+          value={topCat?.label ?? '—'}
+          sub={topCat ? formatRupees(topCat.paise) : undefined}
+          icon={BarChart3} />
+        <KpiCard label="Vendors" value={String(vendorCount)} sub="unique" icon={Building2} />
       </div>
 
       <div className="flex flex-col gap-5 lg:flex-row">
-        {/* Main table */}
+
+        {/* Main content */}
         <div className="flex-1 space-y-3 min-w-0">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-2">
-            {CATS.map(c => (
-              <button key={c} onClick={() => setCat(c)}
-                className="rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors"
+
+          {/* Search + category dropdown */}
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none"
+                style={{ color: 'var(--text-tertiary)' }} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search description or vendor..."
+                className="w-full rounded-xl border pl-9 pr-4 py-2.5 text-[13px] outline-none"
                 style={{
-                  background: catFilter === c ? 'var(--accent-base)' : 'var(--surface-muted)',
-                  color:      catFilter === c ? '#fff'                : 'var(--text-secondary)',
-                }}>
-                {c === 'all' ? 'All' : EXP_LABEL[c] ?? c}
-              </button>
-            ))}
+                  background:  'var(--surface-card)',
+                  borderColor: 'var(--border-subtle)',
+                  color:       'var(--text-heading)',
+                }}
+              />
+            </div>
+            <select
+              value={catFilter}
+              onChange={e => setCat(e.target.value)}
+              className="rounded-xl border px-3 py-2.5 text-[13px] font-medium outline-none"
+              style={{
+                background:  'var(--surface-card)',
+                borderColor: 'var(--border-subtle)',
+                color:       'var(--text-heading)',
+              }}>
+              <option value="all">All categories</option>
+              {CATS_LIST.map(c => (
+                <option key={c} value={c}>{EXP_LABEL[c]}</option>
+              ))}
+            </select>
           </div>
 
+          {/* Table */}
           {loading ? <TabSkeleton /> : filtered.length === 0 ? (
             <EmptyState icon={Receipt} title="No expenses found" sub="Logged expenses will appear here" />
           ) : (
-            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <table className="w-full text-sm">
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+              <table className="w-full border-collapse" style={{ fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                    {['Date', 'Description', 'Category', 'Vendor', 'GST', 'Amount', 'Status'].map(h => (
-                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
-                        style={{ color: 'var(--text-tertiary)' }}>{h}</th>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '2px solid var(--border-subtle)' }}>
+                    {['Date', 'Description', 'Category', 'Vendor', 'Amount', 'Receipt'].map((h, i) => (
+                      <th key={h}
+                        className={`px-4 py-3 text-[11px] font-bold uppercase tracking-widest whitespace-nowrap ${i >= 4 ? 'text-right' : 'text-left'}`}
+                        style={{ color: 'var(--text-tertiary)' }}>
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {filtered.map(r => (
+                <tbody>
+                  {filtered.map((r, idx) => (
                     <tr key={r.id}
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                      style={{ background: 'var(--surface-card)' }}
+                      style={{
+                        background:   'var(--surface-card)',
+                        borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+                        cursor:       'pointer',
+                      }}
                       onClick={() => window.location.href = `/expenses/${r.id}`}>
-                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                        {fmtDate(r.paidAt ?? r.createdAt)}
+
+                      {/* Date */}
+                      <td className="px-4 py-3.5 whitespace-nowrap"
+                        style={{ color: 'var(--text-secondary)' }}>
+                        {new Date(r.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-5 py-3.5 font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {r.description ?? '—'}
+
+                      {/* Description */}
+                      <td className="px-4 py-3.5 font-medium" style={{ color: 'var(--text-heading)', maxWidth: 220 }}>
+                        <span className="line-clamp-1 block">{r.description ?? '—'}</span>
                       </td>
-                      <td className="px-5 py-3.5">
-                        <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                          style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-                          {EXP_LABEL[r.category] ?? r.category}
-                        </span>
+
+                      {/* Category with colored dot */}
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full flex-shrink-0"
+                            style={{ background: CAT_DOT[r.category] ?? '#94a3b8' }} />
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {EXP_LABEL[r.category] ?? r.category}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
+
+                      {/* Vendor */}
+                      <td className="px-4 py-3.5" style={{ color: 'var(--text-secondary)' }}>
                         {r.vendorName ?? '—'}
                       </td>
-                      <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {r.gstPct > 0 ? `${r.gstPct}%` : '—'}
+
+                      {/* Amount — orange if unpaid */}
+                      <td className="px-4 py-3.5 text-right">
+                        <p className="font-bold tabular-nums"
+                          style={{ color: r.paidAt ? 'var(--text-heading)' : '#f97316' }}>
+                          {formatRupees(r.amountPaise)}
+                        </p>
+                        {r.gstPct > 0 && (
+                          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+                            incl. {r.gstPct}% GST
+                          </p>
+                        )}
                       </td>
-                      <td className="px-5 py-3.5 font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                        {formatRupees(r.amountPaise)}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        {r.paidAt
-                          ? <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                              style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>Paid</span>
-                          : <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                              style={{ background: 'var(--warning-soft)', color: 'var(--warning-text)' }}>Unpaid</span>
+
+                      {/* Receipt */}
+                      <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                        {r.receiptUrl
+                          ? <a href={r.receiptUrl} target="_blank" rel="noreferrer"
+                              className="text-[12px] font-semibold"
+                              style={{ color: 'var(--accent-base)' }}>
+                              View
+                            </a>
+                          : <span style={{ color: 'var(--text-tertiary)' }}>—</span>
                         }
                       </td>
                     </tr>
@@ -1049,27 +1156,27 @@ function ExpensesTab() {
 
         {/* Category sidebar */}
         {catTotals.length > 0 && (
-          <div className="w-full lg:w-56 shrink-0">
-            <div className="rounded-2xl border p-4" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-card)' }}>
-              <p className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: 'var(--text-tertiary)' }}>
+          <div className="w-full lg:w-52 shrink-0">
+            <div className="rounded-2xl p-4" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+              <p className="text-[13px] font-bold mb-4" style={{ color: 'var(--text-heading)' }}>
                 By category
               </p>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {catTotals.map(c => {
                   const pct = totalAll > 0 ? Math.round((c.paise / totalAll) * 100) : 0;
                   return (
                     <div key={c.key}>
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{c.label}</p>
-                        <p className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                          {formatRupees(c.paise)}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>{c.label}</p>
+                        <p className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
+                          {fmtCompact(c.paise)}
                         </p>
                       </div>
-                      <div className="h-1.5 rounded-full" style={{ background: 'var(--surface-muted)' }}>
-                        <div className="h-1.5 rounded-full"
-                          style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
+                      <div className="h-1 rounded-full" style={{ background: 'var(--surface-muted)' }}>
+                        <div className="h-1 rounded-full"
+                          style={{ width: `${pct}%`, background: CAT_DOT[c.key] ?? 'var(--accent-base)' }} />
                       </div>
-                      <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{pct}% of total</p>
+                      <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>{pct}% of total</p>
                     </div>
                   );
                 })}
