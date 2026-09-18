@@ -75,6 +75,7 @@ export async function PATCH(
     vendorName:  z.string().optional(),
     receiptUrl:  z.string().url().optional(),
     approve:     z.boolean().optional(),
+    paidAt:      z.string().datetime({ offset: true }).optional(),
   }).refine(d => Object.keys(d).length > 0, { message: 'No fields to update' });
 
   const parsed = schema.safeParse(body);
@@ -94,6 +95,7 @@ export async function PATCH(
     if (parsed.data.description !== undefined) updates.description = parsed.data.description;
     if (parsed.data.vendorName  !== undefined) updates.vendorName  = parsed.data.vendorName;
     if (parsed.data.receiptUrl  !== undefined) updates.receiptUrl  = parsed.data.receiptUrl;
+    if (parsed.data.paidAt      !== undefined) updates.paidAt      = new Date(parsed.data.paidAt);
     if (parsed.data.approve) {
       updates.approvedBy = ctx.userId;
       updates.approvedAt = new Date();

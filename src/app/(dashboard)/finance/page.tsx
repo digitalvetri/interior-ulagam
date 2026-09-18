@@ -777,74 +777,160 @@ function ReceivedTab({ onOpen }: { onOpen: () => void }) {
 
 // ─── To Pay Tab ───────────────────────────────────────────────────────────────
 
-function ToPayTab({ data, onRecordPayment }: { data: OverviewData | null; onRecordPayment: () => void }) {
-  const vendorPayables = data?.vendorPayables ?? [];
-  const toPayVendor    = data?.kpis.toPayVendorPaise ?? 0;
-  const outstanding    = vendorPayables.filter(po => po.total_amount_paise - po.paid_amount_paise > 0);
+type EnrichedExpense = ExpenseRow & { daysLate: number };
 
-  if (!data) return <TabSkeleton />;
+function ToPayTab() {
+  const [rows, setRows]       = useState<ExpenseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [marking, setMarking] = useState<Set<string>>(new Set());
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch('/api/v1/expenses?unpaid=true')
+      .then(r => r.json())
+      .then(b => setRows((b.data ?? []) as ExpenseRow[]))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const now = Date.now();
+
+  const enriched: EnrichedExpense[] = rows.map(r => {
+    const ref = r.dueDate ? new Date(r.dueDate) : new Date(r.createdAt);
+    return { ...r, daysLate: Math.max(0, Math.floor((now - ref.getTime()) / 86_400_000)) };
+  });
+
+  const totalPaise   = enriched.reduce((s, r) => s + r.amountPaise, 0);
+  const overduePaise = enriched.filter(r => r.daysLate > 0).reduce((s, r) => s + r.amountPaise, 0);
+  const dueThisWeek  = enriched.filter(r =>
+    r.daysLate === 0 && r.dueDate &&
+    new Date(r.dueDate).getTime() - now < 7 * 86_400_000
+  ).length;
+
+  async function markPaid(id: string) {
+    setMarking(prev => new Set(prev).add(id));
+    try {
+      await fetch(`/api/v1/expenses/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paidAt: new Date().toISOString() }),
+      });
+      setRows(prev => prev.filter(r => r.id !== id));
+    } catch { /* noop */ } finally {
+      setMarking(prev => { const n = new Set(prev); n.delete(id); return n; });
+    }
+  }
+
+  function fmtLong(iso: string | null) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  if (loading) return <TabSkeleton />;
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <KpiCard label="Total Payable" value={formatRupees(toPayVendor)}
-          accent="var(--warning-text)" icon={TrendingDown} />
-        <KpiCard label="Vendors" value={String(outstanding.length)}
-          sub="with outstanding balance" icon={Building2} />
+
+      {/* Header */}
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-1"
+          style={{ color: 'var(--text-tertiary)' }}>To Pay</p>
+        <p className="text-4xl font-bold tabular-nums"
+          style={{ color: 'var(--text-heading)', letterSpacing: '-0.03em' }}>
+          {formatRupees(totalPaise)}
+        </p>
+        <p className="text-sm mt-1.5 flex items-center gap-1.5 flex-wrap">
+          {overduePaise > 0 ? (
+            <span className="font-semibold" style={{ color: '#ef4444' }}>
+              {formatRupees(overduePaise)} is overdue
+            </span>
+          ) : (
+            <span style={{ color: 'var(--text-secondary)' }}>Nothing overdue</span>
+          )}
+          <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            {dueThisWeek === 0 ? 'None due this week' : `${dueThisWeek} due this week`}
+          </span>
+        </p>
       </div>
 
-      {outstanding.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="No outstanding vendor bills" sub="All vendor payments are up to date" />
+      {/* List */}
+      {enriched.length === 0 ? (
+        <EmptyState icon={CheckCircle2} title="All caught up" sub="No outstanding expenses to pay" />
       ) : (
-        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                {['Vendor', 'PO #', 'Project', 'Total', 'Paid', 'Balance', 'Status', ''].map(h => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold"
-                    style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-              {outstanding.map(po => {
-                const balance = po.total_amount_paise - po.paid_amount_paise;
-                return (
-                  <tr key={po.id}
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                    style={{ background: 'var(--surface-card)' }}
-                    onClick={() => window.location.href = `/vendor-payables/${po.id}`}>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ background: 'var(--warning-soft)' }}>
-                          <Building2 className="h-3.5 w-3.5" style={{ color: 'var(--warning-text)' }} />
-                        </div>
-                        <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{po.vendor_name}</p>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 font-mono text-xs" style={{ color: 'var(--text-tertiary)' }}>{po.po_number}</td>
-                    <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{po.project_name}</td>
-                    <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--text-secondary)' }}>{formatRupees(po.total_amount_paise)}</td>
-                    <td className="px-5 py-3.5 text-xs" style={{ color: 'var(--success-text)' }}>{formatRupees(po.paid_amount_paise)}</td>
-                    <td className="px-5 py-3.5 font-bold tabular-nums" style={{ color: 'var(--warning-text)' }}>
-                      {formatRupees(balance)}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <StatusBadge module="pos" status={po.status} />
-                    </td>
-                    <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                      <button onClick={onRecordPayment}
-                        className="rounded-lg px-3 py-1.5 text-xs font-semibold"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                        Pay
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-subtle)' }}>
+
+          {/* Group header */}
+          <div className="flex items-center justify-between px-5 py-3.5"
+            style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>
+              Outstanding expenses
+            </p>
+            <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+              <span className="font-semibold tabular-nums">{enriched.length}</span>
+              <span className="mx-2" style={{ color: 'var(--text-tertiary)' }}>·</span>
+              <span className="font-semibold tabular-nums">{formatRupees(totalPaise)}</span>
+            </p>
+          </div>
+
+          {/* Rows */}
+          {enriched.map((r, idx) => (
+            <div key={r.id}
+              className="flex items-center gap-4 px-5 py-4"
+              style={{
+                background:   'var(--surface-card)',
+                borderBottom: idx < enriched.length - 1 ? '1px solid var(--border-subtle)' : 'none',
+              }}>
+
+              {/* Description + meta */}
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold leading-snug"
+                  style={{ color: 'var(--text-heading)' }}>
+                  {r.description ?? r.vendorName ?? '—'}
+                </p>
+                <p className="text-[12px] mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    {EXP_LABEL[r.category] ?? r.category}
+                  </span>
+                  {r.daysLate > 0 && (
+                    <>
+                      <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+                      <span className="font-semibold" style={{ color: '#f97316' }}>
+                        {r.daysLate} day{r.daysLate !== 1 ? 's' : ''} late
+                      </span>
+                    </>
+                  )}
+                  <span style={{ color: 'var(--text-tertiary)' }}>·</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    {fmtLong(r.dueDate ?? r.createdAt)}
+                  </span>
+                </p>
+              </div>
+
+              {/* Amount + Mark paid */}
+              <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                <p className="text-[15px] font-bold tabular-nums"
+                  style={{ color: 'var(--text-heading)' }}>
+                  {formatRupees(r.amountPaise)}
+                </p>
+                <button
+                  onClick={() => markPaid(r.id)}
+                  disabled={marking.has(r.id)}
+                  className="rounded-lg border px-3 py-1 text-[12px] font-semibold transition-colors"
+                  style={{
+                    borderColor: 'var(--border-subtle)',
+                    color:       'var(--text-secondary)',
+                    background:  marking.has(r.id) ? 'var(--surface-muted)' : 'transparent',
+                    opacity:     marking.has(r.id) ? 0.6 : 1,
+                    cursor:      marking.has(r.id) ? 'not-allowed' : 'pointer',
+                  }}>
+                  {marking.has(r.id) ? 'Saving…' : 'Mark paid'}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -1310,7 +1396,7 @@ export default function FinancePage() {
         {tab === 'overview'   && <OverviewTab data={ovLoading ? null : overview} onRecordPayment={() => setGlobal(true)} />}
         {tab === 'to-collect' && <ToCollectTab onRefresh={() => { fetchOverview(); }} />}
         {tab === 'received'   && <ReceivedTab  onOpen={() => setGlobal(true)} />}
-        {tab === 'to-pay'     && <ToPayTab     data={ovLoading ? null : overview} onRecordPayment={() => setGlobal(true)} />}
+        {tab === 'to-pay'     && <ToPayTab />}
         {tab === 'expenses'   && <ExpensesTab />}
         {tab === 'gst'        && <GstTab />}
       </div>

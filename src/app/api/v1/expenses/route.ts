@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { expenses, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc, count } from 'drizzle-orm';
+import { eq, and, desc, count, isNull } from 'drizzle-orm';
 import type { ExpenseCategory } from '@/types/accounts';
 
 const EXPENSE_CATEGORIES = [
@@ -13,6 +13,8 @@ const EXPENSE_CATEGORIES = [
   'material',
   'other',
 ] as const satisfies ExpenseCategory[];
+
+const PAYEE_TYPES = ['vendor', 'staff', 'office', 'other'] as const;
 
 const CreateExpenseSchema = z.object({
   projectId: z.string().uuid(),
@@ -25,6 +27,10 @@ const CreateExpenseSchema = z.object({
   vendorId:   z.string().uuid().optional(),
   gstPct: z.number().int().min(0).max(28).default(0),
   gstAmountPaise: z.number().int().nonnegative().default(0),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  paidAt: z.string().datetime({ offset: true }).optional(),
+  paymentMode: z.string().optional(),
+  payeeType: z.enum(PAYEE_TYPES).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -35,18 +41,17 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get('projectId');
-  const category = searchParams.get('category') as ExpenseCategory | null;
+  const category  = searchParams.get('category') as ExpenseCategory | null;
+  const unpaid    = searchParams.get('unpaid') === 'true';
 
   try {
     const conditions = [eq(expenses.tenantId, ctx.tenantId)];
 
-    if (projectId) {
-      conditions.push(eq(expenses.projectId, projectId));
-    }
-
+    if (projectId) conditions.push(eq(expenses.projectId, projectId));
     if (category && (EXPENSE_CATEGORIES as readonly string[]).includes(category)) {
       conditions.push(eq(expenses.category, category));
     }
+    if (unpaid) conditions.push(isNull(expenses.paidAt));
 
     const rows = await db
       .select()
@@ -114,6 +119,10 @@ export async function POST(request: NextRequest) {
         gstPct: input.gstPct,
         gstAmountPaise: input.gstAmountPaise,
         expenseNumber,
+        dueDate:     input.dueDate     ?? null,
+        paidAt:      input.paidAt      ? new Date(input.paidAt) : null,
+        paymentMode: input.paymentMode ?? null,
+        payeeType:   input.payeeType   ?? null,
       })
       .returning();
 
