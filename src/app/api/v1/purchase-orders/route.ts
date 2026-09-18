@@ -79,9 +79,11 @@ export async function GET(request: NextRequest) {
       const lines = Array.isArray(po.linesJson) ? (po.linesJson as Record<string, unknown>[]) : [];
       const lineCount = lines.length;
       const totalPaise = lines.reduce((sum, l) => {
-        const qty      = typeof l.qty === 'number' ? l.qty : 0;
-        const rate     = typeof l.ratePaise === 'number' ? l.ratePaise
-                       : typeof l.rate === 'number' ? l.rate * 100 : 0;
+        // Use the pre-computed totalPaise stored on each line; fall back to
+        // unitRatePaise (paise) × qty for older rows that lacked totalPaise.
+        if (typeof l.totalPaise === 'number') return sum + l.totalPaise;
+        const qty  = typeof l.qty === 'number' ? l.qty : 0;
+        const rate = typeof l.unitRatePaise === 'number' ? l.unitRatePaise : 0;
         return sum + qty * rate;
       }, 0);
       return { ...po, lineCount, totalPaise };

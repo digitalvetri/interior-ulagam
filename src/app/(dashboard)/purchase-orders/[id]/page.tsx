@@ -146,8 +146,9 @@ export default function PurchaseOrderDetailPage({
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        const { data } = (await res.json()) as { data: EnrichedPO };
-        setPo(data);
+        // Merge only status — preserve enriched fields (vendorName, projectName)
+        // that the raw PATCH response does not include.
+        setPo(prev => prev ? { ...prev, status: newStatus } : prev);
       }
     } finally { setStatusSaving(false); }
   }
@@ -176,6 +177,8 @@ export default function PurchaseOrderDetailPage({
       setGrns(prev => [...prev, newGrn]);
       setGrnOpen(false);
       setGrnForm({ qty: '', notes: '' });
+      // Refresh PO so the status badge reflects the server-computed partial/complete update
+      void load();
     } catch { setGrnError('Network error — please try again.'); }
     finally { setGrnSaving(false); }
   }
