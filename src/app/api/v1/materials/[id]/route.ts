@@ -134,3 +134,34 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext();
+  if (!ctx) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (ctx.role !== 'owner') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const [deleted] = await db
+      .delete(materials)
+      .where(and(eq(materials.id, id), eq(materials.tenantId, ctx.tenantId)))
+      .returning({ id: materials.id });
+
+    if (!deleted) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ data: { id: deleted.id } });
+  } catch (err) {
+    console.error('[materials/:id DELETE]', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

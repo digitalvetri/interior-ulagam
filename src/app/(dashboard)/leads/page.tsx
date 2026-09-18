@@ -451,15 +451,17 @@ export default function LeadsPage() {
     if (!pendingAction) return;
     setActionLoading(true);
     try {
+      let res: Response;
       if (pendingAction.type === 'delete') {
-        await fetch(`/api/v1/leads/${pendingAction.id}`, { method: 'DELETE' });
+        res = await fetch(`/api/v1/leads/${pendingAction.id}`, { method: 'DELETE' });
       } else {
-        await fetch(`/api/v1/leads/${pendingAction.id}`, {
+        res = await fetch(`/api/v1/leads/${pendingAction.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ archive: true }),
         });
       }
+      if (!res.ok) throw new Error('Request failed');
       setLeads(prev => prev.filter(l => l.id !== pendingAction.id));
       setPendingAction(null);
     } catch {
