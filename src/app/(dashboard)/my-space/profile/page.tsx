@@ -6,7 +6,7 @@ import {
   User, Phone, Mail, MapPin, Briefcase, Building2,
   Edit3, Download, KeyRound, LogOut, ChevronRight,
   AlertTriangle, CheckCircle2, Loader2, PhoneCall,
-  Plus, Calendar,
+  Plus, Calendar, Star,
 } from 'lucide-react';
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
@@ -39,6 +39,7 @@ const EMP_TYPE_LABEL: Record<string, string> = {
   contract: 'Contract', intern: 'Intern', consultant: 'Consultant',
 };
 const TABS = ['Overview', 'Work Info', 'KRA & KPI', 'Attendance', 'Documents'] as const;
+type Tab = typeof TABS[number];
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
@@ -49,85 +50,95 @@ function fmtDate(iso: string | null) {
   });
 }
 
-function initials(name: string) {
-  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+function getInitials(name: string) {
+  return name.trim().split(/\s+/).map(n => n[0]).slice(0, 2).join('').toUpperCase();
 }
 
 /* ── Avatar ─────────────────────────────────────────────────────────────────── */
 
-function Avatar({ name, photoUrl, size = 72 }: { name: string; photoUrl: string | null; size?: number }) {
+function Avatar({ name, photoUrl, size = 64 }: { name: string; photoUrl: string | null; size?: number }) {
   if (photoUrl) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
-      <img src={photoUrl} alt={name}
-        className="rounded-full object-cover ring-4 ring-white shadow-lg"
+      <img src={photoUrl} alt={name} className="rounded-full object-cover flex-shrink-0"
         style={{ width: size, height: size }} />
     );
   }
   return (
-    <div className="rounded-full flex items-center justify-center ring-4 ring-white shadow-lg text-white font-bold"
+    <div className="rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold"
       style={{
         width: size, height: size,
         fontSize: size * 0.32,
-        background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 100%)',
+        background: 'var(--accent-base)',
+        letterSpacing: '-0.02em',
       }}>
-      {initials(name)}
+      {getInitials(name)}
     </div>
   );
 }
 
 /* ── Info row ───────────────────────────────────────────────────────────────── */
 
-function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null }) {
+function InfoRow({
+  icon: Icon, label, value, iconColor = 'var(--accent-base)', iconBg = 'var(--accent-soft)',
+}: {
+  icon: React.ElementType; label: string; value: string | null;
+  iconColor?: string; iconBg?: string;
+}) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">
       <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: 'var(--accent-soft)' }}>
-        <Icon size={14} style={{ color: 'var(--accent-base)' }} />
+        style={{ background: iconBg }}>
+        <Icon size={14} style={{ color: iconColor }} />
       </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
-        <p className="text-sm font-medium truncate mt-0.5" style={{ color: 'var(--text-heading)' }}>{value}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold uppercase tracking-wider leading-none"
+          style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+        <p className="text-[13px] font-medium mt-1 break-words leading-snug"
+          style={{ color: 'var(--text-heading)' }}>{value}</p>
       </div>
     </div>
   );
 }
 
-/* ── Quick action row ───────────────────────────────────────────────────────── */
+/* ── Card section ───────────────────────────────────────────────────────────── */
 
-function ActionRow({ icon: Icon, label, onClick, danger }: {
-  icon: React.ElementType; label: string; onClick: () => void; danger?: boolean;
+function Card({
+  title, onEdit, editing, children,
+}: {
+  title: string; onEdit?: () => void; editing?: boolean; children: React.ReactNode;
 }) {
   return (
-    <button type="button" onClick={onClick}
-      className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors hover:bg-[var(--surface-muted)] group"
-      style={danger ? { color: 'var(--danger)' } : {}}>
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ background: danger ? 'var(--danger-soft, #fee2e2)' : 'var(--surface-muted)' }}>
-          <Icon size={14} style={{ color: danger ? 'var(--danger)' : 'var(--text-secondary)' }} />
-        </div>
-        <span className="text-sm font-medium"
-          style={{ color: danger ? 'var(--danger)' : 'var(--text-primary)' }}>
-          {label}
-        </span>
+    <div className="rounded-2xl border flex flex-col"
+      style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+      <div className="flex items-center justify-between px-5 pt-5 pb-0">
+        <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>{title}</p>
+        {onEdit && !editing && (
+          <button type="button" onClick={onEdit}
+            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg hover:bg-[var(--surface-muted)] transition-colors"
+            style={{ color: 'var(--accent-base)' }}>
+            <Edit3 size={11} />Edit
+          </button>
+        )}
       </div>
-      <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
-    </button>
+      <div className="p-5 flex-1 space-y-4">
+        {children}
+      </div>
+    </div>
   );
 }
 
-/* ── Personal info edit form ────────────────────────────────────────────────── */
+/* ── Edit personal form ─────────────────────────────────────────────────────── */
 
 function EditPersonalForm({
   profile, onSave, onCancel,
 }: { profile: Profile; onSave: (p: Partial<Profile>) => void; onCancel: () => void }) {
   const [fullName, setFullName] = useState(profile.fullName);
-  const [phone, setPhone]       = useState(profile.phone ?? '');
+  const [phone,    setPhone]    = useState(profile.phone ?? '');
   const [location, setLocation] = useState(profile.location ?? '');
   const [saving, setSaving]     = useState(false);
-  const [error, setError]       = useState<string | null>(null);
+  const [error,  setError]      = useState<string | null>(null);
 
   async function handleSave() {
     if (!fullName.trim()) { setError('Name is required'); return; }
@@ -136,63 +147,50 @@ function EditPersonalForm({
       const res = await fetch('/api/v1/me/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: fullName.trim(),
-          phone: phone.trim() || null,
-          location: location.trim() || null,
-        }),
+        body: JSON.stringify({ fullName: fullName.trim(), phone: phone.trim() || null, location: location.trim() || null }),
       });
-      if (!res.ok) {
-        const j = await res.json() as { error?: string };
-        setError(j.error ?? 'Update failed'); return;
-      }
+      if (!res.ok) { const j = await res.json() as { error?: string }; setError(j.error ?? 'Update failed'); return; }
       onSave({ fullName: fullName.trim(), phone: phone.trim() || null, location: location.trim() || null });
-    } catch { setError('Network error — try again'); }
+    } catch { setError('Network error'); }
     finally { setSaving(false); }
   }
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        {[
-          { label: 'Full Name', val: fullName, set: setFullName, type: 'text' },
-          { label: 'Phone', val: phone, set: setPhone, type: 'tel' },
-          { label: 'Location', val: location, set: setLocation, type: 'text' },
-        ].map(({ label, val, set, type }) => (
-          <div key={label}>
-            <label className="studio-label block mb-1">{label}</label>
-            <input type={type} value={val} onChange={e => set(e.target.value)}
-              className="studio-input w-full text-sm" />
-          </div>
-        ))}
-      </div>
-      {error && (
-        <div className="flex items-center gap-2 text-xs text-red-600">
-          <AlertTriangle size={12} />{error}
+    <div className="space-y-3">
+      {[
+        { label: 'Full Name', val: fullName, set: setFullName, type: 'text', ph: '' },
+        { label: 'Phone', val: phone, set: setPhone, type: 'tel', ph: '+91 98765 43210' },
+        { label: 'Location', val: location, set: setLocation, type: 'text', ph: 'Coimbatore' },
+      ].map(({ label, val, set, type, ph }) => (
+        <div key={label}>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1"
+            style={{ color: 'var(--text-tertiary)' }}>{label}</label>
+          <input type={type} value={val} onChange={e => set(e.target.value)} placeholder={ph}
+            className="studio-input w-full text-sm" />
         </div>
-      )}
-      <div className="flex gap-2">
+      ))}
+      {error && <p className="flex items-center gap-1.5 text-xs text-red-600"><AlertTriangle size={11} />{error}</p>}
+      <div className="flex gap-2 pt-1">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
         <button type="button" onClick={handleSave} disabled={saving}
           className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-1.5">
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-          Save
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}Save
         </button>
       </div>
     </div>
   );
 }
 
-/* ── Emergency contact edit form ────────────────────────────────────────────── */
+/* ── Edit emergency contact form ────────────────────────────────────────────── */
 
-function EditContactForm({
+function EditEmergencyForm({
   profile, onSave, onCancel,
 }: { profile: Profile; onSave: (p: Partial<Profile>) => void; onCancel: () => void }) {
   const [ecName,     setEcName]     = useState(profile.emergencyContact?.name ?? '');
   const [ecRelation, setEcRelation] = useState(profile.emergencyContact?.relation ?? '');
   const [ecPhone,    setEcPhone]    = useState(profile.emergencyContact?.phone ?? '');
-  const [saving, setSaving]         = useState(false);
-  const [error, setError]           = useState<string | null>(null);
+  const [saving,  setSaving]        = useState(false);
+  const [error,   setError]         = useState<string | null>(null);
 
   async function handleSave() {
     setSaving(true); setError(null);
@@ -205,65 +203,34 @@ function EditContactForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emergencyContact }),
       });
-      if (!res.ok) {
-        const j = await res.json() as { error?: string };
-        setError(j.error ?? 'Update failed'); return;
-      }
+      if (!res.ok) { const j = await res.json() as { error?: string }; setError(j.error ?? 'Update failed'); return; }
       onSave({ emergencyContact });
-    } catch { setError('Network error — try again'); }
+    } catch { setError('Network error'); }
     finally { setSaving(false); }
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Emergency Contact</p>
       {[
-        { label: 'Name', val: ecName, set: setEcName },
-        { label: 'Relation (e.g. Spouse, Parent)', val: ecRelation, set: setEcRelation },
-        { label: 'Phone', val: ecPhone, set: setEcPhone },
-      ].map(({ label, val, set }) => (
+        { label: 'Name', val: ecName, set: setEcName, ph: 'Contact name' },
+        { label: 'Relation', val: ecRelation, set: setEcRelation, ph: 'e.g. Spouse, Parent' },
+        { label: 'Phone', val: ecPhone, set: setEcPhone, ph: '+91 XXXXX XXXXX' },
+      ].map(({ label, val, set, ph }) => (
         <div key={label}>
-          <label className="studio-label block mb-1">{label}</label>
-          <input value={val} onChange={e => set(e.target.value)} className="studio-input w-full text-sm" />
+          <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1"
+            style={{ color: 'var(--text-tertiary)' }}>{label}</label>
+          <input value={val} onChange={e => set(e.target.value)} placeholder={ph}
+            className="studio-input w-full text-sm" />
         </div>
       ))}
-      {error && (
-        <div className="flex items-center gap-2 text-xs text-red-600">
-          <AlertTriangle size={12} />{error}
-        </div>
-      )}
-      <div className="flex gap-2">
+      {error && <p className="flex items-center gap-1.5 text-xs text-red-600"><AlertTriangle size={11} />{error}</p>}
+      <div className="flex gap-2 pt-1">
         <button type="button" onClick={onCancel} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
         <button type="button" onClick={handleSave} disabled={saving}
           className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-1.5">
-          {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-          Save
+          {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}Save
         </button>
       </div>
-    </div>
-  );
-}
-
-/* ── Card wrapper with optional edit header ─────────────────────────────────── */
-
-function SectionCard({
-  title, onEdit, editing, children,
-}: {
-  title: string; onEdit?: () => void; editing?: boolean; children: React.ReactNode;
-}) {
-  return (
-    <div className="premium-card p-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>{title}</p>
-        {onEdit && !editing && (
-          <button type="button" onClick={onEdit}
-            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
-            style={{ color: 'var(--accent-base)' }}>
-            <Edit3 size={11} />Edit
-          </button>
-        )}
-      </div>
-      {children}
     </div>
   );
 }
@@ -272,42 +239,51 @@ function SectionCard({
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [profile, setProfile]           = useState<Profile | null>(null);
-  const [loading, setLoading]           = useState(true);
-  const [activeTab, setActiveTab]       = useState<typeof TABS[number]>('Overview');
+
+  const [profile,      setProfile]      = useState<Profile | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [activeTab,    setActiveTab]    = useState<Tab>('Overview');
   const [editPersonal, setEditPersonal] = useState(false);
   const [editContact,  setEditContact]  = useState(false);
   const [signingOut,   setSigningOut]   = useState(false);
 
-  const loadProfile = useCallback(async () => {
-    const res  = await fetch('/api/v1/me/profile');
-    const json = await res.json() as { data: Profile };
-    setProfile(json.data);
-    setLoading(false);
+  const load = useCallback(async () => {
+    try {
+      const res  = await fetch('/api/v1/me/profile');
+      const json = await res.json() as { data: Profile };
+      setProfile(json.data);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { void loadProfile(); }, [loadProfile]);
+  useEffect(() => { void load(); }, [load]);
+
+  function merge(patch: Partial<Profile>) {
+    setProfile(p => p ? { ...p, ...patch } : p);
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
-    await fetch('/api/auth/sign-out', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    await fetch('/api/auth/sign-out', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     router.push('/login');
     router.refresh();
-  }
-
-  function mergeProfile(patch: Partial<Profile>) {
-    setProfile(p => p ? { ...p, ...patch } : p);
   }
 
   /* ── Skeleton ── */
   if (loading) {
     return (
-      <div className="p-6 space-y-4">
-        <div className="skeleton h-36 rounded-2xl" />
-        <div className="skeleton h-10 rounded-xl" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <div key={i} className="skeleton h-56 rounded-2xl" />)}
+      <div className="p-6 space-y-5">
+        <div className="h-32 rounded-2xl skeleton" />
+        <div className="h-10 rounded-xl skeleton" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {[1, 2, 3].map(i => <div key={i} className="h-64 rounded-2xl skeleton" />)}
         </div>
+        <div className="h-40 rounded-2xl skeleton" />
       </div>
     );
   }
@@ -318,73 +294,67 @@ export default function ProfilePage() {
   const empTypeLabel = profile.employmentType ? (EMP_TYPE_LABEL[profile.employmentType] ?? profile.employmentType) : null;
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-6 space-y-5 max-w-7xl">
 
-      {/* ── Hero header ──────────────────────────────────────────────────────── */}
-      <div className="premium-card overflow-hidden">
-        {/* Gradient banner */}
-        <div className="h-24 relative"
-          style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 60%, #a855f7 100%)' }}>
-          {/* Decorative circles */}
-          <div className="absolute -right-6 -top-6 w-40 h-40 rounded-full opacity-20"
-            style={{ background: 'white' }} />
-          <div className="absolute right-24 -bottom-4 w-20 h-20 rounded-full opacity-10"
-            style={{ background: 'white' }} />
-          {/* Konst Design badge */}
-          <div className="absolute right-5 top-5 flex flex-col items-end gap-0.5">
-            <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Konst Design</span>
-            <span className="text-[11px] text-white/40 italic">Interior Studio</span>
-          </div>
-        </div>
+      {/* ── Hero card ────────────────────────────────────────────────────────── */}
+      <div className="rounded-2xl border p-6" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+        <div className="flex items-start justify-between gap-4">
 
-        {/* Avatar + info */}
-        <div className="px-6 pb-5">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-10">
-            <div className="flex items-end gap-4">
-              <Avatar name={profile.fullName} photoUrl={profile.photoUrl} size={76} />
-              <div className="pb-1 min-w-0">
-                <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
-                  {profile.fullName}
-                </h1>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
-                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
-                    {roleLabel}
-                  </span>
-                  {profile.department && (
-                    <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                      <Building2 size={11} />{profile.department}
-                    </span>
-                  )}
-                  <span className="flex items-center gap-1 text-[11px]">
-                    <span className="w-1.5 h-1.5 rounded-full"
-                      style={{ background: profile.status === 'active' ? 'var(--success)' : '#d97706' }} />
-                    <span style={{ color: 'var(--text-tertiary)' }} className="capitalize">{profile.status}</span>
-                  </span>
-                </div>
+          {/* Left: avatar + info */}
+          <div className="flex items-center gap-4">
+            <Avatar name={profile.fullName} photoUrl={profile.photoUrl} size={68} />
+            <div>
+              <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
+                {profile.fullName}
+              </h1>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                  style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
+                  {roleLabel}
+                </span>
+                <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                  <Star size={10} className="fill-current" style={{ color: '#f59e0b' }} />
+                  Konst Design
+                </span>
               </div>
+              <button type="button"
+                onClick={() => { setEditPersonal(true); setEditContact(false); }}
+                className="mt-3 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-[12px] font-medium hover:bg-[var(--surface-muted)] transition-colors"
+                style={{ borderColor: 'var(--border-strong)', color: 'var(--text-primary)' }}>
+                <Edit3 size={12} />Edit Profile
+              </button>
             </div>
-            <button type="button" onClick={() => setEditPersonal(true)}
-              className="btn-secondary inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-xl self-end sm:self-auto">
-              <Edit3 size={13} />Edit Profile
-            </button>
+          </div>
+
+          {/* Right: decorative note */}
+          <div className="hidden sm:flex flex-col items-end justify-start gap-1 flex-shrink-0 mt-1"
+            style={{ transform: 'rotate(2deg)' }}>
+            <div className="rounded-xl px-5 py-3 shadow-sm"
+              style={{ background: '#fef9c3', border: '1px solid #fde68a', minWidth: 120 }}>
+              <p className="text-[11px] font-semibold text-yellow-800 text-center leading-relaxed"
+                style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.01em' }}>
+                Interior<br />Design<br />Studio
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="flex items-center gap-0 border-b"
+        style={{ borderColor: 'var(--border-subtle)' }}>
         {TABS.map(tab => {
-          const isActive = tab === activeTab;
-          const isDisabled = tab !== 'Overview';
+          const active   = tab === activeTab;
+          const disabled = tab !== 'Overview';
           return (
             <button key={tab} type="button"
-              onClick={() => !isDisabled && setActiveTab(tab)}
-              className="px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+              onClick={() => !disabled && setActiveTab(tab)}
+              disabled={disabled}
+              className="relative px-4 py-2.5 text-[13px] font-medium whitespace-nowrap transition-colors"
               style={{
-                borderBottomColor: isActive ? 'var(--accent-base)' : 'transparent',
-                color: isActive ? 'var(--accent-base)' : isDisabled ? 'var(--text-tertiary)' : 'var(--text-secondary)',
-                cursor: isDisabled ? 'default' : 'pointer',
+                color: active ? 'var(--accent-base)' : disabled ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                cursor: disabled ? 'default' : 'pointer',
+                borderBottom: active ? '2px solid var(--accent-base)' : '2px solid transparent',
                 marginBottom: '-1px',
               }}>
               {tab}
@@ -393,47 +363,55 @@ export default function ProfilePage() {
         })}
       </div>
 
-      {/* ── Overview tab ─────────────────────────────────────────────────────── */}
+      {/* ── Overview tab content ─────────────────────────────────────────────── */}
       {activeTab === 'Overview' && (
         <div className="space-y-5">
 
-          {/* Three-column cards */}
+          {/* Three equal columns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-            {/* Personal Information */}
-            <SectionCard title="Personal Information"
+            {/* ── Card 1: Personal Information ── */}
+            <Card
+              title="Personal Information"
               onEdit={() => { setEditPersonal(true); setEditContact(false); }}
               editing={editPersonal}>
               {editPersonal ? (
-                <EditPersonalForm profile={profile}
-                  onSave={patch => { mergeProfile(patch); setEditPersonal(false); }}
+                <EditPersonalForm
+                  profile={profile}
+                  onSave={patch => { merge(patch); setEditPersonal(false); }}
                   onCancel={() => setEditPersonal(false)} />
               ) : (
                 <div className="space-y-4">
-                  <InfoRow icon={User}     label="Full Name"      value={profile.fullName} />
-                  <InfoRow icon={Mail}     label="Email"          value={profile.email} />
-                  <InfoRow icon={Phone}    label="Mobile"         value={profile.phone} />
-                  <InfoRow icon={MapPin}   label="Location"       value={profile.location} />
-                  <InfoRow icon={Calendar} label="Working Since"  value={fmtDate(profile.hireDate)} />
+                  <InfoRow icon={User}     label="Full Name"     value={profile.fullName} />
+                  <InfoRow icon={Mail}     label="Email"         value={profile.email} />
+                  <InfoRow icon={Phone}    label="Mobile"        value={profile.phone} />
+                  <InfoRow icon={MapPin}   label="Address"       value={profile.location} />
+                  <InfoRow icon={Calendar} label="Working Since" value={fmtDate(profile.hireDate)} />
                 </div>
               )}
-            </SectionCard>
+            </Card>
 
-            {/* Contact Details */}
-            <SectionCard title="Contact Details"
+            {/* ── Card 2: Contact Details ── */}
+            <Card
+              title="Contact Details"
               onEdit={() => { setEditContact(true); setEditPersonal(false); }}
               editing={editContact}>
               {editContact ? (
-                <EditContactForm profile={profile}
-                  onSave={patch => { mergeProfile(patch); setEditContact(false); }}
+                <EditEmergencyForm
+                  profile={profile}
+                  onSave={patch => { merge(patch); setEditContact(false); }}
                   onCancel={() => setEditContact(false)} />
               ) : (
                 <div className="space-y-4">
-                  <InfoRow icon={PhoneCall} label="Mobile"         value={profile.phone} />
-                  <InfoRow icon={Mail}      label="Email Address"  value={profile.email} />
-                  <InfoRow icon={MapPin}    label="Office Address" value={profile.location} />
+                  <InfoRow icon={PhoneCall} label="Mobile"         value={profile.phone}
+                    iconColor="#16a34a" iconBg="#dcfce7" />
+                  <InfoRow icon={Mail}      label="Email Address"  value={profile.email}
+                    iconColor="#2563eb" iconBg="#dbeafe" />
+                  <InfoRow icon={MapPin}    label="Office Address" value={profile.location}
+                    iconColor="#7c3aed" iconBg="#ede9fe" />
 
-                  <div className="pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  {/* Emergency contact sub-section */}
+                  <div className="pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                     <div className="flex items-center justify-between mb-3">
                       <p className="text-[11px] font-semibold uppercase tracking-wider"
                         style={{ color: 'var(--text-tertiary)' }}>
@@ -442,66 +420,127 @@ export default function ProfilePage() {
                       {!profile.emergencyContact && (
                         <button type="button"
                           onClick={() => { setEditContact(true); setEditPersonal(false); }}
-                          className="flex items-center gap-0.5 text-[11px] font-semibold"
+                          className="flex items-center gap-0.5 text-[11px] font-semibold hover:underline"
                           style={{ color: 'var(--accent-base)' }}>
                           <Plus size={11} />Add Contact
                         </button>
                       )}
                     </div>
+
                     {profile.emergencyContact ? (
                       <div className="rounded-xl p-3 space-y-1.5"
                         style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                        <p className="text-sm font-semibold text-orange-900">
+                        <p className="text-[13px] font-semibold text-orange-900">
                           {profile.emergencyContact.name}
+                          {profile.emergencyContact.relation && (
+                            <span className="text-[11px] font-normal text-orange-600 ml-1.5">
+                              · {profile.emergencyContact.relation}
+                            </span>
+                          )}
                         </p>
-                        <p className="text-[11px] text-orange-600">{profile.emergencyContact.relation}</p>
                         <a href={`tel:${profile.emergencyContact.phone}`}
                           className="flex items-center gap-1.5 text-[12px] text-orange-700 font-medium hover:underline">
                           <Phone size={11} />{profile.emergencyContact.phone}
                         </a>
                       </div>
                     ) : (
-                      <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
-                        No emergency contact set.
+                      <p className="text-[12px] italic" style={{ color: 'var(--text-tertiary)' }}>
+                        No emergency contact added yet.
                       </p>
                     )}
                   </div>
                 </div>
               )}
-            </SectionCard>
+            </Card>
 
-            {/* Quick Actions */}
-            <SectionCard title="Quick Actions">
-              <div className="space-y-1 -mx-1">
-                <ActionRow icon={Download} label="Download Profile"
-                  onClick={() => window.print()} />
-                <ActionRow icon={Edit3} label="Update Information"
-                  onClick={() => { setEditPersonal(true); setEditContact(false); }} />
-                <ActionRow icon={KeyRound} label="Change Password"
-                  onClick={() => router.push('/settings/security')} />
+            {/* ── Card 3: Quick Actions ── */}
+            <Card title="Quick Actions">
+              <div className="space-y-1">
+                {[
+                  {
+                    icon: Download, label: 'Download Profile',
+                    onClick: () => window.print(),
+                    color: 'var(--text-secondary)', bg: 'var(--surface-muted)',
+                  },
+                  {
+                    icon: Edit3, label: 'Update Information',
+                    onClick: () => { setEditPersonal(true); setEditContact(false); },
+                    color: 'var(--accent-base)', bg: 'var(--accent-soft)',
+                  },
+                  {
+                    icon: KeyRound, label: 'Change Password',
+                    onClick: () => router.push('/settings'),
+                    color: '#7c3aed', bg: '#ede9fe',
+                  },
+                ].map(({ icon: Icon, label, onClick, color, bg }) => (
+                  <button key={label} type="button" onClick={onClick}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-[var(--surface-muted)] transition-colors group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: bg }}>
+                        <Icon size={14} style={{ color }} />
+                      </div>
+                      <span className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                        {label}
+                      </span>
+                    </div>
+                    <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
+                  </button>
+                ))}
+
                 <div className="h-px my-1" style={{ background: 'var(--border-subtle)' }} />
-                <ActionRow icon={LogOut} label={signingOut ? 'Signing out…' : 'Log Out'}
-                  onClick={handleSignOut} danger />
+
+                <button type="button" onClick={handleSignOut} disabled={signingOut}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-60">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: '#fee2e2' }}>
+                      <LogOut size={14} style={{ color: 'var(--danger)' }} />
+                    </div>
+                    <span className="text-[13px] font-medium" style={{ color: 'var(--danger)' }}>
+                      {signingOut ? 'Signing out…' : 'Log Out'}
+                    </span>
+                  </div>
+                  {!signingOut && <ChevronRight size={14} style={{ color: '#fca5a5' }} />}
+                  {signingOut && <Loader2 size={14} className="animate-spin" style={{ color: 'var(--danger)' }} />}
+                </button>
               </div>
-            </SectionCard>
+            </Card>
           </div>
 
-          {/* Work Information */}
-          <div className="premium-card p-5">
-            <p className="text-[13px] font-bold mb-4" style={{ color: 'var(--text-heading)' }}>
+          {/* ── Work Information ─────────────────────────────────────────────── */}
+          <div className="rounded-2xl border p-5"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-[13px] font-bold mb-5" style={{ color: 'var(--text-heading)' }}>
               Work Information
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
-              <InfoRow icon={Building2}  label="Department"       value={profile.department} />
-              <InfoRow icon={Briefcase}  label="Designation"      value={profile.jobTitle} />
-              <InfoRow icon={User}       label="Employment Type"  value={empTypeLabel} />
-              <InfoRow icon={Building2}  label="Job Role"         value={ROLE_LABEL[profile.role] ?? profile.role} />
-            </div>
-            {!profile.department && !profile.jobTitle && (
+            {(profile.department || profile.jobTitle || profile.employmentType) ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                <InfoRow icon={Building2} label="Department"      value={profile.department}
+                  iconColor="#2563eb" iconBg="#dbeafe" />
+                <InfoRow icon={Briefcase} label="Designation"     value={profile.jobTitle}
+                  iconColor="#7c3aed" iconBg="#ede9fe" />
+                <InfoRow icon={User}      label="Employment Type" value={empTypeLabel}
+                  iconColor="#16a34a" iconBg="#dcfce7" />
+                <InfoRow icon={Building2} label="Job Role"        value={roleLabel}
+                  iconColor="#f59e0b" iconBg="#fef3c7" />
+              </div>
+            ) : (
               <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
-                Work information is managed by the owner in Settings.
+                Work details are managed by the owner. Contact admin to update your profile.
               </p>
             )}
+          </div>
+
+          {/* ── Recent Activity placeholder ───────────────────────────────────── */}
+          <div className="rounded-2xl border p-5"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-[13px] font-bold mb-1" style={{ color: 'var(--text-heading)' }}>
+              Recent Activity
+            </p>
+            <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+              Activity tracking coming soon.
+            </p>
           </div>
 
         </div>
