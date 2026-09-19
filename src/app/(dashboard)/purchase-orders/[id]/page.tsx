@@ -1,8 +1,8 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Plus, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Paperclip, Plus, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -139,6 +139,8 @@ export default function PurchaseOrderDetailPage({
   const [billDescription, setBillDescription] = useState('');
   const [billSaving, setBillSaving]         = useState(false);
   const [billError, setBillError]           = useState<string | null>(null);
+  const [billReceiptFile, setBillReceiptFile] = useState<File | null>(null);
+  const billReceiptRef = useRef<HTMLInputElement>(null);
 
   const [statusSaving, setStatusSaving] = useState(false);
   const [pdfLoading, setPdfLoading]     = useState(false);
@@ -319,6 +321,7 @@ export default function PurchaseOrderDetailPage({
     setBillDueDate('');
     setBillDescription('');
     setBillError(null);
+    setBillReceiptFile(null);
     setBillOpen(true);
   }
 
@@ -348,6 +351,13 @@ export default function PurchaseOrderDetailPage({
         const { error } = (await res.json()) as { error?: string };
         setBillError(typeof error === 'string' ? error : 'Failed to create vendor bill.');
         return;
+      }
+      const { data: created } = (await res.json()) as { data?: { id: string } };
+      // Upload receipt if one was selected
+      if (billReceiptFile && created?.id) {
+        const form = new FormData();
+        form.append('file', billReceiptFile);
+        await fetch(`/api/v1/vendor-bills/${created.id}/receipt`, { method: 'POST', body: form });
       }
       setBillOpen(false);
       void load();
@@ -956,6 +966,40 @@ export default function PurchaseOrderDetailPage({
                 rows={2}
                 value={billDescription}
                 onChange={e => setBillDescription(e.target.value)}
+              />
+            </div>
+
+            {/* Optional receipt attachment */}
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-receipt">
+                Receipt / Bill Document{' '}
+                <span className="text-[var(--text-secondary)] font-normal">(optional)</span>
+              </Label>
+              <div
+                className="flex items-center gap-3 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-2.5 cursor-pointer hover:border-teal-400 transition-colors"
+                onClick={() => billReceiptRef.current?.click()}
+              >
+                <Paperclip className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                <span className="text-sm text-[var(--text-secondary)] flex-1 truncate">
+                  {billReceiptFile ? billReceiptFile.name : 'Click to attach PDF or image…'}
+                </span>
+                {billReceiptFile && (
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); setBillReceiptFile(null); if (billReceiptRef.current) billReceiptRef.current.value = ''; }}
+                    className="text-xs text-[var(--text-secondary)] hover:text-red-500 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              <input
+                ref={billReceiptRef}
+                id="bill-receipt"
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                className="hidden"
+                onChange={e => setBillReceiptFile(e.target.files?.[0] ?? null)}
               />
             </div>
 

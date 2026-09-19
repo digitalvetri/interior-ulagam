@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   BarChart3, ChevronDown, Download, FileSpreadsheet,
   HandCoins, IndianRupee, MoreVertical,
-  Plus, Receipt, TrendingDown, TrendingUp, Wallet, CheckCircle2,
+  Paperclip, Plus, Receipt, TrendingDown, TrendingUp, Wallet, CheckCircle2,
   Clock, Building2, Search,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
@@ -1152,14 +1152,23 @@ function ExpensesTab() {
 
                       {/* Receipt */}
                       <td className="px-4 py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                        {r.receiptUrl
-                          ? <a href={r.receiptUrl} target="_blank" rel="noreferrer"
-                              className="text-[12px] font-semibold"
-                              style={{ color: 'var(--accent-base)' }}>
-                              View
-                            </a>
-                          : <span style={{ color: 'var(--text-tertiary)' }}>—</span>
-                        }
+                        {r.poId && r.receiptUrl ? (
+                          // Vendor bill with receipt → presigned viewer
+                          <a href={`/api/v1/vendor-bills/${r.id}/receipt`} target="_blank" rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[12px] font-semibold"
+                            style={{ color: 'var(--accent-base)' }}>
+                            <Paperclip className="h-3 w-3" />View
+                          </a>
+                        ) : !r.poId && r.receiptUrl ? (
+                          // Regular expense with direct URL
+                          <a href={r.receiptUrl} target="_blank" rel="noreferrer"
+                            className="text-[12px] font-semibold"
+                            style={{ color: 'var(--accent-base)' }}>
+                            View
+                          </a>
+                        ) : (
+                          <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

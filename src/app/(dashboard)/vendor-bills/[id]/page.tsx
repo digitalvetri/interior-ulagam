@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, CheckCircle2, ChevronRight, Clock, ExternalLink,
-  IndianRupee, MoreVertical, Printer, Trash2, XCircle,
+  IndianRupee, MoreVertical, Paperclip, Printer, Trash2, Upload, XCircle,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 
@@ -37,6 +37,7 @@ interface BillDetail {
     dueDate:        string | null;
     voidedAt:       string | null;
     vendorName:     string | null;
+    receiptUrl:     string | null;
     createdAt:      string;
   };
   po: {
@@ -109,6 +110,11 @@ export default function VendorBillDetailPage({
   const [voidOpen, setVoidOpen]       = useState(false);
   const [voidSubmitting, setVoidSubmit] = useState(false);
   const [voidError, setVoidError]     = useState<string | null>(null);
+
+  // Receipt upload
+  const [receiptUploading, setReceiptUploading] = useState(false);
+  const [receiptError, setReceiptError]         = useState<string | null>(null);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
 
   // Three-dot menu
   const [menuOpen, setMenuOpen] = useState(false);
@@ -194,6 +200,28 @@ export default function VendorBillDetailPage({
       void load();
     } catch { setVoidError('Network error — please try again.'); }
     finally { setVoidSubmit(false); }
+  }
+
+  // ── Receipt upload ──────────────────────────────────────────────────────────
+
+  async function uploadReceipt(file: File) {
+    setReceiptError(null);
+    setReceiptUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`/api/v1/vendor-bills/${id}/receipt`, { method: 'POST', body: form });
+      if (!res.ok) {
+        const { error } = (await res.json()) as { error?: string };
+        setReceiptError(typeof error === 'string' ? error : 'Upload failed.');
+        return;
+      }
+      void load();
+    } catch { setReceiptError('Network error — please try again.'); }
+    finally {
+      setReceiptUploading(false);
+      if (receiptInputRef.current) receiptInputRef.current.value = '';
+    }
   }
 
   // ── Loading / not found ─────────────────────────────────────────────────────
@@ -549,6 +577,46 @@ export default function VendorBillDetailPage({
             )}
           </div>
 
+          {/* Receipt / Bill Document */}
+          <div className="premium-card px-5 py-5 space-y-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Receipt / Document
+            </h2>
+            {bill.receiptUrl ? (
+              <div className="flex items-center justify-between gap-3">
+                <a
+                  href={`/api/v1/vendor-bills/${id}/receipt`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-600 hover:text-teal-700 transition-colors"
+                >
+                  <Paperclip className="h-4 w-4" />
+                  View Receipt
+                </a>
+                <button
+                  onClick={() => receiptInputRef.current?.click()}
+                  disabled={receiptUploading}
+                  className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50"
+                >
+                  Replace
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => receiptInputRef.current?.click()}
+                disabled={receiptUploading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border-subtle)] px-4 py-3 text-sm text-[var(--text-secondary)] hover:border-teal-400 hover:text-teal-600 transition-colors disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4" />
+                {receiptUploading ? 'Uploading…' : 'Upload Receipt'}
+              </button>
+            )}
+            {receiptError && <p className="text-xs text-red-600">{receiptError}</p>}
+            <p className="text-[11px] text-[var(--text-tertiary)]">
+              PDF, JPEG, or PNG · max 10 MB
+            </p>
+          </div>
+
           {/* Related + Actions */}
           <div className="premium-card px-5 py-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -625,6 +693,18 @@ export default function VendorBillDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Hidden receipt file input */}
+      <input
+        ref={receiptInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.webp"
+        className="hidden"
+        onChange={e => {
+          const file = e.target.files?.[0];
+          if (file) void uploadReceipt(file);
+        }}
+      />
 
       {/* ── Record Payment dialog ── */}
       {payOpen && (
