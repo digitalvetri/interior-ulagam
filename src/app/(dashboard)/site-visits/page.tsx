@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Calendar, CheckCircle2,
   Clock, XCircle, Loader2, AlertTriangle, UserX, Eye,
+  MoreVertical, Trash2, Edit2,
 } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -60,6 +61,7 @@ const PURPOSE_LABELS: Record<VisitPurpose, string> = {
 };
 
 interface ScheduleForm {
+  id?:         string;  // set when editing an existing visit
   leadId:      string;
   scheduledAt: string;
   address:     string;
@@ -67,6 +69,8 @@ interface ScheduleForm {
   designerId:  string;
   notes:       string;
 }
+
+const EMPTY_FORM: ScheduleForm = { leadId: '', scheduledAt: '', address: '', purpose: '', designerId: '', notes: '' };
 
 // ─── Status config ────────────────────────────────────────────────────────────
 
@@ -127,6 +131,173 @@ function FilterChip({ active, onClick, label, count }: {
   );
 }
 
+// ─── Visit row with 3-dots menu ───────────────────────────────────────────────
+
+function VisitRow({
+  v,
+  onView,
+  onEdit,
+  onDelete,
+}: {
+  v: SiteVisit;
+  onView: (id: string) => void;
+  onEdit: (v: SiteVisit) => void;
+  onDelete: (v: SiteVisit) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (btnRef.current && !btnRef.current.closest('[data-menu-root]')?.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
+
+  function toggleMenu() {
+    if (menuOpen) {
+      setMenuOpen(false);
+      setMenuPos(null);
+    } else if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+      setMenuOpen(true);
+    }
+  }
+
+  const s = STATUS_STYLES[v.status] ?? STATUS_STYLES.scheduled;
+  const clientLabel  = v.customerName ?? v.leadName ?? '—';
+  const purposeLabel = v.purpose ? (PURPOSE_LABELS[v.purpose as VisitPurpose] ?? v.purpose) : '—';
+  const isTerminal   = v.status === 'completed' || v.status === 'cancelled' || v.status === 'no_show';
+
+  return (
+    <tr
+      style={{ borderBottom: '1px solid var(--border-subtle)', borderLeft: `3px solid ${s.strip}` }}
+      className="transition-colors cursor-pointer"
+      onClick={() => onView(v.id)}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+    >
+      {/* Number + Date */}
+      <td className="px-4 py-3">
+        <p className="font-semibold tnum text-[12px]" style={{ color: 'var(--accent-base)' }}>
+          {fmtVisitNumber(v)}
+        </p>
+        <p className="text-[11px] tnum mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+          {fmtDate(v.scheduledAt)}
+        </p>
+        <p className="text-[11px] tnum" style={{ color: 'var(--text-tertiary)' }}>
+          {fmtTime(v.scheduledAt)}
+        </p>
+      </td>
+
+      {/* Purpose */}
+      <td className="px-4 py-3">
+        <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{purposeLabel}</span>
+      </td>
+
+      {/* Status */}
+      <td className="px-4 py-3">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase border"
+          style={{ background: s.bg, color: s.fg, borderColor: s.border }}
+        >
+          <s.Icon className="h-2.5 w-2.5" />
+          {STATUS_LABELS[v.status]}
+        </span>
+      </td>
+
+      {/* Assigned To */}
+      <td className="px-4 py-3">
+        <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>
+          {v.designerName ?? '—'}
+        </span>
+      </td>
+
+      {/* Project / Client */}
+      <td className="px-4 py-3">
+        <span className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
+          {clientLabel}
+        </span>
+        {v.leadPhone && (
+          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{v.leadPhone}</p>
+        )}
+      </td>
+
+      {/* Observations */}
+      <td className="px-4 py-3 max-w-[200px]">
+        <span className="truncate block text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+          {v.followUpNotes ?? v.notes ?? '—'}
+        </span>
+      </td>
+
+      {/* Actions — 3-dots menu */}
+      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+        <div className="inline-flex items-center gap-1">
+          <button
+            type="button"
+            title="View details"
+            onClick={() => onView(v.id)}
+            className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+          >
+            <Eye className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
+          </button>
+          <div data-menu-root>
+            <button
+              ref={btnRef}
+              type="button"
+              title="More actions"
+              onClick={toggleMenu}
+              className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              <MoreVertical className="h-3.5 w-3.5" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+            {menuOpen && menuPos && (
+              <div
+                className="w-36 rounded-xl shadow-xl overflow-hidden"
+                style={{
+                  position: 'fixed',
+                  top: menuPos.top,
+                  right: menuPos.right,
+                  zIndex: 9999,
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--border-subtle)',
+                }}
+              >
+                {!isTerminal && (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); onEdit(v); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
+                    style={{ color: 'var(--text-heading)' }}
+                  >
+                    <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+                    Edit
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setMenuOpen(false); onDelete(v); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
+                  style={{ color: '#DC2626' }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SiteVisitsPage() {
@@ -142,9 +313,12 @@ export default function SiteVisitsPage() {
   const [filterStatus, setFilterStatus] = useState<VisitStatus | 'all'>('all');
 
   const [dialogOpen,  setDialogOpen]  = useState(false);
-  const [form,        setForm]        = useState<ScheduleForm>({ leadId: '', scheduledAt: '', address: '', purpose: '', designerId: '', notes: '' });
+  const [form,        setForm]        = useState<ScheduleForm>(EMPTY_FORM);
   const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; visitId: string; label: string }>({ open: false, visitId: '', label: '' });
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -190,37 +364,91 @@ export default function SiteVisitsPage() {
   }, [visits]);
 
   async function handleSchedule() {
-    if (!form.leadId)         { setSubmitError('Select a lead.'); return; }
-    if (!form.scheduledAt)    { setSubmitError('Choose a date and time.'); return; }
-    if (!form.address.trim()) { setSubmitError('Enter an address.'); return; }
+    if (!form.id && !form.leadId) { setSubmitError('Select a lead.'); return; }
+    if (!form.scheduledAt)        { setSubmitError('Choose a date and time.'); return; }
+    if (!form.address.trim())     { setSubmitError('Enter an address.'); return; }
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const res = await fetch('/api/v1/site-visits', {
-        method: 'POST',
+      const isEdit = Boolean(form.id);
+      const url    = isEdit ? `/api/v1/site-visits/${form.id}` : '/api/v1/site-visits';
+      const method = isEdit ? 'PATCH' : 'POST';
+      const body   = isEdit
+        ? {
+            scheduledAt: new Date(form.scheduledAt).toISOString(),
+            address:     form.address.trim(),
+            purpose:     form.purpose || undefined,
+            designerId:  form.designerId || undefined,
+            notes:       form.notes.trim() || undefined,
+          }
+        : {
+            leadId:      form.leadId,
+            scheduledAt: new Date(form.scheduledAt).toISOString(),
+            address:     form.address.trim(),
+            purpose:     form.purpose || undefined,
+            designerId:  form.designerId || undefined,
+            notes:       form.notes.trim() || undefined,
+          };
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          leadId:      form.leadId,
-          scheduledAt: new Date(form.scheduledAt).toISOString(),
-          address:     form.address.trim(),
-          purpose:     form.purpose || undefined,
-          designerId:  form.designerId || undefined,
-          notes:       form.notes.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const b = (await res.json()) as { error?: string };
-        setSubmitError(typeof b.error === 'string' ? b.error : 'Failed to schedule');
+        setSubmitError(typeof b.error === 'string' ? b.error : isEdit ? 'Failed to update' : 'Failed to schedule');
         return;
       }
-      await loadData();
+      // Close dialog immediately, then refresh visit list in background
       setDialogOpen(false);
-      setForm({ leadId: '', scheduledAt: '', address: '', purpose: '', designerId: '', notes: '' });
+      setForm(EMPTY_FORM);
+      void fetch('/api/v1/site-visits')
+        .then(r => r.json())
+        .then((vRes: { data?: SiteVisit[] }) => {
+          if (Array.isArray(vRes.data)) setVisits(vRes.data);
+        });
     } catch {
       setSubmitError('Network error — try again');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleDelete(visitId: string) {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/v1/site-visits/${visitId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const b = (await res.json()) as { error?: string };
+        alert(typeof b.error === 'string' ? b.error : 'Failed to delete');
+        return;
+      }
+      setVisits(prev => prev.filter(v => v.id !== visitId));
+      setDeleteConfirm({ open: false, visitId: '', label: '' });
+    } catch {
+      alert('Network error — try again');
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function openEditDialog(v: SiteVisit) {
+    // Format scheduledAt for datetime-local input (YYYY-MM-DDTHH:MM)
+    const dt = new Date(v.scheduledAt);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const local = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+    setForm({
+      id:          v.id,
+      leadId:      v.leadId,
+      scheduledAt: local,
+      address:     v.locationJson?.address ?? '',
+      purpose:     (v.purpose as VisitPurpose) ?? '',
+      designerId:  v.designerId ?? '',
+      notes:       v.notes ?? '',
+    });
+    setSubmitError(null);
+    setDialogOpen(true);
   }
 
   return (
@@ -305,115 +533,53 @@ export default function SiteVisitsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(v => {
-                  const s = STATUS_STYLES[v.status] ?? STATUS_STYLES.scheduled;
-                  const clientLabel = v.customerName ?? v.leadName ?? '—';
-                  const purposeLabel = v.purpose ? (PURPOSE_LABELS[v.purpose as VisitPurpose] ?? v.purpose) : '—';
-                  return (
-                    <tr
-                      key={v.id}
-                      style={{ borderBottom: '1px solid var(--border-subtle)', borderLeft: `3px solid ${s.strip}` }}
-                      className="transition-colors cursor-pointer"
-                      onClick={() => router.push(`/site-visits/${v.id}`)}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-muted)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      {/* Number + Date */}
-                      <td className="px-4 py-3">
-                        <p className="font-semibold tnum text-[12px]" style={{ color: 'var(--accent-base)' }}>
-                          {fmtVisitNumber(v)}
-                        </p>
-                        <p className="text-[11px] tnum mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                          {fmtDate(v.scheduledAt)}
-                        </p>
-                        <p className="text-[11px] tnum" style={{ color: 'var(--text-tertiary)' }}>
-                          {fmtTime(v.scheduledAt)}
-                        </p>
-                      </td>
-
-                      {/* Purpose */}
-                      <td className="px-4 py-3">
-                        <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>{purposeLabel}</span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-4 py-3">
-                        <span
-                          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase border"
-                          style={{ background: s.bg, color: s.fg, borderColor: s.border }}
-                        >
-                          <s.Icon className="h-2.5 w-2.5" />
-                          {STATUS_LABELS[v.status]}
-                        </span>
-                      </td>
-
-                      {/* Assigned To */}
-                      <td className="px-4 py-3">
-                        <span className="text-[13px]" style={{ color: 'var(--text-primary)' }}>
-                          {v.designerName ?? '—'}
-                        </span>
-                      </td>
-
-                      {/* Project / Client */}
-                      <td className="px-4 py-3">
-                        <span className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
-                          {clientLabel}
-                        </span>
-                        {v.leadPhone && (
-                          <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>{v.leadPhone}</p>
-                        )}
-                      </td>
-
-                      {/* Observations */}
-                      <td className="px-4 py-3 max-w-[200px]">
-                        <span className="truncate block text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                          {v.followUpNotes ?? v.notes ?? '—'}
-                        </span>
-                      </td>
-
-                      {/* Eye icon */}
-                      <td className="px-4 py-3 text-right">
-                        <Eye className="h-4 w-4 inline-block" style={{ color: 'var(--text-tertiary)' }} />
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filtered.map(v => (
+                  <VisitRow
+                    key={v.id}
+                    v={v}
+                    onView={id => router.push(`/site-visits/${id}`)}
+                    onEdit={openEditDialog}
+                    onDelete={visit => setDeleteConfirm({ open: true, visitId: visit.id, label: fmtVisitNumber(visit) })}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Schedule visit dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Schedule / Edit visit dialog */}
+      <Dialog open={dialogOpen} onOpenChange={open => { if (!open) { setDialogOpen(false); setForm(EMPTY_FORM); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Schedule site visit</DialogTitle>
+            <DialogTitle>{form.id ? 'Edit site visit' : 'Schedule site visit'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-1">
-            <div className="space-y-1.5">
-              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Lead *</label>
-              <select
-                value={form.leadId}
-                onChange={e => {
-                  const selectedLead = leads.find(l => l.id === e.target.value) ?? null;
-                  setForm(f => ({
-                    ...f,
-                    leadId:     e.target.value,
-                    address:    selectedLead?.projectLocation ?? selectedLead?.contactCity ?? f.address,
-                    designerId: selectedLead?.ownerId ?? f.designerId,
-                  }));
-                }}
-                className="studio-input h-9 w-full"
-              >
-                <option value="">Choose a lead…</option>
-                {leads.map(l => (
-                  <option key={l.id} value={l.id}>
-                    {l.contactName || l.id.slice(0, 8)}{l.contactCity ? ` — ${l.contactCity}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!form.id && (
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Lead *</label>
+                <select
+                  value={form.leadId}
+                  onChange={e => {
+                    const selectedLead = leads.find(l => l.id === e.target.value) ?? null;
+                    setForm(f => ({
+                      ...f,
+                      leadId:     e.target.value,
+                      address:    selectedLead?.projectLocation ?? selectedLead?.contactCity ?? f.address,
+                      designerId: selectedLead?.ownerId ?? f.designerId,
+                    }));
+                  }}
+                  className="studio-input h-9 w-full"
+                >
+                  <option value="">Choose a lead…</option>
+                  {leads.map(l => (
+                    <option key={l.id} value={l.id}>
+                      {l.contactName || l.id.slice(0, 8)}{l.contactCity ? ` — ${l.contactCity}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Date &amp; Time *</label>
               <input
@@ -489,8 +655,38 @@ export default function SiteVisitsPage() {
               disabled={submitting}
               className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50"
             >
-              <Calendar className="h-3.5 w-3.5" strokeWidth={2.25} />
-              {submitting ? 'Scheduling…' : 'Schedule visit'}
+              {form.id ? <Edit2 className="h-3.5 w-3.5" strokeWidth={2.25} /> : <Calendar className="h-3.5 w-3.5" strokeWidth={2.25} />}
+              {submitting ? (form.id ? 'Saving…' : 'Scheduling…') : (form.id ? 'Save changes' : 'Schedule visit')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteConfirm.open} onOpenChange={open => { if (!open) setDeleteConfirm({ open: false, visitId: '', label: '' }); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete site visit?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] py-2" style={{ color: 'var(--text-secondary)' }}>
+            <strong style={{ color: 'var(--text-heading)' }}>{deleteConfirm.label}</strong> will be permanently deleted. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <button
+              onClick={() => setDeleteConfirm({ open: false, visitId: '', label: '' })}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleDelete(deleteConfirm.visitId)}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium disabled:opacity-50"
+              style={{ background: '#DC2626', color: '#fff' }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleting ? 'Deleting…' : 'Delete'}
             </button>
           </DialogFooter>
         </DialogContent>

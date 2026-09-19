@@ -8,6 +8,39 @@ import {
 } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
+// DELETE /api/v1/site-visits/[id]
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+  if (!z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ error: 'Invalid site visit id' }, { status: 400 });
+  }
+
+  try {
+    const [visit] = await db
+      .select({ id: siteVisits.id, status: siteVisits.status })
+      .from(siteVisits)
+      .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)))
+      .limit(1);
+
+    if (!visit) return NextResponse.json({ error: 'Site visit not found' }, { status: 404 });
+
+    await db
+      .delete(siteVisits)
+      .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)));
+
+    return NextResponse.json({ data: { id } });
+  } catch (e) {
+    console.error('[DELETE /api/v1/site-visits/[id]]', e);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 const TERMINAL_STATUSES = new Set(['completed', 'cancelled', 'no_show']);
 
 const PatchSiteVisitSchema = z
