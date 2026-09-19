@@ -81,9 +81,9 @@ describe('calcReceived', () => {
 
 describe('calcToPayVendor', () => {
   const pos: PoRow[] = [
-    { totalPaise: 50000, paidPaise: 20000, status: 'partial'   },
-    { totalPaise: 30000, paidPaise: 30000, status: 'complete'  },
-    { totalPaise: 15000, paidPaise: 0,     status: 'cancelled' },
+    { totalPaise: 50000, billedPaise: 50000, paidPaise: 20000, status: 'partial'   },
+    { totalPaise: 30000, billedPaise: 30000, paidPaise: 30000, status: 'complete'  },
+    { totalPaise: 15000, billedPaise: 15000, paidPaise: 0,     status: 'cancelled' },
   ];
 
   it('sums outstanding balances, excludes cancelled', () => {
