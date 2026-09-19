@@ -56,6 +56,7 @@ export async function GET(request: NextRequest) {
         expenseNumber:  expenses.expenseNumber,
         description:    expenses.description,
         category:       expenses.category,
+        poId:           expenses.poId,
         gstPct:         expenses.gstPct,
         amountPaise:    expenses.amountPaise,
         gstAmountPaise: expenses.gstAmountPaise,

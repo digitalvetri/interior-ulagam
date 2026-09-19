@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -20,6 +20,7 @@ interface ExpenseDetail {
   id: string;
   tenantId: string;
   projectId: string;
+  poId: string | null;
   category: string;
   amountPaise: number;
   description: string | null;
@@ -112,6 +113,7 @@ function Skeleton() {
 
 export default function ExpenseDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params?.id;
 
   const [expense, setExpense] = useState<ExpenseDetail | null>(null);
@@ -132,11 +134,16 @@ export default function ExpenseDetailPage() {
       })
       .then((body: { data?: ExpenseDetail; error?: string }) => {
         if (!body.data) throw new Error(body.error ?? 'Failed to load expense');
+        // Vendor bills (expenses linked to a PO) always open the vendor bill detail page
+        if (body.data.poId) {
+          router.replace(`/vendor-bills/${id}`);
+          return;
+        }
         setExpense(body.data);
       })
       .catch((e) => setFetchError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
     loadExpense();

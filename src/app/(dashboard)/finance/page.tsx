@@ -53,6 +53,7 @@ interface ExpenseRow {
   description: string | null; vendorName: string | null; gstPct: number;
   gstAmountPaise: number; createdAt: string; paidAt: string | null;
   dueDate: string | null; expenseNumber: string | null; receiptUrl: string | null;
+  poId: string | null;
 }
 
 interface GstSummary {
@@ -67,8 +68,8 @@ interface GstOutputRow {
 }
 interface GstExpenseRow {
   id: string; expenseNumber: string | null; description: string | null;
-  category: string; gstPct: number; amountPaise: number; gstAmountPaise: number;
-  paidAt: string | null; createdAt: string;
+  category: string; poId: string | null; gstPct: number; amountPaise: number;
+  gstAmountPaise: number; paidAt: string | null; createdAt: string;
 }
 interface GstHsnLine {
   hsnSac?: string | null; amountPaise: number;
@@ -1107,7 +1108,7 @@ function ExpensesTab() {
                         borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                         cursor:       'pointer',
                       }}
-                      onClick={() => window.location.href = `/expenses/${r.id}`}>
+                      onClick={() => window.location.href = r.poId ? `/vendor-bills/${r.id}` : `/expenses/${r.id}`}>
 
                       {/* Date */}
                       <td className="px-4 py-3.5 whitespace-nowrap"
@@ -1436,7 +1437,7 @@ function GstTab() {
                 <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
                   {data.inputRows.map(r => (
                     <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
-                      onClick={() => { window.location.href = `/expenses/${r.id}`; }}>
+                      onClick={() => { window.location.href = r.poId ? `/vendor-bills/${r.id}` : `/expenses/${r.id}`; }}>
                       <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{EXP_LABEL[r.category] ?? r.category}</td>

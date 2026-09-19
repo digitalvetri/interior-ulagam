@@ -24,6 +24,7 @@ export async function GET(
         id:              expenses.id,
         tenantId:        expenses.tenantId,
         projectId:       expenses.projectId,
+        poId:            expenses.poId,
         category:        expenses.category,
         amountPaise:     expenses.amountPaise,
         description:     expenses.description,
