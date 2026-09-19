@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Plus, Users, MoreHorizontal } from 'lucide-react';
+import { Search, Plus, Users, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { NewCustomerDialog } from '@/components/customers/NewCustomerDialog';
 import type { Customer, CustomerStage } from '@/types/customers';
@@ -38,7 +41,207 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-function makeColumns(onMenu: (row: CustomerRow) => void): Column<CustomerRow>[] {
+// ─── Action menu (fixed-position to escape overflow-hidden) ───────────────────
+
+function ActionMenu({
+  row,
+  onEdit,
+  onDelete,
+}: {
+  row: CustomerRow;
+  onEdit: (row: CustomerRow) => void;
+  onDelete: (row: CustomerRow) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos]   = useState<{ top: number; right: number } | null>(null);
+  const btnRef          = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (!btnRef.current?.closest('[data-action-menu]')?.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  function toggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (open) { setOpen(false); setPos(null); return; }
+    const rect = btnRef.current!.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    setOpen(true);
+  }
+
+  return (
+    <div data-action-menu>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        className="p-1.5 rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && pos && (
+        <div
+          className="w-36 rounded-xl shadow-xl overflow-hidden"
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            right: pos.right,
+            zIndex: 9999,
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit(row); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
+            style={{ color: 'var(--text-heading)' }}
+          >
+            <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+            Edit
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(row); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
+            style={{ color: '#DC2626' }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Edit dialog ──────────────────────────────────────────────────────────────
+
+function EditCustomerDialog({
+  row,
+  open,
+  onClose,
+  onSaved,
+}: {
+  row: CustomerRow | null;
+  open: boolean;
+  onClose: () => void;
+  onSaved: (updated: CustomerRow) => void;
+}) {
+  const [fullName,    setFullName]    = useState('');
+  const [phone,       setPhone]       = useState('');
+  const [email,       setEmail]       = useState('');
+  const [company,     setCompany]     = useState('');
+  const [city,        setCity]        = useState('');
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+
+  useEffect(() => {
+    if (row) {
+      setFullName(row.fullName);
+      setPhone(row.phone);
+      setEmail(row.email ?? '');
+      setCompany(row.company ?? '');
+      setCity(row.city ?? '');
+      setError(null);
+    }
+  }, [row]);
+
+  async function handleSave() {
+    if (!row || !fullName.trim() || !phone.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/customers/${row.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          phone:    phone.trim(),
+          email:    email.trim() || null,
+          company:  company.trim() || null,
+          city:     city.trim() || null,
+        }),
+      });
+      const json = await res.json() as { error?: string; data?: Customer };
+      if (!res.ok) { setError(json.error ?? 'Failed to update'); return; }
+      onSaved({ ...row, ...json.data });
+      onClose();
+    } catch {
+      setError('Network error — try again');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={o => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit client</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <div className="space-y-1.5">
+            <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Full name *</label>
+            <input value={fullName} onChange={e => setFullName(e.target.value)} className="studio-input h-9 w-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Phone *</label>
+              <input value={phone} onChange={e => setPhone(e.target.value)} className="studio-input h-9 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="studio-input h-9 w-full" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Company</label>
+              <input value={company} onChange={e => setCompany(e.target.value)} className="studio-input h-9 w-full" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>City</label>
+              <input value={city} onChange={e => setCity(e.target.value)} className="studio-input h-9 w-full" />
+            </div>
+          </div>
+          {error && <p className="text-[12px] font-medium" style={{ color: '#DC2626' }}>{error}</p>}
+        </div>
+        <DialogFooter>
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="inline-flex items-center px-3.5 py-2 rounded-md text-[13px] font-medium border"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleSave()}
+            disabled={submitting || !fullName.trim() || !phone.trim()}
+            className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50"
+          >
+            {submitting ? 'Saving…' : 'Save changes'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Table columns ────────────────────────────────────────────────────────────
+
+function makeColumns(
+  onEdit: (row: CustomerRow) => void,
+  onDelete: (row: CustomerRow) => void,
+): Column<CustomerRow>[] {
   return [
     {
       key: 'fullName',
@@ -108,15 +311,7 @@ function makeColumns(onMenu: (row: CustomerRow) => void): Column<CustomerRow>[] 
       key: 'actions',
       header: '',
       width: 'w-10',
-      render: (row) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); onMenu(row); }}
-          className="p-1.5 rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </button>
-      ),
+      render: (row) => <ActionMenu row={row} onEdit={onEdit} onDelete={onDelete} />,
     },
   ];
 }
@@ -129,6 +324,9 @@ export default function CustomersPage() {
   const [search, setSearch]         = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All');
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const [editRow,  setEditRow]  = useState<CustomerRow | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ row: CustomerRow | null; deleting: boolean }>({ row: null, deleting: false });
 
   const loadCustomers = useCallback(async () => {
     setLoading(true); setFetchError(null);
@@ -166,9 +364,30 @@ export default function CustomersPage() {
     Prospect: customers.filter(c => getStatus(c.stage) === 'Prospect').length,
   }), [customers]);
 
+  async function handleDelete(id: string) {
+    setDeleteConfirm(prev => ({ ...prev, deleting: true }));
+    try {
+      const res = await fetch(`/api/v1/customers/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        alert(j.error ?? 'Failed to delete');
+        return;
+      }
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      setDeleteConfirm({ row: null, deleting: false });
+    } catch {
+      alert('Network error — try again');
+    } finally {
+      setDeleteConfirm(prev => ({ ...prev, deleting: false }));
+    }
+  }
+
   const columns = useMemo(
-    () => makeColumns((row) => router.push(`/customers/${row.id}`)),
-    [router],
+    () => makeColumns(
+      (row) => setEditRow(row),
+      (row) => setDeleteConfirm({ row, deleting: false }),
+    ),
+    [],
   );
 
   const isEmpty = !loading && !fetchError && customers.length === 0;
@@ -281,6 +500,49 @@ export default function CustomersPage() {
         onOpenChange={setDialogOpen}
         onCreated={() => { void loadCustomers(); }}
       />
+
+      <EditCustomerDialog
+        row={editRow}
+        open={editRow !== null}
+        onClose={() => setEditRow(null)}
+        onSaved={(updated) => {
+          setCustomers(prev => prev.map(c => c.id === updated.id ? updated : c));
+          setEditRow(null);
+        }}
+      />
+
+      <Dialog
+        open={deleteConfirm.row !== null}
+        onOpenChange={o => { if (!o) setDeleteConfirm({ row: null, deleting: false }); }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete client?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] py-2" style={{ color: 'var(--text-secondary)' }}>
+            <strong style={{ color: 'var(--text-heading)' }}>{deleteConfirm.row?.fullName}</strong> and all their data will be permanently deleted. This cannot be undone.
+          </p>
+          <DialogFooter>
+            <button
+              onClick={() => setDeleteConfirm({ row: null, deleting: false })}
+              disabled={deleteConfirm.deleting}
+              className="inline-flex items-center px-3.5 py-2 rounded-md text-[13px] font-medium border"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => deleteConfirm.row && void handleDelete(deleteConfirm.row.id)}
+              disabled={deleteConfirm.deleting}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium disabled:opacity-50"
+              style={{ background: '#DC2626', color: '#fff' }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleteConfirm.deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
