@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { invoices, payments } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -42,9 +42,15 @@ export async function POST(
   }
 
   try {
-    // Verify invoice belongs to caller's tenant.
+    // Verify invoice belongs to caller's tenant and fetch totals for status update.
     const [invoice] = await db
-      .select({ id: invoices.id })
+      .select({
+        id:            invoices.id,
+        subtotalPaise: invoices.subtotalPaise,
+        cgstPaise:     invoices.cgstPaise,
+        sgstPaise:     invoices.sgstPaise,
+        igstPaise:     invoices.igstPaise,
+      })
       .from(invoices)
       .where(and(eq(invoices.id, id), eq(invoices.tenantId, ctx.tenantId)))
       .limit(1);
@@ -55,15 +61,33 @@ export async function POST(
     const [inserted] = await db
       .insert(payments)
       .values({
-        tenantId: ctx.tenantId,
-        invoiceId: id,
-        amountPaise: parsed.data.amountPaise,
-        status: 'captured',
-        reconciledAt: new Date(),
-        manualOverrideBy: ctx.dbUserId,
+        tenantId:           ctx.tenantId,
+        invoiceId:          id,
+        amountPaise:        parsed.data.amountPaise,
+        status:             'captured',
+        reconciledAt:       new Date(),
+        manualOverrideBy:   ctx.dbUserId,
         manualOverrideNote: parsed.data.note,
       })
       .returning();
+
+    // Update invoice lifecycle status based on total captured payments.
+    const totalInvoicePaise =
+      invoice.subtotalPaise + invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise;
+
+    const [{ paidPaise }] = await db
+      .select({ paidPaise: sql<number>`coalesce(sum(${payments.amountPaise}), 0)`.mapWith(Number) })
+      .from(payments)
+      .where(and(eq(payments.invoiceId, id), ne(payments.status, 'pending')));
+
+    const newStatus =
+      paidPaise >= totalInvoicePaise ? 'paid' :
+      paidPaise > 0                  ? 'part_paid' : 'issued';
+
+    await db
+      .update(invoices)
+      .set({ status: newStatus })
+      .where(eq(invoices.id, id));
 
     return NextResponse.json({ data: inserted }, { status: 201 });
   } catch (err) {
