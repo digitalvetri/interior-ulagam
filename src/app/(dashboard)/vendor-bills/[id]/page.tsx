@@ -450,7 +450,7 @@ export default function VendorBillDetailPage({
                 <p className="text-sm font-medium text-[var(--text-primary)]">No payments recorded yet</p>
                 {canPay && (
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Use "Record Payment" to log a payment against this bill.
+                    Use &quot;Record Payment&quot; to log a payment against this bill.
                   </p>
                 )}
               </div>
