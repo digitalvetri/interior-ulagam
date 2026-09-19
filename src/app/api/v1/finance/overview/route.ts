@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   purchaseOrders, vendors, projects, vendorPayments,
@@ -168,20 +168,49 @@ export async function GET(request: NextRequest) {
       ));
 
     const vpRows = await db
-      .select({ purchaseOrderId: vendorPayments.purchaseOrderId, amountPaise: vendorPayments.amountPaise })
+      .select({
+        purchaseOrderId: vendorPayments.purchaseOrderId,
+        expenseId:       vendorPayments.expenseId,
+        amountPaise:     vendorPayments.amountPaise,
+      })
       .from(vendorPayments)
       .where(eq(vendorPayments.tenantId, ctx.tenantId));
 
-    const paidByPo = new Map<string, number>();
+    // Bill-allocated payments (expenseId IS NOT NULL) drive Vendor Payables.
+    // Advance/unallocated payments (expenseId IS NULL) are tracked separately.
+    const billPaidByPo  = new Map<string, number>();
+    const advanceByPo   = new Map<string, number>();
     for (const vp of vpRows) {
       if (!vp.purchaseOrderId) continue;
-      paidByPo.set(vp.purchaseOrderId, (paidByPo.get(vp.purchaseOrderId) ?? 0) + vp.amountPaise);
+      if (vp.expenseId) {
+        billPaidByPo.set(vp.purchaseOrderId, (billPaidByPo.get(vp.purchaseOrderId) ?? 0) + vp.amountPaise);
+      } else {
+        advanceByPo.set(vp.purchaseOrderId, (advanceByPo.get(vp.purchaseOrderId) ?? 0) + vp.amountPaise);
+      }
+    }
+
+    // Billed total per PO = sum of active (non-void) vendor bills
+    const billExpRows = await db
+      .select({
+        poId:           expenses.poId,
+        amountPaise:    expenses.amountPaise,
+        gstAmountPaise: expenses.gstAmountPaise,
+        voidedAt:       expenses.voidedAt,
+      })
+      .from(expenses)
+      .where(and(eq(expenses.tenantId, ctx.tenantId), isNotNull(expenses.poId)));
+
+    const billedByPo = new Map<string, number>();
+    for (const b of billExpRows) {
+      if (!b.poId || b.voidedAt) continue;
+      billedByPo.set(b.poId, (billedByPo.get(b.poId) ?? 0) + b.amountPaise + b.gstAmountPaise);
     }
 
     const poMetrics: PoRow[] = poRows.map(po => ({
-      totalPaise: poTotalPaise(po.linesJson),
-      paidPaise:  paidByPo.get(po.id) ?? 0,
-      status:     po.status,
+      totalPaise:  poTotalPaise(po.linesJson),
+      billedPaise: billedByPo.get(po.id) ?? 0,
+      paidPaise:   billPaidByPo.get(po.id) ?? 0,
+      status:      po.status,
     }));
 
     // ── KPIs ──────────────────────────────────────────────────────────────────
@@ -216,15 +245,14 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.daysLate - a.daysLate)
       .slice(0, 8);
 
-    // ── Pay this week (vendor balances due in 7 days) ─────────────────────────
-    const weekEnd = new Date(now.getTime() + 7 * 86400000).toISOString();
+    // ── Pay this week (vendor bill balances, by billed − paid) ───────────────
     const payThisWeek = poRows
       .map(po => ({
         poId:         po.id,
         poNumber:     po.poNumber,
         vendorName:   po.vendorName  ?? 'Unknown',
         projectName:  po.projectName ?? 'Unknown',
-        balancePaise: Math.max(0, poTotalPaise(po.linesJson) - (paidByPo.get(po.id) ?? 0)),
+        balancePaise: Math.max(0, (billedByPo.get(po.id) ?? 0) - (billPaidByPo.get(po.id) ?? 0)),
         status:       po.status,
       }))
       .filter(r => r.balancePaise > 0)
@@ -259,21 +287,24 @@ export async function GET(request: NextRequest) {
       else                     agingBuckets.d60plusPaise    += balance;
     }
 
-    // ── Vendor payables list (for /vendor-payables page compat) ───────────────
+    // ── Vendor payables list ──────────────────────────────────────────────────
+    // Payable = Billed Total − Bill Payments (NOT PO commitment − all payments).
+    // Only POs that have at least one active vendor bill are included.
     const vendorPayables = poRows
       .map(po => ({
-        id:                 po.id,
-        vendor_name:        po.vendorName  ?? 'Unknown vendor',
-        project_name:       po.projectName ?? 'Unknown project',
-        po_number:          po.poNumber,
-        total_amount_paise: poTotalPaise(po.linesJson),
-        paid_amount_paise:  paidByPo.get(po.id) ?? 0,
-        status:             po.status,
+        id:                  po.id,
+        vendor_name:         po.vendorName  ?? 'Unknown vendor',
+        project_name:        po.projectName ?? 'Unknown project',
+        po_number:           po.poNumber,
+        po_total_paise:      poTotalPaise(po.linesJson),
+        billed_amount_paise: billedByPo.get(po.id) ?? 0,
+        paid_amount_paise:   billPaidByPo.get(po.id) ?? 0,
+        status:              po.status,
       }))
-      .filter(r => r.total_amount_paise > 0)
+      .filter(r => r.billed_amount_paise > 0)
       .sort((a, b) =>
-        (b.total_amount_paise - b.paid_amount_paise) -
-        (a.total_amount_paise - a.paid_amount_paise),
+        (b.billed_amount_paise - b.paid_amount_paise) -
+        (a.billed_amount_paise - a.paid_amount_paise),
       );
 
     return NextResponse.json({

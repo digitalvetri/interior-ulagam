@@ -55,6 +55,19 @@ export interface Expense {
   paymentMode: string | null;
   payeeType: string | null;
   poId: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+}
+
+export interface VendorBillPayment {
+  id: string;
+  expenseId: string | null;
+  purchaseOrderId: string | null;
+  amountPaise: number;
+  method: string | null;
+  reference: string | null;
+  note: string | null;
+  paidAt: string;
   createdAt: string;
 }
 

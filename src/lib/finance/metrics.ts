@@ -29,8 +29,9 @@ export interface ExpenseRow {
 }
 
 export interface PoRow {
-  totalPaise: number;
-  paidPaise: number;
+  totalPaise:  number;  // PO commitment (purchase order total)
+  billedPaise: number;  // sum of active vendor bills for this PO
+  paidPaise:   number;  // bill-allocated vendor payments only
   status: string;
 }
 
@@ -113,10 +114,11 @@ export function calcReceived(
 
 // ─── To pay ───────────────────────────────────────────────────────────────────
 
+// Vendor Payable = Billed Total − Bill Payments (NOT PO commitment − all payments)
 export function calcToPayVendor(pos: PoRow[]): number {
   return pos
     .filter((po) => po.status !== 'cancelled')
-    .reduce((s, po) => s + Math.max(0, po.totalPaise - po.paidPaise), 0);
+    .reduce((s, po) => s + Math.max(0, po.billedPaise - po.paidPaise), 0);
 }
 
 export function calcToPayExpenses(expenses: ExpenseRow[]): number {

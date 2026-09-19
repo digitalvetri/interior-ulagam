@@ -15,7 +15,8 @@ interface VendorPayable {
   vendor_name: string;
   project_name: string;
   po_number: string;
-  total_amount_paise: number;
+  po_total_paise: number;
+  billed_amount_paise: number;
   paid_amount_paise: number;
   status: string;
 }
@@ -51,7 +52,7 @@ function StatusPill({ status }: { status: string }) {
 // ─── KPI helpers ───────────────────────────────────────────────────────────────
 
 function totalOutstandingPaise(rows: VendorPayable[]): number {
-  return rows.reduce((sum, r) => sum + Math.max(0, r.total_amount_paise - r.paid_amount_paise), 0);
+  return rows.reduce((sum, r) => sum + Math.max(0, r.billed_amount_paise - r.paid_amount_paise), 0);
 }
 
 function overdueCount(rows: VendorPayable[]): number {
@@ -62,7 +63,7 @@ function dueSoonCount(rows: VendorPayable[]): number {
   // "Due soon" = status not complete/cancelled and balance > 0 (proxy; no due_date field in this interface)
   return rows.filter(
     r => !['complete', 'cancelled', 'overdue'].includes(r.status) &&
-         r.total_amount_paise - r.paid_amount_paise > 0,
+         r.billed_amount_paise - r.paid_amount_paise > 0,
   ).length;
 }
 
@@ -143,13 +144,13 @@ const COLUMNS: Column<VendorPayable>[] = [
     ),
   },
   {
-    key: 'total_amount_paise',
-    header: 'Total ₹',
+    key: 'billed_amount_paise',
+    header: 'Billed ₹',
     align: 'right',
     sortable: true,
     render: (r) => (
       <span className="tabular-nums font-medium" style={{ color: 'var(--text-heading)' }}>
-        {formatRupees(r.total_amount_paise)}
+        {formatRupees(r.billed_amount_paise)}
       </span>
     ),
   },
@@ -170,7 +171,7 @@ const COLUMNS: Column<VendorPayable>[] = [
     align: 'right',
     sortable: false,
     render: (r) => {
-      const balance = r.total_amount_paise - r.paid_amount_paise;
+      const balance = r.billed_amount_paise - r.paid_amount_paise;
       return (
         <span
           className="tabular-nums font-semibold"

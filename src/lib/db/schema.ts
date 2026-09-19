@@ -575,7 +575,8 @@ export const expenses = pgTable('expenses', {
   paidAt: timestamp('paid_at', { withTimezone: true }),
   paymentMode: text('payment_mode'),
   payeeType: payeeTypeEnum('payee_type'),
-  poId: uuid('po_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  poId:     uuid('po_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  voidedAt: timestamp('voided_at', { withTimezone: true }),
   ...timestamps,
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
@@ -1054,6 +1055,7 @@ export const vendorPayments = pgTable('vendor_payments', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   vendorId: uuid('vendor_id').references(() => vendors.id, { onDelete: 'set null' }),
   purchaseOrderId: uuid('purchase_order_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
+  expenseId:       uuid('expense_id').references(() => expenses.id, { onDelete: 'set null' }),
   amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
   paidAt: timestamp('paid_at', { withTimezone: true }).notNull().defaultNow(),
   method: text('method'),
@@ -1063,5 +1065,6 @@ export const vendorPayments = pgTable('vendor_payments', {
 }, (t) => [
   index('vendor_payments_tenant_idx').on(t.tenantId),
   index('vendor_payments_vendor_idx').on(t.vendorId),
+  index('vendor_payments_expense_id_idx').on(t.expenseId),
   uniqueIndex('vendor_payments_po_ref_uq').on(t.purchaseOrderId, t.reference).where(sql`reference IS NOT NULL`),
 ]);

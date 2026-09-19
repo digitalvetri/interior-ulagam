@@ -824,8 +824,15 @@ export default function PurchaseOrderDetailPage({
                   const isPaid = !!bill.paidAt;
                   return (
                     <tr key={bill.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--surface-muted)]/40 transition-colors">
-                      <td className="px-5 py-4 font-mono text-xs text-[var(--text-secondary)]">
-                        {bill.expenseNumber ?? '—'}
+                      <td className="px-5 py-4 font-mono text-xs">
+                        {bill.expenseNumber ? (
+                          <Link
+                            href={`/vendor-bills/${bill.id}`}
+                            className="font-semibold text-teal-600 hover:text-teal-700 hover:underline transition-colors"
+                          >
+                            {bill.expenseNumber}
+                          </Link>
+                        ) : '—'}
                       </td>
                       <td className="px-4 py-4 text-[var(--text-primary)]">
                         {bill.description ?? '—'}
