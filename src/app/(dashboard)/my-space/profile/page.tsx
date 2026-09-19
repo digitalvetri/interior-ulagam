@@ -375,7 +375,7 @@ export default function ProfilePage() {
   /* ── Skeleton ── */
   if (loading) {
     return (
-      <div className="p-6 space-y-5 max-w-5xl">
+      <div className="p-6 space-y-5">
         <div className="h-28 rounded-2xl skeleton" />
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5">
           <div className="space-y-5">
@@ -394,7 +394,7 @@ export default function ProfilePage() {
   const empTypeLabel = profile.employmentType ? (EMP_TYPE_LABEL[profile.employmentType] ?? profile.employmentType) : null;
 
   return (
-    <div className="p-6 space-y-5 max-w-5xl">
+    <div className="p-6 space-y-5">
 
       {/* ── Profile Header ───────────────────────────────────────────────────── */}
       <div className="rounded-2xl border px-6 py-5"
