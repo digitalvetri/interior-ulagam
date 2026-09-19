@@ -1,8 +1,16 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { User, Phone, Mail, MapPin, Briefcase, Building2, Loader2, CheckCircle2, AlertCircle, Edit3 } from 'lucide-react';
 
-/* ── Types ─────────────────────────────────────────────────────────────── */
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  User, Phone, Mail, MapPin, Briefcase, Building2,
+  Edit3, Download, KeyRound, LogOut, ChevronRight,
+  AlertTriangle, CheckCircle2, Loader2, PhoneCall,
+  Plus, Calendar,
+} from 'lucide-react';
+
+/* ── Types ─────────────────────────────────────────────────────────────────── */
+
 interface Profile {
   id: string;
   fullName: string;
@@ -16,195 +24,289 @@ interface Profile {
   employmentType: string | null;
   hireDate: string | null;
   dob: string | null;
-  emergencyContact: {
-    name: string;
-    relation: string;
-    phone: string;
-  } | null;
+  emergencyContact: { name: string; relation: string; phone: string } | null;
   status: string;
 }
 
-/* ── Helpers ───────────────────────────────────────────────────────────── */
-const roleLabel: Record<string, string> = {
+/* ── Constants ──────────────────────────────────────────────────────────────── */
+
+const ROLE_LABEL: Record<string, string> = {
   owner: 'Owner', designer: 'Designer',
   supervisor: 'Site Supervisor', accountant: 'Accountant', employee: 'Employee',
 };
-const empTypeLabel: Record<string, string> = {
+const EMP_TYPE_LABEL: Record<string, string> = {
   full_time: 'Full-time', part_time: 'Part-time',
-  contract: 'Contract', intern: 'Intern', freelance: 'Freelance',
+  contract: 'Contract', intern: 'Intern', consultant: 'Consultant',
 };
+const TABS = ['Overview', 'Work Info', 'KRA & KPI', 'Attendance', 'Documents'] as const;
+
+/* ── Helpers ────────────────────────────────────────────────────────────────── */
+
+function fmtDate(iso: string | null) {
+  if (!iso) return null;
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+function initials(name: string) {
+  return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+}
+
+/* ── Avatar ─────────────────────────────────────────────────────────────────── */
+
+function Avatar({ name, photoUrl, size = 72 }: { name: string; photoUrl: string | null; size?: number }) {
+  if (photoUrl) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img src={photoUrl} alt={name}
+        className="rounded-full object-cover ring-4 ring-white shadow-lg"
+        style={{ width: size, height: size }} />
+    );
+  }
+  return (
+    <div className="rounded-full flex items-center justify-center ring-4 ring-white shadow-lg text-white font-bold"
+      style={{
+        width: size, height: size,
+        fontSize: size * 0.32,
+        background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 100%)',
+      }}>
+      {initials(name)}
+    </div>
+  );
+}
+
+/* ── Info row ───────────────────────────────────────────────────────────────── */
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string | null }) {
   if (!value) return null;
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ background: 'var(--accent-base)10' }}>
-        <Icon size={15} style={{ color: 'var(--accent-base)' }} />
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: 'var(--accent-soft)' }}>
+        <Icon size={14} style={{ color: 'var(--accent-base)' }} />
       </div>
-      <div>
-        <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{label}</p>
-        <p className="text-sm font-medium text-gray-800 mt-0.5">{value}</p>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+        <p className="text-sm font-medium truncate mt-0.5" style={{ color: 'var(--text-heading)' }}>{value}</p>
       </div>
     </div>
   );
 }
 
-/* ── Edit form ──────────────────────────────────────────────────────────── */
-function EditProfileForm({ profile, onSave }: { profile: Profile; onSave: (p: Profile) => void }) {
-  const [fullName, setFullName]   = useState(profile.fullName);
-  const [phone, setPhone]         = useState(profile.phone ?? '');
-  const [location, setLocation]   = useState(profile.location ?? '');
-  const [ecName, setEcName]       = useState(profile.emergencyContact?.name ?? '');
-  const [ecRelation, setEcRelation] = useState(profile.emergencyContact?.relation ?? '');
-  const [ecPhone, setEcPhone]     = useState(profile.emergencyContact?.phone ?? '');
-  const [saving, setSaving]       = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const [success, setSuccess]     = useState(false);
+/* ── Quick action row ───────────────────────────────────────────────────────── */
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!fullName.trim()) { setError('Name is required.'); return; }
-    setSaving(true); setError(null); setSuccess(false);
+function ActionRow({ icon: Icon, label, onClick, danger }: {
+  icon: React.ElementType; label: string; onClick: () => void; danger?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-colors hover:bg-[var(--surface-muted)] group"
+      style={danger ? { color: 'var(--danger)' } : {}}>
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: danger ? 'var(--danger-soft, #fee2e2)' : 'var(--surface-muted)' }}>
+          <Icon size={14} style={{ color: danger ? 'var(--danger)' : 'var(--text-secondary)' }} />
+        </div>
+        <span className="text-sm font-medium"
+          style={{ color: danger ? 'var(--danger)' : 'var(--text-primary)' }}>
+          {label}
+        </span>
+      </div>
+      <ChevronRight size={14} style={{ color: 'var(--text-tertiary)' }} />
+    </button>
+  );
+}
 
-    const emergencyContact = ecName.trim() ? {
-      name: ecName.trim(), relation: ecRelation.trim(), phone: ecPhone.trim(),
-    } : null;
+/* ── Personal info edit form ────────────────────────────────────────────────── */
 
+function EditPersonalForm({
+  profile, onSave, onCancel,
+}: { profile: Profile; onSave: (p: Partial<Profile>) => void; onCancel: () => void }) {
+  const [fullName, setFullName] = useState(profile.fullName);
+  const [phone, setPhone]       = useState(profile.phone ?? '');
+  const [location, setLocation] = useState(profile.location ?? '');
+  const [saving, setSaving]     = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+
+  async function handleSave() {
+    if (!fullName.trim()) { setError('Name is required'); return; }
+    setSaving(true); setError(null);
     try {
       const res = await fetch('/api/v1/me/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fullName: fullName.trim(),
-          phone:    phone.trim() || null,
+          phone: phone.trim() || null,
           location: location.trim() || null,
-          emergencyContact,
         }),
       });
-      if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Update failed'); return; }
-      const j = await res.json();
-      onSave({ ...profile, ...j.data, emergencyContact });
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch { setError('Network error.'); }
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        setError(j.error ?? 'Update failed'); return;
+      }
+      onSave({ fullName: fullName.trim(), phone: phone.trim() || null, location: location.trim() || null });
+    } catch { setError('Network error — try again'); }
     finally { setSaving(false); }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Full Name</label>
-          <input value={fullName} onChange={e => setFullName(e.target.value)}
-            className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 bg-white"
-            style={{ borderColor: 'var(--border)' }} />
-        </div>
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Mobile Number</label>
-          <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
-            placeholder="e.g. 9876543210"
-            className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 bg-white"
-            style={{ borderColor: 'var(--border)' }} />
-        </div>
-        <div>
-          <label className="block text-[12px] font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">Location / City</label>
-          <input value={location} onChange={e => setLocation(e.target.value)}
-            placeholder="e.g. Coimbatore"
-            className="w-full px-3 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 bg-white"
-            style={{ borderColor: 'var(--border)' }} />
-        </div>
+    <div className="space-y-4">
+      <div className="space-y-3">
+        {[
+          { label: 'Full Name', val: fullName, set: setFullName, type: 'text' },
+          { label: 'Phone', val: phone, set: setPhone, type: 'tel' },
+          { label: 'Location', val: location, set: setLocation, type: 'text' },
+        ].map(({ label, val, set, type }) => (
+          <div key={label}>
+            <label className="studio-label block mb-1">{label}</label>
+            <input type={type} value={val} onChange={e => set(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+        ))}
       </div>
-
-      {/* Emergency contact */}
-      <div>
-        <p className="text-[13px] font-semibold text-gray-700 mb-3">Emergency Contact</p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl"
-          style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-          <div>
-            <label className="block text-[11px] font-semibold text-orange-500 mb-1.5 uppercase tracking-wider">Name</label>
-            <input value={ecName} onChange={e => setEcName(e.target.value)}
-              placeholder="Contact name"
-              className="w-full px-3 py-2 rounded-lg border text-sm bg-white focus:outline-none"
-              style={{ borderColor: '#fed7aa' }} />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-orange-500 mb-1.5 uppercase tracking-wider">Relation</label>
-            <input value={ecRelation} onChange={e => setEcRelation(e.target.value)}
-              placeholder="e.g. Spouse, Parent"
-              className="w-full px-3 py-2 rounded-lg border text-sm bg-white focus:outline-none"
-              style={{ borderColor: '#fed7aa' }} />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-orange-500 mb-1.5 uppercase tracking-wider">Phone</label>
-            <input type="tel" value={ecPhone} onChange={e => setEcPhone(e.target.value)}
-              placeholder="Mobile number"
-              className="w-full px-3 py-2 rounded-lg border text-sm bg-white focus:outline-none"
-              style={{ borderColor: '#fed7aa' }} />
-          </div>
-        </div>
-      </div>
-
       {error && (
-        <div className="flex items-center gap-2 text-sm text-red-600"><AlertCircle size={14} /> {error}</div>
+        <div className="flex items-center gap-2 text-xs text-red-600">
+          <AlertTriangle size={12} />{error}
+        </div>
       )}
-      {success && (
-        <div className="flex items-center gap-2 text-sm text-green-600"><CheckCircle2 size={14} /> Profile updated successfully!</div>
-      )}
-
-      <button type="submit" disabled={saving}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold disabled:opacity-60 hover:opacity-90 active:scale-95 transition-all"
-        style={{ background: 'var(--accent-base)' }}>
-        {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-        Save Changes
-      </button>
-    </form>
-  );
-}
-
-/* ── Avatar ─────────────────────────────────────────────────────────────── */
-function Avatar({ name, photoUrl, size = 80 }: { name: string; photoUrl: string | null; size?: number }) {
-  const initials = name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-  if (photoUrl) {
-    return (
-      <img src={photoUrl} alt={name}
-        className="rounded-full object-cover border-4 border-white shadow-md"
-        style={{ width: size, height: size }} />
-    );
-  }
-  return (
-    <div
-      className="rounded-full flex items-center justify-center border-4 border-white shadow-md text-white font-bold"
-      style={{
-        width: size, height: size, fontSize: size * 0.3,
-        background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 100%)',
-      }}>
-      {initials}
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
+        <button type="button" onClick={handleSave} disabled={saving}
+          className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-1.5">
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+          Save
+        </button>
+      </div>
     </div>
   );
 }
 
-/* ── Main page ─────────────────────────────────────────────────────────── */
-export default function ProfilePage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+/* ── Emergency contact edit form ────────────────────────────────────────────── */
 
-  useEffect(() => {
-    fetch('/api/v1/me/profile')
-      .then(r => r.json())
-      .then(j => setProfile(j.data))
-      .finally(() => setLoading(false));
+function EditContactForm({
+  profile, onSave, onCancel,
+}: { profile: Profile; onSave: (p: Partial<Profile>) => void; onCancel: () => void }) {
+  const [ecName,     setEcName]     = useState(profile.emergencyContact?.name ?? '');
+  const [ecRelation, setEcRelation] = useState(profile.emergencyContact?.relation ?? '');
+  const [ecPhone,    setEcPhone]    = useState(profile.emergencyContact?.phone ?? '');
+  const [saving, setSaving]         = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+
+  async function handleSave() {
+    setSaving(true); setError(null);
+    const emergencyContact = ecName.trim()
+      ? { name: ecName.trim(), relation: ecRelation.trim(), phone: ecPhone.trim() }
+      : null;
+    try {
+      const res = await fetch('/api/v1/me/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emergencyContact }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        setError(j.error ?? 'Update failed'); return;
+      }
+      onSave({ emergencyContact });
+    } catch { setError('Network error — try again'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Emergency Contact</p>
+      {[
+        { label: 'Name', val: ecName, set: setEcName },
+        { label: 'Relation (e.g. Spouse, Parent)', val: ecRelation, set: setEcRelation },
+        { label: 'Phone', val: ecPhone, set: setEcPhone },
+      ].map(({ label, val, set }) => (
+        <div key={label}>
+          <label className="studio-label block mb-1">{label}</label>
+          <input value={val} onChange={e => set(e.target.value)} className="studio-input w-full text-sm" />
+        </div>
+      ))}
+      {error && (
+        <div className="flex items-center gap-2 text-xs text-red-600">
+          <AlertTriangle size={12} />{error}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button type="button" onClick={onCancel} className="btn-secondary flex-1 py-2 text-sm">Cancel</button>
+        <button type="button" onClick={handleSave} disabled={saving}
+          className="btn-primary flex-1 py-2 text-sm flex items-center justify-center gap-1.5">
+          {saving ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Card wrapper with optional edit header ─────────────────────────────────── */
+
+function SectionCard({
+  title, onEdit, editing, children,
+}: {
+  title: string; onEdit?: () => void; editing?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <div className="premium-card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>{title}</p>
+        {onEdit && !editing && (
+          <button type="button" onClick={onEdit}
+            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+            style={{ color: 'var(--accent-base)' }}>
+            <Edit3 size={11} />Edit
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── Main page ──────────────────────────────────────────────────────────────── */
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const [profile, setProfile]           = useState<Profile | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [activeTab, setActiveTab]       = useState<typeof TABS[number]>('Overview');
+  const [editPersonal, setEditPersonal] = useState(false);
+  const [editContact,  setEditContact]  = useState(false);
+  const [signingOut,   setSigningOut]   = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    const res  = await fetch('/api/v1/me/profile');
+    const json = await res.json() as { data: Profile };
+    setProfile(json.data);
+    setLoading(false);
   }, []);
 
+  useEffect(() => { void loadProfile(); }, [loadProfile]);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    await fetch('/api/auth/sign-out', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    router.push('/login');
+    router.refresh();
+  }
+
+  function mergeProfile(patch: Partial<Profile>) {
+    setProfile(p => p ? { ...p, ...patch } : p);
+  }
+
+  /* ── Skeleton ── */
   if (loading) {
     return (
-      <div className="px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="space-y-4">
-          {[1, 2].map(i => <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />)}
-        </div>
-        <div className="lg:col-span-2 space-y-4">
-          {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />)}
+      <div className="p-6 space-y-4">
+        <div className="skeleton h-36 rounded-2xl" />
+        <div className="skeleton h-10 rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => <div key={i} className="skeleton h-56 rounded-2xl" />)}
         </div>
       </div>
     );
@@ -212,111 +314,198 @@ export default function ProfilePage() {
 
   if (!profile) return null;
 
-  return (
-    <div className="px-4 sm:px-6 py-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+  const roleLabel    = ROLE_LABEL[profile.role] ?? profile.role;
+  const empTypeLabel = profile.employmentType ? (EMP_TYPE_LABEL[profile.employmentType] ?? profile.employmentType) : null;
 
-        {/* ── Left: Profile identity card ── */}
-        <div className="space-y-4">
-          <div
-            className="rounded-2xl p-6 text-center"
-            style={{
-              background: 'linear-gradient(135deg, var(--accent-base)08 0%, #7c3aed08 100%)',
-              border: '1.5px solid var(--accent-base)20',
-            }}
-          >
-            <div className="flex justify-center mb-4">
-              <Avatar name={profile.fullName} photoUrl={profile.photoUrl} size={80} />
+  return (
+    <div className="p-6 space-y-5">
+
+      {/* ── Hero header ──────────────────────────────────────────────────────── */}
+      <div className="premium-card overflow-hidden">
+        {/* Gradient banner */}
+        <div className="h-24 relative"
+          style={{ background: 'linear-gradient(135deg, var(--accent-base) 0%, #7c3aed 60%, #a855f7 100%)' }}>
+          {/* Decorative circles */}
+          <div className="absolute -right-6 -top-6 w-40 h-40 rounded-full opacity-20"
+            style={{ background: 'white' }} />
+          <div className="absolute right-24 -bottom-4 w-20 h-20 rounded-full opacity-10"
+            style={{ background: 'white' }} />
+          {/* Konst Design badge */}
+          <div className="absolute right-5 top-5 flex flex-col items-end gap-0.5">
+            <span className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Konst Design</span>
+            <span className="text-[11px] text-white/40 italic">Interior Studio</span>
+          </div>
+        </div>
+
+        {/* Avatar + info */}
+        <div className="px-6 pb-5">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-10">
+            <div className="flex items-end gap-4">
+              <Avatar name={profile.fullName} photoUrl={profile.photoUrl} size={76} />
+              <div className="pb-1 min-w-0">
+                <h1 className="text-xl font-bold leading-tight" style={{ color: 'var(--text-heading)' }}>
+                  {profile.fullName}
+                </h1>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-base)' }}>
+                    {roleLabel}
+                  </span>
+                  {profile.department && (
+                    <span className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                      <Building2 size={11} />{profile.department}
+                    </span>
+                  )}
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <span className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: profile.status === 'active' ? 'var(--success)' : '#d97706' }} />
+                    <span style={{ color: 'var(--text-tertiary)' }} className="capitalize">{profile.status}</span>
+                  </span>
+                </div>
+              </div>
             </div>
-            <h1 className="text-xl font-bold" style={{ color: 'var(--text-heading)' }}>{profile.fullName}</h1>
-            <div className="flex flex-wrap justify-center gap-2 mt-2">
-              <span
-                className="text-[12px] font-semibold px-2.5 py-0.5 rounded-full"
-                style={{ background: 'var(--accent-base)14', color: 'var(--accent-base)' }}
-              >
-                {roleLabel[profile.role] ?? profile.role}
-              </span>
-              {profile.jobTitle && (
-                <span className="text-[12px] text-gray-500">{profile.jobTitle}</span>
-              )}
-            </div>
-            {profile.department && (
-              <p className="text-[12px] text-gray-400 mt-1">{profile.department}</p>
-            )}
-            <div className="flex items-center justify-center gap-1.5 mt-2">
-              <span className="w-2 h-2 rounded-full" style={{ background: profile.status === 'active' ? '#16a34a' : '#d97706' }} />
-              <span className="text-[12px] text-gray-500 capitalize">{profile.status}</span>
-            </div>
-            <button
-              onClick={() => setEditing(!editing)}
-              className="mt-4 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-[13px] font-medium hover:bg-white/60 transition-colors"
-              style={{ borderColor: 'var(--border)' }}
-            >
-              <Edit3 size={13} /> {editing ? 'Cancel Editing' : 'Edit Profile'}
+            <button type="button" onClick={() => setEditPersonal(true)}
+              className="btn-secondary inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-xl self-end sm:self-auto">
+              <Edit3 size={13} />Edit Profile
             </button>
           </div>
+        </div>
+      </div>
 
-          {/* Quick info pills */}
-          <div className="premium-card p-4 space-y-3">
-            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Work Info</p>
-            {profile.hireDate && (
-              <InfoRow icon={User} label="Joined" value={new Date(profile.hireDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} />
-            )}
-            {profile.employmentType && (
-              <InfoRow icon={Briefcase} label="Employment" value={empTypeLabel[profile.employmentType] ?? profile.employmentType} />
-            )}
-            {profile.location && (
-              <InfoRow icon={MapPin} label="Location" value={profile.location} />
+      {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--border-subtle)' }}>
+        {TABS.map(tab => {
+          const isActive = tab === activeTab;
+          const isDisabled = tab !== 'Overview';
+          return (
+            <button key={tab} type="button"
+              onClick={() => !isDisabled && setActiveTab(tab)}
+              className="px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                borderBottomColor: isActive ? 'var(--accent-base)' : 'transparent',
+                color: isActive ? 'var(--accent-base)' : isDisabled ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                cursor: isDisabled ? 'default' : 'pointer',
+                marginBottom: '-1px',
+              }}>
+              {tab}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Overview tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'Overview' && (
+        <div className="space-y-5">
+
+          {/* Three-column cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+            {/* Personal Information */}
+            <SectionCard title="Personal Information"
+              onEdit={() => { setEditPersonal(true); setEditContact(false); }}
+              editing={editPersonal}>
+              {editPersonal ? (
+                <EditPersonalForm profile={profile}
+                  onSave={patch => { mergeProfile(patch); setEditPersonal(false); }}
+                  onCancel={() => setEditPersonal(false)} />
+              ) : (
+                <div className="space-y-4">
+                  <InfoRow icon={User}     label="Full Name"      value={profile.fullName} />
+                  <InfoRow icon={Mail}     label="Email"          value={profile.email} />
+                  <InfoRow icon={Phone}    label="Mobile"         value={profile.phone} />
+                  <InfoRow icon={MapPin}   label="Location"       value={profile.location} />
+                  <InfoRow icon={Calendar} label="Working Since"  value={fmtDate(profile.hireDate)} />
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Contact Details */}
+            <SectionCard title="Contact Details"
+              onEdit={() => { setEditContact(true); setEditPersonal(false); }}
+              editing={editContact}>
+              {editContact ? (
+                <EditContactForm profile={profile}
+                  onSave={patch => { mergeProfile(patch); setEditContact(false); }}
+                  onCancel={() => setEditContact(false)} />
+              ) : (
+                <div className="space-y-4">
+                  <InfoRow icon={PhoneCall} label="Mobile"         value={profile.phone} />
+                  <InfoRow icon={Mail}      label="Email Address"  value={profile.email} />
+                  <InfoRow icon={MapPin}    label="Office Address" value={profile.location} />
+
+                  <div className="pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider"
+                        style={{ color: 'var(--text-tertiary)' }}>
+                        Emergency Contact
+                      </p>
+                      {!profile.emergencyContact && (
+                        <button type="button"
+                          onClick={() => { setEditContact(true); setEditPersonal(false); }}
+                          className="flex items-center gap-0.5 text-[11px] font-semibold"
+                          style={{ color: 'var(--accent-base)' }}>
+                          <Plus size={11} />Add Contact
+                        </button>
+                      )}
+                    </div>
+                    {profile.emergencyContact ? (
+                      <div className="rounded-xl p-3 space-y-1.5"
+                        style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
+                        <p className="text-sm font-semibold text-orange-900">
+                          {profile.emergencyContact.name}
+                        </p>
+                        <p className="text-[11px] text-orange-600">{profile.emergencyContact.relation}</p>
+                        <a href={`tel:${profile.emergencyContact.phone}`}
+                          className="flex items-center gap-1.5 text-[12px] text-orange-700 font-medium hover:underline">
+                          <Phone size={11} />{profile.emergencyContact.phone}
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        No emergency contact set.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Quick Actions */}
+            <SectionCard title="Quick Actions">
+              <div className="space-y-1 -mx-1">
+                <ActionRow icon={Download} label="Download Profile"
+                  onClick={() => window.print()} />
+                <ActionRow icon={Edit3} label="Update Information"
+                  onClick={() => { setEditPersonal(true); setEditContact(false); }} />
+                <ActionRow icon={KeyRound} label="Change Password"
+                  onClick={() => router.push('/settings/security')} />
+                <div className="h-px my-1" style={{ background: 'var(--border-subtle)' }} />
+                <ActionRow icon={LogOut} label={signingOut ? 'Signing out…' : 'Log Out'}
+                  onClick={handleSignOut} danger />
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Work Information */}
+          <div className="premium-card p-5">
+            <p className="text-[13px] font-bold mb-4" style={{ color: 'var(--text-heading)' }}>
+              Work Information
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+              <InfoRow icon={Building2}  label="Department"       value={profile.department} />
+              <InfoRow icon={Briefcase}  label="Designation"      value={profile.jobTitle} />
+              <InfoRow icon={User}       label="Employment Type"  value={empTypeLabel} />
+              <InfoRow icon={Building2}  label="Job Role"         value={ROLE_LABEL[profile.role] ?? profile.role} />
+            </div>
+            {!profile.department && !profile.jobTitle && (
+              <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                Work information is managed by the owner in Settings.
+              </p>
             )}
           </div>
+
         </div>
-
-        {/* ── Right: Info or edit form ── */}
-        <div className="lg:col-span-2 space-y-5">
-          {editing ? (
-            <div className="premium-card p-6">
-              <h2 className="font-semibold text-[15px] mb-5" style={{ color: 'var(--text-heading)' }}>Edit Profile</h2>
-              <EditProfileForm profile={profile} onSave={p => { setProfile(p); setEditing(false); }} />
-            </div>
-          ) : (
-            <>
-              <div className="premium-card p-6 space-y-5">
-                <h2 className="font-semibold text-[15px]" style={{ color: 'var(--text-heading)' }}>Personal Information</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <InfoRow icon={User}      label="Full Name"   value={profile.fullName} />
-                  <InfoRow icon={Mail}      label="Email"       value={profile.email} />
-                  <InfoRow icon={Phone}     label="Mobile"      value={profile.phone} />
-                  <InfoRow icon={Building2} label="Department"  value={profile.department} />
-                </div>
-              </div>
-
-              <div className="premium-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-[15px]" style={{ color: 'var(--text-heading)' }}>Emergency Contact</h2>
-                  {!profile.emergencyContact && (
-                    <button onClick={() => setEditing(true)} className="text-[13px] font-medium" style={{ color: 'var(--accent-base)' }}>
-                      + Add contact
-                    </button>
-                  )}
-                </div>
-                {profile.emergencyContact ? (
-                  <div className="rounded-xl p-4 space-y-2" style={{ background: '#fff7ed', border: '1px solid #fed7aa' }}>
-                    <p className="font-semibold text-sm">{profile.emergencyContact.name}</p>
-                    <p className="text-[13px] text-orange-700">{profile.emergencyContact.relation}</p>
-                    <a href={`tel:${profile.emergencyContact.phone}`}
-                      className="flex items-center gap-1.5 text-[13px] text-orange-600 font-medium hover:underline">
-                      <Phone size={13} /> {profile.emergencyContact.phone}
-                    </a>
-                  </div>
-                ) : (
-                  <p className="text-[13px] text-gray-400">No emergency contact set. Click Edit Profile to add one.</p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-      </div>
+      )}
     </div>
   );
 }
