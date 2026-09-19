@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { invoices, payments, projects, milestones } from '@/lib/db/schema';
+import { invoices, payments, projects, milestones, customers } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, ne } from 'drizzle-orm';
 
@@ -28,8 +28,9 @@ export async function GET(
     const [invoicePayments, projectRow, milestoneRow] = await Promise.all([
       db.select().from(payments)
         .where(and(eq(payments.invoiceId, id), eq(payments.tenantId, ctx.tenantId))),
-      db.select({ id: projects.id, name: projects.name })
+      db.select({ id: projects.id, name: projects.name, clientName: customers.fullName })
         .from(projects)
+        .leftJoin(customers, eq(projects.customerId, customers.id))
         .where(eq(projects.id, invoice.projectId)),
       db.select({ id: milestones.id, projectId: milestones.projectId, label: milestones.label })
         .from(milestones)

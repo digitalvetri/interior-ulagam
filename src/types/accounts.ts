@@ -99,7 +99,7 @@ export interface InvoicePayment {
 export interface InvoiceDetail {
   invoice: Invoice;
   payments: InvoicePayment[];
-  project?: { id: string; name: string } | null;
+  project?: { id: string; name: string; clientName?: string | null } | null;
   sourceMilestone?: { id: string; projectId: string; label: string } | null;
 }
 
