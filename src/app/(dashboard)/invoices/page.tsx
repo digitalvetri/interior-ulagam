@@ -1,12 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  AlertCircle, Check, ChevronRight, Download, FileText,
-  IndianRupee, Plus, Receipt, Search, X, Zap,
+  AlertCircle, Ban, Check, ChevronRight, Download, FileText,
+  IndianRupee, MoreVertical, Plus, Receipt, Search, Trash2, X, Zap,
 } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
 
 type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue' | 'partial';
@@ -54,6 +57,136 @@ const STATUS_CONFIG: Record<PaymentStatus, { label: string; bg: string; color: s
 const inputCls = 'studio-input w-full h-10';
 const labelCls = 'mb-1.5 block text-[12px] font-semibold uppercase tracking-wide';
 
+const PAYMENT_MODES = ['upi', 'cash', 'bank', 'cheque', 'card'] as const;
+type PaymentMode = typeof PAYMENT_MODES[number];
+
+// ─── 3-dots action menu ────────────────────────────────────────────────────────
+
+function InvoiceActionMenu({
+  inv,
+  onPayment,
+  onVoid,
+  onDelete,
+}: {
+  inv: InvoiceRow;
+  onPayment: (inv: InvoiceRow) => void;
+  onVoid:    (inv: InvoiceRow) => void;
+  onDelete:  (inv: InvoiceRow) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos]   = useState<{ top: number; right: number } | null>(null);
+  const btnRef          = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (!btnRef.current?.closest('[data-inv-menu]')?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  function toggle(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (open) { setOpen(false); setPos(null); return; }
+    const rect = btnRef.current!.getBoundingClientRect();
+    setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    setOpen(true);
+  }
+
+  const status   = inv.paymentStatus ?? 'pending';
+  const isDraft  = status === 'pending';
+  const isVoid   = status === 'overdue'; // mapped label
+  const canVoid  = status !== 'paid' && status !== 'overdue';
+  const canDelete = isDraft;
+
+  return (
+    <div data-inv-menu>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+        style={{ color: 'var(--text-secondary)' }}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+      {open && pos && (
+        <div
+          className="w-44 rounded-xl shadow-xl overflow-hidden"
+          style={{
+            position: 'fixed',
+            top: pos.top,
+            right: pos.right,
+            zIndex: 9999,
+            background: 'var(--surface-card)',
+            border: '1px solid var(--border-subtle)',
+          }}
+        >
+          {/* Download PDF */}
+          {inv.pdfUrl ? (
+            <a
+              href={inv.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors"
+              style={{ color: 'var(--text-heading)' }}
+            >
+              <Download className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+              Download PDF
+            </a>
+          ) : (
+            <span
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs opacity-40 cursor-not-allowed"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download PDF
+            </span>
+          )}
+
+          {/* Record Payment */}
+          <button
+            type="button"
+            disabled={status === 'paid' || status === 'overdue'}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onPayment(inv); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: 'var(--text-heading)' }}
+          >
+            <IndianRupee className="h-3.5 w-3.5" style={{ color: '#10B981' }} />
+            Record Payment
+          </button>
+
+          {/* Void Invoice */}
+          <button
+            type="button"
+            disabled={!canVoid}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onVoid(inv); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: '#D97706' }}
+          >
+            <Ban className="h-3.5 w-3.5" />
+            Void Invoice
+          </button>
+
+          {/* Delete */}
+          <button
+            type="button"
+            disabled={!canDelete}
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(inv); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ color: '#DC2626' }}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InvoicesPage() {
   const router = useRouter();
   const [rows, setRows] = useState<InvoiceRow[]>([]);
@@ -80,6 +213,72 @@ export default function InvoicesPage() {
   const [invDate, setInvDate] = useState('');
   const [subtotalInput, setSubtotalInput] = useState('');
   const [gstType, setGstType] = useState<'intrastate' | 'interstate' | null>(null);
+
+  // ── Action menu dialogs ────────────────────────────────────────────────────
+  const [paymentDialog, setPaymentDialog] = useState<{
+    open: boolean; inv: InvoiceRow | null; amount: string; mode: PaymentMode; submitting: boolean; error: string | null;
+  }>({ open: false, inv: null, amount: '', mode: 'upi', submitting: false, error: null });
+
+  const [voidDialog, setVoidDialog] = useState<{
+    open: boolean; inv: InvoiceRow | null; reason: string; submitting: boolean; error: string | null;
+  }>({ open: false, inv: null, reason: '', submitting: false, error: null });
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    open: boolean; inv: InvoiceRow | null; deleting: boolean;
+  }>({ open: false, inv: null, deleting: false });
+
+  async function handleRecordPayment() {
+    if (!paymentDialog.inv) return;
+    const amountPaise = Math.round(parseFloat(paymentDialog.amount || '0') * 100);
+    if (amountPaise <= 0) { setPaymentDialog(p => ({ ...p, error: 'Enter a valid amount' })); return; }
+    setPaymentDialog(p => ({ ...p, submitting: true, error: null }));
+    try {
+      const res = await fetch(`/api/v1/invoices/${paymentDialog.inv.id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amountPaise, note: `Recorded via invoice list — ${paymentDialog.mode}` }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) { setPaymentDialog(p => ({ ...p, submitting: false, error: json.error ?? 'Failed' })); return; }
+      setPaymentDialog({ open: false, inv: null, amount: '', mode: 'upi', submitting: false, error: null });
+      fetchInvoices();
+    } catch {
+      setPaymentDialog(p => ({ ...p, submitting: false, error: 'Network error — try again' }));
+    }
+  }
+
+  async function handleVoid() {
+    if (!voidDialog.inv || !voidDialog.reason.trim()) return;
+    setVoidDialog(p => ({ ...p, submitting: true, error: null }));
+    try {
+      const res = await fetch(`/api/v1/invoices/${voidDialog.inv.id}/void`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voidReason: voidDialog.reason.trim() }),
+      });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) { setVoidDialog(p => ({ ...p, submitting: false, error: json.error ?? 'Failed' })); return; }
+      setVoidDialog({ open: false, inv: null, reason: '', submitting: false, error: null });
+      fetchInvoices();
+    } catch {
+      setVoidDialog(p => ({ ...p, submitting: false, error: 'Network error — try again' }));
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteConfirm.inv) return;
+    setDeleteConfirm(p => ({ ...p, deleting: true }));
+    try {
+      const res = await fetch(`/api/v1/invoices/${deleteConfirm.inv.id}`, { method: 'DELETE' });
+      const json = await res.json() as { error?: string };
+      if (!res.ok) { alert(json.error ?? 'Failed to delete'); setDeleteConfirm(p => ({ ...p, deleting: false })); return; }
+      setDeleteConfirm({ open: false, inv: null, deleting: false });
+      fetchInvoices();
+    } catch {
+      alert('Network error — try again');
+      setDeleteConfirm(p => ({ ...p, deleting: false }));
+    }
+  }
 
   const fetchInvoices = useCallback(() => {
     setLoading(true);
@@ -690,20 +889,14 @@ export default function InvoicesPage() {
                         )}
                       </td>
 
-                      {/* PDF */}
+                      {/* Actions */}
                       <td className="px-3 py-3.5 text-right" onClick={e => e.stopPropagation()}>
-                        {inv.pdfUrl ? (
-                          <a href={inv.pdfUrl} target="_blank" rel="noopener noreferrer"
-                            className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 text-xs font-medium transition-all hover:opacity-70"
-                            style={{ color: 'var(--text-secondary)' }}>
-                            <Download className="h-3.5 w-3.5" />PDF
-                          </a>
-                        ) : (
-                          <span className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-1 text-xs transition-all"
-                            style={{ color: 'var(--text-tertiary)' }}>
-                            <FileText className="h-3.5 w-3.5" />View
-                          </span>
-                        )}
+                        <InvoiceActionMenu
+                          inv={inv}
+                          onPayment={(i) => setPaymentDialog({ open: true, inv: i, amount: '', mode: 'upi', submitting: false, error: null })}
+                          onVoid={(i) => setVoidDialog({ open: true, inv: i, reason: '', submitting: false, error: null })}
+                          onDelete={(i) => setDeleteConfirm({ open: true, inv: i, deleting: false })}
+                        />
                       </td>
                     </tr>
                   );
@@ -721,6 +914,136 @@ export default function InvoicesPage() {
           </div>
         )}
       </div>
+      {/* ── Record Payment Dialog ──────────────────────────────────────────── */}
+      <Dialog open={paymentDialog.open} onOpenChange={o => { if (!o) setPaymentDialog(p => ({ ...p, open: false })); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+              Invoice: <strong style={{ color: 'var(--text-heading)' }}>{paymentDialog.inv?.invoiceNumber}</strong>
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Amount received (₹) *</label>
+              <input
+                type="number"
+                min="1"
+                value={paymentDialog.amount}
+                onChange={e => setPaymentDialog(p => ({ ...p, amount: e.target.value }))}
+                placeholder="e.g. 50000"
+                className="studio-input h-9 w-full"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Payment mode *</label>
+              <select
+                value={paymentDialog.mode}
+                onChange={e => setPaymentDialog(p => ({ ...p, mode: e.target.value as PaymentMode }))}
+                className="studio-input h-9 w-full"
+              >
+                {PAYMENT_MODES.map(m => (
+                  <option key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+            {paymentDialog.error && <p className="text-[12px]" style={{ color: '#DC2626' }}>{paymentDialog.error}</p>}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setPaymentDialog(p => ({ ...p, open: false }))}
+              disabled={paymentDialog.submitting}
+              className="inline-flex items-center px-3.5 py-2 rounded-md text-[13px] font-medium border"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleRecordPayment()}
+              disabled={paymentDialog.submitting || !paymentDialog.amount}
+              className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50"
+            >
+              <IndianRupee className="h-3.5 w-3.5" />
+              {paymentDialog.submitting ? 'Saving…' : 'Record Payment'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Void Invoice Dialog ────────────────────────────────────────────── */}
+      <Dialog open={voidDialog.open} onOpenChange={o => { if (!o) setVoidDialog(p => ({ ...p, open: false })); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Void Invoice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-heading)' }}>{voidDialog.inv?.invoiceNumber}</strong> will be marked as void and removed from outstanding. This cannot be undone.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Reason *</label>
+              <textarea
+                value={voidDialog.reason}
+                onChange={e => setVoidDialog(p => ({ ...p, reason: e.target.value }))}
+                placeholder="e.g. Duplicate invoice, client cancelled order…"
+                rows={3}
+                className="studio-input w-full py-2 resize-none"
+              />
+            </div>
+            {voidDialog.error && <p className="text-[12px]" style={{ color: '#DC2626' }}>{voidDialog.error}</p>}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setVoidDialog(p => ({ ...p, open: false }))}
+              disabled={voidDialog.submitting}
+              className="inline-flex items-center px-3.5 py-2 rounded-md text-[13px] font-medium border"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleVoid()}
+              disabled={voidDialog.submitting || !voidDialog.reason.trim()}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium disabled:opacity-50"
+              style={{ background: '#D97706', color: '#fff' }}
+            >
+              <Ban className="h-3.5 w-3.5" />
+              {voidDialog.submitting ? 'Voiding…' : 'Void Invoice'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirm Dialog ──────────────────────────────────────────── */}
+      <Dialog open={deleteConfirm.open} onOpenChange={o => { if (!o) setDeleteConfirm(p => ({ ...p, open: false })); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Invoice?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] py-2" style={{ color: 'var(--text-secondary)' }}>
+            <strong style={{ color: 'var(--text-heading)' }}>{deleteConfirm.inv?.invoiceNumber}</strong> will be permanently deleted. Only draft invoices can be deleted.
+          </p>
+          <DialogFooter>
+            <button
+              onClick={() => setDeleteConfirm(p => ({ ...p, open: false }))}
+              disabled={deleteConfirm.deleting}
+              className="inline-flex items-center px-3.5 py-2 rounded-md text-[13px] font-medium border"
+              style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void handleDelete()}
+              disabled={deleteConfirm.deleting}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium disabled:opacity-50"
+              style={{ background: '#DC2626', color: '#fff' }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {deleteConfirm.deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
