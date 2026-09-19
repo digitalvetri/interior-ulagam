@@ -232,7 +232,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const statusCfg = STATUS_CFG[status] ?? STATUS_CFG.draft;
   const isDraft   = status === 'draft';
   const canSend   = status !== 'draft' && status !== 'void';
-  const canPay    = !isFullyPaid && status !== 'draft' && status !== 'void';
+  const canPay    = !isFullyPaid && status !== 'void';
   const canVoid   = status !== 'paid' && status !== 'void';
 
   // Edit GST preview
