@@ -611,6 +611,7 @@ function ToCollectTab({ onRefresh }: { onRefresh?: () => void }) {
         onClose={() => setDrawer({ open: false })}
         contextLabel={drawer.item ? `${drawer.item.projectName} — ${drawer.item.label}` : undefined}
         defaultAmountPaise={drawer.item?.amountPaise}
+        defaultInvoiceId={drawer.item?.id}
         defaultProjectId={drawer.item?.projectId}
         onSuccess={() => { setDrawer({ open: false }); load(); onRefresh?.(); }}
       />

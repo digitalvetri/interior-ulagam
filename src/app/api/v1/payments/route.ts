@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { payments, invoices, projects, customers } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, ne, sql } from 'drizzle-orm';
 import { nextReceiptNumber } from '@/lib/finance/receipt-number';
 import { PAYMENT_SETTLED } from '@/lib/finance/constants';
 
@@ -100,13 +100,22 @@ export async function POST(request: NextRequest) {
   const d = parsed.data;
 
   try {
-    // Verify invoice belongs to this tenant if supplied
+    // Verify invoice belongs to this tenant if supplied; fetch totals for status update.
+    let invoiceTotals: { subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number } | null = null;
     if (d.invoiceId) {
-      const [inv] = await db.select({ tenantId: invoices.tenantId })
+      const [inv] = await db
+        .select({
+          tenantId:      invoices.tenantId,
+          subtotalPaise: invoices.subtotalPaise,
+          cgstPaise:     invoices.cgstPaise,
+          sgstPaise:     invoices.sgstPaise,
+          igstPaise:     invoices.igstPaise,
+        })
         .from(invoices).where(eq(invoices.id, d.invoiceId)).limit(1);
       if (!inv || inv.tenantId !== ctx.tenantId) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
+      invoiceTotals = inv;
     }
 
     const receiptNumber = await nextReceiptNumber(ctx.tenantId);
@@ -126,6 +135,27 @@ export async function POST(request: NextRequest) {
       note:        d.note ?? null,
       receiptNumber,
     }).returning();
+
+    // Keep invoice lifecycle status in sync when this payment is linked to an invoice.
+    if (d.invoiceId && invoiceTotals) {
+      const totalInvoicePaise =
+        invoiceTotals.subtotalPaise + invoiceTotals.cgstPaise +
+        invoiceTotals.sgstPaise    + invoiceTotals.igstPaise;
+
+      const [{ paidPaise }] = await db
+        .select({ paidPaise: sql<number>`coalesce(sum(${payments.amountPaise}), 0)`.mapWith(Number) })
+        .from(payments)
+        .where(and(eq(payments.invoiceId, d.invoiceId), ne(payments.status, 'pending')));
+
+      const newStatus =
+        paidPaise >= totalInvoicePaise ? 'paid' :
+        paidPaise > 0                  ? 'part_paid' : 'issued';
+
+      await db
+        .update(invoices)
+        .set({ status: newStatus })
+        .where(eq(invoices.id, d.invoiceId));
+    }
 
     return NextResponse.json({ data: row }, { status: 201 });
   } catch (err) {
