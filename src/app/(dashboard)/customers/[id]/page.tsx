@@ -208,6 +208,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [summaryLoading, setSumLoading] = useState(false);
 
   const [tab, setTab] = useState<Tab>('overview');
+  const [role, setRole] = useState<string>('designer');
 
   interface ClientFile { key: string; name: string; size: number; lastModified: string; url: string; }
   const [clientFiles, setClientFiles]   = useState<ClientFile[]>([]);
@@ -240,6 +241,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       .then((res) => {
         if (!res) return;
         setCustomer(res.data);
+        setRole(res.data?.currentUserRole ?? 'designer');
         setNotesDraft(res.data?.notes ?? '');
         setLoading(false);
       })
@@ -485,6 +487,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const stageSt = STAGE_STYLE[displayed.stage];
   const avatarBg = avatarColor(displayed.fullName);
   const healthSt = customer.healthStatus ? HEALTH_STYLE[customer.healthStatus] : null;
+  const showFinance = role === 'owner' || role === 'accountant';
 
   const totalContractPaise  = summary?.totalContractPaise  ?? 0;
   const totalInvoicedPaise  = summary?.totalInvoicedPaise  ?? 0;
@@ -662,7 +665,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* ── FINANCIAL KPI CARDS ─────────────────────────────────────── */}
-        {!summaryLoading && (
+        {showFinance && !summaryLoading && (
           <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
               {
@@ -802,7 +805,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 { key: 'payments'    as Tab, label: 'Accounts',    icon: <Wallet         className="h-3.5 w-3.5" /> },
                 { key: 'service'     as Tab, label: 'Service',     icon: <Wrench         className="h-3.5 w-3.5" /> },
                 { key: 'activity'    as Tab, label: 'Activity',    icon: <Activity       className="h-3.5 w-3.5" /> },
-              ] as const).map((t) => (
+              ] as const).filter(t => showFinance || t.key !== 'payments').map((t) => (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
@@ -859,7 +862,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                 {p.name || 'Untitled project'}
                               </p>
                               <div className="flex shrink-0 items-center gap-2">
-                                {p.totalContractPaise != null && p.totalContractPaise > 0 && (
+                                {showFinance && p.totalContractPaise != null && p.totalContractPaise > 0 && (
                                   <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
                                     {formatRupeesShort(p.totalContractPaise)}
                                   </span>
@@ -901,7 +904,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
                 {/* RIGHT: Financial Summary + Activity + Notes */}
                 <div className="flex flex-col gap-4">
-                  <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                  {showFinance && <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                     <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Financial Summary</p>
                       <button onClick={() => setTab('payments')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
@@ -931,7 +934,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{collectedPct}% collected</p>
                       </div>
                     )}
-                  </div>
+                  </div>}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
@@ -1022,7 +1025,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                                       {p.name || 'Untitled project'}
                                     </p>
                                     <div className="flex shrink-0 items-center gap-2">
-                                      {p.totalContractPaise != null && p.totalContractPaise > 0 && (
+                                      {showFinance && p.totalContractPaise != null && p.totalContractPaise > 0 && (
                                         <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
                                           {formatRupeesShort(p.totalContractPaise)}
                                         </span>
@@ -1084,7 +1087,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             )}
 
             {/* ── PAYMENTS TAB ──────────────────────────────────────── */}
-            {tab === 'payments' && (
+            {showFinance && tab === 'payments' && (
               <div style={{ background: 'var(--surface-card)' }}>
                 <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                   <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>

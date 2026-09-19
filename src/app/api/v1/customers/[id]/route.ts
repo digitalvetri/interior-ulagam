@@ -68,7 +68,7 @@ export async function GET(
   try {
     const row = await fetchOne(id, ctx.tenantId);
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    return NextResponse.json({ data: row });
+    return NextResponse.json({ data: { ...row, currentUserRole: ctx.role } });
   } catch (e) {
     console.error('[GET /api/v1/customers/:id]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
