@@ -28,22 +28,21 @@ export async function GET(
   }
 
   const { id: projectId } = await params;
-
-  // Verify the project belongs to this tenant
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)));
-
-  if (!project) {
-    return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-  }
-
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
 
   try {
+    // Verify project belongs to this tenant
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)));
+
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
     const conditions = [
       eq(siteLogs.tenantId, ctx.tenantId),
       eq(siteLogs.projectId, projectId),
@@ -80,16 +79,6 @@ export async function POST(
 
   const { id: projectId } = await params;
 
-  // Verify the project belongs to this tenant
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)));
-
-  if (!project) {
-    return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -105,6 +94,16 @@ export async function POST(
   const input = parsed.data;
 
   try {
+    // Verify project belongs to this tenant
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)));
+
+    if (!project) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
     const [{ slCount }] = await db
       .select({ slCount: count() })
       .from(siteLogs)

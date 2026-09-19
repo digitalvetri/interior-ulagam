@@ -445,6 +445,7 @@ export const invoices = pgTable('invoices', {
   dueDate: date('due_date'),
   voidedAt: timestamp('voided_at', { withTimezone: true }),
   voidReason: text('void_reason'),
+  notes: text('notes'),
   ...timestamps,
 }, (t) => [
   index('invoices_status_tenant_idx').on(t.tenantId, t.status),

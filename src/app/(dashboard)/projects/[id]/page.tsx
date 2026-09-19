@@ -3,8 +3,8 @@
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Edit2, Plus, Receipt, Camera,
-  ChevronRight, X, AlertTriangle, IndianRupee,
+  Edit2, Plus, Receipt, Camera, FileText,
+  ChevronRight, X, AlertTriangle, IndianRupee, Layers,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { STAGE_STYLE_MAP, LIFECYCLE_STAGE_LABELS, LIFECYCLE_STAGE_ORDER } from '@/types/deliverables';
@@ -38,6 +38,22 @@ interface SiteLog {
   createdAt: string;
 }
 
+interface ProjectInvoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string | null;
+  status: string;
+  paymentStatus: string;
+  subtotalPaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  paidPaise: number;
+  clientName: string | null;
+  notes: string | null;
+}
+
 /* ── Category config ────────────────────────────────────────────────────────── */
 
 const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; color: string }> = {
@@ -49,6 +65,19 @@ const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; color: string }>
 };
 
 const ALL_CATEGORIES: ExpenseCategory[] = ['petty_cash', 'transport', 'labour', 'material', 'other'];
+
+/* ── Invoice status helpers ─────────────────────────────────────────────────── */
+
+function invoiceStatusBadge(status: string) {
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    draft:     { label: 'Draft',     bg: 'var(--surface-muted)',  color: 'var(--text-secondary)' },
+    issued:    { label: 'Issued',    bg: 'var(--accent-soft)',    color: 'var(--accent-base)' },
+    part_paid: { label: 'Part Paid', bg: 'var(--warning-soft)',   color: '#B45309' },
+    paid:      { label: 'Paid',      bg: 'var(--success-soft)',   color: 'var(--success)' },
+    void:      { label: 'Void',      bg: 'var(--surface-muted)',  color: 'var(--text-tertiary)' },
+  };
+  return map[status] ?? map.draft;
+}
 
 /* ── EditProjectDialog ──────────────────────────────────────────────────────── */
 
@@ -391,7 +420,6 @@ function AddExpenseDialog({
               </select>
             </div>
           </div>
-          {/* Live GST breakdown */}
           {(() => {
             const base = parseFloat(amountRupees);
             if (!amountRupees || isNaN(base) || base <= 0) return null;
@@ -442,6 +470,424 @@ function AddExpenseDialog({
   );
 }
 
+/* ── ChangeStageDialog ──────────────────────────────────────────────────────── */
+
+function ChangeStageDialog({
+  project, onClose, onSaved,
+}: {
+  project: Project;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const currentStage = project.lifecycleStage;
+  const currentStyle = STAGE_STYLE_MAP[currentStage];
+  const otherStages  = LIFECYCLE_STAGE_ORDER.filter(s => s !== currentStage);
+  const [newStage, setNewStage] = useState<ProjectStage>(otherStages[0]);
+  const [note,     setNote]     = useState('');
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
+
+  async function handleSave() {
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/v1/projects/${project.id}/change-stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newStage, ...(note.trim() ? { note: note.trim() } : {}) }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setError(typeof json.error === 'string' ? json.error : 'Failed to change stage');
+        return;
+      }
+      onSaved();
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <Layers className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Change Project Stage</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <div>
+            <p className="studio-label block mb-2">Current Stage</p>
+            <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold"
+              style={{ background: currentStyle.bg, color: currentStyle.fg }}>
+              {currentStyle.label}
+            </span>
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">New Stage</label>
+            <select value={newStage} onChange={e => setNewStage(e.target.value as ProjectStage)}
+              className="studio-input w-full text-sm">
+              {otherStages.map(s => (
+                <option key={s} value={s}>{LIFECYCLE_STAGE_LABELS[s]}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">
+              Note <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+            </label>
+            <input type="text" placeholder="Reason for stage change…"
+              value={note} onChange={e => setNote(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <Layers className="h-4 w-4" />
+            {saving ? 'Saving…' : 'Change Stage'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── CreateInvoiceDialog ────────────────────────────────────────────────────── */
+
+function CreateInvoiceDialog({
+  project, onClose, onSaved,
+}: {
+  project: Project;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const today = new Date().toISOString().split('T')[0];
+  const clientName = project.customerFullName ?? project.leadContactName ?? '—';
+
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [invoiceDate,   setInvoiceDate]   = useState(today);
+  const [dueDate,       setDueDate]       = useState('');
+  const [description,   setDescription]   = useState('');
+  const [amountStr,     setAmountStr]      = useState('');
+  const [gstType,       setGstType]        = useState<'none' | 'intrastate' | 'interstate'>('intrastate');
+  const [notes,         setNotes]          = useState('');
+  const [saving,        setSaving]         = useState(false);
+  const [error,         setError]          = useState<string | null>(null);
+
+  const subtotalPaise = amountStr && !isNaN(parseFloat(amountStr)) ? Math.round(parseFloat(amountStr) * 100) : 0;
+  const cgstPaise     = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
+  const sgstPaise     = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
+  const igstPaise     = gstType === 'interstate' ? Math.round(subtotalPaise * 0.18) : 0;
+  const totalPaise    = subtotalPaise + cgstPaise + sgstPaise + igstPaise;
+
+  async function handleSave() {
+    setError(null);
+    const parsedAmt = parseFloat(amountStr);
+    if (!amountStr || isNaN(parsedAmt) || parsedAmt <= 0) {
+      setError('Please enter a valid amount'); return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/v1/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId:    project.id,
+          invoiceDate,
+          subtotalPaise: Math.round(parsedAmt * 100),
+          isInterstate:  gstType === 'interstate',
+          noGst:         gstType === 'none',
+          status:        'issued',
+          ...(invoiceNumber.trim()  ? { invoiceNumber:   invoiceNumber.trim() }  : {}),
+          ...(dueDate               ? { dueDate }                                : {}),
+          ...(description.trim()    ? { hsnSacLinesJson: [{ description: description.trim(), amountPaise: Math.round(parsedAmt * 100) }] } : {}),
+          ...(notes.trim()          ? { notes: notes.trim() }                    : {}),
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setError(typeof json.error === 'string' ? json.error : 'Failed to create invoice');
+        return;
+      }
+      onSaved();
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)' }}>
+              <FileText className="h-4 w-4" style={{ color: 'var(--accent-base)' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Create Invoice</h2>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {/* Read-only context */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">Client</label>
+              <div className="studio-input w-full text-sm" style={{ color: 'var(--text-secondary)', cursor: 'default' }}>
+                {clientName}
+              </div>
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">Project</label>
+              <div className="studio-input w-full text-sm truncate" style={{ color: 'var(--text-secondary)', cursor: 'default' }}>
+                {project.name}
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">
+                Invoice # <span style={{ color: 'var(--text-tertiary)' }}>(auto if blank)</span>
+              </label>
+              <input type="text" placeholder="e.g. INV-2026-0001"
+                value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)}
+                className="studio-input w-full text-sm" />
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">Invoice Date</label>
+              <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)}
+                className="studio-input w-full text-sm" />
+            </div>
+          </div>
+
+          <div>
+            <label className="studio-label block mb-1.5">
+              Due Date <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+            </label>
+            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+
+          <div>
+            <label className="studio-label block mb-1.5">
+              Description / Items <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+            </label>
+            <input type="text" placeholder="e.g. Design & execution — Living room"
+              value={description} onChange={e => setDescription(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="studio-label block mb-1.5">Amount (₹) excl. GST</label>
+              <input type="number" min="0.01" step="0.01" placeholder="e.g. 100000"
+                value={amountStr} onChange={e => setAmountStr(e.target.value)}
+                className="studio-input w-full text-sm" autoFocus />
+            </div>
+            <div>
+              <label className="studio-label block mb-1.5">GST</label>
+              <select value={gstType} onChange={e => setGstType(e.target.value as typeof gstType)}
+                className="studio-input w-full text-sm">
+                <option value="none">No GST</option>
+                <option value="intrastate">Intrastate — 9% CGST + 9% SGST</option>
+                <option value="interstate">Interstate — 18% IGST</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Live GST breakdown */}
+          {subtotalPaise > 0 && (
+            <div className="rounded-xl px-4 py-3 text-xs space-y-1.5" style={{ background: 'var(--surface-muted)' }}>
+              <div className="flex justify-between text-[var(--text-secondary)]">
+                <span>Subtotal</span>
+                <span className="font-medium text-[var(--text-primary)]">{formatRupees(subtotalPaise)}</span>
+              </div>
+              {cgstPaise > 0 && (
+                <div className="flex justify-between text-[var(--text-secondary)]">
+                  <span>CGST 9%</span>
+                  <span className="font-medium text-amber-600">+ {formatRupees(cgstPaise)}</span>
+                </div>
+              )}
+              {sgstPaise > 0 && (
+                <div className="flex justify-between text-[var(--text-secondary)]">
+                  <span>SGST 9%</span>
+                  <span className="font-medium text-amber-600">+ {formatRupees(sgstPaise)}</span>
+                </div>
+              )}
+              {igstPaise > 0 && (
+                <div className="flex justify-between text-[var(--text-secondary)]">
+                  <span>IGST 18%</span>
+                  <span className="font-medium text-amber-600">+ {formatRupees(igstPaise)}</span>
+                </div>
+              )}
+              <div className="flex justify-between border-t pt-1.5 font-semibold" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
+                <span>Invoice Total</span>
+                <span>{formatRupees(totalPaise)}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="studio-label block mb-1.5">
+              Notes <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+            </label>
+            <textarea rows={2} placeholder="Payment terms, bank details, or any notes for the client…"
+              value={notes} onChange={e => setNotes(e.target.value)}
+              className="studio-input w-full text-sm resize-none" />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <FileText className="h-4 w-4" />
+            {saving ? 'Creating…' : 'Create Invoice'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── InvoicePaymentDialog ───────────────────────────────────────────────────── */
+
+function InvoicePaymentDialog({
+  invoiceId, invoiceNumber, outstandingPaise, onClose, onSaved,
+}: {
+  invoiceId: string;
+  invoiceNumber: string;
+  outstandingPaise: number;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [amountStr, setAmountStr] = useState(
+    outstandingPaise > 0 ? String(outstandingPaise / 100) : '',
+  );
+  const [note,   setNote]   = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error,  setError]  = useState<string | null>(null);
+
+  async function handleSave() {
+    setError(null);
+    const parsed = parseFloat(amountStr);
+    if (!amountStr || isNaN(parsed) || parsed <= 0) {
+      setError('Please enter a valid amount'); return;
+    }
+    if (!note.trim()) {
+      setError('Please add a note (e.g. Bank transfer, UPI)'); return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/v1/invoices/${invoiceId}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountPaise: Math.round(parsed * 100),
+          note: note.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const json = await res.json() as { error?: string };
+        setError(typeof json.error === 'string' ? json.error : 'Failed to record payment');
+        return;
+      }
+      onSaved();
+      onClose();
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--success-soft)' }}>
+              <IndianRupee className="h-4 w-4" style={{ color: 'var(--success)' }} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Payment</h2>
+              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{invoiceNumber}</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
+            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {outstandingPaise > 0 && (
+            <div className="rounded-xl px-4 py-2.5 text-xs flex items-center justify-between" style={{ background: 'var(--surface-muted)' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>Outstanding on this invoice</span>
+              <span className="font-semibold" style={{ color: 'var(--danger)' }}>{formatRupees(outstandingPaise)}</span>
+            </div>
+          )}
+          <div>
+            <label className="studio-label block mb-1.5">Amount Received (₹)</label>
+            <input type="number" min="0.01" step="0.01"
+              value={amountStr} onChange={e => setAmountStr(e.target.value)}
+              className="studio-input w-full text-sm" autoFocus />
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">Payment Mode / Note</label>
+            <input type="text" placeholder="e.g. UPI, Bank transfer, Cheque #1234"
+              value={note} onChange={e => setNote(e.target.value)}
+              className="studio-input w-full text-sm" />
+          </div>
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
+            <IndianRupee className="h-4 w-4" />
+            {saving ? 'Saving…' : 'Record Payment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Page ───────────────────────────────────────────────────────────────────── */
 
 export default function ProjectOverviewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -451,12 +897,18 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [expenses,   setExpenses]   = useState<Expense[]>([]);
   const [siteLogs,   setSiteLogs]   = useState<SiteLog[]>([]);
+  const [invList,    setInvList]    = useState<ProjectInvoice[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  const [editOpen,        setEditOpen]        = useState(false);
-  const [paymentOpen,     setPaymentOpen]     = useState(false);
-  const [expenseOpen,     setExpenseOpen]     = useState(false);
+  const [editOpen,         setEditOpen]         = useState(false);
+  const [changeStageOpen,  setChangeStageOpen]  = useState(false);
+  const [paymentOpen,      setPaymentOpen]      = useState(false);
+  const [expenseOpen,      setExpenseOpen]      = useState(false);
+  const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
+  const [invoicePayTarget,  setInvoicePayTarget]  = useState<{
+    id: string; invoiceNumber: string; outstandingPaise: number;
+  } | null>(null);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [photoUploadErr,  setPhotoUploadErr]  = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -464,23 +916,26 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const loadAll = useCallback(async () => {
     setLoading(true); setFetchError(null);
     try {
-      const [pRes, mRes, eRes, lRes] = await Promise.all([
+      const [pRes, mRes, eRes, lRes, iRes] = await Promise.all([
         fetch(`/api/v1/projects/${id}`),
         fetch(`/api/v1/projects/${id}/milestones`),
         fetch(`/api/v1/projects/${id}/expenses`),
         fetch(`/api/v1/projects/${id}/site-logs`),
+        fetch(`/api/v1/invoices?projectId=${id}`),
       ]);
       if (!pRes.ok) { setFetchError('Project not found'); setLoading(false); return; }
-      const [pd, md, ed, ld] = await Promise.all([
+      const [pd, md, ed, ld, inv] = await Promise.all([
         pRes.json() as Promise<{ data: Project }>,
         mRes.json() as Promise<{ data: Milestone[] }>,
         eRes.json() as Promise<{ data: Expense[] }>,
         lRes.json() as Promise<{ data: SiteLog[] }>,
+        iRes.json() as Promise<{ data: ProjectInvoice[] }>,
       ]);
       setProject(pd.data);
       setMilestones(md.data ?? []);
       setExpenses(ed.data ?? []);
       setSiteLogs(ld.data ?? []);
+      setInvList(inv.data ?? []);
     } catch {
       setFetchError('Failed to load project data');
     } finally {
@@ -493,13 +948,17 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   /* ── Derived values ── */
   const contractPaise      = project?.totalContractPaise ?? 0;
   const paidMilestones     = milestones.filter(m => m.paymentStatus === 'paid');
-  const receivedPaise      = paidMilestones.reduce((s, m) => s + m.amountPaise, 0);
-  const outstandingPaise   = Math.max(0, contractPaise - receivedPaise);
   const totalExpensesPaise = expenses.reduce((s, e) => s + e.amountPaise, 0);
-  const collectionPct      = contractPaise > 0 ? Math.round((receivedPaise / contractPaise) * 100) : 0;
   const clientName         = project?.customerFullName ?? project?.leadContactName ?? null;
   const stage              = project ? STAGE_STYLE_MAP[project.lifecycleStage] : null;
   const allPhotos          = siteLogs.flatMap(l => l.photos ?? []);
+
+  // Invoice-based financial KPIs (non-void invoices only)
+  const activeInvoices     = invList.filter(inv => inv.status !== 'void');
+  const invoicedPaise      = activeInvoices.reduce((s, inv) => s + inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise, 0);
+  const invoiceReceivedPaise = activeInvoices.reduce((s, inv) => s + (inv.paidPaise ?? 0), 0);
+  const invoiceOutstandingPaise = Math.max(0, invoicedPaise - invoiceReceivedPaise);
+  const collectionPct      = invoicedPaise > 0 ? Math.round((invoiceReceivedPaise / invoicedPaise) * 100) : 0;
 
   async function handlePhotoUpload(files: FileList) {
     if (!files.length) return;
@@ -546,10 +1005,15 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
     <div className="p-6 space-y-6">
 
       {/* Action bar */}
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-2 flex-wrap">
         <button type="button" onClick={() => setEditOpen(true)}
           className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
           <Edit2 className="h-4 w-4" />Edit
+        </button>
+        <button type="button" onClick={() => setCreateInvoiceOpen(true)}
+          className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl"
+          style={{ borderColor: 'var(--accent-base)', color: 'var(--accent-base)' }}>
+          <FileText className="h-4 w-4" />Create Invoice
         </button>
         <button type="button" onClick={() => setPaymentOpen(true)}
           className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
@@ -561,8 +1025,8 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         </button>
       </div>
 
-      {/* Hero KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Hero KPI cards — 4 columns */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Contract Value</p>
           <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text-heading)' }}>
@@ -572,29 +1036,34 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
           </p>
         </div>
         <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Invoiced</p>
+          <p className="text-2xl font-bold mt-1"
+            style={{ color: invoicedPaise > 0 ? 'var(--accent-base)' : 'var(--text-tertiary)' }}>
+            {invoicedPaise > 0 ? formatRupees(invoicedPaise) : '₹0'}
+          </p>
+        </div>
+        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Received</p>
           <p className="text-2xl font-bold mt-1"
-            style={{ color: receivedPaise > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
-            {receivedPaise > 0 ? formatRupees(receivedPaise) : '₹0'}
+            style={{ color: invoiceReceivedPaise > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
+            {invoiceReceivedPaise > 0 ? formatRupees(invoiceReceivedPaise) : '₹0'}
           </p>
         </div>
         <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Outstanding</p>
           <p className="text-2xl font-bold mt-1"
-            style={{ color: outstandingPaise > 0 ? 'var(--danger)' : 'var(--success)' }}>
-            {contractPaise > 0
-              ? formatRupees(outstandingPaise)
-              : <span className="text-base font-medium" style={{ color: 'var(--text-tertiary)' }}>—</span>}
+            style={{ color: invoiceOutstandingPaise > 0 ? 'var(--danger)' : invoicedPaise > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
+            {invoicedPaise > 0 ? formatRupees(invoiceOutstandingPaise) : '—'}
           </p>
         </div>
       </div>
 
       {/* Collection progress bar */}
-      {contractPaise > 0 && (
+      {invoicedPaise > 0 && (
         <div className="rounded-2xl border px-5 py-4"
           style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Collection Progress</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Invoice Collection Progress</span>
             <span className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>{collectionPct}% collected</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
@@ -610,12 +1079,121 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         {/* LEFT: main content */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Payments Received */}
+          {/* Project Invoices */}
           <div className="rounded-2xl border overflow-hidden"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Payments Received</h2>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Project Invoices</h2>
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setCreateInvoiceOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+                  <Plus className="h-3.5 w-3.5" />New Invoice
+                </button>
+                <Link href={`/invoices?projectId=${id}`}
+                  className="inline-flex items-center gap-0.5 text-xs font-medium"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  All<ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+
+            {invList.length === 0 ? (
+              <div className="py-10 text-center">
+                <FileText className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No invoices created yet</p>
+                <button type="button" onClick={() => setCreateInvoiceOpen(true)}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--accent-base)' }}>
+                  <FileText className="h-3.5 w-3.5" />Create Invoice
+                </button>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Invoice #</th>
+                    <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Date</th>
+                    <th className="px-5 py-2.5 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</th>
+                    <th className="px-5 py-2.5 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Paid</th>
+                    <th className="px-5 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Status</th>
+                    <th className="px-5 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invList.map((inv, idx) => {
+                    const totalPaise = inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
+                    const outstanding = Math.max(0, totalPaise - (inv.paidPaise ?? 0));
+                    const badge = invoiceStatusBadge(inv.status);
+                    const canPay = inv.status !== 'void' && outstanding > 0;
+                    return (
+                      <tr key={inv.id}
+                        className="hover:bg-[var(--surface-muted)] transition-colors"
+                        style={{ borderBottom: idx < invList.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                        <td className="px-5 py-3 text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>
+                          <Link href={`/invoices/${inv.id}`} className="hover:underline"
+                            style={{ color: 'var(--accent-base)' }}>
+                            {inv.invoiceNumber}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {new Date(inv.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>
+                          {formatRupees(totalPaise)}
+                        </td>
+                        <td className="px-5 py-3 text-right text-xs font-semibold"
+                          style={{ color: (inv.paidPaise ?? 0) > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
+                          {formatRupees(inv.paidPaise ?? 0)}
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
+                            style={{ background: badge.bg, color: badge.color }}>
+                            {badge.label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          {canPay && (
+                            <button type="button"
+                              onClick={() => setInvoicePayTarget({ id: inv.id, invoiceNumber: inv.invoiceNumber, outstandingPaise: outstanding })}
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-opacity hover:opacity-80"
+                              style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
+                              <IndianRupee className="h-3 w-3" />Pay
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                {activeInvoices.length > 0 && (
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                      <td colSpan={2} className="px-5 py-3 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                        Total ({activeInvoices.length} active)
+                      </td>
+                      <td className="px-5 py-3 text-right text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
+                        {formatRupees(invoicedPaise)}
+                      </td>
+                      <td className="px-5 py-3 text-right text-sm font-bold" style={{ color: 'var(--success)' }}>
+                        {formatRupees(invoiceReceivedPaise)}
+                      </td>
+                      <td colSpan={2} className="px-5 py-3 text-right text-xs font-semibold" style={{ color: 'var(--danger)' }}>
+                        {invoiceOutstandingPaise > 0 ? `${formatRupees(invoiceOutstandingPaise)} due` : 'Fully paid'}
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            )}
+          </div>
+
+          {/* Payments Received (milestone-based) */}
+          <div className="rounded-2xl border overflow-hidden"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between px-5 py-3.5"
+              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+              <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Ad-hoc Payments</h2>
               <div className="flex items-center gap-3">
                 <Link href={`/projects/${id}/payments`}
                   className="inline-flex items-center gap-0.5 text-xs font-medium"
@@ -626,15 +1204,13 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             </div>
 
             {paidMilestones.length === 0 ? (
-              <div className="py-10 text-center">
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No payments recorded yet</p>
+              <div className="py-8 text-center">
+                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No ad-hoc payments recorded</p>
                 <button
                   type="button"
                   onClick={() => setPaymentOpen(true)}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ background: 'var(--accent-base)' }}
-                >
-                  <IndianRupee className="h-3.5 w-3.5" />Record Payment
+                  className="mt-2 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
+                  Record advance payment →
                 </button>
               </div>
             ) : (
@@ -665,16 +1241,6 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                    <td colSpan={2} className="px-5 py-3 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                      Total Received
-                    </td>
-                    <td className="px-5 py-3 text-right text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
-                      {formatRupees(receivedPaise)}
-                    </td>
-                  </tr>
-                </tfoot>
               </table>
             )}
           </div>
@@ -969,7 +1535,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 {stage.label}
               </span>
             )}
-            <button type="button" onClick={() => setEditOpen(true)}
+            <button type="button" onClick={() => setChangeStageOpen(true)}
               className="mt-4 w-full text-xs font-medium py-2 rounded-xl transition-colors hover:opacity-80"
               style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
               Change Stage
@@ -977,35 +1543,72 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
           </div>
 
           {/* Money summary */}
-          {contractPaise > 0 && (
-            <div className="rounded-2xl border p-5 space-y-3"
-              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-              <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-                Money Summary
-              </p>
-              <div className="space-y-2.5">
-                {[
-                  { label: 'Contract',           amount: contractPaise,                       color: 'var(--text-heading)' },
-                  { label: 'Received',            amount: receivedPaise,                       color: 'var(--success)' },
-                  { label: 'Expenses',            amount: totalExpensesPaise,                  color: '#F97316' },
-                  { label: 'Balance (Rcv − Exp)', amount: receivedPaise - totalExpensesPaise,  color: receivedPaise >= totalExpensesPaise ? 'var(--text-heading)' : 'var(--danger)' },
-                ].map(({ label, amount, color }) => (
-                  <div key={label} className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</span>
-                    <span className="text-xs font-semibold" style={{ color }}>{formatRupees(amount)}</span>
-                  </div>
-                ))}
+          <div className="rounded-2xl border p-5 space-y-3"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
+              Money Summary
+            </p>
+            <div className="space-y-2.5">
+              {contractPaise > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Contract</span>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>{formatRupees(contractPaise)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Invoiced</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{formatRupees(invoicedPaise)}</span>
               </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Received</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>{formatRupees(invoiceReceivedPaise)}</span>
+              </div>
+              {invoicedPaise > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Outstanding</span>
+                  <span className="text-xs font-semibold"
+                    style={{ color: invoiceOutstandingPaise > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                    {formatRupees(invoiceOutstandingPaise)}
+                  </span>
+                </div>
+              )}
+              {totalExpensesPaise > 0 && (
+                <>
+                  <div className="h-px" style={{ background: 'var(--border-subtle)' }} />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Site Expenses</span>
+                    <span className="text-xs font-semibold" style={{ color: '#F97316' }}>{formatRupees(totalExpensesPaise)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Cash Balance</span>
+                    <span className="text-xs font-semibold"
+                      style={{ color: invoiceReceivedPaise >= totalExpensesPaise ? 'var(--text-heading)' : 'var(--danger)' }}>
+                      {formatRupees(invoiceReceivedPaise - totalExpensesPaise)}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
         </div>
       </div>
 
       {/* Dialogs */}
-      {editOpen    && <EditProjectDialog project={project} onClose={() => setEditOpen(false)}    onSaved={loadAll} />}
-      {paymentOpen && <RecordPaymentDialog projectId={id}  onClose={() => setPaymentOpen(false)} onSaved={loadAll} />}
-      {expenseOpen && <AddExpenseDialog  projectId={id}    onClose={() => setExpenseOpen(false)} onSaved={loadAll} />}
+      {editOpen           && <EditProjectDialog     project={project}  onClose={() => setEditOpen(false)}           onSaved={loadAll} />}
+      {changeStageOpen    && <ChangeStageDialog     project={project}  onClose={() => setChangeStageOpen(false)}    onSaved={loadAll} />}
+      {paymentOpen        && <RecordPaymentDialog   projectId={id}     onClose={() => setPaymentOpen(false)}        onSaved={loadAll} />}
+      {expenseOpen        && <AddExpenseDialog      projectId={id}     onClose={() => setExpenseOpen(false)}        onSaved={loadAll} />}
+      {createInvoiceOpen  && <CreateInvoiceDialog   project={project}  onClose={() => setCreateInvoiceOpen(false)}  onSaved={loadAll} />}
+      {invoicePayTarget   && (
+        <InvoicePaymentDialog
+          invoiceId={invoicePayTarget.id}
+          invoiceNumber={invoicePayTarget.invoiceNumber}
+          outstandingPaise={invoicePayTarget.outstandingPaise}
+          onClose={() => setInvoicePayTarget(null)}
+          onSaved={loadAll}
+        />
+      )}
     </div>
   );
 }

@@ -1,17 +1,17 @@
-# CLAUDE.md — Interior Studio OS Rules
+# CLAUDE.md — Konst Design CRM Rules
 
-> Rules Claude follows in every conversation for **Interior Studio OS**.
-> Built by **DigitalVetri** for client **The Interior Studio**.
+> Rules Claude follows in every conversation for **Konst Design CRM**.
+> Built by **DigitalVetri** for client **Konst Design**.
 > Source of truth for build decisions: `BUILD_GUIDE.md` (at repo root or `c:\Users\binu\Downloads\BUILD_GUIDE.md`).
 
 ---
 
 ## Project Overview
 
-**Project Name:** Interior Studio OS
-**Client:** The Interior Studio (Coimbatore, Tamil Nadu)
+**Project Name:** Konst Design CRM
+**Client:** Konst Design (Coimbatore, Tamil Nadu) — CEO: Mohammed Sheriff (konstdesign.in)
 **Builder:** DigitalVetri — `info@digitalvetri.com`
-**Description:** WhatsApp-first CRM + Project Management + ERP + AI Automation platform for interior design studios. Carries a project from the first Instagram DM to the final handover sign-off, tracking every rupee of margin in between.
+**Description:** WhatsApp-first CRM + Project Management + ERP + AI Automation platform for Konst Design (premium interior design firm). Carries a project from the first Instagram DM to the final handover sign-off, tracking every rupee of margin in between.
 
 **Tech Stack:**
 
@@ -87,7 +87,7 @@ interior-ulagam/                    ← repo root (template/agent layer)
 │   └── package.json
 ```
 
-> **All code for Interior Studio OS lives inside `interior-studio-os/`.** Never write app code outside that directory.
+> **All code for Konst Design CRM lives inside `interior-studio-os/`.** Never write app code outside that directory.
 
 ---
 

@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
         clientName:  customers.fullName,
         invoiceNumber: invoices.invoiceNumber,
         invoiceDate: invoices.invoiceDate,
+        dueDate: invoices.dueDate,
+        status: invoices.status,
+        notes: invoices.notes,
         subtotalPaise: invoices.subtotalPaise,
         cgstPaise: invoices.cgstPaise,
         sgstPaise: invoices.sgstPaise,
@@ -48,7 +51,7 @@ export async function GET(request: NextRequest) {
       .where(and(...conditions))
       .orderBy(desc(invoices.createdAt));
 
-    // Derive payment status from payments table for invoices without a milestone link
+    // Compute paid amount from payments table for each invoice
     const invoiceIds = rows.map(r => r.id);
     const paymentSumsMap = new Map<string, number>();
     if (invoiceIds.length > 0) {
@@ -66,15 +69,15 @@ export async function GET(request: NextRequest) {
     }
 
     const enriched = rows.map(r => {
+      const paidPaise = paymentSumsMap.get(r.id) ?? 0;
       let paymentStatus: string = r.milestonePaymentStatus ?? 'pending';
       if (!r.milestonePaymentStatus) {
         const totalInvoicePaise = r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise;
-        const paidPaise = paymentSumsMap.get(r.id) ?? 0;
         paymentStatus = paidPaise >= totalInvoicePaise && totalInvoicePaise > 0
           ? 'paid' : paidPaise > 0 ? 'partial' : 'pending';
       }
       const { milestonePaymentStatus: _, ...rest } = r;
-      return { ...rest, paymentStatus };
+      return { ...rest, paymentStatus, paidPaise };
     });
 
     return NextResponse.json({ data: enriched });
@@ -84,15 +87,24 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const HsnSacLineSchema = z.object({
+  description: z.string().max(500),
+  amountPaise: z.number().int().nonnegative(),
+});
+
 const CreateSchema = z.object({
-  projectId:     z.string().uuid(),
-  milestoneId:   z.string().uuid().optional(),
-  invoiceNumber: z.string().min(1).max(100).optional(),
-  invoiceDate:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  subtotalPaise: z.number().int().nonnegative(),
-  isInterstate:  z.boolean().default(false),
-  noGst:         z.boolean().default(false),
-  placeOfSupply: z.string().max(100).optional(),
+  projectId:       z.string().uuid(),
+  milestoneId:     z.string().uuid().optional(),
+  invoiceNumber:   z.string().min(1).max(100).optional(),
+  invoiceDate:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  dueDate:         z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  subtotalPaise:   z.number().int().nonnegative(),
+  isInterstate:    z.boolean().default(false),
+  noGst:           z.boolean().default(false),
+  placeOfSupply:   z.string().max(100).optional(),
+  hsnSacLinesJson: z.array(HsnSacLineSchema).optional(),
+  notes:           z.string().max(2000).optional(),
+  status:          z.enum(['draft', 'issued']).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -111,45 +123,50 @@ export async function POST(request: NextRequest) {
 
   const p = parsed.data;
 
-  // Verify project belongs to tenant
-  const [proj] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(and(eq(projects.id, p.projectId), eq(projects.tenantId, ctx.tenantId)));
-
-  if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-
-  // Auto-generate invoice number if not provided (INV-YYYY-NNNN)
-  let invoiceNumber = p.invoiceNumber?.trim();
-  if (!invoiceNumber) {
-    const [{ value: invoiceCount }] = await db
-      .select({ value: count() })
-      .from(invoices)
-      .where(eq(invoices.tenantId, ctx.tenantId));
-    const year = new Date().getFullYear();
-    invoiceNumber = `INV-${year}-${String(Number(invoiceCount) + 1).padStart(4, '0')}`;
-  }
-
-  // GST — mirror milestone trigger convention
-  const subtotalPaise = p.subtotalPaise;
-  const igstPaise  = p.noGst ? 0 : (p.isInterstate ? Math.round(subtotalPaise * 0.18) : 0);
-  const cgstPaise  = p.noGst ? 0 : (p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
-  const sgstPaise  = p.noGst ? 0 : (p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
-
   try {
+    // Verify project belongs to tenant
+    const [proj] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(eq(projects.id, p.projectId), eq(projects.tenantId, ctx.tenantId)));
+
+    if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+
+    // Auto-generate invoice number if not provided (INV-YYYY-NNNN)
+    let invoiceNumber = p.invoiceNumber?.trim();
+    if (!invoiceNumber) {
+      const [{ value: invoiceCount }] = await db
+        .select({ value: count() })
+        .from(invoices)
+        .where(eq(invoices.tenantId, ctx.tenantId));
+      const year = new Date().getFullYear();
+      invoiceNumber = `INV-${year}-${String(Number(invoiceCount) + 1).padStart(4, '0')}`;
+    }
+
+    // GST computation
+    const subtotalPaise = p.subtotalPaise;
+    const igstPaise  = p.noGst ? 0 : (p.isInterstate ? Math.round(subtotalPaise * 0.18) : 0);
+    const cgstPaise  = p.noGst ? 0 : (p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
+    const sgstPaise  = p.noGst ? 0 : (p.isInterstate ? 0 : Math.round(subtotalPaise * 0.09));
+
     const [invoice] = await db
       .insert(invoices)
       .values({
-        tenantId:      ctx.tenantId,
-        projectId:     p.projectId,
+        tenantId:        ctx.tenantId,
+        projectId:       p.projectId,
         invoiceNumber,
-        invoiceDate:   p.invoiceDate,
+        invoiceDate:     p.invoiceDate,
+        dueDate:         p.dueDate ?? null,
         subtotalPaise,
         cgstPaise,
         sgstPaise,
         igstPaise,
-        isInterstate:  p.isInterstate,
-        placeOfSupply: p.placeOfSupply ?? null,
+        isInterstate:    p.isInterstate,
+        placeOfSupply:   p.placeOfSupply ?? null,
+        hsnSacLinesJson: p.hsnSacLinesJson ?? [],
+        notes:           p.notes ?? null,
+        status:          p.status ?? 'draft',
+        issuedAt:        p.status === 'issued' ? new Date() : null,
       })
       .returning();
 
