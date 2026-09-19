@@ -575,10 +575,12 @@ export const expenses = pgTable('expenses', {
   paidAt: timestamp('paid_at', { withTimezone: true }),
   paymentMode: text('payment_mode'),
   payeeType: payeeTypeEnum('payee_type'),
+  poId: uuid('po_id').references(() => purchaseOrders.id, { onDelete: 'set null' }),
   ...timestamps,
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('expenses_due_date_idx').on(t.dueDate),
+  index('expenses_po_id_idx').on(t.poId),
 ]);
 
 export const snagItems = pgTable('snag_items', {

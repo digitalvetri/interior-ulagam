@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Plus, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupees } from '@/lib/utils';
 import type { PurchaseOrder, GRN, GRNDeliveryGroup, POLine, POStatus } from '@/types/purchase-orders';
+import type { Expense } from '@/types/accounts';
 
 /* ── Extended type returned by the enriched GET route ─────────────────────── */
 interface EnrichedPO extends PurchaseOrder {
@@ -129,6 +130,16 @@ export default function PurchaseOrderDetailPage({
   // GRN history expanded groups
   const [expandedGrns, setExpandedGrns] = useState<Set<string>>(new Set());
 
+  // Vendor bill state
+  const [vendorBills, setVendorBills]       = useState<Expense[]>([]);
+  const [billOpen, setBillOpen]             = useState(false);
+  const [billAmountRs, setBillAmountRs]     = useState('');
+  const [billGstPct, setBillGstPct]         = useState(18);
+  const [billDueDate, setBillDueDate]       = useState('');
+  const [billDescription, setBillDescription] = useState('');
+  const [billSaving, setBillSaving]         = useState(false);
+  const [billError, setBillError]           = useState<string | null>(null);
+
   const [statusSaving, setStatusSaving] = useState(false);
   const [pdfLoading, setPdfLoading]     = useState(false);
   const [waLoading, setWaLoading]       = useState(false);
@@ -138,15 +149,18 @@ export default function PurchaseOrderDetailPage({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [poRes, grnRes] = await Promise.all([
+      const [poRes, grnRes, billsRes] = await Promise.all([
         fetch(`/api/v1/purchase-orders/${id}`),
         fetch(`/api/v1/purchase-orders/${id}/grn`),
+        fetch(`/api/v1/purchase-orders/${id}/vendor-bills`),
       ]);
       if (poRes.status === 404) { setNF(true); return; }
-      const { data: poData }  = (await poRes.json()) as { data: EnrichedPO };
-      const { data: grnData } = (await grnRes.json()) as { data: GRN[] };
+      const { data: poData }    = (await poRes.json()) as { data: EnrichedPO };
+      const { data: grnData }   = (await grnRes.json()) as { data: GRN[] };
+      const { data: billsData } = (await billsRes.json()) as { data: Expense[] };
       setPo(poData ?? null);
       setGrns(grnData ?? []);
+      setVendorBills(billsData ?? []);
     } catch { /* leave state */ } finally { setLoading(false); }
   }, [id]);
 
@@ -289,6 +303,61 @@ export default function PurchaseOrderDetailPage({
     }
   }
 
+  /* ── Open Vendor Bill dialog ── */
+  function openVendorBillDialog() {
+    if (!po) return;
+    const ls = parseLines(po.linesJson);
+    const recvByLine: Record<string, number> = {};
+    for (const grn of grns) {
+      if (grn.lineId && grn.status !== 'void') {
+        recvByLine[grn.lineId] = (recvByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+      }
+    }
+    const received = ls.reduce((s, l) => s + (recvByLine[l.id] ?? 0) * l.unitRatePaise, 0);
+    setBillAmountRs((received / 100).toFixed(0));
+    setBillGstPct(18);
+    setBillDueDate('');
+    setBillDescription('');
+    setBillError(null);
+    setBillOpen(true);
+  }
+
+  /* ── Submit Vendor Bill ── */
+  async function submitVendorBill() {
+    setBillError(null);
+    const amountPaise = Math.round(parseFloat(billAmountRs || '0') * 100);
+    if (!amountPaise || amountPaise <= 0) {
+      setBillError('Enter a valid bill amount.');
+      return;
+    }
+    const gstAmountPaise = Math.round(amountPaise * billGstPct / 100);
+    setBillSaving(true);
+    try {
+      const res = await fetch(`/api/v1/purchase-orders/${id}/vendor-bills`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amountPaise,
+          gstPct: billGstPct,
+          gstAmountPaise,
+          dueDate: billDueDate || undefined,
+          description: billDescription.trim() || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const { error } = (await res.json()) as { error?: string };
+        setBillError(typeof error === 'string' ? error : 'Failed to create vendor bill.');
+        return;
+      }
+      setBillOpen(false);
+      void load();
+    } catch {
+      setBillError('Network error — please try again.');
+    } finally {
+      setBillSaving(false);
+    }
+  }
+
   /* ── Guards ── */
   if (loading) {
     return (
@@ -327,8 +396,9 @@ export default function PurchaseOrderDetailPage({
   const nextStep = NEXT_STATUS[po.status];
   const days     = po.expectedDeliveryAt ? daysFrom(po.expectedDeliveryAt) : null;
 
-  const grnGroups = groupGRNs(grns);
-  const canAddGrn = po.status !== 'cancelled' && po.status !== 'complete';
+  const grnGroups     = groupGRNs(grns);
+  const canAddGrn     = po.status !== 'cancelled' && po.status !== 'complete';
+  const canCreateBill = grns.length > 0 && po.status !== 'cancelled';
 
   /* ── Render ── */
   return (
@@ -688,22 +758,220 @@ export default function PurchaseOrderDetailPage({
         )}
       </section>
 
-      {/* ── Vendor Bills / Advance ── */}
+      {/* ── Vendor Bills ── */}
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-          Vendor Bills
-        </h2>
-        <div className="premium-card px-5 py-5">
-          {po.advancePaidPaise > 0 ? (
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">Advance paid</span>
-              <span className="font-semibold text-[var(--text-heading)]">{formatRupees(po.advancePaidPaise)}</span>
-            </div>
-          ) : (
-            <p className="text-sm text-[var(--text-secondary)]">No vendor bills yet.</p>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+              Vendor Bills
+            </h2>
+            {vendorBills.length > 0 && (
+              <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                {vendorBills.length} bill{vendorBills.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          {canCreateBill && (
+            <button
+              onClick={openVendorBillDialog}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Create Vendor Bill
+            </button>
           )}
         </div>
+
+        {vendorBills.length === 0 ? (
+          <div className="premium-card flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--surface-muted)]">
+              <FileText className="h-6 w-6 text-[var(--text-secondary)]" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[var(--text-primary)]">No vendor bills yet</p>
+              <p className="text-xs text-[var(--text-secondary)]">
+                {canCreateBill
+                  ? 'Create a vendor bill based on goods received'
+                  : 'Record a GRN first to enable vendor billing'}
+              </p>
+            </div>
+            {canCreateBill && (
+              <button
+                onClick={openVendorBillDialog}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--teal,#0d9488)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+              >
+                <Plus className="h-4 w-4" />
+                Create Vendor Bill
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="premium-card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                  <th className="px-5 py-3 text-left">Bill #</th>
+                  <th className="px-4 py-3 text-left">Description</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3 text-right">GST</th>
+                  <th className="px-4 py-3 text-right">Total</th>
+                  <th className="px-5 py-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {vendorBills.map(bill => {
+                  const total  = bill.amountPaise + bill.gstAmountPaise;
+                  const isPaid = !!bill.paidAt;
+                  return (
+                    <tr key={bill.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--surface-muted)]/40 transition-colors">
+                      <td className="px-5 py-4 font-mono text-xs text-[var(--text-secondary)]">
+                        {bill.expenseNumber ?? '—'}
+                      </td>
+                      <td className="px-4 py-4 text-[var(--text-primary)]">
+                        {bill.description ?? '—'}
+                        {bill.dueDate && (
+                          <p className="text-xs text-[var(--text-secondary)]">Due {shortDateLocal(bill.dueDate)}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-right text-[var(--text-primary)]">
+                        {formatRupees(bill.amountPaise)}
+                      </td>
+                      <td className="px-4 py-4 text-right text-[var(--text-secondary)]">
+                        {bill.gstPct}%
+                      </td>
+                      <td className="px-4 py-4 text-right font-semibold text-[var(--text-heading)]">
+                        {formatRupees(total)}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {isPaid ? 'Paid' : 'Unpaid'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-[var(--border-subtle)] bg-[var(--surface-muted)]">
+                  <td colSpan={4} className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                    Total Billed
+                  </td>
+                  <td className="px-4 py-3 text-right text-base font-bold text-[var(--text-heading)]">
+                    {formatRupees(vendorBills.reduce((s, b) => s + b.amountPaise + b.gstAmountPaise, 0))}
+                  </td>
+                  <td className="px-5 py-3" />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </section>
+
+      {/* ── Vendor Bill Dialog ── */}
+      <Dialog open={billOpen} onOpenChange={setBillOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Vendor Bill</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <p className="text-xs text-[var(--text-secondary)]">
+              Creates a payable linked to this PO. Defaults to the value of goods received so far.
+            </p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-amount">Bill Amount (₹) <span className="text-red-500">*</span></Label>
+              <Input
+                id="bill-amount"
+                type="number"
+                min={0}
+                step={1}
+                value={billAmountRs}
+                placeholder="0"
+                onChange={e => setBillAmountRs(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="bill-gst">GST %</Label>
+                <select
+                  id="bill-gst"
+                  value={billGstPct}
+                  onChange={e => setBillGstPct(Number(e.target.value))}
+                  className="h-9 w-full rounded-md border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  {[0, 5, 12, 18, 28].map(r => (
+                    <option key={r} value={r}>{r}%</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bill-due">Due Date <span className="text-[var(--text-secondary)] font-normal">(optional)</span></Label>
+                <Input
+                  id="bill-due"
+                  type="date"
+                  value={billDueDate}
+                  onChange={e => setBillDueDate(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            {billAmountRs && parseFloat(billAmountRs) > 0 && (
+              <div className="rounded-xl bg-[var(--surface-muted)] px-4 py-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-secondary)]">Bill amount</span>
+                  <span className="font-medium">{formatRupees(Math.round(parseFloat(billAmountRs) * 100))}</span>
+                </div>
+                {billGstPct > 0 && (
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[var(--text-secondary)]">GST ({billGstPct}%)</span>
+                    <span className="font-medium">{formatRupees(Math.round(parseFloat(billAmountRs) * billGstPct))}</span>
+                  </div>
+                )}
+                <div className="flex justify-between mt-1.5 border-t border-[var(--border-subtle)] pt-1.5">
+                  <span className="font-semibold text-[var(--text-primary)]">Total</span>
+                  <span className="font-bold text-[var(--text-heading)]">
+                    {formatRupees(Math.round(parseFloat(billAmountRs) * 100 * (1 + billGstPct / 100)))}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="bill-desc">Description <span className="text-[var(--text-secondary)] font-normal">(optional)</span></Label>
+              <Textarea
+                id="bill-desc"
+                placeholder="Bill for materials received as per GRN…"
+                rows={2}
+                value={billDescription}
+                onChange={e => setBillDescription(e.target.value)}
+              />
+            </div>
+
+            {billError && <p className="text-xs text-red-600">{billError}</p>}
+          </div>
+          <DialogFooter className="gap-3 pt-2">
+            <button
+              onClick={() => setBillOpen(false)}
+              disabled={billSaving}
+              className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 py-2.5 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submitVendorBill}
+              disabled={billSaving || !billAmountRs || parseFloat(billAmountRs) <= 0}
+              className="flex-1 rounded-xl bg-[var(--teal,#0d9488)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-60"
+            >
+              {billSaving ? 'Creating…' : 'Create Vendor Bill'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── GRN Dialog ── */}
       <Dialog open={grnOpen} onOpenChange={setGrnOpen}>

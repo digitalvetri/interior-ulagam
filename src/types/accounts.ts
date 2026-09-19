@@ -46,8 +46,15 @@ export interface Expense {
   approvedBy: string | null;
   approvedAt: string | null;
   vendorName: string | null;
+  vendorId: string | null;
   gstPct: number;
   gstAmountPaise: number;
+  expenseNumber: string | null;
+  dueDate: string | null;
+  paidAt: string | null;
+  paymentMode: string | null;
+  payeeType: string | null;
+  poId: string | null;
   createdAt: string;
 }
 
