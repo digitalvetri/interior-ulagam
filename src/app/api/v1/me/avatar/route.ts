@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { putObject, getDownloadUrl } from '@/lib/storage/s3';
+import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 import { and, eq } from 'drizzle-orm';
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES  = new Set(['image/jpeg', 'image/jpg', 'image/png']);
-const PRESIGN_EXPIRY = 365 * 24 * 60 * 60; // 1 year
 
 // POST /api/v1/me/avatar — upload/replace profile picture
 export async function POST(request: NextRequest) {
@@ -46,9 +45,9 @@ export async function POST(request: NextRequest) {
     const key = `avatars/${ctx.tenantId}/${ctx.userId}.${ext}`;
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    await putObject({ key, body: buffer, contentType: file.type });
+    await putObject({ bucket: QUOTES_BUCKET, key, body: buffer, contentType: file.type });
 
-    const photoUrl = await getDownloadUrl({ key, expiresIn: PRESIGN_EXPIRY, inline: true });
+    const photoUrl = getPublicUrl(QUOTES_BUCKET, key);
 
     await db
       .update(users)
