@@ -37,6 +37,20 @@ export interface GRN {
   receivedAt: string;
   notes: string | null;
   createdAt: string;
+  grnNumber: string | null;
+  deliveryDate: string | null;
+  receivedBy: string | null;
+  receivedByName: string | null;
+  status: string;
+}
+
+export interface GRNDeliveryGroup {
+  grnNumber: string | null;
+  deliveryDate: string | null;
+  receivedByName: string | null;
+  notes: string | null;
+  receivedAt: string;
+  rows: GRN[];
 }
 
 export interface BOQQuotedSummary {

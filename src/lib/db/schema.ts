@@ -546,6 +546,10 @@ export const grns = pgTable('grns', {
   photoProof: text('photo_proof').array().notNull().default(sql`'{}'::text[]`),
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
   notes: text('notes'),
+  grnNumber: text('grn_number'),
+  deliveryDate: date('delivery_date'),
+  receivedBy: uuid('received_by').references(() => users.id, { onDelete: 'set null' }),
+  status: text('status').notNull().default('active'),
   ...timestamps,
 });
 

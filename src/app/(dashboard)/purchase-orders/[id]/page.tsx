@@ -2,7 +2,7 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Plus } from 'lucide-react';
+import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupees } from '@/lib/utils';
-import type { PurchaseOrder, GRN, POLine, POStatus } from '@/types/purchase-orders';
+import type { PurchaseOrder, GRN, GRNDeliveryGroup, POLine, POStatus } from '@/types/purchase-orders';
 
 /* ── Extended type returned by the enriched GET route ─────────────────────── */
 interface EnrichedPO extends PurchaseOrder {
@@ -58,8 +58,52 @@ function shortDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/* ── GRN form ─────────────────────────────────────────────────────────────── */
-interface GRNForm { qty: string; notes: string }
+function shortDateLocal(dateStr: string) {
+  // YYYY-MM-DD without timezone conversion
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function groupGRNs(items: GRN[]): GRNDeliveryGroup[] {
+  const map = new Map<string, GRNDeliveryGroup>();
+  const legacy: GRNDeliveryGroup = {
+    grnNumber: null, deliveryDate: null, receivedByName: null, notes: null, receivedAt: '', rows: [],
+  };
+
+  for (const grn of items) {
+    if (!grn.grnNumber) {
+      if (!legacy.receivedAt) legacy.receivedAt = grn.receivedAt;
+      legacy.rows.push(grn);
+    } else {
+      if (!map.has(grn.grnNumber)) {
+        map.set(grn.grnNumber, {
+          grnNumber:      grn.grnNumber,
+          deliveryDate:   grn.deliveryDate,
+          receivedByName: grn.receivedByName,
+          notes:          grn.notes,
+          receivedAt:     grn.receivedAt,
+          rows:           [],
+        });
+      }
+      map.get(grn.grnNumber)!.rows.push(grn);
+    }
+  }
+
+  const result = [...map.values()];
+  if (legacy.rows.length > 0) result.push(legacy);
+  return result;
+}
+
+/* ── GRN modal line state ─────────────────────────────────────────────────── */
+interface GRNLineInput {
+  lineId:             string;
+  description:        string;
+  unit:               string;
+  orderedQty:         number;
+  previouslyReceived: number;
+  pending:            number;
+  receivedNow:        number;
+}
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 export default function PurchaseOrderDetailPage({
@@ -74,10 +118,16 @@ export default function PurchaseOrderDetailPage({
   const [loading, setLoading] = useState(true);
   const [notFound, setNF]     = useState(false);
 
-  const [grnOpen, setGrnOpen]     = useState(false);
-  const [grnForm, setGrnForm]     = useState<GRNForm>({ qty: '', notes: '' });
-  const [grnSaving, setGrnSaving] = useState(false);
-  const [grnError, setGrnError]   = useState<string | null>(null);
+  // GRN modal state
+  const [grnOpen, setGrnOpen]               = useState(false);
+  const [grnLines, setGrnLines]             = useState<GRNLineInput[]>([]);
+  const [grnDeliveryDate, setGrnDeliveryDate] = useState('');
+  const [grnNotes, setGrnNotes]             = useState('');
+  const [grnSaving, setGrnSaving]           = useState(false);
+  const [grnError, setGrnError]             = useState<string | null>(null);
+
+  // GRN history expanded groups
+  const [expandedGrns, setExpandedGrns] = useState<Set<string>>(new Set());
 
   const [statusSaving, setStatusSaving] = useState(false);
   const [pdfLoading, setPdfLoading]     = useState(false);
@@ -123,7 +173,7 @@ export default function PurchaseOrderDetailPage({
     setWaLoading(true);
     setWaMsg(null);
     try {
-      const res = await fetch(`/api/v1/purchase-orders/${id}/whatsapp`, { method: 'POST' });
+      const res  = await fetch(`/api/v1/purchase-orders/${id}/whatsapp`, { method: 'POST' });
       const body = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok) {
         setWaMsg({ ok: true, text: 'Purchase order sent on WhatsApp.' });
@@ -146,41 +196,97 @@ export default function PurchaseOrderDetailPage({
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) {
-        // Merge only status — preserve enriched fields (vendorName, projectName)
-        // that the raw PATCH response does not include.
         setPo(prev => prev ? { ...prev, status: newStatus } : prev);
       }
     } finally { setStatusSaving(false); }
   }
 
-  /* ── Add GRN ── */
-  async function submitGRN() {
-    setGrnError(null);
-    const qty = parseInt(grnForm.qty, 10);
-    if (!grnForm.qty || isNaN(qty) || qty <= 0) {
-      setGrnError('Delivered quantity must be a positive number.');
+  /* ── Open GRN modal ── */
+  function openGrnModal() {
+    if (!po) return;
+    const lines = parseLines(po.linesJson);
+
+    // Build received-by-line from active GRNs
+    const receivedByLine: Record<string, number> = {};
+    for (const grn of grns) {
+      if (grn.lineId && grn.status !== 'void') {
+        receivedByLine[grn.lineId] = (receivedByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+      }
+    }
+
+    // Only show lines that still have pending qty
+    const pendingLines = lines
+      .map(line => {
+        const prev    = receivedByLine[line.id] ?? 0;
+        const pending = Math.max(0, line.qty - prev);
+        return { lineId: line.id, description: line.description, unit: line.unit, orderedQty: line.qty, previouslyReceived: prev, pending, receivedNow: 0 };
+      })
+      .filter(l => l.pending > 0);
+
+    if (pendingLines.length === 0) {
+      alert('All lines in this PO are already fully received.');
       return;
     }
+
+    const today = new Date().toISOString().slice(0, 10);
+    setGrnDeliveryDate(today);
+    setGrnNotes('');
+    setGrnLines(pendingLines);
+    setGrnError(null);
+    setGrnOpen(true);
+  }
+
+  /* ── Submit GRN ── */
+  async function submitGRN() {
+    setGrnError(null);
+
+    const linesToSend = grnLines
+      .filter(l => l.receivedNow > 0)
+      .map(l => ({ lineId: l.lineId, receivedQty: l.receivedNow }));
+
+    if (linesToSend.length === 0) {
+      setGrnError('Enter a received quantity for at least one line.');
+      return;
+    }
+
+    if (!grnDeliveryDate) {
+      setGrnError('Delivery date is required.');
+      return;
+    }
+
+    // Client-side over-receipt guard
+    for (const l of grnLines) {
+      if (l.receivedNow > l.pending) {
+        setGrnError(`"${l.description}": ${l.receivedNow} exceeds pending ${l.pending} ${l.unit}.`);
+        return;
+      }
+    }
+
     setGrnSaving(true);
     try {
       const res = await fetch(`/api/v1/purchase-orders/${id}/grn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deliveredQty: qty, notes: grnForm.notes.trim() || undefined }),
+        body: JSON.stringify({
+          deliveryDate: grnDeliveryDate,
+          notes: grnNotes.trim() || undefined,
+          lines: linesToSend,
+        }),
       });
+
       if (!res.ok) {
         const { error } = (await res.json()) as { error?: string };
-        setGrnError(error ?? 'Failed to record GRN.');
+        setGrnError(typeof error === 'string' ? error : 'Failed to record GRN.');
         return;
       }
-      const { data: newGrn } = (await res.json()) as { data: GRN };
-      setGrns(prev => [...prev, newGrn]);
+
       setGrnOpen(false);
-      setGrnForm({ qty: '', notes: '' });
-      // Refresh PO so the status badge reflects the server-computed partial/complete update
       void load();
-    } catch { setGrnError('Network error — please try again.'); }
-    finally { setGrnSaving(false); }
+    } catch {
+      setGrnError('Network error — please try again.');
+    } finally {
+      setGrnSaving(false);
+    }
   }
 
   /* ── Guards ── */
@@ -209,15 +315,20 @@ export default function PurchaseOrderDetailPage({
 
   const receivedByLine: Record<string, number> = {};
   for (const grn of grns) {
-    if (grn.lineId) receivedByLine[grn.lineId] = (receivedByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+    if (grn.lineId && grn.status !== 'void') {
+      receivedByLine[grn.lineId] = (receivedByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+    }
   }
 
   const receivedPaise = lines.reduce((s, l) => s + (receivedByLine[l.id] ?? 0) * l.unitRatePaise, 0);
   const pendingPaise  = Math.max(0, totalPaise - receivedPaise);
 
-  const sc      = STATUS_CFG[po.status];
+  const sc       = STATUS_CFG[po.status];
   const nextStep = NEXT_STATUS[po.status];
   const days     = po.expectedDeliveryAt ? daysFrom(po.expectedDeliveryAt) : null;
+
+  const grnGroups = groupGRNs(grns);
+  const canAddGrn = po.status !== 'cancelled' && po.status !== 'complete';
 
   /* ── Render ── */
   return (
@@ -250,7 +361,6 @@ export default function PurchaseOrderDetailPage({
           </h1>
         </div>
 
-        {/* Right actions */}
         <div className="flex flex-wrap items-center gap-2.5">
           <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${sc.badge}`}>
             {sc.label}
@@ -304,7 +414,7 @@ export default function PurchaseOrderDetailPage({
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">Received</p>
           </div>
           <p className="text-2xl font-bold text-emerald-600">{formatRupees(receivedPaise)}</p>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">{grns.length} GRN{grns.length !== 1 ? 's' : ''} recorded</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">{grnGroups.filter(g => g.grnNumber).length} GRN{grnGroups.filter(g => g.grnNumber).length !== 1 ? 's' : ''} recorded</p>
         </div>
 
         <div className="premium-card p-5">
@@ -455,15 +565,21 @@ export default function PurchaseOrderDetailPage({
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Goods Received Notes
             </h2>
-            {grns.length > 0 && (
+            {grnGroups.length > 0 && (
               <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                {grns.length} entr{grns.length === 1 ? 'y' : 'ies'} · Total received:{' '}
-                <span className="font-semibold text-emerald-600">
-                  {grns.reduce((s, g) => s + g.deliveredQty, 0)} units
-                </span>
+                {grnGroups.filter(g => g.grnNumber).length} delivery event{grnGroups.filter(g => g.grnNumber).length !== 1 ? 's' : ''}
               </p>
             )}
           </div>
+          {canAddGrn && grns.length > 0 && (
+            <button
+              onClick={openGrnModal}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add GRN
+            </button>
+          )}
         </div>
 
         {grns.length === 0 ? (
@@ -475,48 +591,100 @@ export default function PurchaseOrderDetailPage({
               <p className="text-sm font-medium text-[var(--text-primary)]">No GRNs recorded yet</p>
               <p className="text-xs text-[var(--text-secondary)]">Record deliveries as goods arrive from the vendor</p>
             </div>
-            <button
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--teal,#0d9488)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-              onClick={() => { setGrnForm({ qty: '', notes: '' }); setGrnError(null); setGrnOpen(true); }}
-            >
-              <Plus className="h-4 w-4" />
-              Add First GRN
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="premium-card overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-                    <th className="px-5 py-3">Delivered Qty</th>
-                    <th className="px-4 py-3">Received At</th>
-                    <th className="px-5 py-3">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {grns.map(grn => (
-                    <tr key={grn.id} className="border-b border-[var(--border-subtle)] last:border-0">
-                      <td className="px-5 py-3 font-semibold text-emerald-600">{grn.deliveredQty}</td>
-                      <td className="px-4 py-3 text-[var(--text-secondary)]">
-                        {new Date(grn.receivedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="px-5 py-3 text-[var(--text-secondary)]">{grn.notes ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3 flex justify-end">
+            {canAddGrn && (
               <button
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--surface-muted)] transition-colors"
-                onClick={() => { setGrnForm({ qty: '', notes: '' }); setGrnError(null); setGrnOpen(true); }}
+                onClick={openGrnModal}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--teal,#0d9488)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
               >
                 <Plus className="h-4 w-4" />
-                Add GRN
+                Record First Delivery
               </button>
-            </div>
-          </>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {grnGroups.map((group, gi) => {
+              const key = group.grnNumber ?? `legacy-${gi}`;
+              const isExpanded = expandedGrns.has(key);
+
+              return (
+                <div key={key} className="premium-card overflow-hidden">
+                  {/* Group header */}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedGrns(prev => {
+                      const next = new Set(prev);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      return next;
+                    })}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[var(--surface-muted)]/50 transition-colors text-left"
+                  >
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <span className="font-mono text-sm font-semibold text-[var(--text-heading)]">
+                        {group.grnNumber ?? 'Legacy'}
+                      </span>
+                      {group.deliveryDate ? (
+                        <span className="text-xs text-[var(--text-secondary)]">
+                          {shortDateLocal(group.deliveryDate)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[var(--text-secondary)]">
+                          {new Date(group.receivedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      )}
+                      {group.receivedByName && (
+                        <span className="text-xs text-[var(--text-secondary)]">
+                          Received by <span className="font-medium">{group.receivedByName}</span>
+                        </span>
+                      )}
+                      <span className="text-xs text-[var(--text-secondary)]">
+                        {group.rows.reduce((s, r) => s + r.deliveredQty, 0)} units · {group.rows.length} line{group.rows.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {isExpanded
+                      ? <ChevronUp className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                      : <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                    }
+                  </button>
+
+                  {/* Expanded detail */}
+                  {isExpanded && (
+                    <div className="border-t border-[var(--border-subtle)]">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-[var(--surface-muted)] text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                            <th className="px-5 py-2.5 text-left">Item</th>
+                            <th className="px-4 py-2.5 text-right">Qty Received</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.rows.map(grn => {
+                            const lineDef = grn.lineId ? lines.find(l => l.id === grn.lineId) : null;
+                            return (
+                              <tr key={grn.id} className="border-t border-[var(--border-subtle)]">
+                                <td className="px-5 py-3 text-[var(--text-primary)]">
+                                  {lineDef?.description ?? (grn.lineId ? grn.lineId.slice(0, 8) + '…' : 'Unknown item')}
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-emerald-600">
+                                  {grn.deliveredQty}
+                                  {lineDef?.unit && <span className="ml-1 text-xs font-normal text-[var(--text-secondary)]">{lineDef.unit}</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {group.notes && (
+                        <div className="border-t border-[var(--border-subtle)] px-5 py-3 text-sm text-[var(--text-secondary)]">
+                          <span className="font-medium text-[var(--text-primary)]">Notes:</span>{' '}{group.notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
@@ -537,35 +705,83 @@ export default function PurchaseOrderDetailPage({
         </div>
       </section>
 
-      {/* ── Add GRN Dialog ── */}
+      {/* ── GRN Dialog ── */}
       <Dialog open={grnOpen} onOpenChange={setGrnOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Record Goods Received</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="grn-qty">Delivered Quantity</Label>
-              <Input
-                id="grn-qty"
-                type="number"
-                min={1}
-                step={1}
-                placeholder="e.g. 5"
-                value={grnForm.qty}
-                onChange={e => setGrnForm(p => ({ ...p, qty: e.target.value }))}
-              />
+          <div className="space-y-4 py-1">
+            {/* Line table */}
+            <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-muted)] text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                    <th className="px-4 py-2.5 text-left">Item</th>
+                    <th className="px-3 py-2.5 text-right">Ordered</th>
+                    <th className="px-3 py-2.5 text-right">Received</th>
+                    <th className="px-3 py-2.5 text-right">Pending</th>
+                    <th className="px-3 py-2.5 text-right">Receive Now</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grnLines.map(l => (
+                    <tr key={l.lineId} className="border-b border-[var(--border-subtle)] last:border-0">
+                      <td className="px-4 py-3 font-medium text-[var(--text-heading)]">
+                        {l.description}
+                        <span className="ml-1.5 text-xs font-normal text-[var(--text-secondary)]">{l.unit}</span>
+                      </td>
+                      <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{l.orderedQty}</td>
+                      <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{l.previouslyReceived}</td>
+                      <td className="px-3 py-3 text-right font-medium text-amber-600">{l.pending}</td>
+                      <td className="px-3 py-3 text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={l.pending}
+                          step={1}
+                          value={l.receivedNow || ''}
+                          placeholder="0"
+                          onChange={e => {
+                            const val = Math.min(l.pending, Math.max(0, parseInt(e.target.value) || 0));
+                            setGrnLines(prev => prev.map(x => x.lineId === l.lineId ? { ...x, receivedNow: val } : x));
+                          }}
+                          className="h-8 w-20 text-right text-sm"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="grn-notes">Notes (optional)</Label>
+
+            {/* Delivery date */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="grn-date">Delivery Date</Label>
+                <Input
+                  id="grn-date"
+                  type="date"
+                  value={grnDeliveryDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setGrnDeliveryDate(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-1.5">
+              <Label htmlFor="grn-notes">Notes <span className="text-[var(--text-secondary)] font-normal">(optional)</span></Label>
               <Textarea
                 id="grn-notes"
-                placeholder="Delivery condition, batch number, remarks…"
-                rows={3}
-                value={grnForm.notes}
-                onChange={e => setGrnForm(p => ({ ...p, notes: e.target.value }))}
+                placeholder="Delivery condition, batch number, damaged items, remarks…"
+                rows={2}
+                value={grnNotes}
+                onChange={e => setGrnNotes(e.target.value)}
               />
             </div>
+
             {grnError && <p className="text-xs text-red-600">{grnError}</p>}
           </div>
           <DialogFooter className="gap-3 pt-2">
@@ -578,7 +794,7 @@ export default function PurchaseOrderDetailPage({
             </button>
             <button
               onClick={submitGRN}
-              disabled={grnSaving}
+              disabled={grnSaving || grnLines.every(l => l.receivedNow === 0)}
               className="flex-1 rounded-xl bg-[var(--teal,#0d9488)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-60"
             >
               {grnSaving ? 'Saving…' : 'Record GRN'}
