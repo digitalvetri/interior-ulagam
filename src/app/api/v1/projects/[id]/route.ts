@@ -65,7 +65,7 @@ export async function GET(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ data: row });
+    return NextResponse.json({ data: { ...row, currentUserRole: ctx.role } });
   } catch (err) {
     console.error('[projects/:id GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

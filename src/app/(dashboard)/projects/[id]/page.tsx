@@ -898,6 +898,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const [expenses,   setExpenses]   = useState<Expense[]>([]);
   const [siteLogs,   setSiteLogs]   = useState<SiteLog[]>([]);
   const [invList,    setInvList]    = useState<ProjectInvoice[]>([]);
+  const [role,       setRole]       = useState<string>('designer');
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -925,13 +926,14 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       ]);
       if (!pRes.ok) { setFetchError('Project not found'); setLoading(false); return; }
       const [pd, md, ed, ld, inv] = await Promise.all([
-        pRes.json() as Promise<{ data: Project }>,
+        pRes.json() as Promise<{ data: Project & { currentUserRole?: string } }>,
         mRes.json() as Promise<{ data: Milestone[] }>,
         eRes.json() as Promise<{ data: Expense[] }>,
         lRes.json() as Promise<{ data: SiteLog[] }>,
         iRes.json() as Promise<{ data: ProjectInvoice[] }>,
       ]);
       setProject(pd.data);
+      setRole(pd.data.currentUserRole ?? 'designer');
       setMilestones(md.data ?? []);
       setExpenses(ed.data ?? []);
       setSiteLogs(ld.data ?? []);
@@ -946,6 +948,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   useEffect(() => { void loadAll(); }, [loadAll]);
 
   /* ── Derived values ── */
+  const showFinance        = role === 'owner' || role === 'accountant';
   const contractPaise      = project?.totalContractPaise ?? 0;
   const paidMilestones     = milestones.filter(m => m.paymentStatus === 'paid');
   const totalExpensesPaise = expenses.reduce((s, e) => s + e.amountPaise, 0);
@@ -1010,23 +1013,29 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
           className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
           <Edit2 className="h-4 w-4" />Edit
         </button>
-        <button type="button" onClick={() => setCreateInvoiceOpen(true)}
-          className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl"
-          style={{ borderColor: 'var(--accent-base)', color: 'var(--accent-base)' }}>
-          <FileText className="h-4 w-4" />Create Invoice
-        </button>
-        <button type="button" onClick={() => setPaymentOpen(true)}
-          className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
-          <IndianRupee className="h-4 w-4" />Record Payment
-        </button>
-        <button type="button" onClick={() => setExpenseOpen(true)}
-          className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
-          <Receipt className="h-4 w-4" />Add Expense
-        </button>
+        {showFinance && (
+          <button type="button" onClick={() => setCreateInvoiceOpen(true)}
+            className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl"
+            style={{ borderColor: 'var(--accent-base)', color: 'var(--accent-base)' }}>
+            <FileText className="h-4 w-4" />Create Invoice
+          </button>
+        )}
+        {showFinance && (
+          <button type="button" onClick={() => setPaymentOpen(true)}
+            className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
+            <IndianRupee className="h-4 w-4" />Record Payment
+          </button>
+        )}
+        {showFinance && (
+          <button type="button" onClick={() => setExpenseOpen(true)}
+            className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
+            <Receipt className="h-4 w-4" />Add Expense
+          </button>
+        )}
       </div>
 
-      {/* Hero KPI cards — 4 columns */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Hero KPI cards — owner/accountant only */}
+      {showFinance && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Contract Value</p>
           <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text-heading)' }}>
@@ -1056,10 +1065,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             {invoicedPaise > 0 ? formatRupees(invoiceOutstandingPaise) : '—'}
           </p>
         </div>
-      </div>
+      </div>}
 
-      {/* Collection progress bar */}
-      {invoicedPaise > 0 && (
+      {/* Collection progress bar — owner/accountant only */}
+      {showFinance && invoicedPaise > 0 && (
         <div className="rounded-2xl border px-5 py-4"
           style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
           <div className="flex items-center justify-between mb-2">
@@ -1079,8 +1088,8 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         {/* LEFT: main content */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Project Invoices */}
-          <div className="rounded-2xl border overflow-hidden"
+          {/* Project Invoices — owner/accountant only */}
+          {showFinance && <div className="rounded-2xl border overflow-hidden"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1186,10 +1195,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 )}
               </table>
             )}
-          </div>
+          </div>}
 
-          {/* Payments Received (milestone-based) */}
-          <div className="rounded-2xl border overflow-hidden"
+          {/* Ad-hoc Payments — owner/accountant only */}
+          {showFinance && <div className="rounded-2xl border overflow-hidden"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1243,10 +1252,10 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 </tbody>
               </table>
             )}
-          </div>
+          </div>}
 
-          {/* Site Expenses */}
-          <div className="rounded-2xl border overflow-hidden"
+          {/* Site Expenses — owner/accountant only */}
+          {showFinance && <div className="rounded-2xl border overflow-hidden"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
             <div className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1325,7 +1334,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 )}
               </>
             )}
-          </div>
+          </div>}
 
           {/* Recent Site Logs */}
           <div className="rounded-2xl border overflow-hidden"
@@ -1542,8 +1551,8 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             </button>
           </div>
 
-          {/* Money summary */}
-          <div className="rounded-2xl border p-5 space-y-3"
+          {/* Money summary — owner/accountant only */}
+          {showFinance && <div className="rounded-2xl border p-5 space-y-3"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
             <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
               Money Summary
@@ -1589,7 +1598,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
                 </>
               )}
             </div>
-          </div>
+          </div>}
 
         </div>
       </div>
