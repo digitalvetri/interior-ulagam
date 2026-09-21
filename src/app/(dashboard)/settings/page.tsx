@@ -581,7 +581,7 @@ export default function SettingsPage() {
 
       {/* ── Users & Permissions tab ──────────────────────────────────────── */}
       {activeTab === 'users' && (
-        <div className="space-y-4 max-w-4xl">
+        <div className="space-y-4">
           <Card>
             <div className="p-6 space-y-4">
               <h3 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
@@ -660,7 +660,7 @@ export default function SettingsPage() {
 
       {/* ── Integrations tab ─────────────────────────────────────────────── */}
       {activeTab === 'integrations' && (
-        <div className="space-y-4 max-w-2xl">
+        <div className="space-y-4">
           <Card>
             <div className="p-6 space-y-4">
               <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-heading)' }}>Integrations</h3>
@@ -720,7 +720,7 @@ export default function SettingsPage() {
 
       {/* ── Data tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'data' && (
-        <div className="space-y-4 max-w-2xl">
+        <div className="space-y-4">
           <Card>
             <div className="p-6 space-y-4">
               <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-heading)' }}>Data Export</h3>
