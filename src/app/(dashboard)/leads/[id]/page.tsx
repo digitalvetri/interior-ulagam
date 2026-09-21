@@ -4,14 +4,14 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, Phone, Mail, MessageCircle, Calendar, FileText, Home,
+  ArrowLeft, Phone, Mail, MessageCircle, Calendar,
   Users, MapPin, CheckCircle2, AlertCircle,
   Plus, FolderKanban, ChevronDown, ChevronUp,
   Zap, Clock, CheckSquare,
   Edit2, Trash2, Archive, MoreVertical,
-  Upload, ExternalLink, Download,
+  Upload, ExternalLink,
 } from 'lucide-react';
-import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity, MeasurementRound, MeasurementItem } from '@/types/leads';
+import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
@@ -51,9 +51,9 @@ interface WaMessage {
   createdAt: string;
 }
 
-/* ── Helpers ───────────────────────────────────────────────── */
+/* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function fmt(paise: number) {
-  return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  return 'â‚¹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -62,7 +62,7 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 function followUpUrgency(dateIso: string): 'overdue' | 'today' | 'upcoming' {
-  // Normalise to midnight local time — avoids IST/UTC offset false-positives.
+  // Normalise to midnight local time â€” avoids IST/UTC offset false-positives.
   const dateStr = dateIso.length === 10 ? dateIso : dateIso.split('T')[0];
   const due = new Date(dateStr + 'T00:00:00');
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -97,7 +97,7 @@ function fmtBudgetBand(band: string): string {
   if (band.startsWith('above_')) return `Above ${fmtNum(band.slice(6))}`;
   if (band.startsWith('below_')) return `Below ${fmtNum(band.slice(6))}`;
   const parts = band.split('_');
-  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} – ${fmtNum(parts[1])}`;
+  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} â€“ ${fmtNum(parts[1])}`;
   return band.replace(/_/g, ' ');
 }
 const SOURCE_LABELS: Record<string, string> = {
@@ -107,7 +107,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 
 
-/* ── MarkLostDialog ────────────────────────────────────────── */
+/* â”€â”€ MarkLostDialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }: {
   open: boolean; value: string; onChange: (v: string) => void;
   onConfirm: () => void; onCancel: () => void; loading: boolean;
@@ -120,416 +120,20 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Provide a reason to help improve the team&apos;s close rate.</p>
         <textarea rows={3} className="w-full rounded-lg border px-3 py-2 text-sm resize-none outline-none focus:ring-2"
           style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-heading)' }}
-          placeholder="e.g. Budget exceeded, chose a competitor, project postponed…"
+          placeholder="e.g. Budget exceeded, chose a competitor, project postponedâ€¦"
           value={value} onChange={e => onChange(e.target.value)}
           autoFocus />
         <div className="flex gap-2 justify-end mt-4">
           <button type="button" onClick={onCancel} disabled={loading} className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>Cancel</button>
           <button type="button" onClick={onConfirm} disabled={loading || !value.trim()} className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50" style={{ background: 'var(--danger)', color: '#fff' }}>
-            {loading ? 'Marking Lost…' : 'Mark as Lost'}
+            {loading ? 'Marking Lostâ€¦' : 'Mark as Lost'}
           </button>
         </div>
       </div>
     </div>
   );
 }
-
-/* ── Measurement form constants ────────────────────────────── */
-const UNITS = [
-  { value: 'sqft',  label: 'Sq.ft',      dim: 'area'   },
-  { value: 'sqm',   label: 'Sq.m',       dim: 'area'   },
-  { value: 'rft',   label: 'Running ft', dim: 'linear' },
-  { value: 'ft',    label: 'ft',         dim: 'linear' },
-  { value: 'm',     label: 'm',          dim: 'linear' },
-  { value: 'nos',   label: 'Nos',        dim: 'count'  },
-  { value: 'lot',   label: 'Lot',        dim: 'count'  },
-  { value: 'each',  label: 'Each',       dim: 'count'  },
-] as const;
-
-type UnitDim = 'area' | 'linear' | 'count';
-
-const WORK_ITEMS: { label: string; unit: string }[] = [
-  { label: 'Tile Flooring',      unit: 'sqft' },
-  { label: 'Marble Flooring',    unit: 'sqft' },
-  { label: 'Wooden Flooring',    unit: 'sqft' },
-  { label: 'Vinyl Flooring',     unit: 'sqft' },
-  { label: 'False Ceiling',      unit: 'sqft' },
-  { label: 'POP Ceiling',        unit: 'sqft' },
-  { label: 'Gypsum Ceiling',     unit: 'sqft' },
-  { label: 'Wall Painting',      unit: 'sqft' },
-  { label: 'Wall Cladding',      unit: 'sqft' },
-  { label: 'Wallpaper',          unit: 'sqft' },
-  { label: 'Texture Painting',   unit: 'sqft' },
-  { label: 'Glass Partition',    unit: 'sqft' },
-  { label: 'Wardrobe',           unit: 'rft'  },
-  { label: 'Kitchen Cabinet',    unit: 'rft'  },
-  { label: 'TV Unit',            unit: 'rft'  },
-  { label: 'Storage Cabinet',    unit: 'rft'  },
-  { label: 'Curtain Track',      unit: 'rft'  },
-  { label: 'Skirting',           unit: 'rft'  },
-  { label: 'Countertop',         unit: 'rft'  },
-  { label: 'Door',               unit: 'nos'  },
-  { label: 'Window',             unit: 'nos'  },
-  { label: 'Light Point',        unit: 'nos'  },
-  { label: 'Fan Point',          unit: 'nos'  },
-  { label: 'AC Point',           unit: 'nos'  },
-  { label: 'Electrical Point',   unit: 'nos'  },
-  { label: 'Plumbing Point',     unit: 'nos'  },
-  { label: 'Sanitary Fixture',   unit: 'nos'  },
-];
-
-function unitDim(unit: string): UnitDim {
-  return (UNITS.find(u => u.value === unit)?.dim ?? 'area') as UnitDim;
-}
-
-function computeArea(len: string, wid: string, unit: string): number | null {
-  const l = parseFloat(len) || 0;
-  const w = parseFloat(wid) || 0;
-  const dim = unitDim(unit);
-  if (dim === 'area')   return l > 0 && w > 0 ? parseFloat((l * w).toFixed(3)) : null;
-  if (dim === 'linear') return l > 0 ? l : null;
-  return null; // count-based: no area
-}
-
-/* ── MeasurementsTabContent ────────────────────────────────── */
-function MeasurementsTabContent({ leadId, initialRounds, draftQuotes, onRoundAdded }: {
-  leadId: string;
-  initialRounds: MeasurementRound[];
-  draftQuotes: Quote[];
-  onRoundAdded: (round: MeasurementRound) => void;
-}) {
-  const [rounds, setRounds]           = useState<MeasurementRound[]>(initialRounds);
-  const [showAddRound, setShowAddRound] = useState(false);
-  const [roundName, setRoundName]     = useState('');
-  const [savingRound, setSavingRound] = useState(false);
-  const [roundErr, setRoundErr]       = useState<string | null>(null);
-  const [expandedId, setExpandedId]   = useState<string | null>(null);
-  const [addingTo, setAddingTo]       = useState<string | null>(null);
-  const [iRoom, setIRoom]     = useState('');
-  const [iItem, setIItem]     = useState('');
-  const [iLen, setILen]       = useState('');
-  const [iWid, setIWid]       = useState('');
-  const [iHeight, setIHeight] = useState('');
-  const [iQty, setIQty]       = useState('1');
-  const [iUnit, setIUnit]     = useState('sqft');
-  const [iNotes, setINotes]   = useState('');
-  const [savingItem, setSavingItem] = useState(false);
-  const [itemErr, setItemErr]       = useState<string | null>(null);
-
-  // Push-to-quote state
-  const [pushingRoundId, setPushingRoundId]   = useState<string | null>(null);
-  const [selectedQuoteId, setSelectedQuoteId] = useState('');
-  const [pushLoading, setPushLoading]         = useState(false);
-  const [pushResult, setPushResult]           = useState<string | null>(null);
-
-  async function handlePushToQuote(roundId: string) {
-    const quoteId = selectedQuoteId || draftQuotes[0]?.id;
-    if (!quoteId) return;
-    setPushLoading(true); setPushResult(null);
-    try {
-      const res = await fetch(`/api/v1/leads/${leadId}/measurements/${roundId}/push-to-quote`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quoteId }),
-      });
-      const json = await res.json() as { data?: { linesAdded: number }; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Failed');
-      setPushResult(`${json.data?.linesAdded ?? 0} lines added to quote`);
-      setPushingRoundId(null);
-    } catch (e) {
-      setPushResult(e instanceof Error ? e.message : 'Push failed');
-    } finally { setPushLoading(false); }
-  }
-
-  async function createRound() {
-    if (!roundName.trim()) return;
-    setSavingRound(true); setRoundErr(null);
-    try {
-      const res = await fetch(`/api/v1/leads/${leadId}/measurements`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roundName: roundName.trim() }),
-      });
-      const json = await res.json() as { data?: MeasurementRound; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Failed');
-      const newRound: MeasurementRound = { ...json.data!, items: [] };
-      setRounds(prev => [...prev, newRound]);
-      onRoundAdded(newRound);
-      setRoundName(''); setShowAddRound(false); setExpandedId(newRound.id);
-    } catch (e) { setRoundErr(e instanceof Error ? e.message : 'Failed'); }
-    finally { setSavingRound(false); }
-  }
-
-  function clearItemForm() {
-    setIRoom(''); setIItem(''); setILen(''); setIWid(''); setIHeight('');
-    setIQty('1'); setIUnit('sqft'); setINotes(''); setItemErr(null);
-  }
-
-  async function addItem(roundId: string) {
-    if (!iRoom.trim() || !iItem.trim()) { setItemErr('Room and item name are required'); return; }
-    setSavingItem(true); setItemErr(null);
-    const area = computeArea(iLen, iWid, iUnit);
-    const dimensionsJson: Record<string, unknown> = { unit: iUnit };
-    if (iLen)    dimensionsJson['length'] = parseFloat(iLen);
-    if (iWid)    dimensionsJson['width']  = parseFloat(iWid);
-    if (iHeight) dimensionsJson['height'] = parseFloat(iHeight);
-    if (area !== null) dimensionsJson['area'] = area;
-    try {
-      const res = await fetch(`/api/v1/leads/${leadId}/measurements/${roundId}/items`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          room: iRoom.trim(), itemName: iItem.trim(), dimensionsJson,
-          qty: parseInt(iQty) || 1, unit: iUnit, notes: iNotes.trim() || null,
-        }),
-      });
-      const json = await res.json() as { data?: MeasurementItem; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Failed');
-      setRounds(prev => prev.map(r =>
-        r.id === roundId ? { ...r, items: [...(r.items ?? []), json.data!] } : r,
-      ));
-      clearItemForm(); setAddingTo(null);
-    } catch (e) { setItemErr(e instanceof Error ? e.message : 'Failed'); }
-    finally { setSavingItem(false); }
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-          {rounds.length} Round{rounds.length !== 1 ? 's' : ''}
-        </p>
-        <div className="flex items-center gap-2">
-          {rounds.length > 0 && (
-            <a
-              href={`/api/v1/leads/${leadId}/measurements/pdf`}
-              download
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}
-            >
-              <Download className="h-3.5 w-3.5" /> PDF
-            </a>
-          )}
-          <button type="button" onClick={() => setShowAddRound(v => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
-            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-            <Plus className="h-3.5 w-3.5" /> Add Round
-          </button>
-        </div>
-      </div>
-
-      {showAddRound && (
-        <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)' }}>
-          <input value={roundName} onChange={e => setRoundName(e.target.value)}
-            placeholder="Round name — e.g. Initial Measurement"
-            className="studio-input w-full text-sm" />
-          {roundErr && <p className="text-xs text-red-600">{roundErr}</p>}
-          <div className="flex gap-2">
-            <button type="button" onClick={createRound} disabled={savingRound || !roundName.trim()}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-              style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-              {savingRound ? 'Creating…' : 'Create Round'}
-            </button>
-            <button type="button" onClick={() => { setShowAddRound(false); setRoundName(''); setRoundErr(null); }}
-              className="px-3 py-1.5 rounded-lg text-xs"
-              style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {rounds.length === 0 && !showAddRound && (
-        <div className="text-center py-10">
-          <Home className="h-9 w-9 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-          <p className="text-sm mb-1 font-medium" style={{ color: 'var(--text-secondary)' }}>No measurement rounds yet</p>
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Create a round to capture room dimensions for BOQ</p>
-        </div>
-      )}
-
-      {rounds.map(round => (
-        <div key={round.id} className="rounded-xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-          <button type="button"
-            onClick={() => setExpandedId(prev => prev === round.id ? null : round.id)}
-            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--surface-muted)] transition-colors">
-            <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{round.roundName}</span>
-              {round.completedAt && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
-                  style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>DONE</span>
-              )}
-              <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {(round.items?.length ?? 0)} item{(round.items?.length ?? 0) !== 1 ? 's' : ''}
-              </span>
-              {round.scheduledAt && (
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{fmtDate(round.scheduledAt)}</span>
-              )}
-            </div>
-            {expandedId === round.id
-              ? <ChevronUp className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-              : <ChevronDown className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-            }
-          </button>
-
-          {expandedId === round.id && (
-            <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-              {(round.items ?? []).length > 0 && (
-                <div>
-                  {(round.items ?? []).map((item, idx) => (
-                    <div key={item.id} className="px-4 py-3" style={{ borderBottom: idx < (round.items ?? []).length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                      <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-                        {item.room} — {item.itemName}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                        {(() => {
-                          const d = item.dimensionsJson;
-                          const dims = [d.length, d.width, d.height].filter(Boolean).join(' × ');
-                          const areaStr = d.area != null ? `${d.area} ${item.unit}` : null;
-                          return dims
-                            ? `${dims}${areaStr ? ` = ${areaStr}` : ''}` + ` · qty ${item.qty}`
-                            : areaStr
-                            ? `${areaStr} · qty ${item.qty}`
-                            : `qty ${item.qty} ${item.unit}`;
-                        })()}
-                      </p>
-                      {item.notes && (
-                        <p className="text-xs mt-0.5 italic" style={{ color: 'var(--text-tertiary)' }}>{item.notes}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="px-4 py-3 space-y-2" style={{ background: 'var(--surface-muted)' }}>
-                {addingTo !== round.id ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button type="button" onClick={() => { setAddingTo(round.id); clearItemForm(); }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--violet-primary)' }}>
-                      <Plus className="h-3.5 w-3.5" /> Add Item
-                    </button>
-                    {/* Push to Quote */}
-                    {draftQuotes.length > 0 && (round.items?.length ?? 0) > 0 && (
-                      pushingRoundId === round.id ? (
-                        <div className="flex items-center gap-2">
-                          {draftQuotes.length > 1 && (
-                            <select value={selectedQuoteId || draftQuotes[0].id}
-                              onChange={e => setSelectedQuoteId(e.target.value)}
-                              className="studio-input text-xs py-1.5">
-                              {draftQuotes.map(q => (
-                                <option key={q.id} value={q.id}>
-                                  QUO-{q.id.slice(-6).toUpperCase()}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                          <button type="button" onClick={() => handlePushToQuote(round.id)} disabled={pushLoading}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                            style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                            {pushLoading ? 'Pushing…' : 'Confirm Push'}
-                          </button>
-                          <button type="button" onClick={() => setPushingRoundId(null)}
-                            className="px-3 py-1.5 rounded-lg text-xs"
-                            style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button type="button"
-                          onClick={() => { setPushingRoundId(round.id); setSelectedQuoteId(draftQuotes[0]?.id ?? ''); setPushResult(null); }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                          <FileText className="h-3.5 w-3.5" /> Push to Quote
-                        </button>
-                      )
-                    )}
-                    {pushResult && pushingRoundId !== round.id && (
-                      <span className="text-xs" style={{ color: 'var(--success-text)' }}>{pushResult}</span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {/* Row 1: Room / Work Item */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        value={iRoom} onChange={e => setIRoom(e.target.value)}
-                        placeholder="Room / Space" className="studio-input text-sm" list="room-suggestions"
-                      />
-                      <input
-                        value={iItem}
-                        onChange={e => {
-                          setIItem(e.target.value);
-                          const match = WORK_ITEMS.find(w => w.label.toLowerCase() === e.target.value.toLowerCase());
-                          if (match) setIUnit(match.unit);
-                        }}
-                        placeholder="Work / Item" className="studio-input text-sm" list="work-item-suggestions"
-                      />
-                    </div>
-                    <datalist id="work-item-suggestions">
-                      {WORK_ITEMS.map(w => <option key={w.label} value={w.label} />)}
-                    </datalist>
-
-                    {/* Row 2: L / W / H (optional) */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <input value={iLen}    onChange={e => setILen(e.target.value)}    placeholder="Length (ft)" type="number" min="0" step="0.01" className="studio-input text-sm" />
-                      <input value={iWid}    onChange={e => setIWid(e.target.value)}    placeholder="Width (ft)"  type="number" min="0" step="0.01" className="studio-input text-sm" />
-                      <input value={iHeight} onChange={e => setIHeight(e.target.value)} placeholder="Height (opt)" type="number" min="0" step="0.01" className="studio-input text-sm" />
-                    </div>
-
-                    {/* Row 3: Qty / Unit */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <input value={iQty} onChange={e => setIQty(e.target.value)} placeholder="Qty" type="number" min="1" className="studio-input text-sm" />
-                      <select value={iUnit} onChange={e => setIUnit(e.target.value)} className="studio-input text-sm col-span-2">
-                        {UNITS.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
-                      </select>
-                    </div>
-
-                    {/* Row 4: Auto-calculated area (read-only) */}
-                    {(() => {
-                      const area = computeArea(iLen, iWid, iUnit);
-                      const dim  = unitDim(iUnit);
-                      if (area === null) return null;
-                      const total = area * (parseInt(iQty) || 1);
-                      const label = dim === 'linear' ? 'Length' : 'Area';
-                      const unitLabel = UNITS.find(u => u.value === iUnit)?.label ?? iUnit;
-                      return (
-                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
-                          style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
-                          <span style={{ color: 'var(--text-tertiary)' }}>{label}:</span>
-                          <span style={{ color: 'var(--text-heading)' }}>{area} {unitLabel}</span>
-                          {parseInt(iQty) > 1 && (
-                            <><span style={{ color: 'var(--text-tertiary)' }}>× {iQty} =</span>
-                            <span style={{ color: 'var(--violet-primary)', fontWeight: 600 }}>{total} {unitLabel}</span></>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Row 5: Notes */}
-                    <input value={iNotes} onChange={e => setINotes(e.target.value)} placeholder="Notes (optional)" className="studio-input w-full text-sm" />
-
-                    {itemErr && <p className="text-xs text-red-600">{itemErr}</p>}
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => addItem(round.id)} disabled={savingItem}
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50"
-                        style={{ background: 'var(--violet-primary)', color: '#fff' }}>
-                        {savingItem ? 'Saving…' : 'Save Item'}
-                      </button>
-                      <button type="button" onClick={() => { setAddingTo(null); clearItemForm(); }}
-                        className="px-3 py-1.5 rounded-lg text-xs"
-                        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)', color: 'var(--text-heading)' }}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ── Shared micro-components ───────────────────────────────── */
+/* â”€â”€ Shared micro-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function DetailField({ label, value, full }: { label: string; value: React.ReactNode; full?: boolean }) {
   return (
     <div className={full ? 'col-span-2' : ''}>
@@ -547,7 +151,7 @@ function SidebarRow({ label, value }: { label: string; value: React.ReactNode })
   );
 }
 
-/* ── Add Task to Lead dialog (owner only) ─────────────────── */
+/* â”€â”€ Add Task to Lead dialog (owner only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function AddTaskToLeadDialog({
   leadId, open, onClose, onCreated,
 }: {
@@ -618,7 +222,7 @@ function AddTaskToLeadDialog({
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Assign to</label>
               <select className="input-field w-full" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
-                <option value="">— Unassigned —</option>
+                <option value="">â€” Unassigned â€”</option>
                 {userList.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
               </select>
             </div>
@@ -632,7 +236,7 @@ function AddTaskToLeadDialog({
         <div className="flex justify-end gap-2 mt-5">
           <button type="button" onClick={handleClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
           <button type="button" onClick={handleSave} disabled={saving || !title.trim()} className="btn-primary px-4 py-2 text-sm rounded-lg disabled:opacity-50">
-            {saving ? 'Creating…' : 'Add Task'}
+            {saving ? 'Creatingâ€¦' : 'Add Task'}
           </button>
         </div>
       </div>
@@ -640,7 +244,7 @@ function AddTaskToLeadDialog({
   );
 }
 
-/* ── Page ──────────────────────────────────────────────────── */
+/* â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 export default function LeadDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -710,11 +314,8 @@ export default function LeadDetailPage() {
   const [showQualifyModal, setShowQualifyModal]             = useState(false);
   const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
 
-  // Tabs — overview and followups are now inline; only detail tabs remain
-  type TabKey = 'sitevisits' | 'measurements' | 'design' | 'quotations' | 'documents' | 'activity';
-  const [activeTab, setActiveTab]           = useState<TabKey | null>(null);
+  // Tabs â€” overview and followups are now inline; only detail tabs remain
   const [siteVisitsData, setSiteVisitsData] = useState<SiteVisit[]>([]);
-  const [measurementsData, setMeasurementsData] = useState<MeasurementRound[]>([]);
   const [followUps, setFollowUps]           = useState<LeadFollowUp[]>([]);
   const [followUpsLoaded, setFollowUpsLoaded] = useState(false);
 
@@ -736,8 +337,7 @@ export default function LeadDetailPage() {
       fetch(`/api/v1/leads/${id}/quotes`).catch(() => null),
       fetch(`/api/v1/leads/${id}/documents`).catch(() => null),
       fetch(`/api/v1/site-visits?leadId=${id}`).catch(() => null),
-      fetch(`/api/v1/leads/${id}/measurements`).catch(() => null),
-    ]).then(async ([leadRes, actRes, quotesRes, docsRes, svRes, mrRes]) => {
+    ]).then(async ([leadRes, actRes, quotesRes, docsRes, svRes]) => {
       if (leadRes.status === 404) { setNotFound(true); setLoading(false); return; }
       const { data: leadData } = await leadRes.json() as {
         data: Lead & {
@@ -765,10 +365,6 @@ export default function LeadDetailPage() {
       if (svRes?.ok) {
         const svJson = await svRes.json() as { data: SiteVisit[] };
         setSiteVisitsData(svJson.data ?? []);
-      }
-      if (mrRes?.ok) {
-        const mrJson = await mrRes.json() as { data: MeasurementRound[] };
-        setMeasurementsData(mrJson.data ?? []);
       }
       setLoading(false);
     }).catch(() => setLoading(false));
@@ -1007,7 +603,7 @@ export default function LeadDetailPage() {
     );
   }
 
-  /* ── Derived ─────────────────────────────────────────── */
+  /* â”€â”€ Derived â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   const priorityCfg  = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
   const isWon        = lead.stage === 'won';
   const isLost       = lead.stage === 'lost';
@@ -1028,7 +624,7 @@ export default function LeadDetailPage() {
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   async function handleSiteVisitSuccess() {
-    // Refresh lead — API auto-advances stage to site_visit_scheduled
+    // Refresh lead â€” API auto-advances stage to site_visit_scheduled
     const leadRes = await fetch(`/api/v1/leads/${id}`).catch(() => null);
     if (leadRes?.ok) {
       const { data } = await leadRes.json() as { data: Lead & { customerId?: string | null; linkedProject?: { id: string; name: string; lifecycleStage: string } | null } };
@@ -1046,7 +642,7 @@ export default function LeadDetailPage() {
   return (
     <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
 
-      {/* ── Dialogs ─────────────────────────────────────────────── */}
+      {/* â”€â”€ Dialogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <ConfirmDialog
         open={showDeleteConfirm}
         title="Delete lead?"
@@ -1126,7 +722,7 @@ export default function LeadDetailPage() {
 
         <div className="space-y-5">
 
-          {/* ── HEADER CARD ──────────────────────────────────────── */}
+          {/* â”€â”€ HEADER CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="rounded-2xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
             {isTerminal && (
               <div className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium" style={{
@@ -1136,7 +732,7 @@ export default function LeadDetailPage() {
               }}>
                 {isWon
                   ? <><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Lead Won</>
-                  : <><AlertCircle  className="h-4 w-4 flex-shrink-0" /> Lead Lost{lead.lostReason ? ` — ${lead.lostReason}` : ''}</>}
+                  : <><AlertCircle  className="h-4 w-4 flex-shrink-0" /> Lead Lost{lead.lostReason ? ` â€” ${lead.lostReason}` : ''}</>}
               </div>
             )}
             <div className="p-5">
@@ -1164,7 +760,7 @@ export default function LeadDetailPage() {
                     </div>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
                       {[lead.propertyType, lead.contactCity, lead.source ? `via ${SOURCE_LABELS[lead.source] ?? lead.source}` : null]
-                        .filter(Boolean).join(' · ')}
+                        .filter(Boolean).join(' Â· ')}
                     </p>
                   </div>
                 </div>
@@ -1233,7 +829,7 @@ export default function LeadDetailPage() {
             </div>
           </div>
 
-          {/* ── ACTION BAR ───────────────────────────────────────── */}
+          {/* â”€â”€ ACTION BAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="flex items-center gap-2 flex-wrap">
             {customerId && (
               <Link href={`/customers/${customerId}`}
@@ -1246,7 +842,7 @@ export default function LeadDetailPage() {
               <button type="button" onClick={() => changeStage('contacted')} disabled={stageActionsDisabled}
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
                 style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--violet-primary)' }}>
-                <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}
+                <Zap className="h-4 w-4" />{reopening ? 'Reopeningâ€¦' : 'Reopen Lead'}
               </button>
             )}
             {!isTerminal && (
@@ -1257,11 +853,11 @@ export default function LeadDetailPage() {
                     v => v.status === 'scheduled' && new Date(v.scheduledAt) >= now,
                   );
                   return upcoming ? (
-                    <button type="button" onClick={() => setActiveTab('sitevisits')}
+                    <span
                       className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border"
                       style={{ borderColor: 'rgba(99,102,241,0.3)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
                       <Calendar className="h-4 w-4" /> Visit {fmtDate(upcoming.scheduledAt)}
-                    </button>
+                    </span>
                   ) : (
                     <button type="button" onClick={() => setShowSiteVisitModal(true)} disabled={stageActionsDisabled}
                       className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
@@ -1273,22 +869,22 @@ export default function LeadDetailPage() {
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(16,185,129,0.4)', color: 'var(--success-text)', background: 'var(--success-soft)' }}>
-                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Converting…' : 'Convert to Client'}
+                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Convertingâ€¦' : 'Convert to Client'}
                 </button>
                 <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#DC2626', background: '#FEF2F2' }}>
-                  <AlertCircle className="h-4 w-4" />{markingLost ? 'Marking…' : 'Lost'}
+                  <AlertCircle className="h-4 w-4" />{markingLost ? 'Markingâ€¦' : 'Lost'}
                 </button>
               </div>
             )}
           </div>
           {stageError && <p className="text-xs text-red-600 -mt-3">{stageError}</p>}
 
-          {/* ── TWO COLUMN LAYOUT ────────────────────────────────── */}
+          {/* â”€â”€ TWO COLUMN LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
 
-            {/* LEFT — Contact details + Tabs + Follow-up */}
+            {/* LEFT â€” Contact details + Tabs + Follow-up */}
             <div className="space-y-3">
 
               {/* Contact & Project card */}
@@ -1314,7 +910,7 @@ export default function LeadDetailPage() {
                     : <div />}
                   {lead.propertyType && <DetailField label="Project Type" value={lead.propertyType} />}
                   {lead.contactCity && (
-                    <DetailField label="City" value={lead.contactCity + (lead.pincode ? ` – ${lead.pincode}` : '')} />
+                    <DetailField label="City" value={lead.contactCity + (lead.pincode ? ` â€“ ${lead.pincode}` : '')} />
                   )}
                   {lead.designerName && <DetailField label="Assigned To" value={lead.designerName} full />}
                 </div>
@@ -1348,7 +944,7 @@ export default function LeadDetailPage() {
                   </div>
                   <button type="button" onClick={scheduleFollowUp} disabled={!followUpDate || savingFU}
                     className="btn-primary h-9 px-5 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
-                    {savingFU ? 'Adding…' : 'Add'}
+                    {savingFU ? 'Addingâ€¦' : 'Add'}
                   </button>
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -1412,9 +1008,9 @@ export default function LeadDetailPage() {
                               <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
                             )}
                             <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                              {fu.createdByName ? `by ${fu.createdByName} · ` : ''}{fmtDate(fu.createdAt)}
+                              {fu.createdByName ? `by ${fu.createdByName} Â· ` : ''}{fmtDate(fu.createdAt)}
                             </p>
-                            {/* Action buttons — only on pending follow-ups */}
+                            {/* Action buttons â€” only on pending follow-ups */}
                             {!isCompleted && !isRescheduling && (
                               <div className="flex items-center gap-2 mt-2.5">
                                 <button
@@ -1422,7 +1018,7 @@ export default function LeadDetailPage() {
                                   disabled={isMarkingDone}
                                   className="px-2.5 py-1 text-xs rounded-lg font-medium transition-colors disabled:opacity-50"
                                   style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-                                  {isMarkingDone ? '…' : '✓ Mark Done'}
+                                  {isMarkingDone ? 'â€¦' : 'âœ“ Mark Done'}
                                 </button>
                                 <button
                                   onClick={() => { setReschedulingFuId(fu.id); setRescheduleInput(''); }}
@@ -1467,15 +1063,15 @@ export default function LeadDetailPage() {
             </div>{/* end left column */}
 
 
-            {/* RIGHT SIDEBAR — AT A GLANCE + Quotations mini */}
+            {/* RIGHT SIDEBAR â€” AT A GLANCE + Quotations mini */}
             <div className="space-y-3">
 
               {/* AT A GLANCE */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>At a Glance</p>
-                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage] ?? '—'} />
-                <SidebarRow label="Assigned To" value={lead.designerName ?? '—'} />
-                <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : '—'} />
+                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage] ?? 'â€”'} />
+                <SidebarRow label="Assigned To" value={lead.designerName ?? 'â€”'} />
+                <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : 'â€”'} />
                 {(() => {
                   const now = new Date();
                   const nextVisit = siteVisitsData
@@ -1488,22 +1084,22 @@ export default function LeadDetailPage() {
                   return (
                     <SidebarRow
                       label="Site Visit"
-                      value={displayVisit ? fmtDate(displayVisit.scheduledAt) : '—'}
+                      value={displayVisit ? fmtDate(displayVisit.scheduledAt) : 'â€”'}
                     />
                   );
                 })()}
-                <SidebarRow label="Last Activity" value={relDate(lead.lastActivityAt) ?? '—'} />
-                <SidebarRow label="Site Address" value={lead.projectLocation ?? '—'} />
+                <SidebarRow label="Last Activity" value={relDate(lead.lastActivityAt) ?? 'â€”'} />
+                <SidebarRow label="Site Address" value={lead.projectLocation ?? 'â€”'} />
               </div>
 
               {/* AMOUNT QUOTED */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>Amount Quoted</p>
                 {lead.projectValuePaise && !editingQuotedAmount ? (
-                  /* Read-only view — amount already saved */
+                  /* Read-only view â€” amount already saved */
                   <div className="flex items-center justify-between">
                     <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
-                      ₹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
+                      â‚¹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
                     </p>
                     <button
                       type="button"
@@ -1517,14 +1113,14 @@ export default function LeadDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  /* Edit view — no amount yet, or user clicked Edit */
+                  /* Edit view â€” no amount yet, or user clicked Edit */
                   <div>
                     {!lead.projectValuePaise && (
                       <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>No amount entered yet</p>
                     )}
                     <div className="flex gap-2 mt-2">
                       <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>₹</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>â‚¹</span>
                         <input
                           type="number"
                           min="0"
@@ -1555,19 +1151,19 @@ export default function LeadDetailPage() {
                               setEditingQuotedAmount(false);
                               setTimeout(() => setQuotedAmountSaved(false), 2000);
                               if (prevPaise !== paise) {
-                                const prevStr = prevPaise ? `₹${(prevPaise / 100).toLocaleString('en-IN')}` : 'none';
-                                const newStr = `₹${(paise / 100).toLocaleString('en-IN')}`;
+                                const prevStr = prevPaise ? `â‚¹${(prevPaise / 100).toLocaleString('en-IN')}` : 'none';
+                                const newStr = `â‚¹${(paise / 100).toLocaleString('en-IN')}`;
                                 await fetch(`/api/v1/leads/${id}/activities`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ type: 'note', title: `Amount quoted updated: ${prevStr} → ${newStr}` }),
+                                  body: JSON.stringify({ type: 'note', title: `Amount quoted updated: ${prevStr} â†’ ${newStr}` }),
                                 }).catch(() => {});
                               }
                             }
                           } finally { setSavingQuotedAmount(false); }
                         }}
                         className="btn-primary h-9 px-4 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
-                        {savingQuotedAmount ? 'Saving…' : 'Save'}
+                        {savingQuotedAmount ? 'Savingâ€¦' : 'Save'}
                       </button>
                       {editingQuotedAmount && (
                         <button
@@ -1657,12 +1253,6 @@ export default function LeadDetailPage() {
               <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Recent Activity</p>
-                  {activities.length > 5 && (
-                    <button type="button" onClick={() => setActiveTab('activity')}
-                      className="text-[12px] font-semibold hover:underline" style={{ color: 'var(--violet-primary)' }}>
-                      View all
-                    </button>
-                  )}
                 </div>
                 {activities.length === 0 ? (
                   <div className="px-5 py-6 text-center">

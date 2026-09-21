@@ -3,8 +3,6 @@ import path from 'path';
 import fs from 'fs';
 
 const BASE  = 'http://localhost:3000';
-const EMAIL = 'mohasher11@gmail.com';
-const PASS  = 'KonstDesign@2026';
 const SS_DIR = path.join('tests', 'e2e', 'screenshots', 'finance');
 
 async function ss(page: import('@playwright/test').Page, name: string) {
@@ -13,14 +11,6 @@ async function ss(page: import('@playwright/test').Page, name: string) {
 }
 
 test.describe('Finance module', () => {
-
-  test.beforeEach(async ({ page }) => {
-    await page.goto(`${BASE}/login`);
-    await page.fill('#email', EMAIL);
-    await page.fill('#password', PASS);
-    await page.click('button[type=submit]');
-    await page.waitForURL(`${BASE}/dashboard`, { timeout: 15000 });
-  });
 
   /* ── 01. /finance loads with KPI cards ─────────────────────────────────── */
   test('01 — finance page loads and shows KPI cards', async ({ page }) => {
@@ -44,18 +34,25 @@ test.describe('Finance module', () => {
     await page.goto(`${BASE}/finance`);
     await page.waitForLoadState('networkidle', { timeout: 15000 });
 
+    // Only tabs that actually exist in the TABS array
     const tabs = [
       { label: 'To Collect', param: 'to-collect' },
-      { label: 'Invoices',   param: 'invoices'   },
       { label: 'Expenses',   param: 'expenses'   },
       { label: 'GST',        param: 'gst'        },
     ];
 
     for (const tab of tabs) {
       const btn = page.locator(`button:has-text("${tab.label}")`).first();
-      if (await btn.isVisible().catch(() => false)) {
+      // Wait for tab button to be visible (ensures React has hydrated the tab bar)
+      if (await btn.isVisible({ timeout: 8000 }).catch(() => false)) {
         await btn.click();
-        await page.waitForTimeout(400);
+        // Retry once — router.push can be slower under server load (parallel tests)
+        try {
+          await page.waitForURL(`**finance?tab=${tab.param}`, { timeout: 6000 });
+        } catch {
+          await btn.click();
+          await page.waitForURL(`**finance?tab=${tab.param}`, { timeout: 6000 }).catch(() => {});
+        }
         const url = page.url();
         console.log(`Tab "${tab.label}": URL = ${url}`);
         expect(url).toContain(tab.param);
@@ -83,10 +80,11 @@ test.describe('Finance module', () => {
     await expect(heading).toBeVisible({ timeout: 5000 });
     console.log('✅ RecordPaymentDrawer opened');
 
-    // Mode buttons (UPI, Cash, Bank, etc.)
+    // Mode buttons (UPI, Cash, Bank, etc.) — use force:true because the drawer backdrop
+    // has absolute inset-0 positioning that Playwright's pointer-event check treats as a cover
     const upiBtn = page.locator('button:has-text("UPI"), button:has-text("upi")').first();
     if (await upiBtn.isVisible().catch(() => false)) {
-      await upiBtn.click();
+      await upiBtn.click({ force: true });
       console.log('✅ UPI mode selected');
     }
 
@@ -98,35 +96,41 @@ test.describe('Finance module', () => {
     await ss(page, '03-drawer-closed');
   });
 
-  /* ── 04. Invoices tab — lists invoices ──────────────────────────────────── */
-  test('04 — invoices tab loads invoice list', async ({ page }) => {
-    await page.goto(`${BASE}/finance?tab=invoices`);
+  /* ── 04. Invoices page — separate route, not a finance tab ─────────────── */
+  // Invoices live at /invoices (not /finance?tab=invoices — that tab does not exist)
+  test('04 — invoices page loads at /invoices', async ({ page }) => {
+    await page.goto(`${BASE}/invoices`);
     await page.waitForLoadState('networkidle', { timeout: 15000 });
-    await ss(page, '04-invoices-tab');
+    await ss(page, '04-invoices-page');
 
     // Either a table row or empty-state message
-    const row    = page.locator('tr, [role="row"]').nth(1); // skip header
-    const empty  = page.locator('text=No invoices, text=no invoices').first();
+    const row    = page.locator('tbody tr').first();
+    const empty  = page.locator('text=/no invoices/i').first();
     const hasRow = await row.isVisible().catch(() => false);
     const isEmpty = await empty.isVisible().catch(() => false);
-    console.log(`Invoices tab: hasRow=${hasRow}, isEmpty=${isEmpty}`);
+    console.log(`Invoices page: hasRow=${hasRow}, isEmpty=${isEmpty}`);
     expect(hasRow || isEmpty).toBeTruthy();
-    console.log('✅ Invoices tab rendered');
+    console.log('✅ Invoices page rendered');
   });
 
-  /* ── 05. GST tab shows month selector ──────────────────────────────────── */
-  test('05 — GST tab shows summary and month selector', async ({ page }) => {
+  /* ── 05. GST tab shows month pills ─────────────────────────────────────── */
+  // GST tab uses rolling month-pill buttons (not year/month number inputs)
+  test('05 — GST tab shows month pills and summary or empty state', async ({ page }) => {
     await page.goto(`${BASE}/finance?tab=gst`);
     await page.waitForLoadState('networkidle', { timeout: 15000 });
     await ss(page, '05-gst-tab');
 
-    // Year/month selector inputs should be present
-    const yearInput  = page.locator('input[type=number][min="2020"], select').first();
-    const monthLabel = page.locator('text=Output tax, text=output, text=GST').first();
-    const hasYear    = await yearInput.isVisible().catch(() => false);
-    const hasLabel   = await monthLabel.isVisible().catch(() => false);
-    console.log(`GST tab: hasYearInput=${hasYear}, hasLabel=${hasLabel}`);
-    expect(hasYear || hasLabel).toBeTruthy();
+    // Month pills are always rendered (12 rolling months)
+    const monthPills = page.locator('button[class*="rounded-full"]');
+    const pillCount  = await monthPills.count();
+    console.log(`GST tab: month pill count = ${pillCount}`);
+    expect(pillCount).toBeGreaterThan(0);
+
+    // When data exists, "Output Tax Collected" header shows; otherwise "No data for this period"
+    const hasData  = await page.locator('text=Output Tax Collected').isVisible().catch(() => false);
+    const hasEmpty = await page.locator('text=No data for this period').isVisible().catch(() => false);
+    console.log(`GST tab: hasData=${hasData}, hasEmpty=${hasEmpty}`);
+    expect(hasData || hasEmpty).toBeTruthy();
     console.log('✅ GST tab rendered');
   });
 

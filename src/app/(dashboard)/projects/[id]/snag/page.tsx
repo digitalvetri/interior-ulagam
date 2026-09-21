@@ -323,7 +323,6 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
         </div>
 
       ) : (
-        <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {snagItems.map(snag => (
               <div key={snag.id} className="rounded-2xl border p-4 flex flex-col gap-3 transition-all hover:shadow-sm"
@@ -369,9 +368,10 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
               </div>
             ))}
           </div>
+      )}
 
-          {/* Handover section */}
-          {allClear && (
+      {/* Handover section — shown when list is empty OR all items are resolved/confirmed */}
+      {!loading && !loadError && allClear && (
             <div className="rounded-2xl border p-5" style={{ borderColor: '#86EFAC', background: 'var(--success-soft)' }}>
               <div className="flex items-start gap-4">
                 <div className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -415,8 +415,6 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
               </div>
             </div>
           )}
-        </>
-      )}
 
       {modalOpen && (
         <AddSnagModal
