@@ -134,8 +134,8 @@ function SidebarBody({
 
   return (
     <>
-      {/* ── Brand ────────────────────────────────────────────── */}
-      <div
+      {/* ── Brand — hidden on mobile drawer (top bar already shows it) ── */}
+      {!isMobile && <div
         className="flex h-[60px] flex-shrink-0 items-center"
         style={{
           padding: iconOnly ? '0 14px' : '0 16px',
@@ -161,7 +161,7 @@ function SidebarBody({
             <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Design Studio</p>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Nav groups (scrollable) ───────────────────────────── */}
       {!roleLoaded ? <NavSkeleton iconOnly={iconOnly} /> : (
