@@ -7,7 +7,7 @@ import {
   BarChart3, ChevronDown, Download, FileSpreadsheet,
   HandCoins, IndianRupee, MoreVertical,
   Paperclip, Plus, Receipt, TrendingDown, TrendingUp, Wallet, CheckCircle2,
-  Clock, Building2, Search,
+  Clock, Building2, Search, X,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/StatusBadge';
@@ -972,11 +972,167 @@ function fmtCompact(paise: number) {
   return `₹${Math.round(r)}`;
 }
 
+// ─── Record Expense Modal ─────────────────────────────────────────────────────
+
+function RecordExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [projectId,    setProjectId]    = useState('');
+  const [category,     setCategory]     = useState<string>('petty_cash');
+  const [amountRupees, setAmountRupees] = useState('');
+  const [description,  setDescription]  = useState('');
+  const [vendorName,   setVendorName]   = useState('');
+  const [projects,     setProjects]     = useState<{ id: string; name: string }[]>([]);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/v1/projects')
+      .then(r => r.json())
+      .then(b => setProjects(Array.isArray(b.data) ? b.data : []))
+      .catch(() => {});
+  }, []);
+
+  async function handleSubmit() {
+    const parsed = parseFloat(amountRupees);
+    if (!projectId) { setError('Please select a project'); return; }
+    if (!amountRupees || isNaN(parsed) || parsed <= 0) { setError('Please enter a valid amount'); return; }
+    setSaving(true); setError(null);
+    try {
+      const res = await fetch('/api/v1/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          category,
+          amountPaise: Math.round(parsed * 100),
+          description: description.trim() || undefined,
+          vendorName:  vendorName.trim()  || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        setError(j.error ?? 'Failed to record expense'); return;
+      }
+      onSaved(); onClose();
+    } catch { setError('Network error. Please try again.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.45)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-2xl shadow-2xl"
+        style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl flex items-center justify-center"
+              style={{ background: 'var(--warning-soft)' }}>
+              <Receipt className="h-4 w-4" style={{ color: '#F97316' }} />
+            </div>
+            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Expense</h2>
+          </div>
+          <button type="button" onClick={onClose}
+            className="h-7 w-7 flex items-center justify-center rounded-lg transition-colors hover:bg-[var(--surface-muted)]"
+            style={{ color: 'var(--text-secondary)' }}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Project */}
+          <div>
+            <label className="block text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Project *</label>
+            <select value={projectId} onChange={e => setProjectId(e.target.value)}
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>
+              <option value="">Select project…</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Category</label>
+            <div className="flex flex-wrap gap-2">
+              {CATS_LIST.map(c => (
+                <button key={c} type="button" onClick={() => setCategory(c)}
+                  className="rounded-full px-3 py-1.5 text-xs font-medium transition-all"
+                  style={{
+                    background:   category === c ? `${CAT_DOT[c]}20` : 'var(--surface-muted)',
+                    color:        category === c ? CAT_DOT[c]        : 'var(--text-secondary)',
+                    border:       `2px solid ${category === c ? CAT_DOT[c] : 'transparent'}`,
+                  }}>
+                  {EXP_LABEL[c]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label className="block text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Amount (₹) *</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                style={{ color: 'var(--text-secondary)' }}>₹</span>
+              <input type="number" min="0" step="0.01" placeholder="0.00"
+                value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
+                className="w-full rounded-xl border pl-7 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+                style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Description <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <input type="text" placeholder="Brief description…"
+              value={description} onChange={e => setDescription(e.target.value)}
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
+          </div>
+
+          {/* Vendor */}
+          <div>
+            <label className="block text-[11px] font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+              Vendor / Paid To <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>(optional)</span>
+            </label>
+            <input type="text" placeholder="e.g. Raj Carpentry Works"
+              value={vendorName} onChange={e => setVendorName(e.target.value)}
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[var(--accent-base)]/30"
+              style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }} />
+          </div>
+
+          {error && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{error}</p>}
+        </div>
+
+        <div className="flex gap-3 px-6 pb-5">
+          <button type="button" onClick={onClose} disabled={saving}
+            className="flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors hover:bg-[var(--surface-muted)]"
+            style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+            Cancel
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={saving || !projectId || !amountRupees}
+            className="flex-1 btn-primary py-2.5 text-sm font-semibold disabled:opacity-60">
+            {saving ? 'Saving…' : 'Record Expense'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Expenses Tab ─────────────────────────────────────────────────────────────
+
 function ExpensesTab() {
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCat]   = useState<string>('all');
   const [search, setSearch]   = useState('');
+  const [showAddExpense, setShowAddExpense] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -1027,7 +1183,8 @@ function ExpensesTab() {
           {' · '}
           <span className="font-semibold tabular-nums">{formatRupees(filtTotal)}</span> booked
         </p>
-        <button className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold"
+        <button onClick={() => setShowAddExpense(true)}
+          className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold"
           style={{ background: 'var(--text-heading)', color: 'var(--surface-app)' }}>
           <Plus className="h-3.5 w-3.5" />Record Expense
         </button>
@@ -1209,6 +1366,18 @@ function ExpensesTab() {
           </div>
         )}
       </div>
+
+      {showAddExpense && (
+        <RecordExpenseModal
+          onClose={() => setShowAddExpense(false)}
+          onSaved={() => {
+            fetch('/api/v1/expenses')
+              .then(r => r.json())
+              .then(b => setRows((b.data ?? []) as ExpenseRow[]))
+              .catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 }

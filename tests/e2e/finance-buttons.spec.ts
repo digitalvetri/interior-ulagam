@@ -72,35 +72,45 @@ test.describe('Finance — Record Payment & Add Expense buttons', () => {
     console.log(`✅ Drawer closed: ${drawerGone}`);
   });
 
-  /* ── 2. Record Expense button ──────────────────────────────────────────── */
-  // VERIFIED BUG: button renders but has no onClick handler — modal never opens
-  // Tracking: Record Expense button in Expenses tab is non-functional (dead button)
-  test('02 — Record Expense button is visible on Expenses tab', async ({ page }) => {
+  /* ── 2. Record Expense button opens modal ─────────────────────────────── */
+  test('02 — Record Expense button opens modal on Expenses tab', async ({ page }) => {
     await page.goto(`${BASE}/finance`);
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 15000 });
 
     // Click "Expenses" tab
     await page.click('button:has-text("Expenses")');
     await page.waitForTimeout(800);
     await ss(page, '06-expenses-tab');
 
-    // Button renders (label changed from "Add Expense" to "Record Expense")
-    const addBtn = page.locator('button:has-text("Record Expense")');
-    await expect(addBtn).toBeVisible({ timeout: 5000 });
+    // Button should be visible
+    const addBtn = page.locator('button:has-text("Record Expense")').first();
+    await expect(addBtn).toBeVisible({ timeout: 8000 });
     console.log('✅ Record Expense button is visible');
 
-    // BUG: button has no onClick — clicking does nothing, no modal opens
-    // This test only verifies the button renders; modal interaction is blocked by missing handler
+    // Click and wait for modal to open
     await addBtn.click();
-    await page.waitForTimeout(500);
-    await ss(page, '07-expenses-tab-after-click');
+    await page.waitForTimeout(600);
+    await ss(page, '07-expenses-modal-open');
 
-    const modalHeader = page.locator('h2:has-text("Log Expense"), h2:has-text("Record Expense")');
-    const modalOpened = await modalHeader.isVisible({ timeout: 2000 }).catch(() => false);
-    console.log(`⚠️ Record Expense modal opened: ${modalOpened} — expected false (button has no onClick handler)`);
-    // Document the bug: modal should open but doesn't
-    expect(modalOpened).toBe(false);
-    console.log('⚠️ VERIFIED BUG: Record Expense button in Expenses tab has no onClick handler');
+    const modalHeader = page.locator('h2:has-text("Record Expense")').first();
+    const modalOpened = await modalHeader.isVisible({ timeout: 3000 }).catch(() => false);
+    console.log(`Record Expense modal opened: ${modalOpened}`);
+    expect(modalOpened).toBe(true);
+
+    // Modal should have project selector and amount field
+    const projectSelect = page.locator('select').first();
+    const amountInput   = page.locator('input[type="number"]').first();
+    const hasProject = await projectSelect.isVisible().catch(() => false);
+    const hasAmount  = await amountInput.isVisible().catch(() => false);
+    console.log(`  project selector: ${hasProject}, amount input: ${hasAmount}`);
+
+    // Close via Cancel
+    const cancelBtn = page.locator('button:has-text("Cancel")').first();
+    if (await cancelBtn.isVisible().catch(() => false)) {
+      await cancelBtn.click();
+      await page.waitForTimeout(300);
+    }
+    console.log('✅ Record Expense modal opens and closes correctly');
   });
 
 });

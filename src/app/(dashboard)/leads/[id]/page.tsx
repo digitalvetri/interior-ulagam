@@ -7,7 +7,7 @@ import {
   ArrowLeft, Phone, Mail, MessageCircle, Calendar,
   Users, MapPin, CheckCircle2, AlertCircle,
   Plus, FolderKanban, ChevronDown, ChevronUp,
-  Zap, Clock, CheckSquare,
+  Zap, Clock, CheckSquare, FileText,
   Edit2, Trash2, Archive, MoreVertical,
   Upload, ExternalLink,
 } from 'lucide-react';
@@ -1178,6 +1178,66 @@ export default function LeadDetailPage() {
                   </div>
                 )}
                 {quotedAmountSaved && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--success)' }}>Saved!</p>}
+              </div>
+
+              {/* QUOTATIONS */}
+              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
+                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Quotations</p>
+                    {leadQuotes.length > 0 && (
+                      <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                        {leadQuotes.length}
+                      </span>
+                    )}
+                  </div>
+                  {!isTerminal && (
+                    <button type="button" onClick={createQuote} disabled={creatingQuote}
+                      className="flex items-center gap-1 text-[12px] font-semibold hover:underline disabled:opacity-50"
+                      style={{ color: 'var(--accent-base)' }}>
+                      <Plus className="h-3.5 w-3.5" />{creatingQuote ? 'Creating…' : 'Create'}
+                    </button>
+                  )}
+                </div>
+                {leadQuotes.length === 0 ? (
+                  <div className="px-5 py-4 text-center">
+                    <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
+                      {isTerminal ? 'No quotations.' : 'No quotations yet. Create one above.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    {leadQuotes.slice(0, 5).map((q, i) => {
+                      const statusColor: Record<string, string> = {
+                        draft: 'var(--text-tertiary)', sent: 'var(--accent-base)',
+                        accepted: 'var(--success-text)', approved: 'var(--success-text)',
+                        rejected: 'var(--danger)', revised: 'var(--warning-text)',
+                      };
+                      return (
+                        <Link key={q.id} href={`/quotes/${q.id}`}
+                          className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
+                          style={{ borderBottom: i < Math.min(leadQuotes.length, 5) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
+                              V{q.version} · {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
+                            </p>
+                            {q.totalPaise > 0 && (
+                              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                                ₹{(q.totalPaise / 100).toLocaleString('en-IN')}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-bold capitalize flex-shrink-0 ml-2"
+                            style={{ color: statusColor[q.status] ?? 'var(--text-secondary)' }}>
+                            {q.status}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* LEAD TASKS */}

@@ -1225,7 +1225,9 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
     for (const route of routes) {
       await page.goto(`${BASE}${route.path}`);
-      await page.waitForLoadState('domcontentloaded');
+      // networkidle waits for React client components to hydrate — domcontentloaded
+      // returns before JS runs, so client-only pages (dashboard, settings) appear blank.
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
       const bodyText = await page.innerText('body').catch(() => '');
       const is404   = bodyText.includes('404') || bodyText.includes('not found');
       const isBlank = bodyText.trim().length < 50;
