@@ -13,6 +13,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -1249,5 +1250,16 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     }
 
     console.log('✅ STEP 18 PASS — Navigation audit complete');
+  });
+
+  // ── Cleanup: remove test data created during this run ─────────────────────
+  test.afterAll(() => {
+    try {
+      const scriptPath = path.resolve(process.cwd(), 'scripts', 'clear-rajesh-kumar.mjs');
+      execFileSync(process.execPath, [scriptPath], { stdio: 'pipe' });
+      console.log('🧹 afterAll cleanup: Rajesh Kumar test data removed');
+    } catch (e) {
+      console.warn('⚠️  afterAll cleanup failed (non-fatal):', (e as Error).message?.slice(0, 200));
+    }
   });
 });
