@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { CalendarDays, LogOut, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 import { CommandPalette } from '@/components/leads/CommandPalette';
+import { useUser } from '@/components/providers/user-provider';
 
 import { ROLE_LABELS } from '@/lib/roles';
 
@@ -17,20 +17,8 @@ const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 export function TopBar() {
-  const [fullName, setFullName] = useState('');
-  const [role, setRole]         = useState('');
+  const { fullName, role } = useUser();
   const router = useRouter();
-
-  useEffect(() => {
-    fetch('/api/v1/me')
-      .then(r => r.ok ? r.json() : null)
-      .then(body => {
-        if (!body?.data) return;
-        setFullName(body.data.fullName ?? '');
-        setRole(body.data.role ?? '');
-      })
-      .catch(() => {});
-  }, []);
 
   async function handleSignOut() {
     await fetch('/api/auth/sign-out', {

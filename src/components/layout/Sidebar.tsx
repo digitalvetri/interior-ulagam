@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { NAV_GROUPS } from '@/lib/nav-items';
+import { useUser } from '@/components/providers/user-provider';
 import { Menu, X, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { ThreeParticleCanvas } from '@/components/ui/ThreeParticleCanvas';
@@ -89,11 +90,30 @@ function NavGroupSection({
 
 // ─── Sidebar body (shared by desktop + mobile) ────────────────────────────────
 
+function NavSkeleton({ iconOnly }: { iconOnly: boolean }) {
+  const widths = ['w-20', 'w-28', 'w-24', 'w-16', 'w-28', 'w-22', 'w-20', 'w-24'];
+  return (
+    <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
+      {!iconOnly && (
+        <div className="mx-3 mb-1 mt-3 h-2.5 w-12 rounded skeleton opacity-40" />
+      )}
+      <div className="space-y-0.5 px-2">
+        {widths.map((w, i) => (
+          <div key={i} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ${i === 3 ? 'mt-3' : ''}`}>
+            <div className="h-4 w-4 flex-shrink-0 rounded skeleton opacity-30" />
+            {!iconOnly && <div className={`h-3 ${w} rounded skeleton opacity-30`} />}
+          </div>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function SidebarBody({
-  role, isAdmin, fullName, pathname, iconOnly, onNavigate, onSignOut,
+  role, isAdmin, fullName, pathname, iconOnly, roleLoaded, onNavigate, onSignOut,
 }: {
   role: string; isAdmin: boolean; fullName: string; pathname: string;
-  iconOnly: boolean; onNavigate?: () => void; onSignOut?: () => void;
+  iconOnly: boolean; roleLoaded: boolean; onNavigate?: () => void; onSignOut?: () => void;
 }) {
   const visibleGroups = NAV_GROUPS.filter(g => g.roles.some(r => r === role));
   const isMobile = !!onNavigate;
@@ -144,18 +164,20 @@ function SidebarBody({
       </div>
 
       {/* ── Nav groups (scrollable) ───────────────────────────── */}
-      <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
-        {visibleGroups.map(group => (
-          <NavGroupSection
-            key={group.key}
-            group={group}
-            role={role}
-            pathname={pathname}
-            iconOnly={iconOnly}
-            onNavigate={onNavigate}
-          />
-        ))}
-      </nav>
+      {!roleLoaded ? <NavSkeleton iconOnly={iconOnly} /> : (
+        <nav className="flex-1 overflow-y-auto py-2" style={{ scrollbarWidth: 'none' }}>
+          {visibleGroups.map(group => (
+            <NavGroupSection
+              key={group.key}
+              group={group}
+              role={role}
+              pathname={pathname}
+              iconOnly={iconOnly}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </nav>
+      )}
 
       {/* ── Footer ───────────────────────────────────────────── */}
       {!iconOnly && (
@@ -225,28 +247,11 @@ function SidebarBody({
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [role, setRole]             = useState('');
-  const [isAdmin, setIsAdmin]       = useState(false);
-  const [fullName, setFullName]     = useState('');
+  const { role: rawRole, isAdmin, fullName, roleLoaded } = useUser();
+  const role = isAdmin ? 'admin' : rawRole ? 'employee' : '';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [iconOnly, setIconOnly]     = useState(false);
   const initDone = useRef(false);
-
-  useEffect(() => {
-    fetch('/api/v1/me')
-      .then(res => (res.ok ? res.json() : null))
-      .then(body => {
-        if (!body?.data) return;
-        const isAdminFlag = body.data.isAdmin === true;
-        const normalized = isAdminFlag || body.data.role === 'owner' ? 'admin'
-          : ['designer', 'supervisor', 'accountant'].includes(body.data.role) ? 'employee'
-          : body.data.role;
-        setRole(normalized);
-        setIsAdmin(normalized === 'admin');
-        setFullName(body.data.fullName ?? '');
-      })
-      .catch(() => {});
-  }, []);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -327,7 +332,7 @@ export function Sidebar() {
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <SidebarBody
             role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
-            iconOnly={false} onNavigate={closeMenu} onSignOut={handleSignOut}
+            iconOnly={false} roleLoaded={roleLoaded} onNavigate={closeMenu} onSignOut={handleSignOut}
           />
         </div>
       </aside>
@@ -343,7 +348,8 @@ export function Sidebar() {
 
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <SidebarBody
-            role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname} iconOnly={iconOnly}
+            role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
+            iconOnly={iconOnly} roleLoaded={roleLoaded}
           />
         </div>
 

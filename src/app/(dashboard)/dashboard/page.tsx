@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useUser } from '@/components/providers/user-provider';
 import Link from 'next/link';
 import {
   Users, FolderKanban, IndianRupee,
@@ -659,6 +660,7 @@ interface FollowUpCounts { overdue: number; dueToday: number; upcoming: number; 
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { isAdmin: contextAdmin, id: contextId, fullName: contextFullName, roleLoaded } = useUser();
   const [firstName,  setFirstName]  = useState('');
   const [isAdmin,    setIsAdmin]    = useState(false);
 
@@ -696,16 +698,15 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     setLoadError(false);
+    // Seed local state from the already-loaded user context (no extra /api/v1/me call)
+    const admin = contextAdmin;
+    setIsAdmin(admin);
+    if (contextFullName) setFirstName(contextFullName.split(' ')[0]);
+    if (contextId)       setMyUserId(contextId);
     try {
-      const [me, sv] = await Promise.all([
-        fetch('/api/v1/me').then(r => r.json()),
+      const [sv] = await Promise.all([
         fetch('/api/v1/site-visits').then(r => r.json()),
       ]);
-
-      const admin = !!(me?.data?.isAdmin || me?.data?.role === 'owner');
-      setIsAdmin(admin);
-      if (me?.data?.fullName) setFirstName(me.data.fullName.split(' ')[0]);
-      if (me?.data?.id)       setMyUserId(me.data.id);
 
       const allVisits: SiteVisit[] = Array.isArray(sv?.data) ? sv.data : [];
       const now = new Date();
@@ -764,7 +765,7 @@ export default function DashboardPage() {
         }
         if (Array.isArray(rl?.data)) setRecentLeads(rl.data);
       } else {
-        const uid = me?.data?.id ?? '';
+        const uid = contextId ?? '';
         const todayStr = new Date().toISOString().split('T')[0];
         const nowDate  = new Date();
         const monthStart = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-01`;
@@ -786,9 +787,10 @@ export default function DashboardPage() {
         if (Array.isArray(leaveData?.data)) setMyLeaves((leaveData.data as LeaveRequest[]).slice(0, 4));
       }
     } catch { setLoadError(true); } finally { setLoading(false); }
-  }, []);
+  }, [contextAdmin, contextId, contextFullName]);
 
-  useEffect(() => { load(); }, [load]);
+  // Only load data once we know the user's role — prevents the employee-view flash
+  useEffect(() => { if (roleLoaded) load(); }, [roleLoaded, load]);
 
   /* ── Derived ──────────────────────────────────────────────────────── */
   function funnelCount(key: string): number {
@@ -860,6 +862,22 @@ export default function DashboardPage() {
       };
     }),
   ];
+
+  /* ── Role not yet confirmed — show a neutral skeleton so there is no flash ── */
+  if (!roleLoaded) {
+    return (
+      <div className="p-4 lg:p-8 space-y-5 animate-pulse">
+        <div className="h-8 w-48 rounded-lg skeleton" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-24 rounded-xl skeleton" />)}
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 h-64 rounded-xl skeleton" />
+          <div className="h-64 rounded-xl skeleton" />
+        </div>
+      </div>
+    );
+  }
 
   /* ══════════════════════════════════════════════════════════════════════
      ADMIN VIEW
