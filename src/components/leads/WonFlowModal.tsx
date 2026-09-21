@@ -50,18 +50,17 @@ export function WonFlowModal({ lead, open, onClose, onSuccess, acceptedQuoteTota
       : undefined;
 
     try {
-      const res = await fetch('/api/v1/projects', {
+      const res = await fetch(`/api/v1/leads/${lead.id}/convert`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          leadId:             lead.id,
-          name:               projectName.trim(),
-          totalContractPaise: totalContractPaise ?? undefined,
+          projectName:  projectName.trim(),
+          budgetPaise:  totalContractPaise ?? undefined,
         }),
       });
-      const json = await res.json() as { data?: { id: string; name: string }; error?: string };
+      const json = await res.json() as { data?: { projectId: string }; error?: string };
       if (!res.ok) throw new Error(json.error ?? 'Failed to create project');
-      onSuccess(json.data!);
+      onSuccess({ id: json.data!.projectId, name: projectName.trim() });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong');
     } finally { setSubmitting(false); }
