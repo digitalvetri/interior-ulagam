@@ -11,7 +11,6 @@ import {
   Plus, UserCheck, Plane, ListTodo, Loader2, ArrowRight,
 } from 'lucide-react';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
-import { ThreeParticleCanvas } from '@/components/ui/ThreeParticleCanvas';
 import type { Lead } from '@/types/leads';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -919,10 +918,6 @@ export default function DashboardPage() {
         {/* Hero banner */}
         <div className="rounded-2xl relative overflow-hidden"
           style={{ background: 'linear-gradient(135deg, #131545 0%, #1e2268 55%, #252a7a 100%)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          {/* Three.js particle canvas */}
-          <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-            <ThreeParticleCanvas particleCount={80} />
-          </div>
           {/* Content */}
           <div className="p-4 sm:p-6" style={{ position: 'relative', zIndex: 1 }}>
             <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
@@ -1409,10 +1404,6 @@ export default function DashboardPage() {
 
       {/* ── HEADER CARD ───────────────────────────────────────────────── */}
       <div className="rounded-2xl relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #131545 0%, #1e2268 55%, #252a7a 100%)', border: '1px solid rgba(255,255,255,0.08)' }}>
-        {/* Three.js particle canvas */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <ThreeParticleCanvas particleCount={70} />
-        </div>
         <div className="flex flex-col lg:flex-row items-start lg:items-stretch gap-5 p-5 lg:p-6" style={{ position: 'relative', zIndex: 1 }}>
 
           {/* Left: Avatar + greeting + quick actions */}
