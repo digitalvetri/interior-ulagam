@@ -29,6 +29,7 @@ export async function GET(
         version:       quotes.version,
         status:        quotes.status,
         subtotalPaise: quotes.subtotalPaise,
+        gstPct:        quotes.gstPct,
         gstPaise:      quotes.gstPaise,
         totalPaise:    quotes.totalPaise,
         pdfUrl:        quotes.pdfUrl,

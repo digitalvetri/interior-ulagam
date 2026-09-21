@@ -873,7 +873,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     await ss(page, '12-expenses-tab');
 
     // Add expense button
-    const addExpBtn = page.locator('button', { hasText: /add expense|new expense/i }).first();
+    const addExpBtn = page.locator('button', { hasText: /add expense|new expense|record expense/i }).first();
     const addExpVis = await addExpBtn.isVisible({ timeout: 3000 }).catch(() => false);
     console.log(`  "Add Expense" button visible: ${addExpVis}`);
     if (!addExpVis) console.warn('  ⚠️ BUG — Add Expense button missing from Expenses tab');
@@ -1143,7 +1143,7 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     leadId = rajesh.id;
 
     const quotesResp = await page.request.get(`${BASE}/api/v1/leads/${leadId}/quotes`);
-    const { data: quotes } = await quotesResp.json() as { data: { id: string; status: string; gstPct?: number; subtotalPaise?: number; cgstPaise?: number; sgstPaise?: number; igstPaise?: number; totalPaise?: number }[] };
+    const { data: quotes } = await quotesResp.json() as { data: { id: string; status: string; gstPct?: number; subtotalPaise?: number; gstPaise?: number; totalPaise?: number }[] };
 
     if (!quotes?.length) {
       console.warn('  ⚠️ No quotes found for GST audit');
@@ -1152,25 +1152,21 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
     const q = quotes[0]!;
     console.log('  Quote data for GST audit:');
-    console.log(`    gstPct:       ${q.gstPct ?? 'not in API response'}`);
-    console.log(`    subtotalPaise: ${q.subtotalPaise ?? 'not in API response'}`);
-    console.log(`    cgstPaise:    ${q.cgstPaise ?? 'not in API response'}`);
-    console.log(`    sgstPaise:    ${q.sgstPaise ?? 'not in API response'}`);
-    console.log(`    igstPaise:    ${q.igstPaise ?? 'not in API response'}`);
-    console.log(`    totalPaise:   ${q.totalPaise ?? 'not in API response'}`);
+    console.log(`    gstPct:        ${q.gstPct ?? 'not in API response'}`);
+    console.log(`    subtotalPaise: ${q.subtotalPaise ?? 0}`);
+    console.log(`    gstPaise:      ${q.gstPaise ?? 0}`);
+    console.log(`    totalPaise:    ${q.totalPaise ?? 0}`);
 
-    // Verify math (if subtotal + gst fields are available)
-    if (q.subtotalPaise && q.cgstPaise !== undefined) {
-      const expectedCgst = Math.round(q.subtotalPaise * 0.09);
-      const expectedSgst = Math.round(q.subtotalPaise * 0.09);
-      const cgstOk = Math.abs((q.cgstPaise ?? 0) - expectedCgst) < 100; // within ₹1
-      const sgstOk = Math.abs((q.sgstPaise ?? 0) - expectedSgst) < 100;
-      console.log(`  CGST 9% correct: ${cgstOk} (expected ${expectedCgst}, got ${q.cgstPaise})`);
-      console.log(`  SGST 9% correct: ${sgstOk} (expected ${expectedSgst}, got ${q.sgstPaise})`);
-      if (!cgstOk) console.warn('  ⚠️ BUG — CGST calculation incorrect on quote');
-      if (!sgstOk) console.warn('  ⚠️ BUG — SGST calculation incorrect on quote');
+    // Quotes use a single gstPaise amount; CGST/SGST split is on invoices, not quotes.
+    if (q.subtotalPaise && q.gstPct !== undefined && q.gstPaise !== undefined) {
+      const expectedGst = Math.round(q.subtotalPaise * q.gstPct / 100);
+      const gstOk = Math.abs(q.gstPaise - expectedGst) < 100; // within ₹1
+      console.log(`  GST ${q.gstPct}% correct: ${gstOk} (expected ${expectedGst}, got ${q.gstPaise})`);
+      if (!gstOk) console.warn('  ⚠️ BUG — GST calculation incorrect on quote');
+    } else if (!q.gstPct) {
+      console.warn('  ⚠️ gstPct not returned by quote API — cannot verify math');
     } else {
-      console.warn('  ⚠️ GST fields (cgstPaise/sgstPaise) not returned by quote API — cannot verify math');
+      console.log('  Quote has zero subtotal (no lines) — skipping math verification');
     }
 
     // Also check an invoice
