@@ -6,7 +6,6 @@ import { NAV_GROUPS } from '@/lib/nav-items';
 import { useUser } from '@/components/providers/user-provider';
 import { Menu, X, ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { ThreeParticleCanvas } from '@/components/ui/ThreeParticleCanvas';
 
 // ─── Single nav item ─────────────────────────────────────────────────────────
 
@@ -323,9 +322,6 @@ export function Sidebar() {
         className={`studio-sidebar lg:hidden fixed top-14 left-0 bottom-0 z-40 flex w-72 flex-col transition-transform duration-200 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ position: 'fixed' }}
       >
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-          <ThreeParticleCanvas particleCount={70} />
-        </div>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <SidebarBody
             role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
@@ -338,11 +334,6 @@ export function Sidebar() {
       <aside
         className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
-        {/* Three.js particle canvas — fixed behind all sidebar content */}
-        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
-          <ThreeParticleCanvas particleCount={80} />
-        </div>
-
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <SidebarBody
             role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}
