@@ -525,20 +525,11 @@ export default function LeadsPage() {
 
   /* Group filtered leads by customer — one card per customer on the list */
   const grouped = useMemo(() => {
-    // First pass: build phone → customerId so leads without customerId still merge
-    const phoneToCustomerId = new Map<string, string>();
-    for (const lead of filtered) {
-      if (lead.customerId && !phoneToCustomerId.has(lead.contactPhone)) {
-        phoneToCustomerId.set(lead.contactPhone, lead.customerId);
-      }
-    }
-
     const map = new Map<string, { groupKey: string; customerId: string | null; primaryLead: Lead; count: number }>();
     for (const lead of filtered) {
-      const resolvedId = lead.customerId ?? phoneToCustomerId.get(lead.contactPhone) ?? null;
-      const key = resolvedId ?? `__phone__${lead.contactPhone}`;
+      const key = lead.customerId ?? `__phone__${lead.contactPhone}`;
       if (!map.has(key)) {
-        map.set(key, { groupKey: key, customerId: resolvedId, primaryLead: lead, count: 1 });
+        map.set(key, { groupKey: key, customerId: lead.customerId ?? null, primaryLead: lead, count: 1 });
       } else {
         map.get(key)!.count += 1;
       }
