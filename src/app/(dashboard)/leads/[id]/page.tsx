@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -7,7 +7,7 @@ import {
   ArrowLeft, Phone, Mail, MessageCircle, Calendar,
   Users, MapPin, CheckCircle2, AlertCircle,
   Plus, FolderKanban, ChevronDown, ChevronUp,
-  Zap, Clock, CheckSquare, FileText,
+  Zap, Clock, CheckSquare,
   Edit2, Trash2, Archive, MoreVertical,
   Upload, ExternalLink,
 } from 'lucide-react';
@@ -18,7 +18,6 @@ import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModa
 import { MarkContactedModal } from '@/components/leads/MarkContactedModal';
 import { QualifyLeadModal } from '@/components/leads/QualifyLeadModal';
 import { ConvertLeadModal } from '@/components/leads/ConvertLeadModal';
-import type { Quote } from '@/types/quotes';
 import type { DocumentRow } from '@/types/documents';
 import type { SiteVisit } from '@/types/site-visits';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -53,7 +52,7 @@ interface WaMessage {
 
 /* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function fmt(paise: number) {
-  return 'â‚¹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -62,7 +61,7 @@ function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 }
 function followUpUrgency(dateIso: string): 'overdue' | 'today' | 'upcoming' {
-  // Normalise to midnight local time â€” avoids IST/UTC offset false-positives.
+  // Normalise to midnight local time — avoids IST/UTC offset false-positives.
   const dateStr = dateIso.length === 10 ? dateIso : dateIso.split('T')[0];
   const due = new Date(dateStr + 'T00:00:00');
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -97,7 +96,7 @@ function fmtBudgetBand(band: string): string {
   if (band.startsWith('above_')) return `Above ${fmtNum(band.slice(6))}`;
   if (band.startsWith('below_')) return `Below ${fmtNum(band.slice(6))}`;
   const parts = band.split('_');
-  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} â€“ ${fmtNum(parts[1])}`;
+  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} – ${fmtNum(parts[1])}`;
   return band.replace(/_/g, ' ');
 }
 const SOURCE_LABELS: Record<string, string> = {
@@ -120,13 +119,13 @@ function MarkLostDialog({ open, value, onChange, onConfirm, onCancel, loading }:
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Provide a reason to help improve the team&apos;s close rate.</p>
         <textarea rows={3} className="w-full rounded-lg border px-3 py-2 text-sm resize-none outline-none focus:ring-2"
           style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-heading)' }}
-          placeholder="e.g. Budget exceeded, chose a competitor, project postponedâ€¦"
+          placeholder="e.g. Budget exceeded, chose a competitor, project postponed…"
           value={value} onChange={e => onChange(e.target.value)}
           autoFocus />
         <div className="flex gap-2 justify-end mt-4">
           <button type="button" onClick={onCancel} disabled={loading} className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)' }}>Cancel</button>
           <button type="button" onClick={onConfirm} disabled={loading || !value.trim()} className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-50" style={{ background: 'var(--danger)', color: '#fff' }}>
-            {loading ? 'Marking Lostâ€¦' : 'Mark as Lost'}
+            {loading ? 'Marking Lost…' : 'Mark as Lost'}
           </button>
         </div>
       </div>
@@ -222,7 +221,7 @@ function AddTaskToLeadDialog({
             <div>
               <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Assign to</label>
               <select className="input-field w-full" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
-                <option value="">â€” Unassigned â€”</option>
+                <option value="">— Unassigned —</option>
                 {userList.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
               </select>
             </div>
@@ -236,7 +235,7 @@ function AddTaskToLeadDialog({
         <div className="flex justify-end gap-2 mt-5">
           <button type="button" onClick={handleClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
           <button type="button" onClick={handleSave} disabled={saving || !title.trim()} className="btn-primary px-4 py-2 text-sm rounded-lg disabled:opacity-50">
-            {saving ? 'Creatingâ€¦' : 'Add Task'}
+            {saving ? 'Creating…' : 'Add Task'}
           </button>
         </div>
       </div>
@@ -263,9 +262,7 @@ export default function LeadDetailPage() {
   const [loading, setLoading]             = useState(true);
   const [notFound, setNotFound]           = useState(false);
 
-  const [leadQuotes, setLeadQuotes]       = useState<Quote[]>([]);
   const [leadDocs, setLeadDocs]           = useState<LeadDocument[]>([]);
-  const [creatingQuote, setCreatingQuote] = useState(false);
   const [uploadingDoc, setUploadingDoc]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -314,7 +311,7 @@ export default function LeadDetailPage() {
   const [showQualifyModal, setShowQualifyModal]             = useState(false);
   const [showWonFlowModal, setShowWonFlowModal]             = useState(false);
 
-  // Tabs â€” overview and followups are now inline; only detail tabs remain
+  // Tabs — overview and followups are now inline; only detail tabs remain
   const [siteVisitsData, setSiteVisitsData] = useState<SiteVisit[]>([]);
   const [followUps, setFollowUps]           = useState<LeadFollowUp[]>([]);
   const [followUpsLoaded, setFollowUpsLoaded] = useState(false);
@@ -334,10 +331,9 @@ export default function LeadDetailPage() {
     Promise.all([
       fetch(`/api/v1/leads/${id}`),
       fetch(`/api/v1/leads/${id}/activities`).catch(() => null),
-      fetch(`/api/v1/leads/${id}/quotes`).catch(() => null),
       fetch(`/api/v1/leads/${id}/documents`).catch(() => null),
       fetch(`/api/v1/site-visits?leadId=${id}`).catch(() => null),
-    ]).then(async ([leadRes, actRes, quotesRes, docsRes, svRes]) => {
+    ]).then(async ([leadRes, actRes, docsRes, svRes]) => {
       if (leadRes.status === 404) { setNotFound(true); setLoading(false); return; }
       const { data: leadData } = await leadRes.json() as {
         data: Lead & {
@@ -353,10 +349,6 @@ export default function LeadDetailPage() {
       if (actRes?.ok) {
         const { data: actData } = await actRes.json() as { data: LeadActivity[] };
         setActivities(actData ?? []);
-      }
-      if (quotesRes?.ok) {
-        const { data: qData } = await quotesRes.json() as { data: Quote[] };
-        setLeadQuotes(qData ?? []);
       }
       if (docsRes?.ok) {
         const { data: dData } = await docsRes.json() as { data: LeadDocument[] };
@@ -555,16 +547,6 @@ export default function LeadDetailPage() {
     } finally { setMarkingWon(false); setMarkingLost(false); setReopening(false); }
   }
 
-  async function createQuote() {
-    setCreatingQuote(true);
-    try {
-      const res = await fetch(`/api/v1/leads/${id}/quotes`, { method: 'POST' });
-      const json = await res.json() as { data?: { id: string }; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Failed to create quote');
-      router.push(`/quotes/${json.data!.id}`);
-    } catch (e) { alert(e instanceof Error ? e.message : 'Failed to create quotation'); setCreatingQuote(false); }
-  }
-
   async function uploadDocument(file: File) {
     setUploadingDoc(true);
     try {
@@ -624,7 +606,7 @@ export default function LeadDetailPage() {
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   async function handleSiteVisitSuccess() {
-    // Refresh lead â€” API auto-advances stage to site_visit_scheduled
+    // Refresh lead — API auto-advances stage to site_visit_scheduled
     const leadRes = await fetch(`/api/v1/leads/${id}`).catch(() => null);
     if (leadRes?.ok) {
       const { data } = await leadRes.json() as { data: Lead & { customerId?: string | null; linkedProject?: { id: string; name: string; lifecycleStage: string } | null } };
@@ -732,7 +714,7 @@ export default function LeadDetailPage() {
               }}>
                 {isWon
                   ? <><CheckCircle2 className="h-4 w-4 flex-shrink-0" /> Lead Won</>
-                  : <><AlertCircle  className="h-4 w-4 flex-shrink-0" /> Lead Lost{lead.lostReason ? ` â€” ${lead.lostReason}` : ''}</>}
+                  : <><AlertCircle  className="h-4 w-4 flex-shrink-0" /> Lead Lost{lead.lostReason ? ` — ${lead.lostReason}` : ''}</>}
               </div>
             )}
             <div className="p-5">
@@ -760,7 +742,7 @@ export default function LeadDetailPage() {
                     </div>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
                       {[lead.propertyType, lead.contactCity, lead.source ? `via ${SOURCE_LABELS[lead.source] ?? lead.source}` : null]
-                        .filter(Boolean).join(' Â· ')}
+                        .filter(Boolean).join(' · ')}
                     </p>
                   </div>
                 </div>
@@ -842,7 +824,7 @@ export default function LeadDetailPage() {
               <button type="button" onClick={() => changeStage('contacted')} disabled={stageActionsDisabled}
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
                 style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--violet-primary)' }}>
-                <Zap className="h-4 w-4" />{reopening ? 'Reopeningâ€¦' : 'Reopen Lead'}
+                <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}
               </button>
             )}
             {!isTerminal && (
@@ -869,12 +851,12 @@ export default function LeadDetailPage() {
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(16,185,129,0.4)', color: 'var(--success-text)', background: 'var(--success-soft)' }}>
-                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Convertingâ€¦' : 'Convert to Client'}
+                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Converting…' : 'Convert to Client'}
                 </button>
                 <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#DC2626', background: '#FEF2F2' }}>
-                  <AlertCircle className="h-4 w-4" />{markingLost ? 'Markingâ€¦' : 'Lost'}
+                  <AlertCircle className="h-4 w-4" />{markingLost ? 'Marking…' : 'Lost'}
                 </button>
               </div>
             )}
@@ -884,7 +866,7 @@ export default function LeadDetailPage() {
           {/* â”€â”€ TWO COLUMN LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
 
-            {/* LEFT â€” Contact details + Tabs + Follow-up */}
+            {/* LEFT — Contact details + Tabs + Follow-up */}
             <div className="space-y-3">
 
               {/* Contact & Project card */}
@@ -910,7 +892,7 @@ export default function LeadDetailPage() {
                     : <div />}
                   {lead.propertyType && <DetailField label="Project Type" value={lead.propertyType} />}
                   {lead.contactCity && (
-                    <DetailField label="City" value={lead.contactCity + (lead.pincode ? ` â€“ ${lead.pincode}` : '')} />
+                    <DetailField label="City" value={lead.contactCity + (lead.pincode ? ` – ${lead.pincode}` : '')} />
                   )}
                   {lead.designerName && <DetailField label="Assigned To" value={lead.designerName} full />}
                 </div>
@@ -944,7 +926,7 @@ export default function LeadDetailPage() {
                   </div>
                   <button type="button" onClick={scheduleFollowUp} disabled={!followUpDate || savingFU}
                     className="btn-primary h-9 px-5 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
-                    {savingFU ? 'Addingâ€¦' : 'Add'}
+                    {savingFU ? 'Adding…' : 'Add'}
                   </button>
                 </div>
                 <div className="flex gap-2 mt-3">
@@ -1008,9 +990,9 @@ export default function LeadDetailPage() {
                               <p className="text-sm mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{fu.comments}</p>
                             )}
                             <p className="text-[11px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                              {fu.createdByName ? `by ${fu.createdByName} Â· ` : ''}{fmtDate(fu.createdAt)}
+                              {fu.createdByName ? `by ${fu.createdByName} · ` : ''}{fmtDate(fu.createdAt)}
                             </p>
-                            {/* Action buttons â€” only on pending follow-ups */}
+                            {/* Action buttons — only on pending follow-ups */}
                             {!isCompleted && !isRescheduling && (
                               <div className="flex items-center gap-2 mt-2.5">
                                 <button
@@ -1018,7 +1000,7 @@ export default function LeadDetailPage() {
                                   disabled={isMarkingDone}
                                   className="px-2.5 py-1 text-xs rounded-lg font-medium transition-colors disabled:opacity-50"
                                   style={{ background: 'var(--success-soft)', color: 'var(--success-text)' }}>
-                                  {isMarkingDone ? 'â€¦' : 'âœ“ Mark Done'}
+                                  {isMarkingDone ? '…' : '✓ Mark Done'}
                                 </button>
                                 <button
                                   onClick={() => { setReschedulingFuId(fu.id); setRescheduleInput(''); }}
@@ -1063,15 +1045,15 @@ export default function LeadDetailPage() {
             </div>{/* end left column */}
 
 
-            {/* RIGHT SIDEBAR â€” AT A GLANCE + Quotations mini */}
+            {/* RIGHT SIDEBAR — AT A GLANCE + Quotations mini */}
             <div className="space-y-3">
 
               {/* AT A GLANCE */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>At a Glance</p>
-                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage] ?? 'â€”'} />
-                <SidebarRow label="Assigned To" value={lead.designerName ?? 'â€”'} />
-                <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : 'â€”'} />
+                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage] ?? '—'} />
+                <SidebarRow label="Assigned To" value={lead.designerName ?? '—'} />
+                <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : '—'} />
                 {(() => {
                   const now = new Date();
                   const nextVisit = siteVisitsData
@@ -1084,22 +1066,22 @@ export default function LeadDetailPage() {
                   return (
                     <SidebarRow
                       label="Site Visit"
-                      value={displayVisit ? fmtDate(displayVisit.scheduledAt) : 'â€”'}
+                      value={displayVisit ? fmtDate(displayVisit.scheduledAt) : '—'}
                     />
                   );
                 })()}
-                <SidebarRow label="Last Activity" value={relDate(lead.lastActivityAt) ?? 'â€”'} />
-                <SidebarRow label="Site Address" value={lead.projectLocation ?? 'â€”'} />
+                <SidebarRow label="Last Activity" value={relDate(lead.lastActivityAt) ?? '—'} />
+                <SidebarRow label="Site Address" value={lead.projectLocation ?? '—'} />
               </div>
 
               {/* AMOUNT QUOTED */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>Amount Quoted</p>
                 {lead.projectValuePaise && !editingQuotedAmount ? (
-                  /* Read-only view â€” amount already saved */
+                  /* Read-only view — amount already saved */
                   <div className="flex items-center justify-between">
                     <p className="text-2xl font-bold" style={{ color: 'var(--text-heading)' }}>
-                      â‚¹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
+                      ₹{(lead.projectValuePaise / 100).toLocaleString('en-IN')}
                     </p>
                     <button
                       type="button"
@@ -1113,14 +1095,14 @@ export default function LeadDetailPage() {
                     </button>
                   </div>
                 ) : (
-                  /* Edit view â€” no amount yet, or user clicked Edit */
+                  /* Edit view — no amount yet, or user clicked Edit */
                   <div>
                     {!lead.projectValuePaise && (
                       <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>No amount entered yet</p>
                     )}
                     <div className="flex gap-2 mt-2">
                       <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>â‚¹</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium pointer-events-none" style={{ color: 'var(--text-secondary)' }}>₹</span>
                         <input
                           type="number"
                           min="0"
@@ -1151,8 +1133,8 @@ export default function LeadDetailPage() {
                               setEditingQuotedAmount(false);
                               setTimeout(() => setQuotedAmountSaved(false), 2000);
                               if (prevPaise !== paise) {
-                                const prevStr = prevPaise ? `â‚¹${(prevPaise / 100).toLocaleString('en-IN')}` : 'none';
-                                const newStr = `â‚¹${(paise / 100).toLocaleString('en-IN')}`;
+                                const prevStr = prevPaise ? `₹${(prevPaise / 100).toLocaleString('en-IN')}` : 'none';
+                                const newStr = `₹${(paise / 100).toLocaleString('en-IN')}`;
                                 await fetch(`/api/v1/leads/${id}/activities`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
@@ -1163,7 +1145,7 @@ export default function LeadDetailPage() {
                           } finally { setSavingQuotedAmount(false); }
                         }}
                         className="btn-primary h-9 px-4 text-sm font-semibold disabled:opacity-50 flex-shrink-0">
-                        {savingQuotedAmount ? 'Savingâ€¦' : 'Save'}
+                        {savingQuotedAmount ? 'Saving…' : 'Save'}
                       </button>
                       {editingQuotedAmount && (
                         <button
@@ -1178,66 +1160,6 @@ export default function LeadDetailPage() {
                   </div>
                 )}
                 {quotedAmountSaved && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--success)' }}>Saved!</p>}
-              </div>
-
-              {/* QUOTATIONS */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Quotations</p>
-                    {leadQuotes.length > 0 && (
-                      <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                        {leadQuotes.length}
-                      </span>
-                    )}
-                  </div>
-                  {!isTerminal && (
-                    <button type="button" onClick={createQuote} disabled={creatingQuote}
-                      className="flex items-center gap-1 text-[12px] font-semibold hover:underline disabled:opacity-50"
-                      style={{ color: 'var(--accent-base)' }}>
-                      <Plus className="h-3.5 w-3.5" />{creatingQuote ? 'Creating…' : 'Create'}
-                    </button>
-                  )}
-                </div>
-                {leadQuotes.length === 0 ? (
-                  <div className="px-5 py-4 text-center">
-                    <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                      {isTerminal ? 'No quotations.' : 'No quotations yet. Create one above.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    {leadQuotes.slice(0, 5).map((q, i) => {
-                      const statusColor: Record<string, string> = {
-                        draft: 'var(--text-tertiary)', sent: 'var(--accent-base)',
-                        accepted: 'var(--success-text)', approved: 'var(--success-text)',
-                        rejected: 'var(--danger)', revised: 'var(--warning-text)',
-                      };
-                      return (
-                        <Link key={q.id} href={`/quotes/${q.id}`}
-                          className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-[var(--surface-muted)]"
-                          style={{ borderBottom: i < Math.min(leadQuotes.length, 5) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-semibold truncate" style={{ color: 'var(--text-heading)' }}>
-                              V{q.version} · {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
-                            </p>
-                            {q.totalPaise > 0 && (
-                              <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-                                ₹{(q.totalPaise / 100).toLocaleString('en-IN')}
-                              </p>
-                            )}
-                          </div>
-                          <span className="text-[10px] font-bold capitalize flex-shrink-0 ml-2"
-                            style={{ color: statusColor[q.status] ?? 'var(--text-secondary)' }}>
-                            {q.status}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
 
               {/* LEAD TASKS */}
