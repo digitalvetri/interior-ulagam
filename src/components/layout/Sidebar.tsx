@@ -225,9 +225,6 @@ function SidebarBody({
           ) : (
             /* Desktop sidebar footer */
             <div className="px-4 pb-8 pt-3">
-              <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                Built by DigitalVetri
-              </p>
               {isAdmin && (
                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.06em]"
                   style={{ color: 'var(--accent-base)' }}>
