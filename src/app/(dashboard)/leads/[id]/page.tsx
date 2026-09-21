@@ -7,7 +7,7 @@ import {
   ArrowLeft, Phone, Mail, MessageCircle, Calendar,
   Users, MapPin, CheckCircle2, AlertCircle,
   Plus, FolderKanban, ChevronDown, ChevronUp,
-  Zap, Clock, CheckSquare,
+  Zap,
   Edit2, Trash2, Archive, MoreVertical,
   Upload, ExternalLink,
 } from 'lucide-react';
@@ -25,11 +25,6 @@ import { DesignDeliverablesTab } from '@/components/leads/DesignDeliverablesTab'
 
 type LeadDocument = DocumentRow & { downloadUrl: string | null };
 
-interface LeadTask {
-  id: string; title: string; status: string;
-  assignedTo: string | null; assigneeName: string | null;
-  dueAt: string | null; createdBy: string | null;
-}
 
 interface LeadFollowUp {
   id: string;
@@ -150,98 +145,6 @@ function SidebarRow({ label, value }: { label: string; value: React.ReactNode })
   );
 }
 
-/* â”€â”€ Add Task to Lead dialog (owner only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-function AddTaskToLeadDialog({
-  leadId, open, onClose, onCreated,
-}: {
-  leadId: string;
-  open: boolean;
-  onClose: () => void;
-  onCreated: (task: { id: string; title: string; status: string; assignedTo: string | null; assigneeName: string | null; dueAt: string | null; createdBy: string | null }) => void;
-}) {
-  const [title,      setTitle]      = useState('');
-  const [assignedTo, setAssignedTo] = useState('');
-  const [dueAt,      setDueAt]      = useState('');
-  const [userList,   setUserList]   = useState<{ id: string; fullName: string }[]>([]);
-  const [saving,     setSaving]     = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    fetch('/api/v1/employees').then(r => r.ok ? r.json() : null).then(j => {
-      if (Array.isArray(j?.data)) setUserList(j.data.map((u: { id: string; fullName: string }) => ({ id: u.id, fullName: u.fullName })));
-    }).catch(() => {});
-  }, [open]);
-
-  function handleClose() {
-    setTitle(''); setAssignedTo(''); setDueAt(''); setError(null);
-    onClose();
-  }
-
-  async function handleSave() {
-    if (!title.trim()) return;
-    setSaving(true); setError(null);
-    try {
-      const res = await fetch('/api/v1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          assignedTo: assignedTo || undefined,
-          relatedType: 'lead',
-          relatedId: leadId,
-          dueAt: dueAt ? new Date(dueAt).toISOString() : undefined,
-        }),
-      });
-      if (!res.ok) {
-        const j = await res.json();
-        setError(j.error ?? 'Failed to create task');
-        return;
-      }
-      const json = await res.json();
-      onCreated(json.data);
-      handleClose();
-    } catch { setError('Network error. Please try again.'); }
-    finally { setSaving(false); }
-  }
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-2xl p-6 shadow-2xl" style={{ backgroundColor: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-        <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-heading)' }}>Add Task to Lead</h2>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Task title *</label>
-            <input className="input-field w-full" value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="What needs to be done?" autoFocus
-              onKeyDown={e => { if (e.key === 'Enter' && title.trim()) handleSave(); }} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Assign to</label>
-              <select className="input-field w-full" value={assignedTo} onChange={e => setAssignedTo(e.target.value)}>
-                <option value="">— Unassigned —</option>
-                {userList.map(u => <option key={u.id} value={u.id}>{u.fullName}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>Due date</label>
-              <input type="date" className="input-field w-full" value={dueAt} onChange={e => setDueAt(e.target.value)} />
-            </div>
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-        </div>
-        <div className="flex justify-end gap-2 mt-5">
-          <button type="button" onClick={handleClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
-          <button type="button" onClick={handleSave} disabled={saving || !title.trim()} className="btn-primary px-4 py-2 text-sm rounded-lg disabled:opacity-50">
-            {saving ? 'Creating…' : 'Add Task'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 export default function LeadDetailPage() {
@@ -266,10 +169,7 @@ export default function LeadDetailPage() {
   const [uploadingDoc, setUploadingDoc]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Lead tasks
-  const [leadTasks,   setLeadTasks]   = useState<LeadTask[]>([]);
   const [isOwnerRole, setIsOwnerRole] = useState(false);
-  const [showAddTask, setShowAddTask] = useState(false);
 
   // Follow-up
   const [followUpDate, setFollowUpDate] = useState('');
@@ -377,11 +277,7 @@ export default function LeadDetailPage() {
   // Load lead tasks + current user role
   useEffect(() => {
     if (!id) return;
-    Promise.all([
-      fetch(`/api/v1/tasks?relatedType=lead&relatedId=${id}&status=active&limit=20`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch('/api/v1/me').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([tasksRes, meRes]) => {
-      if (Array.isArray(tasksRes?.data)) setLeadTasks(tasksRes.data);
+    fetch('/api/v1/me').then(r => r.ok ? r.json() : null).catch(() => null).then(meRes => {
       if (meRes?.data) setIsOwnerRole(meRes.data.role === 'owner' || meRes.data.isAdmin === true);
     });
   }, [id]);
@@ -1162,75 +1058,6 @@ export default function LeadDetailPage() {
                 {quotedAmountSaved && <p className="mt-2 text-xs font-medium" style={{ color: 'var(--success)' }}>Saved!</p>}
               </div>
 
-              {/* LEAD TASKS */}
-              <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div className="flex items-center gap-2">
-                    <CheckSquare className="h-3.5 w-3.5" style={{ color: 'var(--accent-base)' }} />
-                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-tertiary)' }}>Tasks</p>
-                    {leadTasks.length > 0 && (
-                      <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full text-[10px] font-bold"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-                        {leadTasks.length}
-                      </span>
-                    )}
-                  </div>
-                  {isOwnerRole && (
-                    <button type="button" onClick={() => setShowAddTask(true)}
-                      className="flex items-center gap-1 text-[12px] font-semibold hover:underline"
-                      style={{ color: 'var(--accent-base)' }}>
-                      <Plus className="h-3.5 w-3.5" />Add
-                    </button>
-                  )}
-                </div>
-                {leadTasks.length === 0 ? (
-                  <div className="px-5 py-4 text-center">
-                    <p className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-                      {isOwnerRole ? 'No active tasks. Add one above.' : 'No active tasks for this lead.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    {leadTasks.slice(0, 6).map((t, i) => {
-                      const overdue   = t.dueAt && new Date(t.dueAt) < new Date();
-                      const inProg    = t.status === 'in_progress';
-                      return (
-                        <div key={t.id}
-                          className="flex items-center gap-2.5 px-4 py-3"
-                          style={{ borderBottom: i < Math.min(leadTasks.length, 6) - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                          <Clock className="h-3.5 w-3.5 flex-shrink-0"
-                            style={{ color: overdue ? 'var(--danger)' : inProg ? 'var(--accent-base)' : 'var(--text-tertiary)' }} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-medium leading-snug truncate" style={{ color: 'var(--text-heading)' }}>
-                              {t.title}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
-                                style={{
-                                  backgroundColor: inProg ? 'var(--accent-soft)' : 'var(--surface-muted)',
-                                  color:           inProg ? 'var(--accent-text)' : 'var(--text-tertiary)',
-                                }}>
-                                {inProg ? 'In Progress' : 'Pending'}
-                              </span>
-                              {t.assigneeName && (
-                                <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                                  {t.assigneeName}
-                                </span>
-                              )}
-                              {t.dueAt && (
-                                <span className="text-[10px]" style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
-                                  {new Date(t.dueAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
               {/* RECENT ACTIVITY */}
               <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1311,17 +1138,6 @@ export default function LeadDetailPage() {
         )}
       </div>
 
-      {showAddTask && (
-        <AddTaskToLeadDialog
-          leadId={id}
-          open={showAddTask}
-          onClose={() => setShowAddTask(false)}
-          onCreated={task => {
-            setLeadTasks(prev => [task, ...prev]);
-            setShowAddTask(false);
-          }}
-        />
-      )}
 
     </div>
   );
