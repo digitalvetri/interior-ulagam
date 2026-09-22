@@ -530,8 +530,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
     []
   );
 
-  const visibleActivities = activities.slice(0, activityPage * ACTIVITY_PAGE_SIZE);
-  const hasMoreActivities = activities.length > activityPage * ACTIVITY_PAGE_SIZE;
+  const filteredActivities = activities.filter(a => a.type !== 'project_created');
+  const visibleActivities = filteredActivities.slice(0, activityPage * ACTIVITY_PAGE_SIZE);
+  const hasMoreActivities = filteredActivities.length > activityPage * ACTIVITY_PAGE_SIZE;
 
   /* ── Render ── */
   return (
@@ -1009,9 +1010,10 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                           ))}
                         </tr>
                       </thead>
-                      <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <tbody>
                         {ledgerWithBalance.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-[var(--surface-muted)] transition-colors">
+                          <tr key={idx} className="hover:bg-[var(--surface-muted)] transition-colors"
+                            style={{ borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
                             <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
                               {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </td>
