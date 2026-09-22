@@ -1531,9 +1531,10 @@ function GstTab() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {data.outputRows.map(r => (
-                    <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
+                <tbody>
+                  {data.outputRows.map((r, i) => (
+                    <tr key={r.id} className="cursor-pointer hover:opacity-80"
+                      style={{ background: i % 2 === 0 ? 'var(--surface-card)' : 'var(--surface-muted)' }}
                       onClick={() => { window.location.href = `/invoices/${r.id}`; }}>
                       <td className={`${TD} font-mono font-semibold`} style={{ color: 'var(--accent-base)' }}>{r.invoiceNumber}</td>
                       <td className={TD} style={{ color: 'var(--text-secondary)' }}>{fmtDateLong(r.issuedAt)}</td>
@@ -1546,7 +1547,7 @@ function GstTab() {
                     </tr>
                   ))}
                   {/* Total row */}
-                  <tr style={{ background: 'var(--surface-muted)', borderTop: '2px solid var(--border-subtle)' }}>
+                  <tr style={{ background: 'var(--surface-muted)', borderTop: '1px solid var(--border-subtle)' }}>
                     <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }} colSpan={3}>Total</td>
                     <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.taxable)}</td>
                     <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.cgst)}</td>
@@ -1573,11 +1574,11 @@ function GstTab() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                <tbody>
                   {hsnSummary.map((h, i) => (
-                    <tr key={i} style={{ background: 'var(--surface-card)' }}>
-                      <td className="px-4 py-3 text-xs font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>{h.hsnSac}</td>
-                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{h.rate}%</td>
+                    <tr key={i} style={{ background: i % 2 === 0 ? 'var(--surface-card)' : 'var(--surface-muted)' }}>
+                      <td className={`${TD} font-mono font-semibold`} style={{ color: 'var(--text-primary)' }}>{h.hsnSac}</td>
+                      <td className={`${TD} font-semibold`} style={{ color: 'var(--accent-base)' }}>{h.rate}%</td>
                       <td className={TD} style={{ color: 'var(--text-primary)' }}>{formatRupees(h.taxable)}</td>
                       <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(h.cgst)}</td>
                       <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(h.sgst)}</td>
@@ -1611,9 +1612,10 @@ function GstTab() {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                  {data.inputRows.map(r => (
-                    <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
+                <tbody>
+                  {data.inputRows.map((r, i) => (
+                    <tr key={r.id} className="cursor-pointer hover:opacity-80"
+                      style={{ background: i % 2 === 0 ? 'var(--surface-card)' : 'var(--surface-muted)' }}
                       onClick={() => { window.location.href = r.poId ? `/vendor-bills/${r.id}` : `/expenses/${r.id}`; }}>
                       <td className={`${TD} font-mono`} style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
                       <td className={TD} style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
