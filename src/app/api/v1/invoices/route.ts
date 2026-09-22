@@ -70,8 +70,15 @@ export async function GET(request: NextRequest) {
 
     const enriched = rows.map(r => {
       const paidPaise = paymentSumsMap.get(r.id) ?? 0;
-      let paymentStatus: string = r.milestonePaymentStatus ?? 'pending';
-      if (!r.milestonePaymentStatus) {
+      // Use invoices.status as the source of truth — it is kept in sync by the
+      // payment handler. milestone.paymentStatus lags behind when payments are
+      // recorded directly against the invoice rather than through a milestone trigger.
+      let paymentStatus: string;
+      if (r.status === 'paid')      paymentStatus = 'paid';
+      else if (r.status === 'part_paid') paymentStatus = 'partial';
+      else if (r.status === 'void') paymentStatus = 'overdue';
+      else {
+        // draft / issued — derive from actual payments
         const totalInvoicePaise = r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise;
         paymentStatus = paidPaise >= totalInvoicePaise && totalInvoicePaise > 0
           ? 'paid' : paidPaise > 0 ? 'partial' : 'pending';
