@@ -1095,7 +1095,7 @@ export default function LeadDetailPage() {
                                 await fetch(`/api/v1/leads/${id}/activities`, {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ type: 'note', title: `Amount quoted updated: ${prevStr} â†’ ${newStr}` }),
+                                  body: JSON.stringify({ type: ‘note’, title: `Amount quoted updated: ${prevStr} → ${newStr}` }),
                                 }).catch(() => {});
                               }
                             }
