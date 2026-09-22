@@ -99,15 +99,10 @@ const SOURCE_LABELS: Record<string, string> = {
   website: 'Website', walk_in: 'Walk-in', other: 'Other',
 };
 
-const INTERMEDIATE_STAGES = [
-  { value: 'new',         label: 'New Inquiry'  },
-  { value: 'contacted',   label: 'Contacted'    },
-  { value: 'site_visit',  label: 'Site Visit'   },
-  { value: 'measurement', label: 'Measurement'  },
-  { value: 'measured',    label: 'Measured'     },
-  { value: 'quotation',   label: 'Quotation'    },
-  { value: 'negotiation', label: 'Negotiation'  },
-  { value: 'booked',      label: 'Booked'       },
+const MOVE_STAGE_OPTIONS = [
+  { value: 'new',  label: 'New'  },
+  { value: 'won',  label: 'Won'  },
+  { value: 'lost', label: 'Lost' },
 ] as const;
 
 
@@ -770,19 +765,28 @@ export default function LeadDetailPage() {
                     Move Stage <ChevronDown className="h-3.5 w-3.5" />
                   </button>
                   {showStageMenu && (
-                    <div className="absolute left-0 top-full mt-1 w-44 rounded-xl shadow-xl z-30 overflow-hidden"
+                    <div className="absolute left-0 top-full mt-1 w-36 rounded-xl shadow-xl z-30 overflow-hidden"
                       style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
-                      {INTERMEDIATE_STAGES.filter(s => s.value !== lead.stage).map(s => (
-                        <button
-                          key={s.value}
-                          type="button"
-                          onClick={() => { setShowStageMenu(false); void changeStage(s.value); }}
-                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors"
-                          style={{ color: 'var(--text-heading)' }}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
+                      {MOVE_STAGE_OPTIONS.filter(s => s.value !== lead.stage).map(s => {
+                        const isWon  = s.value === 'won';
+                        const isLost = s.value === 'lost';
+                        return (
+                          <button
+                            key={s.value}
+                            type="button"
+                            onClick={() => {
+                              setShowStageMenu(false);
+                              if (isWon)       setShowWonFlowModal(true);
+                              else if (isLost) setShowMarkLostDialog(true);
+                              else             void changeStage(s.value);
+                            }}
+                            className="w-full flex items-center px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors font-medium"
+                            style={{ color: isWon ? 'var(--success-text)' : isLost ? '#DC2626' : 'var(--text-heading)' }}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -806,15 +810,11 @@ export default function LeadDetailPage() {
                     </button>
                   );
                 })()}
+
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(16,185,129,0.4)', color: 'var(--success-text)', background: 'var(--success-soft)' }}>
                   <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Converting…' : 'Convert to Client'}
-                </button>
-                <button type="button" onClick={() => setShowMarkLostDialog(true)} disabled={stageActionsDisabled}
-                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
-                  style={{ borderColor: 'rgba(220,38,38,0.3)', color: '#DC2626', background: '#FEF2F2' }}>
-                  <AlertCircle className="h-4 w-4" />{markingLost ? 'Marking…' : 'Lost'}
                 </button>
               </div>
             )}
