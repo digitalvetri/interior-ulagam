@@ -28,7 +28,7 @@ const CreateActivitySchema = z.object({
 // should not learn about it.
 async function findLeadInTenant(leadId: string, tenantId: string) {
   const [row] = await db
-    .select({ id: leads.id })
+    .select({ id: leads.id, createdAt: leads.createdAt })
     .from(leads)
     .where(and(eq(leads.id, leadId), eq(leads.tenantId, tenantId)))
     .limit(1);
@@ -66,7 +66,26 @@ export async function GET(
       )
       .orderBy(desc(leadActivities.createdAt));
 
-    return NextResponse.json({ data: rows });
+    // Always append a synthetic "Lead created" entry so the activity log
+    // is never empty — it's the permanent first event in the timeline.
+    const createdAt = lead.createdAt instanceof Date
+      ? lead.createdAt.toISOString()
+      : String(lead.createdAt);
+    const synthetic = {
+      id: `created-${id}`,
+      leadId: id,
+      tenantId: ctx.tenantId,
+      type: 'note' as const,
+      title: 'Lead created',
+      description: null,
+      scheduledAt: null,
+      completedAt: null,
+      status: null,
+      createdBy: null,
+      createdAt,
+    };
+
+    return NextResponse.json({ data: [...rows, synthetic] });
   } catch (e) {
     console.error('[GET /api/v1/leads/[id]/activities]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

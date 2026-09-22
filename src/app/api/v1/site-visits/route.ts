@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and, count, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteVisits, leads, users, customers, notifications } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -106,65 +106,62 @@ export async function POST(request: NextRequest) {
   const { leadId, scheduledAt, address, designerId, purpose, notes } = parsed.data;
 
   try {
-    const [lead] = await db
-      .select({ id: leads.id })
+    const [currentLead] = await db
+      .select({ id: leads.id, stage: leads.stage })
       .from(leads)
       .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)))
       .limit(1);
 
-    if (!lead) {
+    if (!currentLead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    const MAX_RETRIES = 3;
-    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-      const [{ visitCount }] = await db
-        .select({ visitCount: count() })
-        .from(siteVisits)
-        .where(eq(siteVisits.tenantId, ctx.tenantId));
-      const visitNumber = `SV-${String(Number(visitCount) + 1).padStart(4, '0')}`;
+    // Use MAX-based numbering to prevent duplicates when visits are deleted
+    const [{ maxNum }] = await db
+      .select({ maxNum: sql<number>`COALESCE(MAX(CAST(SUBSTRING(${siteVisits.visitNumber} FROM 4) AS INTEGER)), 0)` })
+      .from(siteVisits)
+      .where(eq(siteVisits.tenantId, ctx.tenantId));
+    const visitNumber = `SV-${String(maxNum + 1).padStart(4, '0')}`;
 
-      try {
-        const [visit] = await db
-          .insert(siteVisits)
-          .values({
-            tenantId: ctx.tenantId,
-            leadId,
-            scheduledAt: new Date(scheduledAt),
-            locationJson: { address },
-            designerId: designerId ?? null,
-            purpose:    purpose ?? null,
-            notes:      notes ?? null,
-            visitNumber,
-          })
-          .returning();
+    const [visit] = await db
+      .insert(siteVisits)
+      .values({
+        tenantId: ctx.tenantId,
+        leadId,
+        scheduledAt: new Date(scheduledAt),
+        locationJson: { address },
+        designerId: designerId ?? null,
+        purpose:    purpose ?? null,
+        notes:      notes ?? null,
+        visitNumber,
+      })
+      .returning();
 
-        // Notify assigned designer
-        if (designerId) {
-          const scheduledDate = new Date(scheduledAt).toLocaleDateString('en-IN', {
-            day: 'numeric', month: 'short', year: 'numeric',
-            hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
-          });
-          await db.insert(notifications).values({
-            tenantId: ctx.tenantId,
-            userId:   designerId,
-            severity: 'info',
-            title:    `Site visit scheduled — ${scheduledDate}`,
-            body:     address,
-            href:     `/site-visits/${visit.id}`,
-          });
-        }
-
-        return NextResponse.json({ data: visit, message: 'Site visit scheduled' }, { status: 201 });
-      } catch (e) {
-        if (isUniqueViolation(e)) continue;
-        throw e;
-      }
+    // Auto-advance lead stage to site_visit if still in an early stage
+    const EARLY_STAGES = ['new', 'contacted', 'qualified'];
+    if (EARLY_STAGES.includes(currentLead.stage ?? '')) {
+      await db.update(leads)
+        .set({ stage: 'site_visit', lastActivityAt: new Date() })
+        .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)));
     }
-    return NextResponse.json(
-      { error: 'Failed to generate a unique visit number. Please try again.' },
-      { status: 500 },
-    );
+
+    // Notify assigned designer
+    if (designerId) {
+      const scheduledDate = new Date(scheduledAt).toLocaleDateString('en-IN', {
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      });
+      await db.insert(notifications).values({
+        tenantId: ctx.tenantId,
+        userId:   designerId,
+        severity: 'info',
+        title:    `Site visit scheduled — ${scheduledDate}`,
+        body:     address,
+        href:     `/site-visits/${visit.id}`,
+      });
+    }
+
+    return NextResponse.json({ data: visit, message: 'Site visit scheduled' }, { status: 201 });
   } catch (e) {
     console.error('[POST /api/v1/site-visits]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

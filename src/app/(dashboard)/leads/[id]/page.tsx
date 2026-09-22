@@ -99,6 +99,17 @@ const SOURCE_LABELS: Record<string, string> = {
   website: 'Website', walk_in: 'Walk-in', other: 'Other',
 };
 
+const INTERMEDIATE_STAGES = [
+  { value: 'new',         label: 'New Inquiry'  },
+  { value: 'contacted',   label: 'Contacted'    },
+  { value: 'site_visit',  label: 'Site Visit'   },
+  { value: 'measurement', label: 'Measurement'  },
+  { value: 'measured',    label: 'Measured'     },
+  { value: 'quotation',   label: 'Quotation'    },
+  { value: 'negotiation', label: 'Negotiation'  },
+  { value: 'booked',      label: 'Booked'       },
+] as const;
+
 
 
 /* â”€â”€ MarkLostDialog â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -151,8 +162,9 @@ export default function LeadDetailPage() {
   const params = useParams();
   const router = useRouter();
   const id = params['id'] as string;
-  const followUpRef = useRef<HTMLDivElement>(null);
-  const menuRef     = useRef<HTMLDivElement>(null);
+  const followUpRef  = useRef<HTMLDivElement>(null);
+  const menuRef      = useRef<HTMLDivElement>(null);
+  const stageMenuRef = useRef<HTMLDivElement>(null);
 
   const scrollToFollowUp = useCallback(() => {
     followUpRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -202,6 +214,7 @@ export default function LeadDetailPage() {
   const [showMarkLostDialog, setShowMarkLostDialog]   = useState(false);
   const [lostReasonInput, setLostReasonInput]         = useState('');
   const [stageError, setStageError]                   = useState<string | null>(null);
+  const [showStageMenu, setShowStageMenu]             = useState(false);
 
   // Site visit modal
   const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
@@ -225,6 +238,15 @@ export default function LeadDetailPage() {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showActionsMenu]);
+
+  useEffect(() => {
+    if (!showStageMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (stageMenuRef.current && !stageMenuRef.current.contains(e.target as Node)) setShowStageMenu(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showStageMenu]);
 
   useEffect(() => {
     if (!id) return;
@@ -502,7 +524,13 @@ export default function LeadDetailPage() {
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
   async function handleSiteVisitSuccess() {
-    // Refresh lead — API auto-advances stage to site_visit_scheduled
+    // Refresh site visits so At a Glance shows the new scheduled date
+    const svRes = await fetch(`/api/v1/site-visits?leadId=${id}`).catch(() => null);
+    if (svRes?.ok) {
+      const svJson = await svRes.json() as { data: SiteVisit[] };
+      setSiteVisitsData(svJson.data ?? []);
+    }
+    // Refresh lead — API auto-advances stage to site_visit
     const leadRes = await fetch(`/api/v1/leads/${id}`).catch(() => null);
     if (leadRes?.ok) {
       const { data } = await leadRes.json() as { data: Lead & { customerId?: string | null; linkedProject?: { id: string; name: string; lifecycleStage: string } | null } };
@@ -594,8 +622,13 @@ export default function LeadDetailPage() {
       <div className="p-6 lg:p-8 pb-24 space-y-5">
 
         {/* Back nav */}
-        <Link href="/leads" className="inline-flex items-center gap-1.5 text-xs font-medium hover:opacity-75" style={{ color: 'var(--text-tertiary)' }}>
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to Leads
+        <Link
+          href={customerId ? `/leads/customer/${customerId}` : '/leads'}
+          className="inline-flex items-center gap-1.5 text-xs font-medium hover:opacity-75"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {customerId ? 'Back to Customer' : 'Back to Leads'}
         </Link>
 
         <div className="space-y-5">
@@ -725,6 +758,35 @@ export default function LeadDetailPage() {
             )}
             {!isTerminal && (
               <div className="ml-auto flex items-center gap-2">
+                {/* Move Stage dropdown */}
+                <div className="relative" ref={stageMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStageMenu(v => !v)}
+                    disabled={stageActionsDisabled}
+                    className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', background: 'var(--surface-card)' }}
+                  >
+                    Move Stage <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                  {showStageMenu && (
+                    <div className="absolute left-0 top-full mt-1 w-44 rounded-xl shadow-xl z-30 overflow-hidden"
+                      style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
+                      {INTERMEDIATE_STAGES.filter(s => s.value !== lead.stage).map(s => (
+                        <button
+                          key={s.value}
+                          type="button"
+                          onClick={() => { setShowStageMenu(false); void changeStage(s.value); }}
+                          className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left hover:bg-[var(--surface-muted)] transition-colors"
+                          style={{ color: 'var(--text-heading)' }}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {(() => {
                   const now = new Date();
                   const upcoming = siteVisitsData.find(
@@ -790,7 +852,6 @@ export default function LeadDetailPage() {
                   {lead.contactCity && (
                     <DetailField label="City" value={lead.contactCity + (lead.pincode ? ` – ${lead.pincode}` : '')} />
                   )}
-                  {lead.designerName && <DetailField label="Assigned To" value={lead.designerName} full />}
                 </div>
                 {lead.projectLocation && (
                   <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
@@ -967,7 +1028,6 @@ export default function LeadDetailPage() {
                   );
                 })()}
                 <SidebarRow label="Last Activity" value={relDate(lead.lastActivityAt) ?? '—'} />
-                <SidebarRow label="Site Address" value={lead.projectLocation ?? '—'} />
               </div>
 
               {/* AMOUNT QUOTED */}
