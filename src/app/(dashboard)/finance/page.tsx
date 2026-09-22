@@ -1467,8 +1467,8 @@ function GstTab() {
     (data?.inputRows ?? []).reduce((s, r) => s + r.amountPaise - r.gstAmountPaise, 0),
   [data]);
 
-  const TH = 'px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide';
-  const TD = 'px-4 py-3 text-xs tabular-nums';
+  const TH = 'px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wide';
+  const TD = 'px-4 py-4 text-sm tabular-nums';
 
   return (
     <div className="space-y-5">
@@ -1517,12 +1517,11 @@ function GstTab() {
           </div>
 
           {/* OUTPUT TAX — INVOICES ISSUED */}
-          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>Output Tax — Invoices Issued</p>
-            </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-base)' }}>Output Tax — Invoices Issued</p>
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             {data.outputRows.length === 0 ? (
-              <p className="px-5 py-6 text-xs text-center" style={{ color: 'var(--text-tertiary)' }}>No invoices issued this month</p>
+              <p className="px-5 py-6 text-sm text-center" style={{ color: 'var(--text-tertiary)' }}>No invoices issued this month</p>
             ) : (
               <table className="w-full">
                 <thead>
@@ -1536,9 +1535,9 @@ function GstTab() {
                   {data.outputRows.map(r => (
                     <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
                       onClick={() => { window.location.href = `/invoices/${r.id}`; }}>
-                      <td className="px-4 py-3 text-xs font-mono font-semibold" style={{ color: 'var(--accent-base)' }}>{r.invoiceNumber}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{fmtDateLong(r.issuedAt)}</td>
-                      <td className="px-4 py-3 text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{r.clientName ?? r.projectName ?? '—'}</td>
+                      <td className={`${TD} font-mono font-semibold`} style={{ color: 'var(--accent-base)' }}>{r.invoiceNumber}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{fmtDateLong(r.issuedAt)}</td>
+                      <td className={`${TD} font-medium`} style={{ color: 'var(--text-primary)' }}>{r.clientName ?? r.projectName ?? '—'}</td>
                       <td className={TD} style={{ color: 'var(--text-primary)' }}>{formatRupees(r.subtotalPaise)}</td>
                       <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(r.cgstPaise)}</td>
                       <td className={TD} style={{ color: 'var(--text-secondary)' }}>{formatRupees(r.sgstPaise)}</td>
@@ -1548,7 +1547,7 @@ function GstTab() {
                   ))}
                   {/* Total row */}
                   <tr style={{ background: 'var(--surface-muted)', borderTop: '2px solid var(--border-subtle)' }}>
-                    <td className="px-4 py-3 text-xs font-bold" style={{ color: 'var(--text-heading)' }} colSpan={3}>Total</td>
+                    <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }} colSpan={3}>Total</td>
                     <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.taxable)}</td>
                     <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.cgst)}</td>
                     <td className={`${TD} font-bold`} style={{ color: 'var(--text-heading)' }}>{formatRupees(outTotals.sgst)}</td>
@@ -1558,14 +1557,14 @@ function GstTab() {
                 </tbody>
               </table>
             )}
+            </div>
           </div>
 
           {/* HSN SUMMARY (FOR GSTR-1) */}
           {hsnSummary.length > 0 && (
-            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-              <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>HSN Summary (for GSTR-1)</p>
-              </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-base)' }}>HSN Summary (for GSTR-1)</p>
+              <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
               <table className="w-full">
                 <thead>
                   <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1588,14 +1587,14 @@ function GstTab() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
           {/* INPUT CREDIT — EXPENSES WITH GST */}
-          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>Input Credit — Expenses with GST</p>
-            </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-base)' }}>Input Credit — Expenses with GST</p>
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             {data.inputRows.length === 0 ? (
               <div className="px-5 py-10 text-center">
                 <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>No GST-captured expenses for {monthFull}.</p>
@@ -1616,10 +1615,10 @@ function GstTab() {
                   {data.inputRows.map(r => (
                     <tr key={r.id} className="cursor-pointer hover:opacity-80" style={{ background: 'var(--surface-card)' }}
                       onClick={() => { window.location.href = r.poId ? `/vendor-bills/${r.id}` : `/expenses/${r.id}`; }}>
-                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>{EXP_LABEL[r.category] ?? r.category}</td>
-                      <td className="px-4 py-3 text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{r.gstPct}%</td>
+                      <td className={`${TD} font-mono`} style={{ color: 'var(--text-tertiary)' }}>{r.expenseNumber ?? '—'}</td>
+                      <td className={TD} style={{ color: 'var(--text-primary)' }}>{r.description ?? '—'}</td>
+                      <td className={TD} style={{ color: 'var(--text-secondary)' }}>{EXP_LABEL[r.category] ?? r.category}</td>
+                      <td className={`${TD} font-semibold`} style={{ color: 'var(--accent-base)' }}>{r.gstPct}%</td>
                       <td className={TD} style={{ color: 'var(--text-primary)' }}>{formatRupees(r.amountPaise - r.gstAmountPaise)}</td>
                       <td className={`${TD} font-bold`} style={{ color: 'var(--success-text)' }}>{formatRupees(r.gstAmountPaise)}</td>
                     </tr>
@@ -1627,13 +1626,13 @@ function GstTab() {
                 </tbody>
               </table>
             )}
+            </div>
           </div>
 
           {/* GSTR-3B — NET PAYABLE THIS MONTH */}
-          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
-            <div className="px-5 py-3" style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-              <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--accent-base)' }}>GSTR-3B — Net Payable This Month</p>
-            </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--accent-base)' }}>GSTR-3B — Net Payable This Month</p>
+            <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
             <div className="p-5">
               <div className="grid grid-cols-3 gap-6">
                 {[
@@ -1670,6 +1669,7 @@ function GstTab() {
               <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                 Estimate only. Carry-forward credits, RCM liability and advances from prior months are not reflected — confirm final figures with your CA.
               </p>
+            </div>
             </div>
           </div>
         </>
