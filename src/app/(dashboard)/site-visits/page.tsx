@@ -44,6 +44,8 @@ interface Lead {
   contactName: string | null;
   contactPhone: string | null;
   contactCity: string | null;
+  projectName: string | null;
+  associatedProjectName: string | null;
   projectLocation: string | null;
   ownerId: string | null;
 }
@@ -400,9 +402,14 @@ export default function SiteVisitsPage() {
         setSubmitError(typeof b.error === 'string' ? b.error : isEdit ? 'Failed to update' : 'Failed to schedule');
         return;
       }
-      // Close dialog immediately, then refresh visit list in background
+      const resBody = (await res.json()) as { data?: { id?: string } };
       setDialogOpen(false);
       setForm(EMPTY_FORM);
+      // Navigate to the new visit's detail page; for edits refresh the list
+      if (!isEdit && resBody.data?.id) {
+        router.push(`/site-visits/${resBody.data.id}`);
+        return;
+      }
       void fetch('/api/v1/site-visits')
         .then(r => r.json())
         .then((vRes: { data?: SiteVisit[] }) => {
@@ -574,7 +581,7 @@ export default function SiteVisitsPage() {
                   <option value="">Choose a lead…</option>
                   {leads.map(l => (
                     <option key={l.id} value={l.id}>
-                      {l.contactName || l.id.slice(0, 8)}{l.contactCity ? ` — ${l.contactCity}` : ''}
+                      {(l.associatedProjectName ?? l.projectName) || `${l.contactName || l.id.slice(0, 8)}${l.contactCity ? ` — ${l.contactCity}` : ''}`}
                     </option>
                   ))}
                 </select>
@@ -629,12 +636,12 @@ export default function SiteVisitsPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
-                Notes <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span>
+                What to check on site <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span>
               </label>
               <textarea
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="What to check, access instructions…"
+                placeholder="Items to inspect, access instructions, client requests…"
                 rows={2}
                 className="studio-input w-full py-2 resize-none"
               />

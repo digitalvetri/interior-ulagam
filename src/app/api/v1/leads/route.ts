@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and, desc, isNull } from 'drizzle-orm';
+import { eq, and, desc, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
@@ -99,6 +99,7 @@ export async function GET(request: NextRequest) {
         lastActivityAt:    leads.lastActivityAt,
         createdAt:         leads.createdAt,
         customerId:        leads.customerId,
+        associatedProjectName: sql<string | null>`(SELECT name FROM projects WHERE lead_id = leads.id ORDER BY created_at DESC LIMIT 1)`,
       })
       .from(leads)
       .where(and(...conditions))
