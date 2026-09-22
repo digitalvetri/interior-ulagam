@@ -116,7 +116,7 @@ const SR_STATUS_STYLE: Record<string, { bg: string; color: string; label: string
   resolved:    { bg: 'rgba(16,185,129,0.12)', color: '#059669', label: 'Resolved',    icon: <CheckCircle2  className="h-3 w-3" /> },
 };
 
-type Tab = 'overview' | 'projects' | 'payments' | 'service' | 'activity';
+type Tab = 'overview' | 'payments' | 'activity';
 
 /* ── Local interfaces ───────────────────────────────────────────────────────── */
 
@@ -800,11 +800,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border-subtle)' }}
             >
               {([
-                { key: 'overview'    as Tab, label: 'Overview',    icon: <LayoutGrid     className="h-3.5 w-3.5" /> },
-                { key: 'projects'    as Tab, label: 'Projects',    icon: <FolderKanban   className="h-3.5 w-3.5" /> },
-                { key: 'payments'    as Tab, label: 'Accounts',    icon: <Wallet         className="h-3.5 w-3.5" /> },
-                { key: 'service'     as Tab, label: 'Service',     icon: <Wrench         className="h-3.5 w-3.5" /> },
-                { key: 'activity'    as Tab, label: 'Activity',    icon: <Activity       className="h-3.5 w-3.5" /> },
+                { key: 'overview'  as Tab, label: 'Overview', icon: <LayoutGrid className="h-3.5 w-3.5" /> },
+                { key: 'payments'  as Tab, label: 'Accounts', icon: <Wallet     className="h-3.5 w-3.5" /> },
+                { key: 'activity'  as Tab, label: 'Activity', icon: <Activity   className="h-3.5 w-3.5" /> },
               ] as const).filter(t => showFinance || t.key !== 'payments').map((t) => (
                 <button
                   key={t.key}
@@ -829,9 +827,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                 <div className="rounded-xl overflow-hidden min-w-0" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                   <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                     <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>Projects</p>
-                    <button onClick={() => setTab('projects')} className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
+                    <Link href="/projects" className="text-[12px] font-semibold hover:opacity-70" style={{ color: 'var(--accent-base)' }}>
                       All projects →
-                    </button>
+                    </Link>
                   </div>
 
                   {summaryLoading && !summary ? (
@@ -983,108 +981,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             )}
 
-            {/* ── PROJECTS TAB ──────────────────────────────────────── */}
-            {tab === 'projects' && (
-              <div style={{ background: 'var(--surface-card)' }}>
-                {summaryLoading && !summary ? (
-                  <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
-                ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
-                  <div className="flex flex-col items-center gap-3 py-16 text-center">
-                    <FolderKanban className="h-9 w-9" style={{ color: 'var(--text-tertiary)' }} />
-                    <div>
-                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
-                      <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Projects will appear here once a quote is booked.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {summary.projects.length > 0 && (
-                      <>
-                        <div className="px-5 py-2.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                          <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
-                            Projects ({summary.projects.length})
-                          </p>
-                        </div>
-                        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {summary.projects.map((p) => {
-                            const sc  = LIFECYCLE_STAGE_COLOR[p.lifecycleStage] ?? { bg: 'rgba(100,116,139,0.10)', color: '#475569' };
-                            const pct = LIFECYCLE_PROGRESS[p.lifecycleStage] ?? 8;
-                            return (
-                              <Link key={p.id} href={`/projects/${p.id}`}
-                                className="flex items-center gap-4 px-5 py-4 transition-colors"
-                                style={{ background: 'var(--surface-card)' }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
-                              >
-                                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                                  <FolderOpen className="h-4.5 w-4.5" style={{ color: '#6366f1' }} />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center justify-between gap-3 mb-1.5">
-                                    <p className="truncate text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>
-                                      {p.name || 'Untitled project'}
-                                    </p>
-                                    <div className="flex shrink-0 items-center gap-2">
-                                      {showFinance && p.totalContractPaise != null && p.totalContractPaise > 0 && (
-                                        <span className="text-[13px] font-bold tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                                          {formatRupeesShort(p.totalContractPaise)}
-                                        </span>
-                                      )}
-                                      <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: sc.bg, color: sc.color }}>
-                                        {LIFECYCLE_LABEL[p.lifecycleStage] ?? p.lifecycleStage}
-                                      </span>
-                                      <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                                    </div>
-                                  </div>
-                                  <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--border-subtle)' }}>
-                                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--accent-base)' }} />
-                                  </div>
-                                  <p className="mt-1 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{pct}% complete</p>
-                                </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      </>
-                    )}
-                    {summary.leads.length > 0 && (
-                      <>
-                        <div className="px-5 py-2.5" style={{ borderTop: '1px solid var(--border-subtle)', borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                          <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--text-secondary)' }}>
-                            Active Enquiries ({summary.leads.length})
-                          </p>
-                        </div>
-                        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                          {summary.leads.map((l) => (
-                            <Link key={l.id} href={`/leads/${l.id}`}
-                              className="flex items-center justify-between px-5 py-4 transition-colors"
-                              style={{ background: 'var(--surface-card)' }}
-                              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-hover)')}
-                              onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface-card)')}
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: 'rgba(245,158,11,0.08)' }}>
-                                  <Bell className="h-4 w-4" style={{ color: '#b45309' }} />
-                                </div>
-                                <p className="truncate text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>
-                                  {l.projectName || 'New enquiry'}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="rounded-full px-2.5 py-0.5 text-[11px] font-semibold" style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}>
-                                  {LEAD_STAGE_LABEL[l.stage] ?? l.stage}
-                                </span>
-                                <ExternalLink className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
 
             {/* ── PAYMENTS TAB ──────────────────────────────────────── */}
             {showFinance && tab === 'payments' && (
@@ -1104,7 +1000,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-[12px]">
+                    <table className="w-full text-[12px] border-collapse">
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                           {['DATE', 'TYPE', 'PARTICULARS', 'DEBIT', 'CREDIT', 'BALANCE'].map((h, i) => (
@@ -1147,7 +1043,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         ))}
                       </tbody>
                       <tfoot>
-                        <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
+                        <tr style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
                           <td colSpan={3} className="px-4 py-3 text-right text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Closing balance</td>
                           <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: 'var(--text-heading)' }}>
                             {totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '—'}
@@ -1166,145 +1062,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </div>
             )}
 
-            {/* ── SERVICE TAB ──────────────────────────────────────── */}
-            {tab === 'service' && (
-              <div style={{ background: 'var(--surface-card)' }}>
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                  <p className="text-[13px] font-bold" style={{ color: 'var(--text-heading)' }}>
-                    Service Requests {serviceReqs.length > 0 && <span className="font-normal" style={{ color: 'var(--text-secondary)' }}>({serviceReqs.length})</span>}
-                  </p>
-                  <button
-                    onClick={() => setShowSRForm(v => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-85"
-                    style={{ background: 'var(--accent-base)', color: '#fff' }}
-                  >
-                    <Plus className="h-3.5 w-3.5" /> New Request
-                  </button>
-                </div>
-
-                {/* Create form */}
-                {showSRForm && (
-                  <form onSubmit={createServiceRequest} className="px-5 py-4 space-y-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                    <Textarea
-                      value={srIssue}
-                      onChange={e => setSrIssue(e.target.value)}
-                      placeholder="Describe the issue…"
-                      rows={3}
-                      className="text-[13px] resize-none"
-                      required
-                    />
-                    <div className="flex flex-wrap gap-3">
-                      <div className="w-40">
-                        <Select value={srPriority} onValueChange={v => setSrPriority(v as typeof srPriority)}>
-                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Priority" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                            <SelectItem value="urgent">Urgent</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {summary && summary.projects.length > 0 && (
-                        <div className="w-56">
-                          <Select value={srProjectId} onValueChange={setSrProjectId}>
-                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Link to project (optional)" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">No project</SelectItem>
-                              {summary.projects.map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.name || 'Untitled project'}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                      <button
-                        type="submit"
-                        disabled={srSaving || !srIssue.trim()}
-                        className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-40"
-                        style={{ background: 'var(--accent-base)', color: '#fff' }}
-                      >
-                        {srSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                        {srSaving ? 'Creating…' : 'Create'}
-                      </button>
-                      <button type="button" onClick={() => setShowSRForm(false)}
-                        className="rounded-lg px-3 py-2 text-[13px] font-semibold hover:opacity-70"
-                        style={{ color: 'var(--text-secondary)' }}>
-                        Cancel
-                      </button>
-                    </div>
-                    {srError && <p className="text-xs text-red-600">{srError}</p>}
-                  </form>
-                )}
-
-                {/* List */}
-                {serviceLoading ? (
-                  <div className="flex justify-center py-14"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
-                ) : serviceReqs.length === 0 ? (
-                  <div className="flex flex-col items-center gap-3 py-16 text-center">
-                    <Wrench className="h-9 w-9" style={{ color: 'var(--text-tertiary)' }} />
-                    <div>
-                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No service requests</p>
-                      <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Post-handover complaints and service visits will appear here.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-                    {serviceReqs.map((req) => {
-                      const prio = SR_PRIORITY_STYLE[req.priority] ?? SR_PRIORITY_STYLE.medium;
-                      const stat = SR_STATUS_STYLE[req.status] ?? SR_STATUS_STYLE.open;
-                      return (
-                        <div key={req.id} className="flex items-start gap-4 px-5 py-4">
-                          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg mt-0.5"
-                            style={{ background: `${stat.color}14`, color: stat.color }}>
-                            {stat.icon}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[13px] font-semibold leading-snug" style={{ color: 'var(--text-heading)' }}>
-                              {req.issue}
-                            </p>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                                style={{ background: stat.bg, color: stat.color }}>
-                                {stat.icon}<span className="ml-0.5">{stat.label}</span>
-                              </span>
-                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                                style={{ background: prio.bg, color: prio.color }}>
-                                {prio.label}
-                              </span>
-                              {req.projectName && (
-                                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>· {req.projectName}</span>
-                              )}
-                              {req.assigneeName && (
-                                <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>· Assigned to {req.assigneeName}</span>
-                              )}
-                            </div>
-                            {req.notes && (
-                              <p className="mt-1 text-[12px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{req.notes}</p>
-                            )}
-                          </div>
-                          <div className="flex flex-shrink-0 flex-col items-end gap-2">
-                            <span className="text-[11px] tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
-                              {relativeTime(req.createdAt)}
-                            </span>
-                            {req.status !== 'resolved' && (
-                              <button
-                                onClick={() => resolveServiceReq(req.id)}
-                                className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors hover:opacity-80"
-                                style={{ background: 'rgba(16,185,129,0.12)', color: '#059669' }}
-                              >
-                                <CheckCircle2 className="h-3 w-3" /> Resolve
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* ── ACTIVITY TAB ──────────────────────────────────────── */}
             {tab === 'activity' && (
