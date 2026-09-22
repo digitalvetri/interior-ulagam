@@ -114,10 +114,7 @@ export async function POST(
           ))
           .limit(1);
         if (!existing) throw new Error('INTERNAL: customer lookup failed after conflict');
-        // Prevent silently merging unrelated contacts with the same phone
-        if (existing.leadId && existing.leadId !== leadId) {
-          throw Object.assign(new Error('PHONE_CONFLICT'), { code: 'PHONE_CONFLICT' });
-        }
+        // Phone already exists — reuse the customer record and link this lead to them
         customerId = existing.id;
       }
 
@@ -189,12 +186,6 @@ export async function POST(
   });
 
   } catch (err) {
-    if (err instanceof Error && err.message === 'PHONE_CONFLICT') {
-      return NextResponse.json(
-        { error: 'A customer with this phone number is already linked to a different lead. Update the phone number or merge the contacts first.' },
-        { status: 409 },
-      );
-    }
     console.error('[POST /leads/[id]/convert]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

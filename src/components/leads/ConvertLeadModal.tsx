@@ -23,6 +23,7 @@ function rupeesToPaise(rupees: string): number | undefined {
 
 export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise }: Props) {
   const router = useRouter();
+  const isExistingClient = !!lead.customerId;
 
   const defaultName =
     lead.projectName?.trim() ||
@@ -97,7 +98,9 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise 
       >
         {/* Header */}
         <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Convert to Client</h2>
+          <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>
+            {isExistingClient ? 'Create Project' : 'Convert to Client'}
+          </h2>
           <button type="button" onClick={onClose}
             className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-[var(--surface-muted)]">
             <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
@@ -236,7 +239,7 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise 
             className="flex-[2] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50"
             style={{ background: 'var(--accent-base, #0D7F6E)', color: '#fff' }}>
             <UserCheck className="h-4 w-4" />
-            {submitting ? 'Converting…' : 'Convert & Create Project'}
+            {submitting ? 'Creating…' : isExistingClient ? 'Create Project' : 'Convert & Create Project'}
           </button>
         </div>
       </div>
