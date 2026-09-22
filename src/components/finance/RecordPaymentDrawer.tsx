@@ -79,6 +79,10 @@ export function RecordPaymentDrawer({
       return;
     }
 
+    // Pre-open the receipt window now (synchronous click context) so the
+    // browser doesn't block the popup. We'll navigate it after the PDF is ready.
+    const receiptWindow = window.open('', '_blank');
+
     setSubmitting(true);
     try {
       const res = await fetch('/api/v1/payments', {
@@ -104,14 +108,16 @@ export function RecordPaymentDrawer({
 
       const paymentId = body.data.id as string;
 
-      // Generate receipt PDF and open it
+      // Generate receipt PDF and navigate the pre-opened window to it
       try {
         const receiptRes = await fetch(`/api/v1/payments/${paymentId}/receipt`, { method: 'POST' });
         const receiptBody = await receiptRes.json().catch(() => ({}));
-        if (receiptRes.ok && receiptBody?.data?.pdfUrl) {
-          window.open(receiptBody.data.pdfUrl as string, '_blank');
+        if (receiptRes.ok && receiptBody?.data?.pdfUrl && receiptWindow) {
+          receiptWindow.location.href = receiptBody.data.pdfUrl as string;
+        } else {
+          receiptWindow?.close();
         }
-      } catch { /* receipt generation is best-effort */ }
+      } catch { receiptWindow?.close(); }
 
       reset();
       onSuccess(paymentId, body.data.receiptNumber ?? '');
