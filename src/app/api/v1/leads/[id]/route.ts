@@ -100,6 +100,22 @@ export async function GET(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
+    // If the lead has no customerId, check by phone — covers leads created before
+    // the customerId-on-creation fix so the UI can still detect existing customers.
+    if (!lead.customerId && lead.contactPhone) {
+      const [existingCustomer] = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(
+          eq(customers.tenantId, ctx.tenantId),
+          eq(customers.phone, lead.contactPhone),
+        ))
+        .limit(1);
+      if (existingCustomer) {
+        (lead as typeof lead & { customerId: string }).customerId = existingCustomer.id;
+      }
+    }
+
     const recentMessages = await db
       .select({
         id: waMessages.id,
