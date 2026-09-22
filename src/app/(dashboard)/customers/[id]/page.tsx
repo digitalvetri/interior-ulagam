@@ -910,14 +910,15 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                         Accounts →
                       </button>
                     </div>
-                    <div className="px-5 divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+                    <div className="px-5">
                       {[
                         { label: 'Total project value', value: totalContractPaise, color: 'var(--text-heading)', bold: false },
                         { label: 'Invoiced to date',    value: totalInvoicedPaise, color: 'var(--text-heading)', bold: false },
                         { label: 'Payments received',   value: totalReceivedPaise, color: '#059669',             bold: false },
                         { label: 'Outstanding balance', value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
                       ].map((row, i) => (
-                        <div key={i} className="flex items-center justify-between py-2.5">
+                        <div key={i} className="flex items-center justify-between py-2.5"
+                          style={{ borderTop: i > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
                           <span className={`text-[13px] ${row.bold ? 'font-bold' : ''}`} style={{ color: row.bold ? 'var(--text-heading)' : 'var(--text-secondary)' }}>{row.label}</span>
                           <span className={`text-[13px] tabular-nums ${row.bold ? 'font-bold' : 'font-medium'}`} style={{ color: row.color }}>
                             {row.value > 0 ? formatRupees(row.value) : '₹0'}
@@ -940,12 +941,13 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                       <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                         <p className="text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Activity</p>
                       </div>
-                      <div className="grid grid-cols-2 divide-x" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <div className="grid grid-cols-2">
                         {[
                           { label: 'Site visits', value: summaryLoading ? '…' : String(summary?.siteVisitCount ?? 0), color: '#f59e0b' },
-                          { label: 'Activities',  value: activitiesLoading ? '…' : String(activities.length),         color: '#f97316' },
+                          { label: 'Activities',  value: activitiesLoading ? '…' : String(filteredActivities.length), color: '#f97316' },
                         ].map((kpi, i) => (
-                          <div key={i} className="flex flex-col items-center justify-center py-4 gap-1">
+                          <div key={i} className="flex flex-col items-center justify-center py-4 gap-1"
+                            style={{ borderLeft: i > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
                             <span className="text-[26px] font-bold tabular-nums leading-none" style={{ color: 'var(--text-heading)' }}>{kpi.value}</span>
                             <span className="text-[11px] font-medium" style={{ color: kpi.color }}>{kpi.label}</span>
                           </div>
