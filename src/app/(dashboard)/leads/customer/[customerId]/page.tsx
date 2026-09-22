@@ -10,17 +10,30 @@ export default function CustomerLeadPage() {
   const [leads, setLeads]     = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchLeads = useCallback(() => {
-    fetch(`/api/v1/leads?customerId=${customerId}`)
-      .then(r => r.json())
-      .then(({ data }: { data: Lead[] | null }) => {
-        const sorted = (data ?? []).sort(
-          (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
-        );
-        setLeads(sorted);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  const fetchLeads = useCallback(async () => {
+    try {
+      // Primary fetch: leads explicitly linked to this customer
+      const res = await fetch(`/api/v1/leads?customerId=${customerId}`);
+      const { data } = await res.json() as { data: Lead[] | null };
+      const linked = data ?? [];
+
+      // Secondary fetch: leads with the same phone but customerId=null (created before fix)
+      let unlinked: Lead[] = [];
+      if (linked.length > 0) {
+        const phone = linked[0].contactPhone;
+        const res2 = await fetch(`/api/v1/leads?phone=${encodeURIComponent(phone)}`);
+        const { data: data2 } = await res2.json() as { data: Lead[] | null };
+        const linkedIds = new Set(linked.map(l => l.id));
+        unlinked = (data2 ?? []).filter(l => !l.customerId && !linkedIds.has(l.id));
+      }
+
+      const all = [...linked, ...unlinked].sort(
+        (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime(),
+      );
+      setLeads(all);
+    } finally {
+      setLoading(false);
+    }
   }, [customerId]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
