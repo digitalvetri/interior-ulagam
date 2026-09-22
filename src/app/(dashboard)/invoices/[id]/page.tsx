@@ -612,6 +612,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onSuccess={(_paymentId) => { setDrawerOpen(false); loadInvoice(); }}
+        defaultAmountPaise={outstandingPaise}
         defaultInvoiceId={id}
         defaultProjectId={detail?.invoice.projectId}
         contextLabel={detail ? `${detail.invoice.invoiceNumber}${detail.project?.name ? ` — ${detail.project.name}` : ''}` : undefined}

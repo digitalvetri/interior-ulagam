@@ -78,7 +78,7 @@ export async function POST(
       .set({ pdfUrl: s3Key })
       .where(eq(payments.id, paymentId));
 
-    const presignedUrl = await getDownloadUrl({ bucket: DOCUMENTS_BUCKET, key: s3Key, expiresIn: 60 });
+    const presignedUrl = await getDownloadUrl({ bucket: DOCUMENTS_BUCKET, key: s3Key, expiresIn: 604800});
     return NextResponse.json({ data: { pdfUrl: presignedUrl } }, { status: 201 });
   } catch (err) {
     console.error('[POST /api/v1/payments/:id/receipt]', err);
@@ -108,7 +108,7 @@ export async function GET(
       return NextResponse.json({ error: 'Receipt not yet generated — use POST to generate' }, { status: 404 });
     }
 
-    const presignedUrl = await getDownloadUrl({ bucket: DOCUMENTS_BUCKET, key: row.pdfUrl, expiresIn: 60 });
+    const presignedUrl = await getDownloadUrl({ bucket: DOCUMENTS_BUCKET, key: row.pdfUrl, expiresIn: 604800});
     return NextResponse.json({ data: { pdfUrl: presignedUrl } });
   } catch (err) {
     console.error('[GET /api/v1/payments/:id/receipt]', err);

@@ -102,8 +102,19 @@ export function RecordPaymentDrawer({
         return;
       }
 
+      const paymentId = body.data.id as string;
+
+      // Generate receipt PDF and open it
+      try {
+        const receiptRes = await fetch(`/api/v1/payments/${paymentId}/receipt`, { method: 'POST' });
+        const receiptBody = await receiptRes.json().catch(() => ({}));
+        if (receiptRes.ok && receiptBody?.data?.pdfUrl) {
+          window.open(receiptBody.data.pdfUrl as string, '_blank');
+        }
+      } catch { /* receipt generation is best-effort */ }
+
       reset();
-      onSuccess(body.data.id, body.data.receiptNumber ?? '');
+      onSuccess(paymentId, body.data.receiptNumber ?? '');
     } catch {
       setError('Network error. Try again.');
     } finally {
