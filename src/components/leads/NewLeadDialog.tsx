@@ -347,6 +347,9 @@ export function NewLeadDialog({
     if (!isEditMode) payload.ownerId = form.ownerId;
     else if (form.ownerId) payload.ownerId = form.ownerId;
 
+    // Link to existing customer when one was selected
+    if (!isEditMode && selectedCustomer?.id) payload.customerId = selectedCustomer.id;
+
     if (form.contactEmail.trim())    payload.contactEmail    = form.contactEmail.trim();
     if (form.propertyType)           payload.propertyType    = form.propertyType;
     if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();

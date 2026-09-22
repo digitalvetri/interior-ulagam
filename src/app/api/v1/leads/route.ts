@@ -42,6 +42,7 @@ const CreateLeadSchema = z.object({
   budgetBand:     z.string().max(80).optional(),
   notes:          z.string().max(4000).optional(),
   ownerId:        z.string().uuid().optional(),
+  customerId:     z.string().uuid().optional(),
 });
 
 // ─── GET /api/v1/leads ───────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest) {
   const {
     contactName, contactPhone, alternatePhone, contactEmail, contactCity,
     pincode, source, stage, priority, propertyType, projectName, projectLocation,
-    budgetBand, notes, ownerId,
+    budgetBand, notes, ownerId, customerId,
   } = parsed.data;
 
   try {
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
         notes:           notes || null,
         ownerId:         ownerId || null,
         designerName:    designerName,
+        customerId:      customerId ?? null,
       })
       .returning({
         id:                leads.id,
