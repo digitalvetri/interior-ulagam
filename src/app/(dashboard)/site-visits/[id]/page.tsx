@@ -277,13 +277,6 @@ export default function SiteVisitDetailPage() {
   }
 
   async function handleComplete() {
-    // Guard: cannot complete before scheduled time
-    if (visit && new Date() < new Date(visit.scheduledAt)) {
-      setCompleteErr(
-        `This visit is scheduled for ${fmtDateTime(visit.scheduledAt)}. You cannot mark it complete before the scheduled time.`
-      );
-      return;
-    }
     if (completeForm.createFollowUp && !completeForm.followUpStage) {
       setCompleteErr('Select a follow-up stage.');
       return;
@@ -392,12 +385,7 @@ export default function SiteVisitDetailPage() {
                 </button>
                 <button
                   onClick={() => {
-                    const tooEarly = visit && new Date() < new Date(visit.scheduledAt);
-                    setCompleteErr(
-                      tooEarly
-                        ? `This visit is scheduled for ${fmtDateTime(visit.scheduledAt)}. You cannot mark it complete before the scheduled time.`
-                        : null
-                    );
+                    setCompleteErr(null);
                     setCompleteOpen(true);
                   }}
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors"

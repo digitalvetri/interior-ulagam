@@ -79,20 +79,6 @@ export async function POST(
       );
     }
 
-    // Cannot complete before the scheduled time
-    const now = new Date();
-    if (now < visit.scheduledAt) {
-      const scheduledIST = visit.scheduledAt.toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        day: 'numeric', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-      });
-      return NextResponse.json(
-        { error: `This visit is scheduled for ${scheduledIST} IST. It cannot be completed before its scheduled time.` },
-        { status: 422 },
-      );
-    }
-
     const { notes, outcome, photos, followUp } = parsed.data;
 
     const updateValues: Partial<typeof siteVisits.$inferInsert> = {
