@@ -34,6 +34,17 @@ const SOURCE_LABELS: Record<string, string> = {
   website: 'Website', walk_in: 'Walk-in', other: 'Other',
 };
 
+function fmtBudgetBand(band: string): string {
+  if (!band) return '';
+  const fmtNum = (s: string) =>
+    s.replace(/(\d+(?:\.\d+)?)cr/i, '$1 Cr').replace(/(\d+(?:\.\d+)?)l/i, '$1L');
+  if (band.startsWith('above_')) return `Above ${fmtNum(band.slice(6))}`;
+  if (band.startsWith('below_')) return `Below ${fmtNum(band.slice(6))}`;
+  const parts = band.split('_');
+  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} – ${fmtNum(parts[1])}`;
+  return band.replace(/_/g, ' ');
+}
+
 function formatFollowUp(dateIso?: string | null): string {
   if (!dateIso) return '—';
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -180,7 +191,7 @@ function ProjectCard({
               </span>
             )}
             {!value && lead.budgetBand && (
-              <span className="text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>{lead.budgetBand}</span>
+              <span className="text-[13px] font-medium" style={{ color: 'var(--text-secondary)' }}>{fmtBudgetBand(lead.budgetBand)}</span>
             )}
             <span className="text-[12px]" style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
               {age === 0 ? 'Today' : `${age}d ago`}

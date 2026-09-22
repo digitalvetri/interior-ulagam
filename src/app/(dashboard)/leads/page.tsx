@@ -98,12 +98,14 @@ const LeadListCard = memo(function LeadListCard({
   onArchive,
   onViewFollowUps,
   destinationHref,
+  count,
 }: {
   lead: Lead;
   onDelete: (id: string) => void;
   onArchive: (id: string) => void;
   onViewFollowUps: (lead: Lead) => void;
   destinationHref?: string;
+  count?: number;
 }) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
@@ -161,6 +163,14 @@ const LeadListCard = memo(function LeadListCard({
                 >
                   {STAGE_LABELS[lead.stage]}
                 </span>
+                {count && count > 1 && (
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}
+                  >
+                    {count} enquiries
+                  </span>
+                )}
                 {priorityCfg && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold flex-shrink-0"
@@ -704,6 +714,7 @@ export default function LeadsPage() {
                       onArchive={handleArchiveFromList}
                       onViewFollowUps={handleViewFollowUps}
                       destinationHref={destination}
+                      count={count}
                     />
                   </motion.div>
                 );
