@@ -814,7 +814,8 @@ export default function LeadDetailPage() {
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
                   style={{ borderColor: 'rgba(16,185,129,0.4)', color: 'var(--success-text)', background: 'var(--success-soft)' }}>
-                  <CheckCircle2 className="h-4 w-4" />{markingWon ? 'Converting…' : 'Convert to Client'}
+                  <CheckCircle2 className="h-4 w-4" />
+                  {markingWon ? 'Converting…' : customerId ? 'Convert & Create Project' : 'Convert to Client'}
                 </button>
               </div>
             )}
