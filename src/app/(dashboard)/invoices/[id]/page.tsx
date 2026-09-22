@@ -764,7 +764,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   />
                   <a
                     href={sendPdfUrl && sendPhone
-                      ? `https://wa.me/${sendPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi, please find your invoice ${invoice.invoiceNumber} for ${formatRupees(totalPaise)}.\n\nDownload: ${sendPdfUrl}`)}`
+                      ? `https://wa.me/${sendPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                          `Dear ${project?.clientName ?? 'Sir/Madam'},\n\nGreetings from Konst Design!\n\nPlease find your invoice details below:\n\n` +
+                          `*Invoice No:* ${invoice.invoiceNumber}\n` +
+                          (project?.name ? `*Project:* ${project.name}\n` : '') +
+                          `*Amount:* ${formatRupees(totalPaise)}\n` +
+                          (invoice.dueDate ? `*Due Date:* ${fmtDate(invoice.dueDate)}\n` : '') +
+                          `\n*Download Invoice PDF:*\n${sendPdfUrl}\n\n` +
+                          `For any queries, please feel free to contact us.\n\nThank you,\nTeam Konst Design`
+                        )}`
                       : undefined}
                     target="_blank"
                     rel="noreferrer"

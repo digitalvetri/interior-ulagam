@@ -93,11 +93,11 @@ export async function POST(
       .set({ pdfUrl: key })
       .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, ctx.tenantId)));
 
-    // 7. Return a short-lived presigned URL — inline so the browser previews, not downloads
+    // 7. Return a presigned URL valid for 7 days — long enough to share with clients
     const presignedUrl = await getDownloadUrl({
       bucket: DOCUMENTS_BUCKET,
       key,
-      expiresIn: 60,
+      expiresIn: 604800,
       inline: true,
     });
 
@@ -134,7 +134,7 @@ export async function GET(
     const presignedUrl = await getDownloadUrl({
       bucket: DOCUMENTS_BUCKET,
       key: invoice.pdfUrl,
-      expiresIn: 60,
+      expiresIn: 604800,
       inline: true,
     });
 
