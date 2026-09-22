@@ -28,7 +28,7 @@ export async function GET(
     const [invoicePayments, projectRow, milestoneRow] = await Promise.all([
       db.select().from(payments)
         .where(and(eq(payments.invoiceId, id), eq(payments.tenantId, ctx.tenantId))),
-      db.select({ id: projects.id, name: projects.name, clientName: customers.fullName })
+      db.select({ id: projects.id, name: projects.name, clientName: customers.fullName, clientPhone: customers.phone })
         .from(projects)
         .leftJoin(customers, eq(projects.customerId, customers.id))
         .where(eq(projects.id, invoice.projectId)),

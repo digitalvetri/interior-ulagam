@@ -163,6 +163,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setSendPdfUrl(null);
     setSendCopied(false);
     setSendGenerating(true);
+    // Auto-fill client phone if available and field is empty
+    if (!sendPhone && detail?.project?.clientPhone) {
+      setSendPhone(detail.project.clientPhone);
+    }
     try {
       if (detail?.invoice.pdfUrl) {
         const r = await fetch(`/api/v1/invoices/${id}/pdf`);
