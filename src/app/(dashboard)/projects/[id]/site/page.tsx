@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Plus, AlertTriangle, X, Users, TrendingUp, Calendar, FileText,
@@ -759,11 +760,12 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 
 export default function SitePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
+  const searchParams = useSearchParams();
 
   const [project,    setProject]   = useState<SiteProject | null>(null);
   const [logs,       setLogs]      = useState<SiteLog[]>([]);
   const [loading,    setLoading]   = useState(true);
-  const [showAdd,    setShowAdd]   = useState(false);
+  const [showAdd,    setShowAdd]   = useState(searchParams.get('add') === '1');
   const [editingLog, setEditingLog] = useState<SiteLog | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 

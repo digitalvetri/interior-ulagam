@@ -1342,11 +1342,18 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             <div className="flex items-center justify-between px-5 py-3.5"
               style={{ borderBottom: '1px solid var(--border-subtle)' }}>
               <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Recent Site Logs</h2>
-              <Link href={`/projects/${id}/site`}
-                className="inline-flex items-center gap-0.5 text-xs font-medium"
-                style={{ color: 'var(--text-secondary)' }}>
-                All<ChevronRight className="h-3 w-3" />
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link href={`/projects/${id}/site?add=1`}
+                  className="inline-flex items-center gap-1 text-xs font-medium"
+                  style={{ color: 'var(--accent-base)' }}>
+                  <Plus className="h-3.5 w-3.5" />Add
+                </Link>
+                <Link href={`/projects/${id}/site`}
+                  className="inline-flex items-center gap-0.5 text-xs font-medium"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  All<ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
 
             {siteLogs.length === 0 ? (
