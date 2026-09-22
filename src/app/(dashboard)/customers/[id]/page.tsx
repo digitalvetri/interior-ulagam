@@ -120,20 +120,6 @@ type Tab = 'overview' | 'payments' | 'activity';
 
 /* ── Local interfaces ───────────────────────────────────────────────────────── */
 
-interface ServiceReq {
-  id: string;
-  issue: string;
-  priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'assigned' | 'in_progress' | 'resolved';
-  projectName: string | null;
-  projectId: string | null;
-  assigneeName: string | null;
-  scheduledVisitAt: string | null;
-  resolvedAt: string | null;
-  notes: string | null;
-  createdAt: string;
-}
-
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
 
 function relativeTime(dateStr: string): string {
@@ -220,17 +206,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   const titleRef = useRef<HTMLInputElement>(null);
 
-  // ── New tab state ──────────────────────────────────────────────────────────
-  const [serviceReqs, setServiceReqs]     = useState<ServiceReq[]>([]);
-  const [serviceLoading, setSvcLd]        = useState(false);
-  const [serviceLoaded, setSvcLoaded]     = useState(false);
-  const [showSRForm, setShowSRForm]       = useState(false);
-  const [srIssue, setSrIssue]             = useState('');
-  const [srPriority, setSrPriority]       = useState<'low'|'medium'|'high'|'urgent'>('medium');
-  const [srProjectId, setSrProjectId]     = useState('');
-  const [srSaving, setSrSaving]           = useState(false);
-  const [srError, setSrError]             = useState<string | null>(null);
-
   /* ── Load customer ── */
   const load = useCallback(() => {
     fetch(`/api/v1/customers/${id}`)
@@ -268,20 +243,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       .catch(() => {})
       .finally(() => setActLoading(false));
   }, [id]);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  /* ── Lazy-load new tabs ── */
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (tab !== 'service' || serviceLoaded) return;
-    setSvcLd(true);
-    fetch(`/api/v1/service-requests?customerId=${id}`)
-      .then(r => r.json())
-      .then(({ data }) => setServiceReqs(data ?? []))
-      .catch(() => {})
-      .finally(() => { setSvcLd(false); setSvcLoaded(true); });
-  }, [tab, id, serviceLoaded]);
-
   /* eslint-enable react-hooks/set-state-in-effect */
 
   /* ── Files ── */
@@ -410,51 +371,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       setComposerErr(e instanceof Error ? e.message : 'Failed to log activity');
     } finally {
       setComposerSaving(false);
-    }
-  }
-
-  /* ── Service requests ── */
-  async function createServiceRequest(e: React.FormEvent) {
-    e.preventDefault();
-    if (!srIssue.trim()) return;
-    setSrSaving(true);
-    setSrError(null);
-    try {
-      const res = await fetch('/api/v1/service-requests', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          issue: srIssue.trim(),
-          customerId: id,
-          priority: srPriority,
-          ...(srProjectId ? { projectId: srProjectId } : {}),
-        }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((body as { error?: string })?.error ?? `Failed (${res.status})`);
-      const created = body.data as ServiceReq;
-      // Enrich with project name from summary
-      const projName = summary?.projects.find(p => p.id === created.projectId)?.name ?? null;
-      setServiceReqs(prev => [{ ...created, projectName: projName, assigneeName: null }, ...prev]);
-      setSrIssue('');
-      setSrPriority('medium');
-      setSrProjectId('');
-      setShowSRForm(false);
-    } catch (e) {
-      setSrError(e instanceof Error ? e.message : 'Failed to create request');
-    } finally {
-      setSrSaving(false);
-    }
-  }
-
-  async function resolveServiceReq(reqId: string) {
-    const res = await fetch(`/api/v1/service-requests/${reqId}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ status: 'resolved', resolvedAt: new Date().toISOString() }),
-    });
-    if (res.ok) {
-      setServiceReqs(prev => prev.map(r => r.id === reqId ? { ...r, status: 'resolved', resolvedAt: new Date().toISOString() } : r));
     }
   }
 
