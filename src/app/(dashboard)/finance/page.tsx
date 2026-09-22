@@ -485,7 +485,7 @@ function ToCollectTab({ onRefresh }: { onRefresh?: () => void }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-[14px] font-bold leading-snug" style={{ color: 'var(--text-heading)' }}>
                           {displayName}
-                          {r.clientName && r.projectName !== r.clientName && (
+                          {r.clientName && r.projectName && r.projectName !== r.clientName && !r.projectName.startsWith(r.clientName + ' — ') && (
                             <span className="font-normal" style={{ color: 'var(--text-tertiary)' }}>
                               {' '}— {r.projectName}
                             </span>
