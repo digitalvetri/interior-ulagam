@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, UserCheck, ChevronDown } from 'lucide-react';
 import type { Lead } from '@/types/leads';
@@ -46,6 +46,18 @@ export function ConvertLeadModal({ lead, open, onClose, acceptedQuoteTotalPaise 
   const [requirement, setRequirement] = useState(lead.notes ?? '');
   const [submitting, setSubmitting]   = useState(false);
   const [error, setError]             = useState<string | null>(null);
+
+  // Re-sync budget whenever the modal opens so it always picks up the latest
+  // projectValuePaise (useState only initialises once on mount).
+  useEffect(() => {
+    if (!open) return;
+    const paise = acceptedQuoteTotalPaise ?? lead.projectValuePaise ?? null;
+    setBudget(
+      paise && paise > 0
+        ? (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+        : '',
+    );
+  }, [open, acceptedQuoteTotalPaise, lead.projectValuePaise]);
 
   if (!open) return null;
 

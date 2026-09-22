@@ -175,13 +175,15 @@ export async function POST(
       }
     }
 
-    // 8. Mark lead as won, clear followUpDate (BR-3/C), persist project type and requirement
+    // 8. Mark lead as won, clear followUpDate (BR-3/C), persist project type, requirement,
+    //    and sync projectValuePaise so the lead page reflects the quoted amount.
     await tx.update(leads)
       .set({
-        stage:        'won',
-        followUpDate: null,
-        propertyType: projectType || undefined,
-        notes:        requirement || undefined,
+        stage:             'won',
+        followUpDate:      null,
+        propertyType:      projectType || undefined,
+        notes:             requirement || undefined,
+        projectValuePaise: totalContractPaise ?? undefined,
       })
       .where(eq(leads.id, leadId));
   });
