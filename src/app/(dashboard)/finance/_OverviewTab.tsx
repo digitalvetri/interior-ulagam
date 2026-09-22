@@ -431,7 +431,7 @@ function ChaseCard({
         <button
           onClick={() => onGotPaid(item)}
           className="flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-colors"
-          style={{ background: 'var(--text-heading)', color: 'var(--surface-page)' }}>
+          style={{ background: 'var(--accent-base)', color: '#fff' }}>
           <IndianRupee className="h-3.5 w-3.5" />
           Got paid
         </button>
