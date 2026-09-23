@@ -8,7 +8,7 @@ import {
   MapPin,
   MoreVertical, Edit2, Trash2, ExternalLink,
 } from 'lucide-react';
-import { Lead, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
+import { Lead, PRIORITY_CONFIG } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 
@@ -56,14 +56,20 @@ function formatFollowUp(dateIso?: string | null): string {
   return fd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
-const STAGE_STYLE: Record<string, { bg: string; color: string }> = {
-  new:                  { bg: 'var(--accent-soft)',   color: 'var(--accent-text)' },
-  site_visit_scheduled: { bg: '#FEF9C3',              color: '#854D0E' },
-  consultation_done:    { bg: 'var(--warning-soft)',  color: '#C2410C' },
-  proposal_sent:        { bg: '#EEF2FF',              color: '#4338CA' },
-  negotiation:          { bg: 'var(--accent-soft)',   color: 'var(--accent-base)' },
-  won:                  { bg: 'var(--success-soft)',  color: 'var(--success-text)' },
-  lost:                 { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
+const STAGE_CANONICAL: Record<string, 'new' | 'site_visit' | 'won' | 'lost'> = {
+  contacted: 'new', qualified: 'new',
+  measurement: 'site_visit', measured: 'site_visit', booked: 'site_visit',
+  quotation: 'site_visit', negotiation: 'site_visit',
+  site_visit_scheduled: 'site_visit', consultation_done: 'site_visit', proposal_sent: 'site_visit',
+};
+function canonicalStage(stage: string): 'new' | 'site_visit' | 'won' | 'lost' {
+  return (STAGE_CANONICAL[stage] ?? stage) as 'new' | 'site_visit' | 'won' | 'lost';
+}
+const STAGE_STYLE: Record<'new' | 'site_visit' | 'won' | 'lost', { bg: string; color: string; label: string }> = {
+  new:        { bg: 'var(--accent-soft)',   color: 'var(--accent-text)',    label: 'New Enquiry' },
+  site_visit: { bg: '#FEF9C3',             color: '#854D0E',               label: 'Site Visit'  },
+  won:        { bg: 'var(--success-soft)', color: 'var(--success-text)',   label: 'Won'         },
+  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
 };
 
 /* ── Project card ── */
@@ -92,7 +98,7 @@ function ProjectCard({
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
-  const ss      = STAGE_STYLE[lead.stage] ?? { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' };
+  const ss      = STAGE_STYLE[canonicalStage(lead.stage)] ?? STAGE_STYLE.new;
   const age     = daysSince(lead.lastActivityAt);
   const overdue = isOverdue(lead.followUpDate);
   const today   = isToday(lead.followUpDate);
@@ -159,7 +165,7 @@ function ProjectCard({
               className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex-shrink-0"
               style={{ background: ss.bg, color: ss.color }}
             >
-              {STAGE_LABELS[lead.stage]}
+              {ss.label}
             </span>
             {pc && (
               <span

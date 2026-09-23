@@ -11,7 +11,7 @@ import {
   Edit2, Trash2, Archive, MoreVertical,
   Upload, ExternalLink,
 } from 'lucide-react';
-import { Lead, STAGE_LABELS, STAGE_COLORS, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
+import { Lead, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
@@ -100,10 +100,27 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 const MOVE_STAGE_OPTIONS = [
-  { value: 'new',  label: 'New'  },
-  { value: 'won',  label: 'Won'  },
-  { value: 'lost', label: 'Lost' },
+  { value: 'new',        label: 'New Enquiry' },
+  { value: 'site_visit', label: 'Site Visit'  },
+  { value: 'won',        label: 'Won'         },
+  { value: 'lost',       label: 'Lost'        },
 ] as const;
+
+const STAGE_CANONICAL: Record<string, 'new' | 'site_visit' | 'won' | 'lost'> = {
+  contacted: 'new', qualified: 'new',
+  measurement: 'site_visit', measured: 'site_visit', booked: 'site_visit',
+  quotation: 'site_visit', negotiation: 'site_visit',
+  site_visit_scheduled: 'site_visit', consultation_done: 'site_visit', proposal_sent: 'site_visit',
+};
+function canonicalStage(stage: string): 'new' | 'site_visit' | 'won' | 'lost' {
+  return (STAGE_CANONICAL[stage] ?? stage) as 'new' | 'site_visit' | 'won' | 'lost';
+}
+const CANONICAL_STAGE_STYLE = {
+  new:        { bg: 'var(--accent-soft)',   color: 'var(--accent-text)',    label: 'New Enquiry' },
+  site_visit: { bg: '#FEF9C3',             color: '#854D0E',               label: 'Site Visit'  },
+  won:        { bg: 'var(--success-soft)', color: 'var(--success-text)',   label: 'Won'         },
+  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
+} as const;
 
 
 
@@ -660,8 +677,11 @@ export default function LeadDetailPage() {
                           {priorityCfg.label.toUpperCase()}
                         </span>
                       )}
-                      <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${STAGE_COLORS[lead.stage]}`}>
-                        {STAGE_LABELS[lead.stage]}
+                      <span
+                        className="text-[11px] px-2.5 py-0.5 rounded-full font-semibold"
+                        style={(() => { const s = CANONICAL_STAGE_STYLE[canonicalStage(lead.stage)]; return { background: s.bg, color: s.color }; })()}
+                      >
+                        {CANONICAL_STAGE_STYLE[canonicalStage(lead.stage)].label}
                       </span>
                     </div>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -1009,7 +1029,7 @@ export default function LeadDetailPage() {
               {/* AT A GLANCE */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>At a Glance</p>
-                <SidebarRow label="Stage" value={STAGE_LABELS[lead.stage] ?? '—'} />
+                <SidebarRow label="Stage" value={CANONICAL_STAGE_STYLE[canonicalStage(lead.stage)].label} />
                 <SidebarRow label="Assigned To" value={lead.designerName ?? '—'} />
                 <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : '—'} />
                 {(() => {

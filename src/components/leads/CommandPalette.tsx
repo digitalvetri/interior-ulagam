@@ -4,7 +4,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { Search, Users, LayoutDashboard, FolderKanban, ArrowRight } from 'lucide-react';
-import { Lead, STAGE_LABELS } from '@/types/leads';
+import { Lead } from '@/types/leads';
+
+const STAGE_CANONICAL: Record<string, string> = {
+  contacted: 'New Enquiry', qualified: 'New Enquiry',
+  measurement: 'Site Visit', measured: 'Site Visit', booked: 'Site Visit',
+  quotation: 'Site Visit', negotiation: 'Site Visit',
+  site_visit_scheduled: 'Site Visit', consultation_done: 'Site Visit', proposal_sent: 'Site Visit',
+  new: 'New Enquiry', site_visit: 'Site Visit', won: 'Won', lost: 'Lost',
+};
+function canonicalStageLabel(stage: string): string {
+  return STAGE_CANONICAL[stage] ?? stage;
+}
 import { NAV_GROUPS } from '@/lib/nav-items';
 
 interface Project {
@@ -242,7 +253,7 @@ export function CommandPalette() {
                       {lead.contactPhone}
                       {lead.projectLocation ? ` · ${lead.projectLocation}` : ''}
                       {' · '}
-                      <span style={{ color: 'var(--accent-base)' }}>{STAGE_LABELS[lead.stage]}</span>
+                      <span style={{ color: 'var(--accent-base)' }}>{canonicalStageLabel(lead.stage)}</span>
                     </p>
                   </div>
                   <ArrowRight className="h-3 w-3 flex-shrink-0" style={{ color: 'var(--border-strong)' }} />
