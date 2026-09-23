@@ -27,6 +27,7 @@ const ALLOWED = new Map<string, string>([
   ['v1/client-view/[token]/snags/[id]/route.ts', 'public client portal action — access gated by same unguessable token'],
   ['webhooks/whatsapp/route.ts', 'signature-verified; resolves tenant from the matched lead'],
   ['webhooks/razorpay/route.ts', 'signature-verified; resolves tenant from the payment record'],
+  ['public/[...path]/route.ts', 'public asset proxy — streams MinIO objects; quotes bucket is world-readable, no tenant data exposed'],
 ]);
 
 function routeFiles(dir: string, prefix = ''): string[] {
