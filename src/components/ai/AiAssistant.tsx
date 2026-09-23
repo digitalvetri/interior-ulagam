@@ -81,7 +81,7 @@ function uid() {
 
 export function AiAssistant() {
   const pathname = usePathname();
-  const module   = pathToModule(pathname);
+  const currentModule = pathToModule(pathname);
 
   const [open, setOpen]         = useState(false);
   const [input, setInput]       = useState('');
@@ -127,14 +127,14 @@ export function AiAssistant() {
       const res = await fetch('/api/v1/ai/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ message: text, module, conversationHistory: historyForApi }),
+        body: JSON.stringify({ message: text, module: currentModule, conversationHistory: historyForApi }),
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
       const data = body.data as { answer: string; proposedAction: ProposedAction | null };
 
-      let action = data.proposedAction;
+      const action = data.proposedAction;
 
       const assistantMsg: Message = {
         id: uid(),
@@ -228,7 +228,7 @@ export function AiAssistant() {
     ));
   }
 
-  const suggestions = SUGGESTIONS[module] ?? SUGGESTIONS.default;
+  const suggestions = SUGGESTIONS[currentModule] ?? SUGGESTIONS.default;
 
   return (
     <>
@@ -276,7 +276,7 @@ export function AiAssistant() {
                 Konst Design AI
               </p>
               <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                {moduleLabel(module)} · Context-aware
+                {moduleLabel(currentModule)} · Context-aware
               </p>
             </div>
             {messages.length > 0 && (
@@ -314,7 +314,7 @@ export function AiAssistant() {
                 </div>
                 <div>
                   <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-                    Ask me anything about {moduleLabel(module)}
+                    Ask me anything about {moduleLabel(currentModule)}
                   </p>
                   <p className="mt-1 text-xs" style={{ color: 'var(--text-secondary)' }}>
                     I can answer questions, summarise records, create tasks, and send messages to employees.
@@ -491,7 +491,7 @@ function ActionCard({
           </p>
           {action.type === 'notify_employee' && action.message && (
             <p className="mt-0.5 text-[10px] line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-              To: {action.targetUserName ?? 'employee'} — "{action.message}"
+              To: {action.targetUserName ?? 'employee'} &mdash; &quot;{action.message}&quot;
             </p>
           )}
           {action.type === 'create_task' && action.taskTitle && (
