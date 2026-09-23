@@ -44,15 +44,13 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
   draft: 'Draft', sent: 'Sent', revised: 'Revised', accepted: 'Accepted', rejected: 'Rejected',
 };
 
-type TabKey = 'overview' | 'leads' | 'quotations' | 'projects' | 'collections' | 'profitability' | 'procurement';
+type TabKey = 'overview' | 'leads' | 'projects' | 'collections' | 'profitability';
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'overview',      label: 'Overview' },
   { key: 'leads',         label: 'Lead Pipeline' },
-  { key: 'quotations',    label: 'Quotations' },
   { key: 'projects',      label: 'Projects' },
   { key: 'collections',   label: 'Collections' },
   { key: 'profitability', label: 'Profitability' },
-  { key: 'procurement',   label: 'Procurement' },
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -763,11 +761,9 @@ export default function ReportsPage() {
 
       {seen.has('overview')      && <div className={active !== 'overview'      ? 'hidden' : ''}><OverviewSection      from={from} to={to} /></div>}
       {seen.has('leads')         && <div className={active !== 'leads'         ? 'hidden' : ''}><LeadPipelineSection  from={from} to={to} /></div>}
-      {seen.has('quotations')    && <div className={active !== 'quotations'    ? 'hidden' : ''}><QuotationsSection    from={from} to={to} /></div>}
       {seen.has('projects')      && <div className={active !== 'projects'      ? 'hidden' : ''}><ProjectsSection      from={from} to={to} /></div>}
       {seen.has('collections')   && <div className={active !== 'collections'   ? 'hidden' : ''}><CollectionsSection   from={from} to={to} /></div>}
       {seen.has('profitability') && <div className={active !== 'profitability' ? 'hidden' : ''}><ProfitabilitySection from={from} to={to} /></div>}
-      {seen.has('procurement')   && <div className={active !== 'procurement'   ? 'hidden' : ''}><ProcurementSection   from={from} to={to} /></div>}
     </div>
   );
 }
