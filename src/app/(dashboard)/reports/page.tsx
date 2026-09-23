@@ -114,11 +114,12 @@ function VBars({ data, height = 'h-32' }: { data: { label: string; value: number
   );
 }
 
+const SKEL_WIDTHS = ['90%','75%','85%','60%','80%','70%','95%','65%','78%'];
 function SkelBars({ rows = 6 }: { rows?: number }) {
   return (
     <div className="space-y-2.5 animate-pulse">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="h-4 rounded-full" style={{ background: 'var(--surface-muted)', width: `${70 + Math.random() * 30}%` }} />
+        <div key={i} className="h-4 rounded-full" style={{ background: 'var(--surface-muted)', width: SKEL_WIDTHS[i % SKEL_WIDTHS.length] }} />
       ))}
     </div>
   );
