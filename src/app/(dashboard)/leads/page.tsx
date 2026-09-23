@@ -8,7 +8,7 @@ import {
   Users, AlertTriangle, TrendingUp,
   MoreVertical, Trash2, Archive, Edit2, BellRing,
 } from 'lucide-react';
-import { Lead, LeadStage, STAGE_LABELS, PRIORITY_CONFIG } from '@/types/leads';
+import { Lead, LeadStage, PRIORITY_CONFIG } from '@/types/leads';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 import { LeadViewModal } from '@/components/leads/LeadViewModal';
@@ -31,22 +31,31 @@ const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
 ];
 
 /* ── Stage badge style ──────────────────────────────────────────────────────── */
-const STAGE_STYLE: Record<LeadStage, { bg: string; color: string }> = {
-  new:         { bg: 'var(--accent-soft)', color: 'var(--accent-text)' },
-  contacted:   { bg: '#E0F2FE', color: '#0369A1' },
-  qualified:   { bg: '#CCFBF1', color: '#0F766E' },
-  site_visit:  { bg: '#FEF9C3', color: '#854D0E' },
-  measurement: { bg: 'var(--warning-soft)', color: '#C2410C' },
-  quotation:   { bg: '#EEF2FF', color: '#4338CA' },
-  negotiation: { bg: 'var(--accent-soft)', color: 'var(--accent-base)' },
-  won:         { bg: 'var(--success-soft)', color: 'var(--success-text)' },
-  lost:        { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
-  measured: { bg: '#D1FAE5', color: '#065F46' },
-  booked:   { bg: '#DCFCE7', color: '#14532D' },
-  // legacy
-  site_visit_scheduled: { bg: '#FEF9C3', color: '#854D0E' },
-  consultation_done:    { bg: 'var(--warning-soft)', color: '#C2410C' },
-  proposal_sent:        { bg: '#EEF2FF', color: '#4338CA' },
+
+// Maps any legacy or retired stage value to the canonical display stage.
+// DB values are preserved; only the label/style shown to users changes.
+const STAGE_CANONICAL: Partial<Record<LeadStage, 'new' | 'site_visit' | 'won' | 'lost'>> = {
+  contacted:            'new',
+  qualified:            'new',
+  measurement:          'site_visit',
+  measured:             'site_visit',
+  booked:               'site_visit',
+  quotation:            'site_visit',
+  negotiation:          'site_visit',
+  site_visit_scheduled: 'site_visit',
+  consultation_done:    'site_visit',
+  proposal_sent:        'site_visit',
+};
+
+function canonicalStage(stage: LeadStage): 'new' | 'site_visit' | 'won' | 'lost' {
+  return STAGE_CANONICAL[stage] ?? (stage as 'new' | 'site_visit' | 'won' | 'lost');
+}
+
+const STAGE_STYLE: Record<'new' | 'site_visit' | 'won' | 'lost', { bg: string; color: string; label: string }> = {
+  new:        { bg: 'var(--accent-soft)',   color: 'var(--accent-text)',    label: 'New Enquiry' },
+  site_visit: { bg: '#FEF9C3',             color: '#854D0E',               label: 'Site Visit'  },
+  won:        { bg: 'var(--success-soft)', color: 'var(--success-text)',   label: 'Won'         },
+  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
 };
 
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
@@ -119,7 +128,7 @@ const LeadListCard = memo(function LeadListCard({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showMenu]);
-  const stageStyle = STAGE_STYLE[lead.stage];
+  const stageStyle = STAGE_STYLE[canonicalStage(lead.stage)];
   const priorityCfg = lead.priority ? PRIORITY_CONFIG[lead.priority] : null;
   const fuState = followUpState(lead.followUpDate);
   const age = daysSince(lead.lastActivityAt);
@@ -161,7 +170,7 @@ const LeadListCard = memo(function LeadListCard({
                   className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold flex-shrink-0"
                   style={{ background: stageStyle.bg, color: stageStyle.color }}
                 >
-                  {STAGE_LABELS[lead.stage]}
+                  {stageStyle.label}
                 </span>
                 {count && count > 1 && (
                   <span
