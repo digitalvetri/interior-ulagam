@@ -76,14 +76,10 @@ const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
 ];
 
 const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
-  { value: 'new',         label: 'New Inquiry'  },
-  { value: 'contacted',   label: 'Contacted'    },
-  { value: 'site_visit',  label: 'Site Visit'   },
-  { value: 'measured',    label: 'Measured'     },
-  { value: 'quotation',   label: 'Quotation'    },
-  { value: 'negotiation', label: 'Negotiation'  },
-  { value: 'booked',      label: 'Booked'       },
-  { value: 'lost',        label: 'Lost'         },
+  { value: 'new',        label: 'New Enquiry' },
+  { value: 'site_visit', label: 'Site Visit'  },
+  { value: 'won',        label: 'Won'         },
+  { value: 'lost',       label: 'Lost'        },
 ];
 
 const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [

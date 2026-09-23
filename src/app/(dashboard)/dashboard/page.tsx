@@ -179,12 +179,11 @@ const STAGE_META: Record<string, { label: string; bg: string; text: string }> = 
 };
 
 const FUNNEL_STAGES = [
-  { key: 'new',       label: 'New Enquiry' },
-  { key: 'contacted', label: 'Contacted'   },
-  { key: 'qualified', label: 'Qualified'   },
-  { key: 'won',       label: 'Won'         },
+  { key: 'new',        label: 'New Enquiry' },
+  { key: 'site_visit', label: 'Site Visit'  },
+  { key: 'won',        label: 'Won'         },
 ];
-const FUNNEL_COLORS = ['#6366f1', '#a855f7', '#f59e0b', '#10b981'];
+const FUNNEL_COLORS = ['#6366f1', '#f59e0b', '#10b981'];
 
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
@@ -794,23 +793,13 @@ export default function DashboardPage() {
   /* ── Derived ──────────────────────────────────────────────────────── */
   function funnelCount(key: string): number {
     if (!leadStats) return 0;
-    if (key === 'qualified') {
-      return (leadStats.qualified ?? 0)
-        + (leadStats.site_visit ?? 0)
-        + (leadStats.measurement ?? 0)
-        + (leadStats.quotation ?? 0)
-        + (leadStats.negotiation ?? 0);
-    }
     return leadStats[key as keyof LeadStats] ?? 0;
   }
 
   const totalLeads     = leadStats
-    ? leadStats.new + leadStats.contacted + leadStats.qualified
-      + leadStats.site_visit + leadStats.measurement
-      + leadStats.quotation + leadStats.negotiation
-      + leadStats.won + leadStats.lost
+    ? leadStats.new + leadStats.site_visit + leadStats.won + leadStats.lost
     : 0;
-  const activeLeads    = leadStats ? totalLeads - (leadStats.won + leadStats.lost) : 0;
+  const activeLeads    = leadStats ? leadStats.new + leadStats.site_visit : 0;
   const activeProjects = allProjects.filter(p => p.lifecycleStage !== 'complete');
   const conversionPct  = leadStats && totalLeads > 0
     ? Math.round((leadStats.won / totalLeads) * 100) : 0;

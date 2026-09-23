@@ -18,7 +18,7 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 type FilterKey = LeadStage | 'all' | 'follow_up' | 'in_progress';
 type RottingStatus = 'fresh' | 'stale' | 'rotting';
 
-const IN_PROGRESS_STAGES: LeadStage[] = ['contacted', 'qualified', 'site_visit', 'measurement', 'measured', 'booked', 'quotation', 'negotiation'];
+const IN_PROGRESS_STAGES: LeadStage[] = ['site_visit'];
 
 /* ── Status chip config ─────────────────────────────────────────────────────── */
 const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
