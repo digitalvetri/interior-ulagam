@@ -21,6 +21,17 @@ const MODELS = {
 };
 
 export const groqProvider: AIProvider = {
+  async chatText({ system, messages, model = 'light' }) {
+    const completion = await getGroq().chat.completions.create({
+      model: MODELS[model],
+      messages: [
+        { role: 'system', content: system },
+        ...messages,
+      ],
+    });
+    return completion.choices[0]?.message?.content ?? '';
+  },
+
   async chatJSON({ system, user, schema, model = 'light' }) {
     const completion = await getGroq().chat.completions.create({
       model: MODELS[model],

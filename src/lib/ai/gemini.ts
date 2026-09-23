@@ -14,6 +14,10 @@ function getGenAI(): GoogleGenerativeAI {
 }
 
 export const geminiProvider: AIProvider = {
+  async chatText() {
+    throw new Error('Use groqProvider for chatText');
+  },
+
   async chatJSON({ system, user, schema }) {
     const model = getGenAI().getGenerativeModel({ model: 'gemini-1.5-flash' });
     const result = await model.generateContent(

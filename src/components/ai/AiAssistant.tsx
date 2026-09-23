@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import {
   Bot, X, Send, Loader2, CheckCircle2, XCircle,
-  Bell, ListTodo, CalendarClock, Sparkles,
+  Bell, ListTodo, CalendarClock, Sparkles, Trash2,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -63,11 +63,14 @@ const ACTION_ICONS = {
 // ── Suggested prompts by module ───────────────────────────────────────────────
 
 const SUGGESTIONS: Record<string, string[]> = {
-  leads:     ['How many leads are in each stage?', 'Which leads need follow-up today?'],
-  projects:  ['What projects are in execution stage?', 'Summarise active projects'],
-  finance:   ['What is our outstanding payment total?', 'Show revenue this month'],
-  clients:   ['List clients with recent activity', 'Who are our top clients?'],
-  default:   ['Summarise today\'s priorities', 'Send a message to an employee'],
+  leads:     ['Which leads need follow-up today?', 'Send a reminder to the designer about a lead'],
+  projects:  ['Which projects are behind schedule?', 'Create a task for site inspection'],
+  finance:   ['What is our outstanding payment total?', 'Explain GST for works contracts'],
+  clients:   ['Who are our top clients by revenue?', 'Send a message to a client manager'],
+  attendance:['Who is absent today?', 'Remind supervisor about attendance'],
+  vendors:   ['Which vendors have pending POs?', 'Explain what a GRN is'],
+  reports:   ['What does lead conversion rate mean?', 'How do I read the funnel chart?'],
+  default:   ['What can you help me with?', 'Send a message to an employee', 'How do I create a quote?'],
 };
 
 function uid() {
@@ -131,11 +134,7 @@ export function AiAssistant() {
       const body = await res.json();
       const data = body.data as { answer: string; proposedAction: ProposedAction | null };
 
-      // If action is notify_employee, pre-fill notificationTitle from message
       let action = data.proposedAction;
-      if (action?.type === 'notify_employee' && !action.notificationTitle) {
-        action = { ...action, notificationTitle: `Message from ${''} via AI Assistant` };
-      }
 
       const assistantMsg: Message = {
         id: uid(),
@@ -145,12 +144,13 @@ export function AiAssistant() {
         actionStatus: action ? 'pending' : undefined,
       };
       setMessages(prev => [...prev, assistantMsg]);
-    } catch {
-      setMessages(prev => [...prev, {
-        id: uid(),
-        role: 'assistant',
-        content: 'Sorry, I couldn\'t process that. Please try again.',
-      }]);
+    } catch (err) {
+      const msg = err instanceof Error && err.message.includes('503')
+        ? 'AI service is temporarily unavailable. Check that GROQ_API_KEY is set in .env.local.'
+        : err instanceof Error && err.message.includes('401')
+        ? 'Session expired — please refresh the page.'
+        : 'Something went wrong. Please try again.';
+      setMessages(prev => [...prev, { id: uid(), role: 'assistant', content: msg }]);
     } finally {
       setLoading(false);
     }
@@ -279,6 +279,18 @@ export function AiAssistant() {
                 {moduleLabel(module)} · Context-aware
               </p>
             </div>
+            {messages.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setMessages([])}
+                className="rounded-lg p-1.5 transition-colors hover:bg-[var(--surface-muted)]"
+                style={{ color: 'var(--text-tertiary)' }}
+                aria-label="Clear chat"
+                title="Clear chat"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setOpen(false)}
