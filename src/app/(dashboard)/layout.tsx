@@ -1,6 +1,7 @@
 import { UserProvider } from '@/components/providers/user-provider';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
+import { AiAssistant } from '@/components/ai/AiAssistant';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </main>
         </div>
       </div>
+      <AiAssistant />
     </UserProvider>
   );
 }

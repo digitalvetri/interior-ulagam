@@ -1050,6 +1050,24 @@ export const leaveRequests = pgTable('leave_requests', {
   index('leave_requests_status_idx').on(t.status),
 ]);
 
+// ─── AI Actions Audit Log ─────────────────────────────────────────────────────
+// Every action the AI executes (notify, create task, set follow-up) is logged
+// here so the owner has a traceable history of assistant-initiated changes.
+
+export const aiActions = pgTable('ai_actions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  requestedBy: uuid('requested_by').notNull().references(() => users.id),
+  actionType: text('action_type').notNull(), // 'notify_employee' | 'create_task' | 'set_followup'
+  targetUserId: uuid('target_user_id').references(() => users.id),
+  payloadJson: jsonb('payload_json').notNull().default(sql`'{}'::jsonb`),
+  result: text('result').notNull().default('success'), // 'success' | error message
+  ...timestamps,
+}, (t) => [
+  index('ai_actions_tenant_idx').on(t.tenantId),
+  index('ai_actions_requested_by_idx').on(t.requestedBy),
+]);
+
 export const vendorPayments = pgTable('vendor_payments', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
