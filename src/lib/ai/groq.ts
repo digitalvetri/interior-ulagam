@@ -16,8 +16,8 @@ function getGroq(): Groq {
 }
 
 const MODELS = {
-  heavy: 'meta-llama/llama-4-maverick-17b-128e-instruct',
-  light: 'meta-llama/llama-4-scout-17b-16e-instruct',
+  heavy: 'qwen/qwen3.8-27b',
+  light: 'qwen/qwen3.8-27b',
 };
 
 export const groqProvider: AIProvider = {
