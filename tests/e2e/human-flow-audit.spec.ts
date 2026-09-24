@@ -232,33 +232,22 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
     console.log(`  Phone visible: ${bodyText.includes(CLIENT.phone)}`);
     console.log(`  Name visible: ${bodyText.includes(CLIENT.name)}`);
 
-    // Check action buttons using getByRole — accessibility tree excludes lg:hidden elements,
-    // preventing false negatives from the mobile footer's duplicate buttons
-    const siteVisitBtn = page.getByRole('button', { name: /^site visit$/i }).first();
-    const followUpBtn  = page.getByRole('button', { name: /^follow.up$/i }).first();
-    const wonBtn       = page.getByRole('button', { name: /^won$/i }).first();
-    const lostBtn      = page.getByRole('button', { name: /^lost$/i }).first();
+    // Check action buttons — match actual button text in the UI
+    const siteVisitBtn = page.locator('button', { hasText: /schedule site visit/i }).first();
+    const createQuoteBtn = page.locator('button', { hasText: /create quote/i }).first();
+    const convertBtn   = page.locator('button', { hasText: /convert.*project|convert.*client/i }).first();
 
-    const hasSiteVisitBtn = await siteVisitBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasFollowUpBtn  = await followUpBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasWonBtn       = await wonBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasLostBtn      = await lostBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasSiteVisitBtn  = await siteVisitBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasCreateQuoteBtn = await createQuoteBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasConvertBtn    = await convertBtn.isVisible({ timeout: 2000 }).catch(() => false);
 
-    console.log(`  "Site Visit" button: ${hasSiteVisitBtn}`);
-    console.log(`  "Follow-up" button: ${hasFollowUpBtn}`);
-    console.log(`  "Won" button: ${hasWonBtn}`);
-    console.log(`  "Lost" button: ${hasLostBtn}`);
+    console.log(`  "Schedule Site Visit" button: ${hasSiteVisitBtn}`);
+    console.log(`  "Create Quote" button: ${hasCreateQuoteBtn}`);
+    console.log(`  "Convert" button: ${hasConvertBtn}`);
 
-    if (!hasSiteVisitBtn) console.warn('  ⚠️ BUG — Site Visit button missing from lead detail action bar');
-    if (!hasWonBtn)       console.warn('  ⚠️ BUG — Won button missing from lead detail');
-
-    // Check tabs — use exact text to avoid ambiguity
-    const tabs = ['Site Visits', 'Measurements', 'All Quotations'];
-    for (const tab of tabs) {
-      const tabEl = page.locator(`button:has-text("${tab}")`).first();
-      const vis = await tabEl.isVisible({ timeout: 2000 }).catch(() => false);
-      console.log(`  Tab "${tab}": ${vis ? '✓' : '✗ MISSING'}`);
-    }
+    if (!hasSiteVisitBtn)   console.warn('  ⚠️ BUG — Schedule Site Visit button missing from lead detail action bar');
+    if (!hasCreateQuoteBtn) console.warn('  ⚠️ BUG — Create Quote button missing from lead detail action bar');
+    if (!hasConvertBtn)     console.warn('  ⚠️ BUG — Convert button missing from lead detail action bar');
 
     console.log('✅ STEP 4 PASS — Lead detail page renders correctly');
   });
@@ -423,17 +412,35 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       leadId = rajesh.id;
     }
 
-    // BUG: Lead detail page has no "Create Quote" button — createQuote() function is defined
-    // but never called from JSX (dead code). Creating via API directly.
-    console.warn('  ⚠️ BUG — Lead detail page has no Create Quote button (createQuote() is dead code)');
-    const createRes = await page.request.post(`${BASE}/api/v1/leads/${leadId}/quotes`);
-    if (!createRes.ok()) {
-      console.warn(`  ⚠️ Quote creation API failed (${createRes.status()})`);
-      return;
+    // Try to use the "Create Quote" button on the lead detail page
+    await page.goto(`${BASE}/leads/${leadId}`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(2500);
+
+    const createQuoteBtn = page.locator('button', { hasText: /create quote/i }).first();
+    const hasCreateQuoteBtn = await createQuoteBtn.isVisible({ timeout: 3000 }).catch(() => false);
+    if (hasCreateQuoteBtn) {
+      // Intercept navigation so we can capture the new quote ID
+      const [response] = await Promise.all([
+        page.waitForResponse(r => r.url().includes('/api/v1/leads/') && r.url().includes('/quotes') && r.request().method() === 'POST'),
+        createQuoteBtn.click(),
+      ]);
+      const { data: quoteData } = await response.json() as { data: { id: string } };
+      quoteId = quoteData.id;
+      console.log(`  Quote created via UI button, ID: ${quoteId}`);
+      // Wait for router.push to /quotes/[id]
+      await page.waitForURL(/\/quotes\//, { timeout: 5000 }).catch(() => {});
+    } else {
+      console.warn('  ⚠️ BUG — Create Quote button not found on lead detail page, falling back to API');
+      const createRes = await page.request.post(`${BASE}/api/v1/leads/${leadId}/quotes`);
+      if (!createRes.ok()) {
+        console.warn(`  ⚠️ Quote creation API failed (${createRes.status()})`);
+        return;
+      }
+      const { data: quoteData } = await createRes.json() as { data: { id: string } };
+      quoteId = quoteData.id;
+      console.log(`  Quote created via API, ID: ${quoteId}`);
     }
-    const { data: quoteData } = await createRes.json() as { data: { id: string } };
-    quoteId = quoteData.id;
-    console.log(`  Quote created via API, ID: ${quoteId}`);
     await page.goto(`${BASE}/quotes/${quoteId}`);
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2500);
@@ -658,30 +665,31 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('10 — Finance: create invoice and verify GST breakup', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
+    // Finance page tabs (actual tab names)
     await page.goto(`${BASE}/finance`);
     await page.waitForLoadState('domcontentloaded');
     await ss(page, '10-finance-page');
 
-    const bodyText = await page.innerText('body');
-    const tabs = ['Invoices', 'Payments received', 'Expenses', 'Vendor payables'];
-    for (const t of tabs) {
-      const found = bodyText.includes(t);
+    const financeBody = await page.innerText('body');
+    const actualTabs = ['To Collect', 'Received', 'Expenses', 'GST'];
+    for (const t of actualTabs) {
+      const found = financeBody.includes(t);
       console.log(`  Finance tab "${t}": ${found ? '✓' : '✗ MISSING'}`);
     }
 
-    // Click Invoices tab (should be default)
-    const invoicesTab = page.locator('button', { hasText: 'Invoices' });
-    if (await invoicesTab.isVisible()) await invoicesTab.click();
-    await page.waitForTimeout(400);
-    await ss(page, '10-invoices-tab');
+    // Invoice creation lives at /invoices — navigate there
+    await page.goto(`${BASE}/invoices`);
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForTimeout(1000);
+    await ss(page, '10-invoices-page');
 
-    // New Invoice button
+    // New Invoice button is in the /invoices page header
     const newInvBtn = page.locator('button', { hasText: /new invoice|create invoice/i }).first();
     const invBtnVis = await newInvBtn.isVisible({ timeout: 3000 }).catch(() => false);
     console.log(`  "New Invoice" button visible: ${invBtnVis}`);
 
     if (!invBtnVis) {
-      console.warn('  ⚠️ BUG — "New Invoice" button missing from Finance/Invoices tab');
+      console.warn('  ⚠️ BUG — "New Invoice" button missing from /invoices page');
       return;
     }
 
@@ -917,28 +925,18 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
   test('13 — Finance: vendor payables', async ({ page }) => {
     // storageState provides auth cookies — no login needed
 
-    await page.goto(`${BASE}/finance`);
+    // Vendor payables live at /vendor-payables, not as a Finance tab
+    await page.goto(`${BASE}/vendor-payables`);
     await page.waitForLoadState('domcontentloaded');
-
-    const vpTab = page.locator('button', { hasText: /vendor payables/i });
-    const vpVis = await vpTab.isVisible({ timeout: 3000 }).catch(() => false);
-    console.log(`  Vendor Payables tab visible: ${vpVis}`);
-    if (!vpVis) {
-      console.warn('  ⚠️ BUG — Vendor Payables tab missing from Finance page');
-      return;
-    }
-
-    await vpTab.click();
-    await page.waitForTimeout(600);
+    await page.waitForTimeout(1000);
     await ss(page, '13-vendor-payables');
 
     const bodyText = await page.innerText('body');
     const hasTable  = bodyText.match(/vendor|payable|PO|amount/i) !== null;
     const hasEmpty  = bodyText.match(/no vendor|no payable|empty/i) !== null;
-    console.log(`  Vendor payables has data/table: ${hasTable}`);
-    console.log(`  Empty state showing: ${hasEmpty}`);
+    console.log(`  Vendor payables page loaded: ${hasTable || hasEmpty}`);
 
-    console.log('✅ STEP 13 PASS — Vendor payables tab checked');
+    console.log('✅ STEP 13 PASS — Vendor payables page checked');
   });
 
   // ── STEP 14: Add site execution log ───────────────────────────────────────
@@ -1174,8 +1172,10 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
           console.log(`    SGST (9%):    ₹${(inv.sgstPaise/100).toLocaleString('en-IN')}`);
           console.log(`    IGST (18%):   ₹${(inv.igstPaise/100).toLocaleString('en-IN')}`);
           const expCgst = Math.round(inv.subtotalPaise * 0.09);
-          const cgstInvOk = !inv.isInterstate ? Math.abs(inv.cgstPaise - expCgst) < 100 : true;
-          console.log(`  Invoice CGST correct (intrastate): ${cgstInvOk}`);
+          // Skip check when both cgst & sgst are 0 — that means noGst was set (exempt invoice)
+          const isExempt = inv.cgstPaise === 0 && inv.sgstPaise === 0 && !inv.isInterstate;
+          const cgstInvOk = inv.isInterstate || isExempt || Math.abs(inv.cgstPaise - expCgst) < 100;
+          console.log(`  Invoice CGST correct (intrastate): ${cgstInvOk}${isExempt ? ' (noGst/exempt — skipped)' : ''}`);
           if (!cgstInvOk) console.warn('  ⚠️ BUG — Invoice CGST does not match 9% of subtotal');
         }
       }

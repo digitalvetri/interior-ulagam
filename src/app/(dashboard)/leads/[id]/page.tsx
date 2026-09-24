@@ -9,7 +9,7 @@ import {
   Plus, FolderKanban, ChevronDown, ChevronUp,
   Zap,
   Edit2, Trash2, Archive, MoreVertical,
-  Upload, ExternalLink,
+  Upload, ExternalLink, FileText,
 } from 'lucide-react';
 import { Lead, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
 import {
@@ -187,6 +187,8 @@ export default function LeadDetailPage() {
   const [lostReasonInput, setLostReasonInput]         = useState('');
   const [stageError, setStageError]                   = useState<string | null>(null);
   const [showStageMenu, setShowStageMenu]             = useState(false);
+
+  const [creatingQuote, setCreatingQuote] = useState(false);
 
   // Site visit modal
   const [showSiteVisitModal, setShowSiteVisitModal] = useState(false);
@@ -495,6 +497,18 @@ export default function LeadDetailPage() {
   const stageActionsDisabled = markingWon || markingLost || reopening;
   const waPhone = lead.contactPhone.replace(/\D/g, '').slice(-10);
 
+  async function handleCreateQuote() {
+    setCreatingQuote(true);
+    try {
+      const res = await fetch(`/api/v1/leads/${id}/quotes`, { method: 'POST' });
+      if (!res.ok) return;
+      const { data } = await res.json() as { data: { id: string } };
+      router.push(`/quotes/${data.id}`);
+    } finally {
+      setCreatingQuote(false);
+    }
+  }
+
   async function handleSiteVisitSuccess() {
     // Refresh site visits so At a Glance shows the new scheduled date
     const svRes = await fetch(`/api/v1/site-visits?leadId=${id}`).catch(() => null);
@@ -790,6 +804,13 @@ export default function LeadDetailPage() {
                     </button>
                   );
                 })()}
+
+                <button type="button" onClick={handleCreateQuote} disabled={stageActionsDisabled || creatingQuote}
+                  className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
+                  style={{ borderColor: 'rgba(99,102,241,0.3)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
+                  <FileText className="h-4 w-4" />
+                  {creatingQuote ? 'Creating…' : 'Create Quote'}
+                </button>
 
                 <button type="button" onClick={() => setShowWonFlowModal(true)} disabled={stageActionsDisabled}
                   className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-semibold border disabled:opacity-50"
