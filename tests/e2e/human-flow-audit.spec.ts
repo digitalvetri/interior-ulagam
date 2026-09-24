@@ -234,20 +234,16 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
 
     // Check action buttons — match actual button text in the UI
     const siteVisitBtn = page.locator('button', { hasText: /schedule site visit/i }).first();
-    const createQuoteBtn = page.locator('button', { hasText: /create quote/i }).first();
     const convertBtn   = page.locator('button', { hasText: /convert.*project|convert.*client/i }).first();
 
-    const hasSiteVisitBtn  = await siteVisitBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasCreateQuoteBtn = await createQuoteBtn.isVisible({ timeout: 2000 }).catch(() => false);
-    const hasConvertBtn    = await convertBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasSiteVisitBtn = await siteVisitBtn.isVisible({ timeout: 2000 }).catch(() => false);
+    const hasConvertBtn   = await convertBtn.isVisible({ timeout: 2000 }).catch(() => false);
 
     console.log(`  "Schedule Site Visit" button: ${hasSiteVisitBtn}`);
-    console.log(`  "Create Quote" button: ${hasCreateQuoteBtn}`);
     console.log(`  "Convert" button: ${hasConvertBtn}`);
 
-    if (!hasSiteVisitBtn)   console.warn('  ⚠️ BUG — Schedule Site Visit button missing from lead detail action bar');
-    if (!hasCreateQuoteBtn) console.warn('  ⚠️ BUG — Create Quote button missing from lead detail action bar');
-    if (!hasConvertBtn)     console.warn('  ⚠️ BUG — Convert button missing from lead detail action bar');
+    if (!hasSiteVisitBtn) console.warn('  ⚠️ BUG — Schedule Site Visit button missing from lead detail action bar');
+    if (!hasConvertBtn)   console.warn('  ⚠️ BUG — Convert button missing from lead detail action bar');
 
     console.log('✅ STEP 4 PASS — Lead detail page renders correctly');
   });
@@ -412,35 +408,16 @@ test.describe('Human Flow Audit — Lead to Handover', () => {
       leadId = rajesh.id;
     }
 
-    // Try to use the "Create Quote" button on the lead detail page
-    await page.goto(`${BASE}/leads/${leadId}`);
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2500);
-
-    const createQuoteBtn = page.locator('button', { hasText: /create quote/i }).first();
-    const hasCreateQuoteBtn = await createQuoteBtn.isVisible({ timeout: 3000 }).catch(() => false);
-    if (hasCreateQuoteBtn) {
-      // Intercept navigation so we can capture the new quote ID
-      const [response] = await Promise.all([
-        page.waitForResponse(r => r.url().includes('/api/v1/leads/') && r.url().includes('/quotes') && r.request().method() === 'POST'),
-        createQuoteBtn.click(),
-      ]);
-      const { data: quoteData } = await response.json() as { data: { id: string } };
-      quoteId = quoteData.id;
-      console.log(`  Quote created via UI button, ID: ${quoteId}`);
-      // Wait for router.push to /quotes/[id]
-      await page.waitForURL(/\/quotes\//, { timeout: 5000 }).catch(() => {});
-    } else {
-      console.warn('  ⚠️ BUG — Create Quote button not found on lead detail page, falling back to API');
-      const createRes = await page.request.post(`${BASE}/api/v1/leads/${leadId}/quotes`);
-      if (!createRes.ok()) {
-        console.warn(`  ⚠️ Quote creation API failed (${createRes.status()})`);
-        return;
-      }
-      const { data: quoteData } = await createRes.json() as { data: { id: string } };
-      quoteId = quoteData.id;
-      console.log(`  Quote created via API, ID: ${quoteId}`);
+    // Quotes are managed in external software; the CRM records the quoted amount only.
+    // Create a draft quote via API to test the quote accept → book project flow.
+    const createRes = await page.request.post(`${BASE}/api/v1/leads/${leadId}/quotes`);
+    if (!createRes.ok()) {
+      console.warn(`  ⚠️ Quote creation API failed (${createRes.status()})`);
+      return;
     }
+    const { data: quoteData } = await createRes.json() as { data: { id: string } };
+    quoteId = quoteData.id;
+    console.log(`  Quote created via API, ID: ${quoteId}`);
     await page.goto(`${BASE}/quotes/${quoteId}`);
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2500);
