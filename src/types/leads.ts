@@ -133,7 +133,7 @@ export interface LeadFollowUp {
 
 export const STAGE_ORDER: LeadStage[] = [
   'new', 'contacted', 'site_visit', 'measured',
-  'quotation', 'negotiation', 'booked', 'lost',
+  'quotation', 'negotiation', 'booked', 'won', 'lost',
 ];
 
 export const ACTIVE_STAGES: LeadStage[] = [

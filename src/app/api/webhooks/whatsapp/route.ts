@@ -266,8 +266,14 @@ export async function POST(request: NextRequest) {
         ) {
           const flowResponse = message.interactive.nfm_reply;
           if (flowResponse) {
+            const [leadForFlow] = await db
+              .selectDistinct({ id: leads.id, tenantId: leads.tenantId })
+              .from(leads)
+              .where(eq(leads.contactPhone, from))
+              .limit(1);
+
             await logPendingWorkflow('wa_flow/response.received', {
-                tenantId: 'unknown',
+                tenantId: leadForFlow?.tenantId ?? 'unknown',
                 contactPhone: from,
                 flowToken: flowResponse.response_json,
                 flowName: flowResponse.name,

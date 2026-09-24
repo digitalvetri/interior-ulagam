@@ -54,19 +54,6 @@ function ss(page: Page, name: string) {
   });
 }
 
-async function waitForToast(page: Page, partialText?: string) {
-  // Toast/success message — many components use different patterns; try both
-  try {
-    if (partialText) {
-      await page.waitForSelector(`text=${partialText}`, { timeout: 5000 });
-    } else {
-      await page.waitForTimeout(800);
-    }
-  } catch {
-    // Toast may not appear; continue
-  }
-}
-
 // ─── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('Human Flow Audit — Lead to Handover', () => {

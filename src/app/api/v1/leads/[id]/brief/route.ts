@@ -147,7 +147,6 @@ Return:
     return NextResponse.json({ data: brief });
   } catch (e) {
     console.error('[POST /api/v1/leads/[id]/brief]', e);
-    const msg = e instanceof Error ? e.message : 'Unable to generate brief';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: 'Unable to generate brief' }, { status: 500 });
   }
 }
