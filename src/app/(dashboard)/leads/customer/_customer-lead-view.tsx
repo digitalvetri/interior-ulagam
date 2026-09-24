@@ -9,13 +9,13 @@ import {
   MoreVertical, Edit2, Trash2, ExternalLink,
 } from 'lucide-react';
 import { Lead, PRIORITY_CONFIG } from '@/types/leads';
+import {
+  canonicalStage, STAGE_STYLE, SOURCE_LABELS, fmtBudgetBand, fmtFollowUpDate, daysSince,
+} from '@/lib/leads/stage-utils';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 
 /* ── Helpers ── */
-function daysSince(iso: string) {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-}
 function isOverdue(dateIso?: string | null): boolean {
   if (!dateIso) return false;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -28,49 +28,6 @@ function isToday(dateIso?: string | null): boolean {
   const fd    = new Date(dateIso); fd.setHours(0, 0, 0, 0);
   return fd.getTime() === today.getTime();
 }
-
-const SOURCE_LABELS: Record<string, string> = {
-  instagram: 'Instagram', whatsapp: 'WhatsApp', referral: 'Referral',
-  website: 'Website', walk_in: 'Walk-in', other: 'Other',
-};
-
-function fmtBudgetBand(band: string): string {
-  if (!band) return '';
-  const fmtNum = (s: string) =>
-    s.replace(/(\d+(?:\.\d+)?)cr/i, '$1 Cr').replace(/(\d+(?:\.\d+)?)l/i, '$1L');
-  if (band.startsWith('above_')) return `Above ${fmtNum(band.slice(6))}`;
-  if (band.startsWith('below_')) return `Below ${fmtNum(band.slice(6))}`;
-  const parts = band.split('_');
-  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} – ${fmtNum(parts[1])}`;
-  return band.replace(/_/g, ' ');
-}
-
-function formatFollowUp(dateIso?: string | null): string {
-  if (!dateIso) return '—';
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const fd    = new Date(dateIso); fd.setHours(0, 0, 0, 0);
-  const diff  = Math.round((fd.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff === -1) return 'Yesterday';
-  return fd.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-}
-
-const STAGE_CANONICAL: Record<string, 'new' | 'site_visit' | 'won' | 'lost'> = {
-  contacted: 'new', qualified: 'new',
-  measurement: 'site_visit', measured: 'site_visit', booked: 'site_visit',
-  quotation: 'site_visit', negotiation: 'site_visit',
-  site_visit_scheduled: 'site_visit', consultation_done: 'site_visit', proposal_sent: 'site_visit',
-};
-function canonicalStage(stage: string): 'new' | 'site_visit' | 'won' | 'lost' {
-  return (STAGE_CANONICAL[stage] ?? stage) as 'new' | 'site_visit' | 'won' | 'lost';
-}
-const STAGE_STYLE: Record<'new' | 'site_visit' | 'won' | 'lost', { bg: string; color: string; label: string }> = {
-  new:        { bg: 'var(--accent-soft)',   color: 'var(--accent-text)',    label: 'New Enquiry' },
-  site_visit: { bg: '#FEF9C3',             color: '#854D0E',               label: 'Site Visit'  },
-  won:        { bg: 'var(--success-soft)', color: 'var(--success-text)',   label: 'Won'         },
-  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
-};
 
 /* ── Project card ── */
 function ProjectCard({
@@ -223,7 +180,7 @@ function ProjectCard({
             )}
             <span className="flex items-center gap-1 text-[12px]" style={{ color: overdue ? 'var(--danger)' : 'var(--text-tertiary)' }}>
               <span className="font-medium" style={{ color: overdue ? 'var(--danger)' : 'var(--text-secondary)' }}>Next Follow-up</span>
-              &nbsp;{formatFollowUp(lead.followUpDate)}
+              &nbsp;{fmtFollowUpDate(lead.followUpDate)}
             </span>
           </div>
         </Link>

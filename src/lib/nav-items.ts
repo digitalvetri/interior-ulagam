@@ -4,7 +4,6 @@ import {
   UserCheck,
   FolderKanban,
   Ruler,
-  FileText,
   ShoppingCart,
   Wallet,
   Settings,

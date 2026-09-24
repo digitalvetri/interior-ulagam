@@ -9,6 +9,7 @@ import {
   MoreVertical, Trash2, Archive, Edit2, BellRing,
 } from 'lucide-react';
 import { Lead, LeadStage, PRIORITY_CONFIG } from '@/types/leads';
+import { canonicalStage, STAGE_STYLE, SOURCE_META, daysSince } from '@/lib/leads/stage-utils';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 import { LeadViewModal } from '@/components/leads/LeadViewModal';
@@ -30,38 +31,7 @@ const STATUS_CHIPS: Array<{ key: FilterKey; label: string }> = [
   { key: 'lost',        label: 'Lost' },
 ];
 
-/* ── Stage badge style ──────────────────────────────────────────────────────── */
-
-// Maps any legacy or retired stage value to the canonical display stage.
-// DB values are preserved; only the label/style shown to users changes.
-const STAGE_CANONICAL: Partial<Record<LeadStage, 'new' | 'site_visit' | 'won' | 'lost'>> = {
-  contacted:            'new',
-  qualified:            'new',
-  measurement:          'site_visit',
-  measured:             'site_visit',
-  booked:               'site_visit',
-  quotation:            'site_visit',
-  negotiation:          'site_visit',
-  site_visit_scheduled: 'site_visit',
-  consultation_done:    'site_visit',
-  proposal_sent:        'site_visit',
-};
-
-function canonicalStage(stage: LeadStage): 'new' | 'site_visit' | 'won' | 'lost' {
-  return STAGE_CANONICAL[stage] ?? (stage as 'new' | 'site_visit' | 'won' | 'lost');
-}
-
-const STAGE_STYLE: Record<'new' | 'site_visit' | 'won' | 'lost', { bg: string; color: string; label: string }> = {
-  new:        { bg: 'var(--accent-soft)',   color: 'var(--accent-text)',    label: 'New Enquiry' },
-  site_visit: { bg: '#FEF9C3',             color: '#854D0E',               label: 'Site Visit'  },
-  won:        { bg: 'var(--success-soft)', color: 'var(--success-text)',   label: 'Won'         },
-  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
-};
-
 /* ── Helpers ────────────────────────────────────────────────────────────────── */
-function daysSince(iso: string) {
-  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-}
 
 function followUpState(dateIso?: string | null): 'overdue' | 'today' | 'upcoming' | null {
   if (!dateIso) return null;
@@ -91,14 +61,6 @@ const ROTTING_BORDER: Record<RottingStatus, string> = {
   rotting: 'var(--danger)',
 };
 
-const SOURCE_META: Record<string, { label: string; dot: string; color: string }> = {
-  instagram: { label: 'Instagram', dot: '#E1306C',              color: '#E1306C'              },
-  whatsapp:  { label: 'WhatsApp',  dot: '#25D366',              color: '#16A34A'              },
-  referral:  { label: 'Referral',  dot: 'var(--accent-base)',   color: 'var(--accent-text)'   },
-  website:   { label: 'Website',   dot: 'var(--text-tertiary)', color: 'var(--text-tertiary)' },
-  walk_in:   { label: 'Walk-in',   dot: '#F97316',              color: '#EA580C'              },
-  other:     { label: 'Other',     dot: 'var(--text-tertiary)', color: 'var(--text-tertiary)' },
-};
 
 /* ── Lead list card ──────────────────────────────────────────────────────────── */
 const LeadListCard = memo(function LeadListCard({
