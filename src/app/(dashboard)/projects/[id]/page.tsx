@@ -618,7 +618,14 @@ function CreateInvoiceDialog({
           status:        'issued',
           ...(invoiceNumber.trim()  ? { invoiceNumber:   invoiceNumber.trim() }  : {}),
           ...(dueDate               ? { dueDate }                                : {}),
-          ...(description.trim()    ? { hsnSacLinesJson: [{ description: description.trim(), amountPaise: Math.round(parsedAmt * 100) }] } : {}),
+          hsnSacLinesJson: [{
+            hsnSac:      '9954',
+            description: description.trim() || `Interior Design Works — ${project.name}`,
+            amountPaise: Math.round(parsedAmt * 100),
+            cgstPaise,
+            sgstPaise,
+            igstPaise,
+          }],
           ...(notes.trim()          ? { notes: notes.trim() }                    : {}),
         }),
       });

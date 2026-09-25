@@ -59,6 +59,16 @@ export async function POST(
       ? (invoice.hsnSacLinesJson as HsnLine[])
       : [];
 
+    // Fallback: synthesise one HSN line from invoice totals when none are stored
+    const lines: HsnLine[] = rawLines.length > 0 ? rawLines : [{
+      hsnSac: '9954',
+      description: `Interior Design Works — ${invoice.projectName ?? 'Project'}`,
+      amountPaise: invoice.subtotalPaise,
+      cgstPaise: invoice.cgstPaise,
+      sgstPaise: invoice.sgstPaise,
+      igstPaise: invoice.igstPaise,
+    }];
+
     const studio = extractBranding(tenant ?? { name: 'Konst Design' });
 
     // 4. Render PDF buffer
@@ -72,7 +82,7 @@ export async function POST(
         address: invoice.leadProjectLocation ?? null,
       },
       project: { name: invoice.projectName ?? 'Project' },
-      lines: rawLines,
+      lines,
       subtotalPaise: invoice.subtotalPaise,
       cgstPaise: invoice.cgstPaise,
       sgstPaise: invoice.sgstPaise,
