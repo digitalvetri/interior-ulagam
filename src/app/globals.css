@@ -27,16 +27,17 @@
   --text-secondary:  #6B6B66;   /* supporting copy, labels                   */
   --text-tertiary:   #96968F;   /* metadata, placeholders                    */
 
-  /* ── Accent — Nordic indigo, used sparingly ───────────── */
-  --accent-base:     #3B82F6;   /* Nordic indigo                             */
-  --accent-hover:    #2563EB;   /* deeper indigo for hover states            */
-  --accent-soft:     rgba(59, 130, 246, 0.10); /* tinted bg for active states */
-  --accent-text:     #1D4ED8;   /* AA-safe dark indigo text on white (≈7:1)  */
+  /* ── Accent — Rich violet, used sparingly ────────────── */
+  --accent-base:     #7C3AED;   /* Rich violet — primary brand accent        */
+  --accent-hover:    #6D28D9;   /* deeper violet for hover states            */
+  --accent-soft:     rgba(124, 58, 237, 0.12); /* tinted bg for active states */
+  --accent-text:     #6D28D9;   /* AA-safe dark violet text on white         */
+  --accent-cyan:     #06B6D4;   /* Cyan — secondary data / chart accent      */
 
-  /* ── Status — meaning only ────────────────────────────── */
-  --success:         #0F9D6E;  --success-soft: #E7F7F1;  --success-text: #0A7A55;
-  --warning:         #C4841D;  --warning-soft: #FBF2E2;  --warning-text: #8A6D0A;
-  --danger:          #D64545;  --danger-soft:  #FDECEC;  --danger-text:  #B02B2B;
+  /* ── Status — meaning only, richer saturation ─────────── */
+  --success:         #10B981;  --success-soft: rgba(16,185,129,0.15);  --success-text: #059669;
+  --warning:         #F59E0B;  --warning-soft: rgba(245,158,11,0.15);  --warning-text: #D97706;
+  --danger:          #EF4444;  --danger-soft:  rgba(239,68,68,0.15);   --danger-text:  #DC2626;
 
   /* ── Elevation — restrained; borders do most of the work ─ */
   --shadow-sm:  0 1px 2px rgba(17, 17, 16, 0.04);
@@ -44,16 +45,17 @@
   --shadow-lg:  0 8px 24px rgba(17, 17, 16, 0.07), 0 2px 6px rgba(17, 17, 16, 0.04);
 
   /* ── Shell metrics ────────────────────────────────────── */
-  --sidebar-width:        272px;  /* was 220px — roomier, calmer nav          */
+  --sidebar-width:        272px;
   --sidebar-width-icon:   72px;
   --topbar-height:        64px;
+  --surface-bg:           var(--surface-app);  /* alias used by some layouts  */
 
-  /* ── Legacy aliases (forest/mint → now resolve to indigo accent) ─────────── */
-  --forest:          #3B82F6;   /* aliases to accent for unified palette     */
-  --forest-hover:    #2563EB;
-  --forest-deep:     #1D4ED8;
-  --mint-mist:       rgba(59, 130, 246, 0.10);
-  --mint-mist-soft:  rgba(59, 130, 246, 0.06);
+  /* ── Legacy aliases (forest/mint → now resolve to violet accent) ─────────── */
+  --forest:          #7C3AED;   /* aliases to accent for unified palette     */
+  --forest-hover:    #6D28D9;
+  --forest-deep:     #5B21B6;
+  --mint-mist:       rgba(124, 58, 237, 0.12);
+  --mint-mist-soft:  rgba(124, 58, 237, 0.06);
 
   /* ── Legacy aliases ───────────────────────────────────────
      Kept so the many components still referencing the old names resolve to the
@@ -73,11 +75,11 @@
   --text-accent:     var(--accent-text);
   --text-gold:       var(--accent-text);
 
-  /* ── Per-metric accents — differentiated by tint, not hue ─ */
-  --accent-purple-bg: var(--accent-soft);  --accent-purple: var(--accent-base);
-  --accent-blue-bg:   var(--accent-soft);  --accent-blue:   var(--accent-base);
-  --accent-orange-bg: var(--warning-soft); --accent-orange: var(--warning-text);
-  --accent-green-bg:  var(--success-soft); --accent-green:  var(--success-text);
+  /* ── Per-metric accents — 4 distinct hues, one per KPI type ─ */
+  --accent-purple-bg: rgba(124, 58, 237, 0.12); --accent-purple: #7C3AED;   /* violet  — leads/pipeline  */
+  --accent-blue-bg:   rgba(6, 182, 212, 0.12);  --accent-blue:   #0891B2;   /* cyan    — projects/active */
+  --accent-orange-bg: rgba(245, 158, 11, 0.12); --accent-orange: #D97706;   /* amber   — revenue/finance */
+  --accent-green-bg:  rgba(16, 185, 129, 0.12); --accent-green:  #059669;   /* emerald — success/paid    */
 
   /* ── shadcn/ui tokens (mapped to palette) ─────────────── */
   --background:          var(--surface-app);
@@ -123,36 +125,37 @@
   --text-secondary:  #A1A19A;
   --text-tertiary:   #74746D;
 
-  /* Lighter indigo — lifted reads better on dark surfaces. */
-  --accent-base:     #60A5FA;
-  --accent-hover:    #3B82F6;
-  --accent-soft:     rgba(59, 130, 246, 0.18);
-  --accent-text:     #93C5FD;
+  /* Lighter violet — lifted reads better on dark surfaces. */
+  --accent-base:     #A78BFA;
+  --accent-hover:    #7C3AED;
+  --accent-soft:     rgba(124, 58, 237, 0.20);
+  --accent-text:     #C4B5FD;
+  --accent-cyan:     #22D3EE;
 
-  --success:  #2FBE8A;  --success-soft: rgba(47, 190, 138, 0.16);  --success-text: #4FD3A2;
-  --warning:  #D9A03C;  --warning-soft: rgba(217, 160, 60, 0.16);  --warning-text: #E8B75C;
-  --danger:   #E86A6A;  --danger-soft:  rgba(232, 106, 106, 0.16); --danger-text:  #F08A8A;
+  --success:  #34D399;  --success-soft: rgba(52, 211, 153, 0.18);  --success-text: #6EE7B7;
+  --warning:  #FBBF24;  --warning-soft: rgba(251, 191, 36, 0.18);  --warning-text: #FCD34D;
+  --danger:   #F87171;  --danger-soft:  rgba(248, 113, 113, 0.18); --danger-text:  #FCA5A5;
 
   --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md:  0 2px 4px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  /* Dark-mode forest/mint aliases → indigo */
-  --forest:          #60A5FA;
-  --forest-hover:    #3B82F6;
-  --forest-deep:     #93C5FD;
-  --mint-mist:       rgba(59, 130, 246, 0.18);
-  --mint-mist-soft:  rgba(59, 130, 246, 0.10);
+  /* Dark-mode forest/mint aliases → violet */
+  --forest:          #A78BFA;
+  --forest-hover:    #7C3AED;
+  --forest-deep:     #C4B5FD;
+  --mint-mist:       rgba(124, 58, 237, 0.20);
+  --mint-mist-soft:  rgba(124, 58, 237, 0.10);
 
-  /* Per-metric accents in dark mode */
-  --accent-purple-bg: rgba(59, 130, 246, 0.16); --accent-purple: #93C5FD;
-  --accent-blue-bg:   rgba(59, 130, 246, 0.16); --accent-blue:   #93C5FD;
-  --accent-orange-bg: rgba(217, 160, 60, 0.16);  --accent-orange: #E8B75C;
-  --accent-green-bg:  rgba(47, 190, 138, 0.16);  --accent-green:  #4FD3A2;
+  /* Per-metric accents in dark mode — 4 distinct hues */
+  --accent-purple-bg: rgba(167, 139, 250, 0.18); --accent-purple: #C4B5FD;
+  --accent-blue-bg:   rgba(34, 211, 238, 0.16);  --accent-blue:   #67E8F9;
+  --accent-orange-bg: rgba(251, 191, 36, 0.16);  --accent-orange: #FCD34D;
+  --accent-green-bg:  rgba(52, 211, 153, 0.16);  --accent-green:  #6EE7B7;
 
-  --teal-soft:       rgba(59, 130, 246, 0.15);
-  --purple-soft:     rgba(59, 130, 246, 0.18);
-  --gold-soft:       rgba(59, 130, 246, 0.18);
+  --teal-soft:       rgba(124, 58, 237, 0.18);
+  --purple-soft:     rgba(124, 58, 237, 0.20);
+  --gold-soft:       rgba(251, 191, 36, 0.16);
 
   --background:      var(--surface-app);
   --foreground:      var(--text-primary);
@@ -204,45 +207,44 @@ body {
   letter-spacing: -0.005em;
 }
 
-/* ── Card ────────────────────────────────────────────────────────────────────
-   Definition comes from a hairline border, not a drop shadow. The previous
-   version stacked two shadows and lifted 2px on hover, which reads as a
-   marketing page; a dense tool wants surfaces that sit still. */
+/* ── Card ─────────────────────────────────────────────────────────────────── */
 .premium-card {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 .premium-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
+  border-color: rgba(124, 58, 237, 0.25);
+  box-shadow: 0 8px 28px rgba(124,58,237,0.10), 0 2px 6px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
 }
 
-/* ── Stat icon badge — used by KPI cards for a distinct per-metric accent ── */
+/* ── Stat icon badge — distinct per-metric colour + soft glow ────────────── */
 .stat-badge {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: 9999px;
+  border-radius: 12px;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background: linear-gradient(180deg, #131545 0%, #1a1e6e 55%, #1f246e 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
-  /* Scoped tokens — resolve for all children inside the dark navy sidebar */
-  --text-heading:   #E2E8F0;
-  --text-primary:   #CBD5E1;
-  --text-secondary: #94A3B8;
-  --text-tertiary:  #64748B;
-  --border-subtle:  rgba(255, 255, 255, 0.08);
-  --surface-hover:  rgba(255, 255, 255, 0.06);
-  --accent-base:    #A5B4FC;   /* light indigo — bar indicator + admin badge */
+  background: linear-gradient(180deg, #0F0C29 0%, #2D2460 40%, #1E1B4B 75%, #16133A 100%);
+  border-right: 1px solid rgba(124, 58, 237, 0.15);
+  /* Scoped tokens — resolve for all children inside the dark violet sidebar */
+  --text-heading:   #F1F0FF;
+  --text-primary:   #C4B5FD;
+  --text-secondary: #8B83C0;
+  --text-tertiary:  #5E577A;
+  --border-subtle:  rgba(255, 255, 255, 0.07);
+  --surface-hover:  rgba(124, 58, 237, 0.10);
+  --accent-base:    #C4B5FD;   /* light violet — bar indicator + admin badge */
 }
 
 /* Hover and active states live in CSS so the nav needs no JS event handlers.
@@ -269,20 +271,22 @@ body {
 .nav-item:hover .nav-icon  { color: var(--text-secondary); }
 .nav-item.active .nav-icon { color: var(--accent-base); }
 
-/* Sidebar-scoped nav overrides — dark navy palette */
-.studio-sidebar .nav-item { color: #CBD5E1; }
+/* Sidebar-scoped nav overrides — deep violet palette */
+.studio-sidebar .nav-item { color: #A89FC8; }
 .studio-sidebar .nav-item:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-  color: #E2E8F0;
+  background: rgba(124, 58, 237, 0.14);
+  color: #E2D9FF;
 }
 .studio-sidebar .nav-item.active {
-  background-color: #4338CA;
+  background: linear-gradient(135deg, rgba(124,58,237,0.45) 0%, rgba(6,182,212,0.20) 100%);
+  box-shadow: 0 0 16px rgba(124,58,237,0.30), inset 0 1px 0 rgba(255,255,255,0.08);
+  border: 1px solid rgba(124,58,237,0.40);
   color: #FFFFFF;
-  font-weight: 550;
+  font-weight: 600;
 }
-.studio-sidebar .nav-item .nav-icon        { color: #475569; }
-.studio-sidebar .nav-item:hover .nav-icon  { color: #94A3B8; }
-.studio-sidebar .nav-item.active .nav-icon { color: #FFFFFF; }
+.studio-sidebar .nav-item .nav-icon        { color: #5E577A; }
+.studio-sidebar .nav-item:hover .nav-icon  { color: #C4B5FD; }
+.studio-sidebar .nav-item.active .nav-icon { color: #E0D9FF; }
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 /* Flat surface + hairline base border — no shadow */
@@ -306,7 +310,7 @@ body {
 .topbar-search:focus-within {
   background-color: #FFFFFF;
   border-color: var(--accent-base);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.16);
 }
 .topbar-search input {
   background: transparent;
@@ -346,22 +350,25 @@ body {
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
-/* Primary — solid accent, minimal shadow */
+/* Primary — violet gradient with glow */
 .btn-primary {
-  background-color: var(--accent-base);
+  background: linear-gradient(135deg, #7C3AED 0%, #6366F1 100%);
   color: #FFFFFF;
   border-radius: 8px;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 1px 1px rgba(59, 130, 246, 0.20);
-  transition: background-color 0.15s ease;
-  font-weight: 500;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  font-weight: 600;
   letter-spacing: -0.005em;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--accent-hover);
+  background: linear-gradient(135deg, #6D28D9 0%, #4F46E5 100%);
+  box-shadow: 0 6px 20px rgba(124,58,237,0.50), inset 0 1px 0 rgba(255,255,255,0.12);
+  transform: translateY(-1px);
 }
+.btn-primary:active:not(:disabled) { transform: translateY(0); }
 .btn-primary:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 0 3px rgba(59, 130, 246, 0.30);
+  box-shadow: 0 4px 14px rgba(124,58,237,0.35), 0 0 0 3px rgba(124,58,237,0.30);
 }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -721,10 +728,10 @@ body {
 /* ── KPI value — tabular figures + tight tracking ─────────────────────── */
 .kpi-value {
   color: var(--text-heading);
-  font-size: 1.875rem;
-  font-weight: 600;
+  font-size: 2rem;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1, "cv11" 1;
 }
@@ -805,21 +812,29 @@ body {
 
 /* ── Dark mode overrides for global CSS classes ─────────────────────────── */
 [data-theme="dark"] .studio-sidebar {
-  background: linear-gradient(180deg, #0c0e38 0%, #131660 55%, #161b62 100%);
-  border-right-color: rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, #07051A 0%, #1A1440 40%, #120F30 75%, #0D0B22 100%);
+  border-right-color: rgba(124, 58, 237, 0.12);
 }
 [data-theme="dark"] .nav-item { color: var(--text-secondary); }
 [data-theme="dark"] .nav-item:hover {
-  background-color: rgba(59, 130, 246, 0.10);
+  background-color: rgba(124, 58, 237, 0.12);
   color: var(--text-primary);
 }
 [data-theme="dark"] .nav-item.active {
-  background-color: rgba(59, 130, 246, 0.16);
+  background: linear-gradient(135deg, rgba(124,58,237,0.35) 0%, rgba(6,182,212,0.15) 100%);
+  box-shadow: 0 0 12px rgba(124,58,237,0.25);
   color: var(--accent-base);
 }
 [data-theme="dark"] .nav-item .nav-icon { color: var(--text-secondary); }
 [data-theme="dark"] .nav-item:hover .nav-icon { color: var(--accent-base); }
-[data-theme="dark"] .premium-card { background: var(--surface-card); }
+[data-theme="dark"] .premium-card {
+  background: var(--surface-card);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
+}
+[data-theme="dark"] .premium-card:hover {
+  border-color: rgba(124,58,237,0.30);
+  box-shadow: 0 8px 28px rgba(124,58,237,0.15), 0 2px 6px rgba(0,0,0,0.20);
+}
 [data-theme="dark"] .btn-secondary {
   background-color: var(--surface-muted);
   color: var(--teal);
@@ -845,8 +860,9 @@ body {
   overflow: hidden;
 }
 .progress-bar-fill {
-  background: linear-gradient(90deg, var(--teal), var(--teal));
+  background: linear-gradient(90deg, #7C3AED 0%, #06B6D4 100%);
   height: 100%;
   border-radius: 9999px;
   transition: width 0.6s ease;
+  box-shadow: 0 0 8px rgba(6,182,212,0.40);
 }

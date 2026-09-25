@@ -184,7 +184,7 @@ const FUNNEL_STAGES = [
   { key: 'won',        label: 'Won'         },
   { key: 'lost',       label: 'Lost'        },
 ];
-const FUNNEL_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444'];
+const FUNNEL_COLORS = ['#7C3AED', '#F59E0B', '#10B981', '#EF4444'];
 
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },

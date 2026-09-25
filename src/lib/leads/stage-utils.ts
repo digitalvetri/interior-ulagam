@@ -20,10 +20,10 @@ export function canonicalStage(stage: string): CanonicalStage {
 }
 
 export const STAGE_STYLE: Record<CanonicalStage, { bg: string; color: string; label: string }> = {
-  new:        { bg: 'var(--accent-soft)',    color: 'var(--accent-text)',    label: 'New Enquiry' },
-  site_visit: { bg: '#FEF9C3',              color: '#854D0E',               label: 'Site Visit'  },
-  won:        { bg: 'var(--success-soft)',  color: 'var(--success-text)',   label: 'Won'         },
-  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
+  new:        { bg: 'rgba(124,58,237,0.12)',  color: '#7C3AED', label: 'New Enquiry' },
+  site_visit: { bg: 'rgba(245,158,11,0.14)',  color: '#D97706', label: 'Site Visit'  },
+  won:        { bg: 'rgba(16,185,129,0.14)',   color: '#059669', label: 'Won'         },
+  lost:       { bg: 'rgba(239,68,68,0.12)',    color: '#DC2626', label: 'Lost'        },
 };
 
 export const SOURCE_LABELS: Record<string, string> = {
