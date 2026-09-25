@@ -182,8 +182,9 @@ const FUNNEL_STAGES = [
   { key: 'new',        label: 'New Enquiry' },
   { key: 'site_visit', label: 'Site Visit'  },
   { key: 'won',        label: 'Won'         },
+  { key: 'lost',       label: 'Lost'        },
 ];
-const FUNNEL_COLORS = ['#6366f1', '#f59e0b', '#10b981'];
+const FUNNEL_COLORS = ['#6366f1', '#f59e0b', '#10b981', '#ef4444'];
 
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
@@ -1067,14 +1068,15 @@ export default function DashboardPage() {
             ) : followUpLeads.length === 0 ? (
               <div className="flex-1 flex flex-col">
                 {/* Count summary rows */}
-                <div className="divide-y flex-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                <div className="flex-1">
                   {[
                     { label: 'Overdue',   value: followUps?.overdue  ?? 0, color: 'var(--danger)',       href: '/leads?followup=overdue'  },
                     { label: 'Due today', value: followUps?.dueToday ?? 0, color: 'var(--warning)',      href: '/leads?followup=today'    },
                     { label: 'Upcoming',  value: followUps?.upcoming  ?? 0, color: 'var(--accent-base)', href: '/leads?followup=upcoming' },
-                  ].map(r => (
+                  ].map((r, idx) => (
                     <Link key={r.label} href={r.href}
-                      className="flex items-center justify-between py-3 hover:opacity-80 transition-opacity">
+                      className="flex items-center justify-between py-3 hover:opacity-80 transition-opacity"
+                      style={idx > 0 ? { borderTop: '1px solid var(--border-subtle)' } : {}}>
                       <div className="flex items-center gap-2">
                         <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: r.color }} />
                         <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{r.label}</span>

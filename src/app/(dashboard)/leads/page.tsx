@@ -506,6 +506,9 @@ export default function LeadsPage() {
 
   /* Group filtered leads by customer — one card per customer on the list */
   const grouped = useMemo(() => {
+    // Won > Site Visit > New Enquiry > Lost — only show Lost if every lead for the contact is lost
+    const STAGE_PRIORITY: Record<string, number> = { won: 4, site_visit: 3, new: 2, lost: 1 };
+
     // First pass: build phone → customerId so leads with customerId=null still merge
     const phoneToCustomerId = new Map<string, string>();
     for (const lead of filtered) {
@@ -521,7 +524,14 @@ export default function LeadsPage() {
       if (!map.has(key)) {
         map.set(key, { groupKey: key, customerId: resolvedId, primaryLead: lead, count: 1 });
       } else {
-        map.get(key)!.count += 1;
+        const group = map.get(key)!;
+        group.count += 1;
+        // Promote primaryLead to the highest-priority stage across all enquiries
+        const currentPriority = STAGE_PRIORITY[group.primaryLead.stage] ?? 0;
+        const incomingPriority = STAGE_PRIORITY[lead.stage] ?? 0;
+        if (incomingPriority > currentPriority) {
+          group.primaryLead = lead;
+        }
       }
     }
     return Array.from(map.values());
