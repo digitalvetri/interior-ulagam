@@ -173,55 +173,70 @@ function CountUp({ target, duration = 900 }: { target: number; duration?: number
 // ─── SVG Grouped Bar Chart ────────────────────────────────────────────────────
 
 function GroupedBarChart({ months }: { months: ChartMonth[] }) {
-  const [mounted, setMounted]       = useState(false);
-  const [tooltip, setTooltip]       = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [mounted, setMounted]             = useState(false);
+  const [activeIdx, setActiveIdx]         = useState<number | null>(null);
+  const [mouseX, setMouseX]               = useState(0); // px from container left
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 120);
     return () => clearTimeout(t);
   }, []);
 
-  function showTooltip(idx: number, x: number, y: number) {
-    if (hideTimer.current) clearTimeout(hideTimer.current);
-    setTooltip({ idx, x, y });
-    setTooltipVisible(true);
-  }
-
-  function hideTooltip() {
-    setTooltipVisible(false);
-    hideTimer.current = setTimeout(() => setTooltip(null), 200);
-  }
-
-  const PAD   = { top: 24, right: 16, bottom: 40, left: 56 };
-  const W     = 560;
-  const H     = 200;
+  const PAD    = { top: 24, right: 16, bottom: 40, left: 56 };
+  const W      = 560;
+  const H      = 200;
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top  - PAD.bottom;
-
   const maxVal = Math.max(...months.flatMap(m => [m.receivedPaise, m.expensesPaise]), 1);
-
-  const TICKS = 4;
+  const TICKS  = 4;
   const yTicks = Array.from({ length: TICKS + 1 }, (_, i) => {
     const v = (maxVal / TICKS) * i;
     return { y: innerH - (v / maxVal) * innerH, label: formatRupees(Math.round(v)) };
   });
+  const slotW = innerW / months.length;
+  const barW  = Math.min(slotW * 0.32, 22);
+  const gap   = Math.min(slotW * 0.06, 4);
 
-  const slotW   = innerW / months.length;
-  const barW    = Math.min(slotW * 0.32, 22);
-  const gap     = Math.min(slotW * 0.06, 4);
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const svgX = (relX / rect.width) * W;
+    const idx  = Math.floor((svgX - PAD.left) / slotW);
+    if (idx >= 0 && idx < months.length) {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      setActiveIdx(idx);
+      setMouseX(relX);
+      setTooltipVisible(true);
+    }
+  }
+
+  function handleMouseLeave() {
+    setTooltipVisible(false);
+    hideTimer.current = setTimeout(() => setActiveIdx(null), 180);
+  }
+
+  const activeCxSvg = activeIdx !== null
+    ? PAD.left + slotW * activeIdx + slotW / 2
+    : 0;
+  // crosshair X as % of viewBox width → usable as CSS left %
+  const crosshairPct = (activeCxSvg / W) * 100;
+  const m = activeIdx !== null ? months[activeIdx] : null;
 
   return (
-    <div className="relative" style={{ height: `${H}px` }}>
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%" height="100%"
-        onMouseLeave={hideTooltip}
-      >
-        {/* Y-axis grid lines */}
+    <div
+      ref={containerRef}
+      className="relative"
+      style={{ height: `${H}px` }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%">
+        {/* Y-axis grid */}
         {yTicks.map((t, i) => (
           <g key={i}>
             <line
@@ -229,84 +244,108 @@ function GroupedBarChart({ months }: { months: ChartMonth[] }) {
               y1={PAD.top + t.y} y2={PAD.top + t.y}
               stroke="var(--border-subtle)" strokeDasharray="3 3" strokeWidth={0.8}
             />
-            <text
-              x={PAD.left - 6} y={PAD.top + t.y + 4}
-              textAnchor="end" fontSize={9} fill="var(--text-tertiary)"
-            >
+            <text x={PAD.left - 6} y={PAD.top + t.y + 4}
+              textAnchor="end" fontSize={9} fill="var(--text-tertiary)">
               {i === 0 ? '0' : t.label}
             </text>
           </g>
         ))}
 
         {/* Bars */}
-        {months.map((m, i) => {
-          const cx      = PAD.left + slotW * i + slotW / 2;
-          const recH    = mounted && m.receivedPaise > 0 ? (m.receivedPaise  / maxVal) * innerH : 0;
-          const expH    = mounted && m.expensesPaise > 0 ? (m.expensesPaise / maxVal) * innerH : 0;
-          const recY    = PAD.top + innerH - recH;
-          const expY    = PAD.top + innerH - expH;
+        {months.map((mo, i) => {
+          const cx     = PAD.left + slotW * i + slotW / 2;
+          const recH   = mounted && mo.receivedPaise > 0 ? (mo.receivedPaise / maxVal) * innerH : 0;
+          const expH   = mounted && mo.expensesPaise > 0 ? (mo.expensesPaise / maxVal) * innerH : 0;
+          const recY   = PAD.top + innerH - recH;
+          const expY   = PAD.top + innerH - expH;
+          const dimmed = activeIdx !== null && activeIdx !== i;
 
           return (
-            <g key={i}
-              style={{ cursor: 'default' }}
-              onMouseEnter={() => showTooltip(i, cx, PAD.top + innerH / 2)}>
-              {/* Received bar */}
-              <rect
-                x={cx - barW - gap / 2} y={recY} width={barW} height={recH}
-                rx={3}
+            <g key={i} style={{ cursor: 'default' }}>
+              <rect x={cx - barW - gap / 2} y={recY} width={barW} height={recH} rx={3}
                 fill="var(--accent-base)"
-                style={{ transition: 'height 0.7s cubic-bezier(.22,.61,.36,1), y 0.7s cubic-bezier(.22,.61,.36,1)' }}
+                opacity={dimmed ? 0.25 : 1}
+                style={{ transition: 'opacity 0.15s ease, height 0.7s cubic-bezier(.22,.61,.36,1), y 0.7s cubic-bezier(.22,.61,.36,1)' }}
               />
-              {/* Expenses bar */}
-              <rect
-                x={cx + gap / 2} y={expY} width={barW} height={expH}
-                rx={3}
+              <rect x={cx + gap / 2} y={expY} width={barW} height={expH} rx={3}
                 fill="var(--danger)"
-                opacity={0.75}
-                style={{ transition: 'height 0.7s cubic-bezier(.22,.61,.36,1), y 0.7s cubic-bezier(.22,.61,.36,1)' }}
+                opacity={dimmed ? 0.18 : 0.75}
+                style={{ transition: 'opacity 0.15s ease, height 0.7s cubic-bezier(.22,.61,.36,1), y 0.7s cubic-bezier(.22,.61,.36,1)' }}
               />
-              {/* X-label */}
-              <text
-                x={cx} y={H - 8}
-                textAnchor="middle" fontSize={9.5} fill="var(--text-tertiary)"
-              >
-                {m.label}
+              <text x={cx} y={H - 8} textAnchor="middle" fontSize={9.5}
+                fill="var(--text-tertiary)"
+                opacity={dimmed ? 0.35 : 1}
+                style={{ transition: 'opacity 0.15s ease' }}>
+                {mo.label}
               </text>
-              {/* Hover zone */}
-              <rect x={cx - slotW / 2} y={PAD.top} width={slotW} height={innerH} fill="transparent" />
             </g>
           );
         })}
-
-        {/* Tooltip — always mounted, fades in/out via opacity */}
-        {(() => {
-          const m  = tooltip ? months[tooltip.idx] : null;
-          const tx = tooltip ? (tooltip.x > W - 150 ? tooltip.x - 130 : tooltip.x + 10) : 0;
-          const ty = 30;
-          return (
-            <g style={{ opacity: tooltipVisible ? 1 : 0, transition: 'opacity 0.18s ease', pointerEvents: 'none' }}>
-              {m && (
-                <>
-                  <rect x={tx - 4} y={ty} width={136} height={58} rx={8}
-                    fill="var(--surface-card)" stroke="var(--border-subtle)" strokeWidth={1} />
-                  <text x={tx + 4} y={ty + 14} fontSize={10} fontWeight={600} fill="var(--text-heading)">{m.label}</text>
-                  <circle cx={tx + 4} cy={ty + 26} r={3.5} fill="var(--accent-base)" />
-                  <text x={tx + 12} y={ty + 30} fontSize={9.5} fill="var(--text-secondary)">
-                    {'In  '}{formatRupees(m.receivedPaise)}
-                  </text>
-                  <circle cx={tx + 4} cy={ty + 41} r={3.5} fill="var(--danger)" />
-                  <text x={tx + 12} y={ty + 45} fontSize={9.5} fill="var(--text-secondary)">
-                    {'Out '}{formatRupees(m.expensesPaise)}
-                  </text>
-                  <text x={tx + 4} y={ty + 56} fontSize={9} fill="var(--text-tertiary)">
-                    {'Net '}{formatRupees(m.receivedPaise - m.expensesPaise)}
-                  </text>
-                </>
-              )}
-            </g>
-          );
-        })()}
       </svg>
+
+      {/* Crosshair — CSS left % so it stays in SVG coordinate space */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          top: PAD.top, bottom: PAD.bottom,
+          left: `${crosshairPct}%`,
+          width: 1,
+          background: 'var(--accent-base)',
+          opacity: tooltipVisible ? 0.35 : 0,
+          transition: 'left 0.08s ease, opacity 0.15s ease',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Tooltip — HTML div, follows mouse with CSS left transition */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: `min(${mouseX + 14}px, calc(100% - 148px))`,
+          opacity: tooltipVisible ? 1 : 0,
+          transform: tooltipVisible ? 'translateY(0) scale(1)' : 'translateY(-5px) scale(0.97)',
+          transition: 'opacity 0.15s ease, transform 0.15s ease, left 0.08s ease',
+          pointerEvents: 'none',
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 10,
+          padding: '8px 12px',
+          minWidth: 136,
+          boxShadow: 'var(--shadow-lg)',
+          zIndex: 10,
+        }}
+      >
+        {m && (
+          <>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-heading)', marginBottom: 6 }}>
+              {m.label}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent-base)', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1 }}>In</span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-heading)' }}>{formatRupees(m.receivedPaise)}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--danger)', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1 }}>Out</span>
+              <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-heading)' }}>{formatRupees(m.expensesPaise)}</span>
+            </div>
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-tertiary)', flex: 1 }}>Net</span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: m.receivedPaise >= m.expensesPaise ? 'var(--success-text)' : 'var(--danger-text)',
+                }}>
+                  {formatRupees(m.receivedPaise - m.expensesPaise)}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
