@@ -2,7 +2,6 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { STAGE_STYLE_MAP } from '@/types/deliverables';
 import type { ProjectStage } from '@/types/deliverables';
@@ -14,17 +13,6 @@ interface ProjectMini {
   leadContactName?: string | null;
 }
 
-const PROJECT_TABS = [
-  { label: 'Overview',     suffix: ''              },
-  { label: 'Deliverables', suffix: '/deliverables' },
-  { label: 'Site',         suffix: '/site'         },
-  { label: 'Work Orders',  suffix: '/work-orders'  },
-  { label: 'Snag',         suffix: '/snag'         },
-  { label: 'Documents',    suffix: '/documents'    },
-  { label: 'BOQ',          suffix: '/boq'          },
-  { label: 'Expenses',     suffix: '/expenses'     },
-  { label: 'Payments',     suffix: '/payments'     },
-];
 
 export default function ProjectShellLayout({
   children,
@@ -34,7 +22,6 @@ export default function ProjectShellLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const pathname = usePathname();
   const [project, setProject] = useState<ProjectMini | null>(null);
 
   useEffect(() => {
@@ -46,7 +33,6 @@ export default function ProjectShellLayout({
 
   const clientName = project?.customerFullName ?? project?.leadContactName ?? null;
   const stage      = project?.lifecycleStage ? STAGE_STYLE_MAP[project.lifecycleStage] : null;
-  const base       = `/projects/${id}`;
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: 'var(--surface-bg)' }}>
@@ -93,31 +79,6 @@ export default function ProjectShellLayout({
           </div>
         </div>
 
-        {/* Project sub-navigation */}
-        <div
-          className="flex gap-0 overflow-x-auto"
-          style={{ scrollbarWidth: 'none', borderTop: '1px solid var(--border-subtle)' }}
-        >
-          {PROJECT_TABS.map(({ label, suffix }) => {
-            const href    = `${base}${suffix}`;
-            const isActive = suffix === ''
-              ? pathname === base || pathname === `${base}/`
-              : pathname.startsWith(href);
-            return (
-              <Link
-                key={suffix}
-                href={href}
-                className="relative flex-shrink-0 px-4 py-2.5 text-[13px] font-medium transition-colors whitespace-nowrap"
-                style={{
-                  color: isActive ? 'var(--accent-base)' : 'var(--text-secondary)',
-                  borderBottom: isActive ? '2px solid var(--accent-base)' : '2px solid transparent',
-                }}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </div>
       </div>
 
       {children}
