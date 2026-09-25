@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/components/providers/user-provider';
 import Link from 'next/link';
@@ -128,37 +128,101 @@ const LEAVE_TYPE_LABEL: Record<string, string> = {
 /* ── Donut Chart ────────────────────────────────────────────────────────── */
 function DonutChart({ segments, size = 140 }: { segments: { value: number; color: string; label: string }[]; size?: number }) {
   const total = segments.reduce((s, seg) => s + seg.value, 0);
+  const [activeIdx, setActiveIdx]           = useState<number | null>(null);
+  const [cursor, setCursor]                 = useState({ x: 0, y: 0 });
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   if (total === 0) return (
     <svg viewBox="0 0 140 140" width={size} height={size}>
       <circle cx={70} cy={70} r={54} fill="none" stroke="var(--border-subtle)" strokeWidth={16} />
       <text x={70} y={68} textAnchor="middle" fill="var(--text-tertiary)" fontSize={11}>No data</text>
     </svg>
   );
+
   const CX = 70, CY = 70, R_OUT = 54, R_IN = 36;
-  let cursor = -90;
-  const paths: { d: string; color: string }[] = [];
-  segments.forEach(seg => {
+  let cur = -90;
+  const paths: { d: string; color: string; segIdx: number }[] = [];
+  segments.forEach((seg, segIdx) => {
     if (seg.value === 0) return;
     const angle = (seg.value / total) * 360;
-    const start = cursor;
-    const end   = cursor + angle - 0.5;
-    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const start = cur;
+    const end   = cur + angle - 0.5;
+    const toRad = (d: number) => (d * Math.PI) / 180;
     const sx  = CX + R_OUT * Math.cos(toRad(start)), sy  = CY + R_OUT * Math.sin(toRad(start));
     const ex  = CX + R_OUT * Math.cos(toRad(end)),   ey  = CY + R_OUT * Math.sin(toRad(end));
     const sx2 = CX + R_IN  * Math.cos(toRad(end)),   sy2 = CY + R_IN  * Math.sin(toRad(end));
     const ex2 = CX + R_IN  * Math.cos(toRad(start)), ey2 = CY + R_IN  * Math.sin(toRad(start));
-    const large = angle > 180 ? 1 : 0;
-    paths.push({ color: seg.color, d: `M${sx},${sy} A${R_OUT},${R_OUT} 0 ${large} 1 ${ex},${ey} L${sx2},${sy2} A${R_IN},${R_IN} 0 ${large} 0 ${ex2},${ey2} Z` });
-    cursor += angle;
+    paths.push({ color: seg.color, segIdx, d: `M${sx},${sy} A${R_OUT},${R_OUT} 0 ${angle > 180 ? 1 : 0} 1 ${ex},${ey} L${sx2},${sy2} A${R_IN},${R_IN} 0 ${angle > 180 ? 1 : 0} 0 ${ex2},${ey2} Z` });
+    cur += angle;
   });
+
+  function onEnter(segIdx: number, e: React.MouseEvent) {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setActiveIdx(segIdx);
+    setCursor({ x: e.clientX, y: e.clientY });
+    setTooltipVisible(true);
+  }
+  function onMove(e: React.MouseEvent) { setCursor({ x: e.clientX, y: e.clientY }); }
+  function onLeave() {
+    setTooltipVisible(false);
+    hideTimer.current = setTimeout(() => setActiveIdx(null), 180);
+  }
+
+  const activeSeg = activeIdx !== null ? segments[activeIdx] : null;
+  const activePct = activeSeg ? Math.round((activeSeg.value / total) * 100) : 0;
+
   return (
-    <svg viewBox="0 0 140 140" width={size} height={size} style={{ flexShrink: 0 }}>
-      {paths.map((p, i) => (
-        <path key={i} d={p.d} fill={p.color} opacity={0.88} />
-      ))}
-      <text x={CX} y={CY - 7} textAnchor="middle" fill="var(--text-heading)" fontSize={22} fontWeight="bold">{total}</text>
-      <text x={CX} y={CY + 11} textAnchor="middle" fill="var(--text-secondary)" fontSize={9.5}>total leads</text>
-    </svg>
+    <div style={{ position: 'relative', flexShrink: 0 }} onMouseMove={onMove} onMouseLeave={onLeave}>
+      <svg viewBox="0 0 140 140" width={size} height={size} style={{ flexShrink: 0, display: 'block' }}>
+        {paths.map((p, i) => {
+          const isActive = activeIdx === p.segIdx;
+          const dimmed   = activeIdx !== null && !isActive;
+          return (
+            <path
+              key={i} d={p.d} fill={p.color}
+              opacity={dimmed ? 0.22 : 0.88}
+              style={{
+                cursor: 'pointer',
+                transition: 'opacity 0.15s ease, transform 0.15s ease',
+                transformOrigin: `${CX}px ${CY}px`,
+                transform: isActive ? 'scale(1.07)' : 'scale(1)',
+              }}
+              onMouseEnter={e => onEnter(p.segIdx, e)}
+            />
+          );
+        })}
+        <text x={CX} y={CY - 7}  textAnchor="middle" fill="var(--text-heading)"   fontSize={22} fontWeight="bold">{total}</text>
+        <text x={CX} y={CY + 11} textAnchor="middle" fill="var(--text-secondary)" fontSize={9.5}>total leads</text>
+      </svg>
+
+      {/* Tooltip — fixed to viewport so it's never clipped */}
+      {activeSeg && (
+        <div style={{
+          position: 'fixed',
+          left: cursor.x + 14,
+          top:  cursor.y - 52,
+          opacity:   tooltipVisible ? 1 : 0,
+          transform: tooltipVisible ? 'translateY(0) scale(1)' : 'translateY(-4px) scale(0.96)',
+          transition: 'opacity 0.15s ease, transform 0.15s ease',
+          pointerEvents: 'none', zIndex: 9999,
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 8, padding: '6px 10px',
+          boxShadow: 'var(--shadow-lg)',
+          minWidth: 110,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: activeSeg.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-heading)' }}>{activeSeg.label}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{activeSeg.value} leads</span>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{activePct}%</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -185,6 +249,116 @@ const FUNNEL_STAGES = [
   { key: 'lost',       label: 'Lost'        },
 ];
 const FUNNEL_COLORS = ['#7C3AED', '#F59E0B', '#10B981', '#EF4444'];
+
+/* ── Funnel Rows ────────────────────────────────────────────────────────── */
+function FunnelRows({
+  stages, colors, totalLeads, funnelCount, wonCount, lostCount, conversionPct,
+}: {
+  stages: { key: string; label: string }[];
+  colors: string[];
+  totalLeads: number;
+  funnelCount: (k: string) => number;
+  wonCount: number; lostCount: number; conversionPct: number;
+}) {
+  const [activeIdx, setActiveIdx]           = useState<number | null>(null);
+  const [cursor, setCursor]                 = useState({ x: 0, y: 0 });
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onEnter(i: number, e: React.MouseEvent) {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setActiveIdx(i);
+    setCursor({ x: e.clientX, y: e.clientY });
+    setTooltipVisible(true);
+  }
+  function onMove(e: React.MouseEvent) { setCursor({ x: e.clientX, y: e.clientY }); }
+  function onLeave() {
+    setTooltipVisible(false);
+    hideTimer.current = setTimeout(() => setActiveIdx(null), 180);
+  }
+
+  const activeSeg = activeIdx !== null ? (() => {
+    const count = funnelCount(stages[activeIdx].key);
+    const pct   = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
+    return { label: stages[activeIdx].label, color: colors[activeIdx], count, pct };
+  })() : null;
+
+  return (
+    <div className="flex-1 min-w-0 space-y-2">
+      {stages.map((s, i) => {
+        const count    = funnelCount(s.key);
+        const pct      = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
+        const isActive = activeIdx === i;
+        const dimmed   = activeIdx !== null && !isActive;
+        return (
+          <div key={s.key}
+            onMouseEnter={e => onEnter(i, e)}
+            onMouseMove={onMove}
+            onMouseLeave={onLeave}
+            style={{
+              borderRadius: 6, padding: '3px 5px',
+              background: isActive ? `${colors[i]}18` : 'transparent',
+              transition: 'background 0.15s ease',
+              cursor: 'default',
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <span className="h-2 w-2 rounded-full flex-shrink-0"
+                style={{ background: colors[i], opacity: dimmed ? 0.3 : 1, transition: 'opacity 0.15s ease' }} />
+              <span className="flex-1 text-[12px] truncate"
+                style={{ color: dimmed ? 'var(--text-tertiary)' : 'var(--text-secondary)', transition: 'color 0.15s ease' }}>
+                {s.label}
+              </span>
+              <span className="text-[12px] font-bold tabular-nums w-5 text-right"
+                style={{ color: dimmed ? 'var(--text-tertiary)' : 'var(--text-heading)', transition: 'color 0.15s ease' }}>
+                {count}
+              </span>
+              <span className="text-[11px] w-7 text-right" style={{ color: 'var(--text-tertiary)' }}>{pct}%</span>
+            </div>
+            <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
+              <div className="h-full rounded-full"
+                style={{ width: `${pct}%`, background: colors[i], opacity: dimmed ? 0.25 : 1, transition: 'opacity 0.15s ease' }} />
+            </div>
+          </div>
+        );
+      })}
+      <div className="pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+        <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+          Won <strong style={{ color: 'var(--text-heading)' }}>{wonCount}</strong>
+          &nbsp;· Lost <strong style={{ color: 'var(--text-heading)' }}>{lostCount}</strong>
+        </span>
+        <span className="text-[11px] font-bold" style={{ color: 'var(--accent-base)' }}>{conversionPct}% converted</span>
+      </div>
+
+      {/* Tooltip — fixed to viewport */}
+      {activeSeg && (
+        <div style={{
+          position: 'fixed',
+          left: cursor.x + 14,
+          top:  cursor.y - 52,
+          opacity:   tooltipVisible ? 1 : 0,
+          transform: tooltipVisible ? 'translateY(0) scale(1)' : 'translateY(-4px) scale(0.96)',
+          transition: 'opacity 0.15s ease, transform 0.15s ease',
+          pointerEvents: 'none', zIndex: 9999,
+          background: 'var(--surface-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 8, padding: '6px 10px',
+          boxShadow: 'var(--shadow-lg)',
+          minWidth: 110,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: activeSeg.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-heading)' }}>{activeSeg.label}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{activeSeg.count} leads</span>
+            <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{activeSeg.pct}%</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const KPI_ACCENTS = {
   purple: { bg: 'var(--accent-purple-bg)', fg: 'var(--accent-purple)' },
@@ -1012,32 +1186,15 @@ export default function DashboardPage() {
                   color: FUNNEL_COLORS[i],
                   label: s.label,
                 }))} size={120} />
-                <div className="flex-1 min-w-0 space-y-2.5">
-                  {FUNNEL_STAGES.map((s, i) => {
-                    const count = funnelCount(s.key);
-                    const pct   = totalLeads > 0 ? Math.round((count / totalLeads) * 100) : 0;
-                    return (
-                      <div key={s.key}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: FUNNEL_COLORS[i] }} />
-                          <span className="flex-1 text-[12px] truncate" style={{ color: 'var(--text-secondary)' }}>{s.label}</span>
-                          <span className="text-[12px] font-bold tabular-nums w-5 text-right" style={{ color: 'var(--text-heading)' }}>{count}</span>
-                          <span className="text-[11px] w-7 text-right" style={{ color: 'var(--text-tertiary)' }}>{pct}%</span>
-                        </div>
-                        <div className="h-1 w-full rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
-                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: FUNNEL_COLORS[i] }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="pt-2 flex items-center justify-between" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                    <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                      Won <strong style={{ color: 'var(--text-heading)' }}>{leadStats.won}</strong>
-                      &nbsp;· Lost <strong style={{ color: 'var(--text-heading)' }}>{leadStats.lost ?? 0}</strong>
-                    </span>
-                    <span className="text-[11px] font-bold" style={{ color: 'var(--accent-base)' }}>{conversionPct}% converted</span>
-                  </div>
-                </div>
+                <FunnelRows
+                  stages={FUNNEL_STAGES}
+                  colors={FUNNEL_COLORS}
+                  totalLeads={totalLeads}
+                  funnelCount={funnelCount}
+                  wonCount={leadStats.won}
+                  lostCount={leadStats.lost ?? 0}
+                  conversionPct={conversionPct}
+                />
               </div>
             )}
           </div>
