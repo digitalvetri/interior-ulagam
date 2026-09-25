@@ -108,9 +108,9 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Administration',
     roles: ALL_ROLES,
     items: [
-      { href: '/employees',        label: 'Employees',  icon: UsersRound, roles: ADMIN_ROLES    },
-      { href: '/my-space/profile', label: 'My Profile', icon: UserCircle, roles: MY_SPACE_ROLES },
-      { href: '/settings',         label: 'Settings',   icon: Settings,   roles: ADMIN_ROLES    },
+      { href: '/employees',        label: 'Employees',  icon: UsersRound, roles: ADMIN_ROLES },
+      { href: '/my-space/profile', label: 'My Profile', icon: UserCircle, roles: EMPLOYEE_ROLES },
+      { href: '/settings',         label: 'Settings',   icon: Settings,   roles: ADMIN_ROLES   },
     ],
   },
 ];
