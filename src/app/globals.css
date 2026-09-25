@@ -235,8 +235,8 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background: linear-gradient(180deg, #0F0C29 0%, #2D2460 40%, #1E1B4B 75%, #16133A 100%);
-  border-right: 1px solid rgba(124, 58, 237, 0.15);
+  background: linear-gradient(180deg, #160A2E 0%, #3B1280 38%, #27106A 65%, #140828 100%);
+  border-right: 1px solid rgba(124, 58, 237, 0.20);
   /* Scoped tokens — resolve for all children inside the dark violet sidebar */
   --text-heading:   #F1F0FF;
   --text-primary:   #C4B5FD;
@@ -812,8 +812,8 @@ body {
 
 /* ── Dark mode overrides for global CSS classes ─────────────────────────── */
 [data-theme="dark"] .studio-sidebar {
-  background: linear-gradient(180deg, #07051A 0%, #1A1440 40%, #120F30 75%, #0D0B22 100%);
-  border-right-color: rgba(124, 58, 237, 0.12);
+  background: linear-gradient(180deg, #0D0520 0%, #2A0D62 38%, #1C0A4A 65%, #0A0418 100%);
+  border-right-color: rgba(124, 58, 237, 0.18);
 }
 [data-theme="dark"] .nav-item { color: var(--text-secondary); }
 [data-theme="dark"] .nav-item:hover {
