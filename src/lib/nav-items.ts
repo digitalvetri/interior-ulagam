@@ -39,7 +39,9 @@ const DESIGN_ROLES   = ['admin', 'owner', 'designer', 'employee'];
 const FIELD_ROLES    = ['admin', 'owner', 'designer', 'employee', 'supervisor'];
 const PROC_ROLES     = ['admin', 'owner', 'designer', 'accountant'];
 // Self-service: all staff including admin/owner
-const MY_SPACE_ROLES = ['admin', 'owner', 'employee', 'designer', 'supervisor', 'accountant'];
+const MY_SPACE_ROLES  = ['admin', 'owner', 'employee', 'designer', 'supervisor', 'accountant'];
+// Employee self-service only — owners/admins have dedicated pages for these
+const EMPLOYEE_ROLES  = ['employee', 'designer', 'supervisor', 'accountant'];
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -97,8 +99,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/reports',             label: 'Reports',           icon: BarChart3,     roles: FINANCE_ROLES  },
       { href: '/attendance',          label: 'Attendance',        icon: CalendarCheck, roles: FINANCE_ROLES  },
       // Employees use /tasks for their assigned work; owners assign tasks via lead/project pages directly
-      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: MY_SPACE_ROLES },
-      { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: MY_SPACE_ROLES },
+      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: EMPLOYEE_ROLES },
+      { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: EMPLOYEE_ROLES },
     ],
   },
   {
