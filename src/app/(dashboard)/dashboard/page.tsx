@@ -906,8 +906,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Hero banner */}
-        <div className="rounded-2xl relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #1A0938 0%, #3D1275 55%, #0E6B8A 100%)', border: '1px solid rgba(124,58,237,0.25)' }}>
+        <div className="greeting-banner relative">
           {/* Content */}
           <div className="p-4 sm:p-6" style={{ position: 'relative', zIndex: 1 }}>
             <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"

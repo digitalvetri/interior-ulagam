@@ -111,19 +111,18 @@
    the surface + text tokens so every component keyed to the CSS vars swaps
    without touching the components. */
 :root[data-theme="dark"] {
-  /* Warm-neutral charcoal rather than blue-black, so the two themes read as the
-     same product. Surfaces step up as they come forward, never down. */
-  --surface-app:     #101010;
-  --surface-card:    #191918;
-  --surface-muted:   #212120;
-  --surface-hover:   #262625;
-  --border-subtle:   #2A2A28;
-  --border-strong:   #3A3A37;
+  /* Deep navy surfaces — layered depth, not near-black. */
+  --surface-app:     #0B1628;
+  --surface-card:    #152035;
+  --surface-muted:   #1C2B40;
+  --surface-hover:   #233348;
+  --border-subtle:   #2C3E55;
+  --border-strong:   #3D5168;
 
-  --text-heading:    #F5F5F3;
-  --text-primary:    #E8E8E4;
-  --text-secondary:  #A1A19A;
-  --text-tertiary:   #74746D;
+  --text-heading:    #F0F4FF;
+  --text-primary:    #CBD5E8;
+  --text-secondary:  #8B9BB4;
+  --text-tertiary:   #5A6880;
 
   /* Lighter violet — lifted reads better on dark surfaces. */
   --accent-base:     #A78BFA;
@@ -235,16 +234,21 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background: linear-gradient(180deg, #160A2E 0%, #3B1280 38%, #27106A 65%, #140828 100%);
-  border-right: 1px solid rgba(124, 58, 237, 0.20);
-  /* Scoped tokens — resolve for all children inside the dark violet sidebar */
-  --text-heading:   #F1F0FF;
-  --text-primary:   #C4B5FD;
-  --text-secondary: #8B83C0;
-  --text-tertiary:  #5E577A;
-  --border-subtle:  rgba(255, 255, 255, 0.07);
-  --surface-hover:  rgba(124, 58, 237, 0.10);
-  --accent-base:    #C4B5FD;   /* light violet — bar indicator + admin badge */
+  background:
+    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(255,255,255,0.07) 39px, rgba(255,255,255,0.07) 40px),
+    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(255,255,255,0.07) 39px, rgba(255,255,255,0.07) 40px),
+    repeating-linear-gradient(0deg,   transparent, transparent  9px, rgba(255,255,255,0.03)  9px, rgba(255,255,255,0.03) 10px),
+    repeating-linear-gradient(90deg,  transparent, transparent  9px, rgba(255,255,255,0.03)  9px, rgba(255,255,255,0.03) 10px),
+    linear-gradient(180deg, #170840 0%, #2E1278 50%, #170840 100%);
+  border-right: 1px solid rgba(124, 58, 237, 0.25);
+  /* Scoped tokens — white-based for legibility on vivid violet background */
+  --text-heading:   #FFFFFF;
+  --text-primary:   rgba(255, 255, 255, 0.90);
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --text-tertiary:  rgba(255, 255, 255, 0.40);
+  --border-subtle:  rgba(255, 255, 255, 0.12);
+  --surface-hover:  rgba(255, 255, 255, 0.10);
+  --accent-base:    #E0D9FF;   /* light violet — bar indicator + admin badge */
 }
 
 /* Hover and active states live in CSS so the nav needs no JS event handlers.
@@ -271,22 +275,22 @@ body {
 .nav-item:hover .nav-icon  { color: var(--text-secondary); }
 .nav-item.active .nav-icon { color: var(--accent-base); }
 
-/* Sidebar-scoped nav overrides — deep violet palette */
-.studio-sidebar .nav-item { color: #A89FC8; }
+/* Sidebar-scoped nav overrides — white-based for vivid violet background */
+.studio-sidebar .nav-item { color: rgba(255, 255, 255, 0.75); }
 .studio-sidebar .nav-item:hover {
-  background: rgba(124, 58, 237, 0.14);
-  color: #E2D9FF;
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
 }
 .studio-sidebar .nav-item.active {
-  background: linear-gradient(135deg, rgba(124,58,237,0.45) 0%, rgba(6,182,212,0.20) 100%);
-  box-shadow: 0 0 16px rgba(124,58,237,0.30), inset 0 1px 0 rgba(255,255,255,0.08);
-  border: 1px solid rgba(124,58,237,0.40);
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 16px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.20);
+  border: 1px solid rgba(255,255,255,0.25);
   color: #FFFFFF;
   font-weight: 600;
 }
-.studio-sidebar .nav-item .nav-icon        { color: #5E577A; }
-.studio-sidebar .nav-item:hover .nav-icon  { color: #C4B5FD; }
-.studio-sidebar .nav-item.active .nav-icon { color: #E0D9FF; }
+.studio-sidebar .nav-item .nav-icon        { color: rgba(255, 255, 255, 0.50); }
+.studio-sidebar .nav-item:hover .nav-icon  { color: rgba(255, 255, 255, 0.90); }
+.studio-sidebar .nav-item.active .nav-icon { color: #FFFFFF; }
 
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 /* Flat surface + hairline base border — no shadow */
@@ -754,7 +758,7 @@ body {
   border-top: 1px solid var(--border-subtle);
 }
 [data-theme="dark"] .floating-action-bar {
-  background: rgba(15, 23, 42, 0.97);
+  background: rgba(11, 22, 40, 0.97);
 }
 
 /* ── Page header (title + subtitle + action) — from feat branch ─────────── */
@@ -812,21 +816,26 @@ body {
 
 /* ── Dark mode overrides for global CSS classes ─────────────────────────── */
 [data-theme="dark"] .studio-sidebar {
-  background: linear-gradient(180deg, #0D0520 0%, #2A0D62 38%, #1C0A4A 65%, #0A0418 100%);
-  border-right-color: rgba(124, 58, 237, 0.18);
+  background:
+    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(255,255,255,0.06) 39px, rgba(255,255,255,0.06) 40px),
+    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(255,255,255,0.06) 39px, rgba(255,255,255,0.06) 40px),
+    repeating-linear-gradient(0deg,   transparent, transparent  9px, rgba(255,255,255,0.02)  9px, rgba(255,255,255,0.02) 10px),
+    repeating-linear-gradient(90deg,  transparent, transparent  9px, rgba(255,255,255,0.02)  9px, rgba(255,255,255,0.02) 10px),
+    linear-gradient(180deg, #0F0628 0%, #1E0C52 50%, #0F0628 100%);
+  border-right-color: rgba(124, 58, 237, 0.20);
 }
-[data-theme="dark"] .nav-item { color: var(--text-secondary); }
+[data-theme="dark"] .nav-item { color: rgba(255, 255, 255, 0.75); }
 [data-theme="dark"] .nav-item:hover {
-  background-color: rgba(124, 58, 237, 0.12);
-  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
 }
 [data-theme="dark"] .nav-item.active {
-  background: linear-gradient(135deg, rgba(124,58,237,0.35) 0%, rgba(6,182,212,0.15) 100%);
-  box-shadow: 0 0 12px rgba(124,58,237,0.25);
-  color: var(--accent-base);
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 12px rgba(255,255,255,0.08);
+  color: #FFFFFF;
 }
-[data-theme="dark"] .nav-item .nav-icon { color: var(--text-secondary); }
-[data-theme="dark"] .nav-item:hover .nav-icon { color: var(--accent-base); }
+[data-theme="dark"] .nav-item .nav-icon { color: rgba(255, 255, 255, 0.50); }
+[data-theme="dark"] .nav-item:hover .nav-icon { color: rgba(255, 255, 255, 0.90); }
 [data-theme="dark"] .premium-card {
   background: var(--surface-card);
   box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.15);
@@ -850,6 +859,19 @@ body {
 [data-theme="dark"] .topbar-search kbd {
   background: var(--surface-muted);
   color: var(--text-secondary);
+}
+
+/* ── Greeting hero banner — purple-to-cyan with architectural grid ───────── */
+.greeting-banner {
+  background:
+    repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(255,255,255,0.06) 39px, rgba(255,255,255,0.06) 40px),
+    repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(255,255,255,0.06) 39px, rgba(255,255,255,0.06) 40px),
+    repeating-linear-gradient(0deg,   transparent, transparent  9px, rgba(255,255,255,0.025)  9px, rgba(255,255,255,0.025) 10px),
+    repeating-linear-gradient(90deg,  transparent, transparent  9px, rgba(255,255,255,0.025)  9px, rgba(255,255,255,0.025) 10px),
+    linear-gradient(135deg, #1A0938 0%, #3D1275 55%, #0E6B8A 100%);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
 /* ── Progress bar ────────────────────────────────────────────────────────── */
