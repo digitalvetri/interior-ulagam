@@ -224,7 +224,7 @@ export async function PATCH(
   if (d.ownerId !== undefined) {
     updates.ownerId = d.ownerId;
     if (d.ownerId) {
-      const [emp] = await db.select({ fullName: users.fullName }).from(users).where(eq(users.id, d.ownerId));
+      const [emp] = await db.select({ fullName: users.fullName }).from(users).where(and(eq(users.id, d.ownerId), eq(users.tenantId, ctx.tenantId)));
       updates.designerName = emp?.fullName ?? null;
     } else {
       updates.designerName = null;

@@ -244,7 +244,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { role: rawRole, isAdmin, fullName, roleLoaded } = useUser();
-  const role = isAdmin ? 'admin' : rawRole ? 'employee' : '';
+  const role = isAdmin ? 'admin' : rawRole ?? '';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [iconOnly, setIconOnly]     = useState(false);
   const initDone = useRef(false);

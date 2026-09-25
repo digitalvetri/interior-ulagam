@@ -21,9 +21,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface LeadStats {
-  new: number; contacted: number; qualified: number;
-  site_visit: number; measurement: number; quotation: number;
-  negotiation: number; won: number; lost: number;
+  new: number;
+  site_visit: number;
+  won: number;
+  lost: number;
+  [key: string]: number;
 }
 interface RecentLead {
   id: string; contactName: string; stage: string;

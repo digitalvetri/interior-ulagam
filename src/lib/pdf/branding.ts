@@ -14,6 +14,7 @@ export function extractBranding(tenant: {
   return {
     name: tenant.name,
     gstin: tenant.gstin ?? null,
+    pan: str(b.pan),
     address: str(b.address),
     phone: str(b.phone),
     email: str(b.email),

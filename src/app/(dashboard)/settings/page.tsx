@@ -32,14 +32,14 @@ interface ProfileData {
 }
 
 const DEFAULTS: ProfileData = {
-  ownerName: 'Mohammed Sheriff', ownerPhone: '+91 98943 31115',
-  ownerEmail: 'mohasher11@gmail.com', ownerPhotoUrl: null,
-  logoUrl: null, studioName: 'Konst Design',
-  tagline: 'Your Experience Starts Here',
-  phone: '+91 98943 31115', email: 'mohasher11@gmail.com',
-  website: 'https://konstdesign.in',
-  address: 'No.11 Barathi Nagar, Rathinapuri (PO)',
-  city: 'Coimbatore', state: 'Tamil Nadu', pinCode: '641027', gstin: null,
+  ownerName: null, ownerPhone: null,
+  ownerEmail: null, ownerPhotoUrl: null,
+  logoUrl: null, studioName: '',
+  tagline: null,
+  phone: null, email: null,
+  website: null,
+  address: null,
+  city: null, state: null, pinCode: null, gstin: null,
 };
 
 // ─── Primitives ───────────────────────────────────────────────────────────────

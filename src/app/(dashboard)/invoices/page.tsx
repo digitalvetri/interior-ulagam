@@ -271,11 +271,11 @@ export default function InvoicesPage() {
     try {
       const res = await fetch(`/api/v1/invoices/${deleteConfirm.inv.id}`, { method: 'DELETE' });
       const json = await res.json() as { error?: string };
-      if (!res.ok) { alert(json.error ?? 'Failed to delete'); setDeleteConfirm(p => ({ ...p, deleting: false })); return; }
+      if (!res.ok) { console.error(json.error ?? 'Failed to delete'); setDeleteConfirm(p => ({ ...p, deleting: false })); return; }
       setDeleteConfirm({ open: false, inv: null, deleting: false });
       fetchInvoices();
-    } catch {
-      alert('Network error — try again');
+    } catch (err) {
+      console.error('Network error', err);
       setDeleteConfirm(p => ({ ...p, deleting: false }));
     }
   }

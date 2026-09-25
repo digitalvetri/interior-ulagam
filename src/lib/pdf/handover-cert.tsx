@@ -109,6 +109,9 @@ function HandoverCertDocument({ input }: { input: HandoverCertInput }) {
             {input.project.startedAt && (
               <Text style={hc.infoMeta}>Started: {fmtDate(input.project.startedAt)}</Text>
             )}
+            {input.project.expectedEndAt && (
+              <Text style={hc.infoMeta}>Completed: {fmtDate(input.project.expectedEndAt)}</Text>
+            )}
           </View>
           <View style={hc.infoBox}>
             <Text style={hc.infoLabel}>CLIENT</Text>
@@ -152,12 +155,14 @@ function HandoverCertDocument({ input }: { input: HandoverCertInput }) {
             <View style={hc.signLine}>
               <Text style={hc.signLabel}>{input.studio.name}</Text>
               <Text style={hc.signLabel}>Authorised Signatory</Text>
+              <Text style={[hc.signLabel, { marginTop: 6 }]}>Date: _______________</Text>
             </View>
           </View>
           <View style={hc.signCol}>
             <View style={hc.signLine}>
               <Text style={hc.signLabel}>{input.client.name}</Text>
               <Text style={hc.signLabel}>Client Signature</Text>
+              <Text style={[hc.signLabel, { marginTop: 6 }]}>Date: _______________</Text>
             </View>
           </View>
         </View>

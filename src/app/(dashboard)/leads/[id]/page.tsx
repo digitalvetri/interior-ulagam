@@ -284,8 +284,8 @@ export default function LeadDetailPage() {
 
       // Map lead stage to a value accepted by the follow-ups endpoint
       // CX-5: measured and booked are valid active stages for follow-ups
-      const validFUStages = new Set(['new','contacted','qualified','site_visit','measurement','measured','booked','quotation','negotiation','won','lost','site_visit_scheduled','consultation_done','proposal_sent']);
-      const fuStage = validFUStages.has(lead?.stage ?? '') ? (lead?.stage ?? 'new') : 'contacted';
+      const validFUStages = new Set(['new', 'site_visit', 'won', 'lost']);
+      const fuStage = validFUStages.has(lead?.stage ?? '') ? (lead?.stage ?? 'new') : 'new';
 
       // 1. Create follow-up row (also updates lead.followUpDate + lastActivityAt via DB transaction)
       const fuRes = await fetch(`/api/v1/leads/${id}/follow-ups`, {
@@ -389,7 +389,7 @@ export default function LeadDetailPage() {
       router.push('/leads');
     } catch (e) {
       setShowDeleteConfirm(false);
-      alert(e instanceof Error ? e.message : 'Delete failed');
+      console.error(e instanceof Error ? e.message : 'Delete failed');
     } finally { setDeleting(false); }
   }
 
@@ -405,7 +405,7 @@ export default function LeadDetailPage() {
       router.push('/leads');
     } catch (e) {
       setShowArchiveConfirm(false);
-      alert(e instanceof Error ? e.message : 'Archive failed');
+      console.error(e instanceof Error ? e.message : 'Archive failed');
     } finally { setArchiving(false); }
   }
 
@@ -446,7 +446,7 @@ export default function LeadDetailPage() {
       const json = await res.json() as { data?: LeadDocument; error?: string };
       if (!res.ok) throw new Error(json.error ?? 'Upload failed');
       setLeadDocs(prev => [{ ...json.data!, downloadUrl: null }, ...prev]);
-    } catch (e) { alert(e instanceof Error ? e.message : 'Upload failed'); }
+    } catch (e) { console.error(e instanceof Error ? e.message : 'Upload failed'); }
     finally { setUploadingDoc(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   }
 
@@ -725,7 +725,7 @@ export default function LeadDetailPage() {
               </Link>
             )}
             {isLost && (
-              <button type="button" onClick={() => changeStage('contacted')} disabled={stageActionsDisabled}
+              <button type="button" onClick={() => changeStage('new')} disabled={stageActionsDisabled}
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
                 style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--violet-primary)' }}>
                 <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}

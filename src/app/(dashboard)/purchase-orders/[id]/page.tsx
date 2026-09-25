@@ -173,7 +173,7 @@ export default function PurchaseOrderDetailPage({
     setPdfLoading(true);
     try {
       const res = await fetch(`/api/v1/purchase-orders/${id}/pdf`);
-      if (!res.ok) { alert('PDF generation failed.'); return; }
+      if (!res.ok) { console.error('PDF generation failed'); return; }
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement('a');
@@ -240,7 +240,6 @@ export default function PurchaseOrderDetailPage({
       .filter(l => l.pending > 0);
 
     if (pendingLines.length === 0) {
-      alert('All lines in this PO are already fully received.');
       return;
     }
 

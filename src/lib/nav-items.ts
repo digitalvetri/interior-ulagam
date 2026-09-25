@@ -13,6 +13,7 @@ import {
   UserCircle,
   Store,
   Receipt,
+  UsersRound,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -37,8 +38,8 @@ const FINANCE_ROLES  = ['admin', 'owner', 'accountant'];
 const DESIGN_ROLES   = ['admin', 'owner', 'designer', 'employee'];
 const FIELD_ROLES    = ['admin', 'owner', 'designer', 'employee', 'supervisor'];
 const PROC_ROLES     = ['admin', 'owner', 'designer', 'accountant'];
-// Self-service: all non-owner staff
-const MY_SPACE_ROLES = ['employee', 'designer', 'supervisor', 'accountant'];
+// Self-service: all staff including admin/owner
+const MY_SPACE_ROLES = ['admin', 'owner', 'employee', 'designer', 'supervisor', 'accountant'];
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -105,6 +106,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: 'Administration',
     roles: ALL_ROLES,
     items: [
+      { href: '/employees',        label: 'Employees',  icon: UsersRound, roles: ADMIN_ROLES    },
       { href: '/my-space/profile', label: 'My Profile', icon: UserCircle, roles: MY_SPACE_ROLES },
       { href: '/settings',         label: 'Settings',   icon: Settings,   roles: ADMIN_ROLES    },
     ],

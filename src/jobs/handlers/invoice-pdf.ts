@@ -36,21 +36,23 @@ export const invoicePdf = defineJob(
       const [project] = await db
         .select({ name: projects.name, customerId: projects.customerId })
         .from(projects)
-        .where(eq(projects.id, invoice.projectId))
+        .where(and(eq(projects.id, invoice.projectId), eq(projects.tenantId, tenantId)))
         .limit(1);
 
       let clientName = 'Valued Client';
       let clientPhone: string | null = null;
+      let clientAddress: string | null = null;
 
       if (project?.customerId) {
         const [customer] = await db
           .select({ fullName: customers.fullName, phone: customers.phone, address: customers.address })
           .from(customers)
-          .where(eq(customers.id, project.customerId))
+          .where(and(eq(customers.id, project.customerId), eq(customers.tenantId, tenantId)))
           .limit(1);
         if (customer) {
           clientName = customer.fullName;
           clientPhone = customer.phone;
+          clientAddress = customer.address ?? null;
         }
       }
 
@@ -93,7 +95,7 @@ export const invoicePdf = defineJob(
         invoiceNumber: invoice.invoiceNumber,
         invoiceDate: new Date(invoice.invoiceDate),
         studio,
-        client: { name: clientName, phone: clientPhone },
+        client: { name: clientName, phone: clientPhone, address: clientAddress },
         project: { name: project?.name ?? 'Project' },
         lines,
         subtotalPaise: invoice.subtotalPaise,

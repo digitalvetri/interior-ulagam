@@ -370,13 +370,13 @@ export default function CustomersPage() {
       const res = await fetch(`/api/v1/customers/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         const j = await res.json() as { error?: string };
-        alert(j.error ?? 'Failed to delete');
+        console.error(j.error ?? 'Failed to delete');
         return;
       }
       setCustomers(prev => prev.filter(c => c.id !== id));
       setDeleteConfirm({ row: null, deleting: false });
-    } catch {
-      alert('Network error — try again');
+    } catch (err) {
+      console.error('Network error', err);
     } finally {
       setDeleteConfirm(prev => ({ ...prev, deleting: false }));
     }

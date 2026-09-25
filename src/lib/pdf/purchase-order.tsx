@@ -99,8 +99,6 @@ function PurchaseOrderDocument({ input }: { input: PurchaseOrderPdfInput }) {
     'conformance. Any substitution of items requires prior approval. Partial deliveries are ' +
     'accepted only if agreed in writing.';
 
-  const subtotal = input.lines.reduce((s, l) => s + l.ratePaise * l.qty, 0);
-
   return (
     <Document
       title={`PO ${input.poNumber}`}
@@ -163,7 +161,7 @@ function PurchaseOrderDocument({ input }: { input: PurchaseOrderPdfInput }) {
           <View style={pos.totalRow}>
             <Text style={pos.totalLabel}>Subtotal</Text>
             <Text style={pos.totalValue}>
-              ₹{(subtotal / 100).toLocaleString('en-IN')}
+              ₹{(input.subtotalPaise / 100).toLocaleString('en-IN')}
             </Text>
           </View>
           {input.advancePaidPaise > 0 ? (

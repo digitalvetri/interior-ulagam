@@ -101,7 +101,9 @@ function ReceiptDocument({ input }: { input: ReceiptPdfInput }) {
 
           <View style={rs.row}>
             <Text style={rs.label}>Received from</Text>
-            <Text style={rs.value}>{input.client.name}</Text>
+            <Text style={rs.value}>
+              {input.client.name}{input.client.phone ? `  ·  ${input.client.phone}` : ''}
+            </Text>
           </View>
           <View style={rs.row}>
             <Text style={rs.label}>Against Invoice</Text>

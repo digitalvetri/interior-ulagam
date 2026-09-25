@@ -76,7 +76,7 @@ export async function POST(
     await db
       .update(payments)
       .set({ pdfUrl: s3Key })
-      .where(eq(payments.id, paymentId));
+      .where(and(eq(payments.id, paymentId), eq(payments.tenantId, ctx.tenantId)));
 
     const presignedUrl = await getDownloadUrl({ bucket: DOCUMENTS_BUCKET, key: s3Key, expiresIn: 604800});
     return NextResponse.json({ data: { pdfUrl: presignedUrl } }, { status: 201 });
