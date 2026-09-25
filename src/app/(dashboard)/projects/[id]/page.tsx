@@ -600,6 +600,9 @@ function CreateInvoiceDialog({
 
   async function handleSave() {
     setError(null);
+    if (!description.trim()) {
+      setError('Please enter a description'); return;
+    }
     const parsedAmt = parseFloat(amountStr);
     if (!amountStr || isNaN(parsedAmt) || parsedAmt <= 0) {
       setError('Please enter a valid amount'); return;
@@ -701,7 +704,7 @@ function CreateInvoiceDialog({
 
           <div>
             <label className="studio-label block mb-1.5">
-              Description / Items <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+              Description / Items
             </label>
             <input type="text" placeholder="e.g. Design & execution — Living room"
               value={description} onChange={e => setDescription(e.target.value)}
