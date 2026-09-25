@@ -907,22 +907,6 @@ export default function DashboardPage() {
 
         {/* Hero banner */}
         <div className="greeting-banner relative">
-          {/* Floor plan decorative image — right side, fades left */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/floorplan-bg.jpg"
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: 'absolute', top: 0, right: 0, bottom: 0,
-              width: '45%', height: '100%',
-              objectFit: 'cover', objectPosition: 'center center',
-              opacity: 0.18,
-              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 50%)',
-              maskImage: 'linear-gradient(to right, transparent 0%, black 50%)',
-              pointerEvents: 'none', zIndex: 0,
-            }}
-          />
           {/* Content */}
           <div className="p-4 sm:p-6" style={{ position: 'relative', zIndex: 1 }}>
             <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 mb-4"
