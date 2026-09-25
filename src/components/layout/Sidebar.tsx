@@ -334,6 +334,31 @@ export function Sidebar() {
       <aside
         className={`studio-sidebar hidden lg:flex flex-col flex-shrink-0 relative transition-all duration-200 ${iconOnly ? 'w-[var(--sidebar-width-icon)]' : 'w-[var(--sidebar-width)]'}`}
       >
+        {/* Decorative floor plan — positioned at bottom, fades upward */}
+        {!iconOnly && (
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              height: '220px', pointerEvents: 'none', zIndex: 0, overflow: 'hidden',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/floorplan-bg.jpg"
+              alt=""
+              style={{
+                position: 'absolute', bottom: 0, left: 0,
+                width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: 'center bottom',
+                opacity: 0.22,
+                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)',
+                maskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)',
+              }}
+            />
+          </div>
+        )}
+
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
           <SidebarBody
             role={role} isAdmin={isAdmin} fullName={fullName} pathname={pathname}

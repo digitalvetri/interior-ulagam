@@ -234,10 +234,9 @@ body {
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
 .studio-sidebar {
-  background:
-    linear-gradient(180deg, rgba(23,8,64,0.92) 0%, rgba(46,18,120,0.85) 50%, rgba(23,8,64,0.92) 100%),
-    url('/floorplan-bg.jpg') center / cover no-repeat;
+  background: linear-gradient(180deg, #170840 0%, #2E1278 50%, #170840 100%);
   border-right: 1px solid rgba(124, 58, 237, 0.25);
+  position: relative;
   /* Scoped tokens — white-based for legibility on vivid violet background */
   --text-heading:   #FFFFFF;
   --text-primary:   rgba(255, 255, 255, 0.90);
@@ -813,9 +812,7 @@ body {
 
 /* ── Dark mode overrides for global CSS classes ─────────────────────────── */
 [data-theme="dark"] .studio-sidebar {
-  background:
-    linear-gradient(180deg, rgba(15,6,40,0.94) 0%, rgba(30,12,82,0.88) 50%, rgba(15,6,40,0.94) 100%),
-    url('/floorplan-bg.jpg') center / cover no-repeat;
+  background: linear-gradient(180deg, #0F0628 0%, #1E0C52 50%, #0F0628 100%);
   border-right-color: rgba(124, 58, 237, 0.20);
 }
 [data-theme="dark"] .nav-item { color: rgba(255, 255, 255, 0.75); }
@@ -855,14 +852,13 @@ body {
   color: var(--text-secondary);
 }
 
-/* ── Greeting hero banner — floor plan image with purple-to-cyan overlay ─── */
+/* ── Greeting hero banner — purple-to-cyan gradient with floor plan inset ─── */
 .greeting-banner {
-  background:
-    linear-gradient(135deg, rgba(26,9,56,0.88) 0%, rgba(61,18,117,0.80) 55%, rgba(14,107,138,0.85) 100%),
-    url('/floorplan-bg.jpg') center / cover no-repeat;
+  background: linear-gradient(135deg, #1A0938 0%, #3D1275 55%, #0E6B8A 100%);
   border: 1px solid rgba(124, 58, 237, 0.25);
   border-radius: 16px;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── Progress bar ────────────────────────────────────────────────────────── */
