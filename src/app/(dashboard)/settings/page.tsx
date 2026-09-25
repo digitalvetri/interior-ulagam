@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   Building2, Users, Download, Loader2, Upload, Check,
@@ -145,7 +146,9 @@ async function downloadExport(url: string, filename: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab]       = useState<SettingsTab>('profile');
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get('tab') as SettingsTab | null) ?? 'profile';
+  const [activeTab, setActiveTab]       = useState<SettingsTab>(initialTab);
   const [loading, setLoading]           = useState(true);
   const [employees, setEmployees]       = useState<Employee[]>([]);
   const logoInputRef                    = useRef<HTMLInputElement>(null);
@@ -505,10 +508,10 @@ export default function SettingsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Link href="/employees" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium hover:bg-[var(--surface-muted)]" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                  <Link href="/settings?tab=users" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium hover:bg-[var(--surface-muted)]" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
                     <Users2 className="h-3 w-3" /> Manage <ArrowUpRight className="h-3 w-3" />
                   </Link>
-                  <Link href="/employees" className="btn-primary inline-flex items-center gap-1 px-2.5 py-1 text-[11px]">
+                  <Link href="/settings?tab=users" className="btn-primary inline-flex items-center gap-1 px-2.5 py-1 text-[11px]">
                     <ChevronRight className="h-3 w-3" /> Permissions
                   </Link>
                 </div>
