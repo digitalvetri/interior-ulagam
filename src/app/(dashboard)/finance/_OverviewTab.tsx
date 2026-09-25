@@ -173,14 +173,27 @@ function CountUp({ target, duration = 900 }: { target: number; duration?: number
 // ─── SVG Grouped Bar Chart ────────────────────────────────────────────────────
 
 function GroupedBarChart({ months }: { months: ChartMonth[] }) {
-  const [mounted, setMounted]   = useState(false);
-  const [tooltip, setTooltip]   = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [mounted, setMounted]       = useState(false);
+  const [tooltip, setTooltip]       = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 120);
     return () => clearTimeout(t);
   }, []);
+
+  function showTooltip(idx: number, x: number, y: number) {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setTooltip({ idx, x, y });
+    setTooltipVisible(true);
+  }
+
+  function hideTooltip() {
+    setTooltipVisible(false);
+    hideTimer.current = setTimeout(() => setTooltip(null), 200);
+  }
 
   const PAD   = { top: 24, right: 16, bottom: 40, left: 56 };
   const W     = 560;
@@ -206,7 +219,7 @@ function GroupedBarChart({ months }: { months: ChartMonth[] }) {
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         width="100%" height="100%"
-        onMouseLeave={() => setTooltip(null)}
+        onMouseLeave={hideTooltip}
       >
         {/* Y-axis grid lines */}
         {yTicks.map((t, i) => (
@@ -236,11 +249,7 @@ function GroupedBarChart({ months }: { months: ChartMonth[] }) {
           return (
             <g key={i}
               style={{ cursor: 'default' }}
-              onMouseEnter={e => {
-                const rect = svgRef.current?.getBoundingClientRect();
-                if (!rect) return;
-                setTooltip({ idx: i, x: cx, y: PAD.top + innerH / 2 });
-              }}>
+              onMouseEnter={() => showTooltip(i, cx, PAD.top + innerH / 2)}>
               {/* Received bar */}
               <rect
                 x={cx - barW - gap / 2} y={recY} width={barW} height={recH}
@@ -269,27 +278,31 @@ function GroupedBarChart({ months }: { months: ChartMonth[] }) {
           );
         })}
 
-        {/* Tooltip */}
-        {tooltip && months[tooltip.idx] && (() => {
-          const m   = months[tooltip.idx];
-          const tx  = tooltip.x > W - 150 ? tooltip.x - 130 : tooltip.x + 10;
-          const ty  = 30;
+        {/* Tooltip — always mounted, fades in/out via opacity */}
+        {(() => {
+          const m  = tooltip ? months[tooltip.idx] : null;
+          const tx = tooltip ? (tooltip.x > W - 150 ? tooltip.x - 130 : tooltip.x + 10) : 0;
+          const ty = 30;
           return (
-            <g>
-              <rect x={tx - 4} y={ty} width={136} height={58} rx={8}
-                fill="var(--surface-card)" stroke="var(--border-subtle)" strokeWidth={1} />
-              <text x={tx + 4} y={ty + 14} fontSize={10} fontWeight={600} fill="var(--text-heading)">{m.label}</text>
-              <circle cx={tx + 4} cy={ty + 26} r={3.5} fill="var(--accent-base)" />
-              <text x={tx + 12} y={ty + 30} fontSize={9.5} fill="var(--text-secondary)">
-                {'In  '}{formatRupees(m.receivedPaise)}
-              </text>
-              <circle cx={tx + 4} cy={ty + 41} r={3.5} fill="var(--danger)" />
-              <text x={tx + 12} y={ty + 45} fontSize={9.5} fill="var(--text-secondary)">
-                {'Out '}{formatRupees(m.expensesPaise)}
-              </text>
-              <text x={tx + 4} y={ty + 56} fontSize={9} fill="var(--text-tertiary)">
-                {'Net '}{formatRupees(m.receivedPaise - m.expensesPaise)}
-              </text>
+            <g style={{ opacity: tooltipVisible ? 1 : 0, transition: 'opacity 0.18s ease', pointerEvents: 'none' }}>
+              {m && (
+                <>
+                  <rect x={tx - 4} y={ty} width={136} height={58} rx={8}
+                    fill="var(--surface-card)" stroke="var(--border-subtle)" strokeWidth={1} />
+                  <text x={tx + 4} y={ty + 14} fontSize={10} fontWeight={600} fill="var(--text-heading)">{m.label}</text>
+                  <circle cx={tx + 4} cy={ty + 26} r={3.5} fill="var(--accent-base)" />
+                  <text x={tx + 12} y={ty + 30} fontSize={9.5} fill="var(--text-secondary)">
+                    {'In  '}{formatRupees(m.receivedPaise)}
+                  </text>
+                  <circle cx={tx + 4} cy={ty + 41} r={3.5} fill="var(--danger)" />
+                  <text x={tx + 12} y={ty + 45} fontSize={9.5} fill="var(--text-secondary)">
+                    {'Out '}{formatRupees(m.expensesPaise)}
+                  </text>
+                  <text x={tx + 4} y={ty + 56} fontSize={9} fill="var(--text-tertiary)">
+                    {'Net '}{formatRupees(m.receivedPaise - m.expensesPaise)}
+                  </text>
+                </>
+              )}
             </g>
           );
         })()}
