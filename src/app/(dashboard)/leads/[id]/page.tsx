@@ -75,10 +75,9 @@ function relDate(iso: string): string {
 }
 
 const MOVE_STAGE_OPTIONS = [
-  { value: 'new',        label: 'New Enquiry' },
-  { value: 'site_visit', label: 'Site Visit'  },
-  { value: 'won',        label: 'Won'         },
-  { value: 'lost',       label: 'Lost'        },
+  { value: 'site_visit', label: 'Site Visit' },
+  { value: 'won',        label: 'Won'        },
+  { value: 'lost',       label: 'Lost'       },
 ] as const;
 
 
