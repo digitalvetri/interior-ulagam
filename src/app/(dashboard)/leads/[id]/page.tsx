@@ -425,6 +425,7 @@ export default function LeadDetailPage() {
       const json = await res.json().catch(() => ({})) as { data?: Lead; error?: string };
       if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
       setLead(json.data!); setShowMarkLostDialog(false); setLostReasonInput('');
+      if (targetStage === 'site_visit') setShowSiteVisitModal(true);
       if (isWonTarget) {
         const refreshRes = await fetch(`/api/v1/leads/${id}`);
         if (refreshRes.ok) {
@@ -994,13 +995,17 @@ export default function LeadDetailPage() {
                 <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : '—'} />
                 {(() => {
                   const now = new Date();
-                  const nextVisit = siteVisitsData
-                    .filter(v => v.status === 'scheduled' && new Date(v.scheduledAt) >= now)
+                  const scheduled = siteVisitsData.filter(v => v.status === 'scheduled');
+                  const upcomingVisit = scheduled
+                    .filter(v => new Date(v.scheduledAt) >= now)
                     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+                  const pastScheduledVisit = scheduled
+                    .filter(v => new Date(v.scheduledAt) < now)
+                    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
                   const lastVisit = siteVisitsData
                     .filter(v => v.status === 'completed')
                     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
-                  const displayVisit = nextVisit ?? lastVisit;
+                  const displayVisit = upcomingVisit ?? pastScheduledVisit ?? lastVisit;
                   return (
                     <SidebarRow
                       label="Site Visit"
