@@ -218,22 +218,16 @@ function ProjectCard({ project, onClick }: { project: ProjectRow; onClick: () =>
       }}
     >
       <div className="p-4">
-        {/* Stage badge + date row */}
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-            style={{ background: stage.bg, color: stage.fg }}
-          >
-            {stage.label}
-          </span>
-          {dateLabel && (
+        {/* Date row */}
+        {dateLabel && (
+          <div className="mb-3 flex items-center justify-end gap-2">
             <span className="flex items-center gap-1 text-[11px] font-medium flex-shrink-0" style={{ color: dateLabel.color }}>
               {isOverdue && <AlertTriangle className="h-3 w-3 flex-shrink-0" />}
               {!isOverdue && dateLabel.text.startsWith('Due') && <Clock className="h-3 w-3 flex-shrink-0" />}
               {dateLabel.text}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Project name */}
         <p className="text-[14px] font-semibold leading-tight truncate"
