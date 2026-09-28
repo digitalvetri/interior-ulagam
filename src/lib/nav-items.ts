@@ -14,6 +14,7 @@ import {
   Store,
   Receipt,
   UsersRound,
+  Banknote,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -104,11 +105,19 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: 'hr',
+    label: 'HR & Payroll',
+    roles: ADMIN_ROLES,
+    items: [
+      { href: '/employees', label: 'Employees', icon: UsersRound, roles: ADMIN_ROLES },
+      { href: '/payroll',   label: 'Payroll',   icon: Banknote,   roles: ADMIN_ROLES },
+    ],
+  },
+  {
     key: 'administration',
     label: 'Administration',
     roles: ALL_ROLES,
     items: [
-      { href: '/employees',        label: 'Employees',  icon: UsersRound, roles: ADMIN_ROLES },
       { href: '/my-space/profile', label: 'My Profile', icon: UserCircle, roles: EMPLOYEE_ROLES },
       { href: '/settings',         label: 'Settings',   icon: Settings,   roles: ADMIN_ROLES   },
     ],
