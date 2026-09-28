@@ -23,6 +23,7 @@ const PatchSchema = z.object({
   photoUrl:       z.string().url().nullable().optional().or(z.literal('')),
   managerId:      z.string().uuid().nullable().optional(),
   status:         StatusEnum.optional(),
+  salaryPaise:    z.number().int().min(0).nullable().optional(),
   emergencyContact: z.object({
     name: z.string().optional(),
     relation: z.string().optional(),
