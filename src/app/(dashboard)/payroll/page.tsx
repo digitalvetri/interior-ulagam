@@ -165,7 +165,7 @@ export default function PayrollPage() {
           </div>
           <p className="text-[13px] font-medium" style={{ color: 'var(--text-heading)' }}>No payroll runs yet</p>
           <p className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-            Click "Run Payroll" to calculate salaries for a month.
+            Click &ldquo;Run Payroll&rdquo; to calculate salaries for a month.
           </p>
           <button type="button" onClick={openDialog}
             className="btn-primary mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 text-[12px]">
