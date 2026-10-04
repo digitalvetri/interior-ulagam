@@ -291,6 +291,44 @@ body {
 .studio-sidebar .nav-item:hover .nav-icon  { color: var(--text-heading); }
 .studio-sidebar .nav-item.active .nav-icon { color: #FFFFFF; }
 
+/* Light theme: a deep forest sidebar (the Konst studio look). The sidebar's own
+   tokens are redefined in its scope, so every child keyed to them — labels,
+   icons, dividers, hover fills, the footer — turns light-on-green without
+   per-element changes. Dark mode keeps its charcoal sidebar. */
+:root:not([data-theme="dark"]) .studio-sidebar {
+  --surface-sidebar: #1F4A36;
+  --surface-hover:   rgba(255, 255, 255, 0.07);
+  --border-subtle:   rgba(255, 255, 255, 0.10);
+  --text-heading:    #FBF8F1;
+  --text-primary:    rgba(251, 248, 241, 0.90);
+  --text-secondary:  rgba(251, 248, 241, 0.66);
+  --text-tertiary:   rgba(251, 248, 241, 0.48);
+  --accent-base:     #C9A24A; /* gold: the signed-in avatar */
+  border-right-color: transparent;
+}
+:root:not([data-theme="dark"]) .studio-sidebar .nav-item.active {
+  background-color: rgba(255, 255, 255, 0.13);
+  color: #FFFFFF;
+  box-shadow: none;
+}
+/* Gold marker on the active page */
+:root:not([data-theme="dark"]) .studio-sidebar .nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent-gold);
+}
+/* The collapse toggle sits on the edge, on a cream chip — keep it cream-on-ink */
+.studio-sidebar .sidebar-toggle {
+  --text-secondary: #5E625B;
+  --border-subtle:  #E8E2D6;
+  --border-strong:  #D9D1C2;
+}
+
 /* ── TopBar ──────────────────────────────────────────────────────────────── */
 /* Flat surface + hairline base border — no shadow */
 .studio-topbar {

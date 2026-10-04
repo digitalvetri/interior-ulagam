@@ -16,13 +16,14 @@ import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 
 const KD_ASPECT = 520 / 290;
 
-export function BrandMark({ size = 44 }: { size?: number }) {
+export function BrandMark({ size = 44, onDark = false }: { size?: number; onDark?: boolean }) {
   const h = Math.round(size * 0.78);
   const w = Math.round(h * KD_ASPECT);
   return (
     <span className="flex flex-shrink-0 items-center justify-center" style={{ width: Math.max(size, w), height: size }} aria-hidden="true">
-      <Image src="/brand/kd-mark.png" alt="" width={w} height={h} className="dark:hidden" priority />
-      <Image src="/brand/kd-mark-white.png" alt="" width={w} height={h} className="hidden dark:block" priority />
+      {/* onDark: on the forest sidebar the white mark is used in both themes. */}
+      {!onDark && <Image src="/brand/kd-mark.png" alt="" width={w} height={h} className="dark:hidden" priority />}
+      <Image src="/brand/kd-mark-white.png" alt="" width={w} height={h} className={onDark ? '' : 'hidden dark:block'} priority />
     </span>
   );
 }
@@ -166,7 +167,7 @@ function SidebarBody({
             justifyContent: iconOnly ? 'center' : 'flex-start',
           }}
         >
-          <BrandMark size={iconOnly ? 32 : 38} />
+          <BrandMark size={iconOnly ? 32 : 38} onDark />
           {!iconOnly && (
             <div className="min-w-0 leading-tight">
               <p className="truncate text-[18px] font-semibold tracking-[-0.02em]" style={{ color: 'var(--text-heading)' }}>
@@ -377,7 +378,7 @@ export function Sidebar() {
           type="button"
           onClick={toggleIconOnly}
           aria-label={iconOnly ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full border transition-colors hover:border-[var(--border-strong)]"
+          className="sidebar-toggle absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full border transition-colors hover:border-[var(--border-strong)]"
           style={{
             background: 'var(--surface-card)',
             boxShadow: 'var(--shadow-md)',
