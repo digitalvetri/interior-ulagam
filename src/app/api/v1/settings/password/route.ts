@@ -38,8 +38,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let authHeaders: Headers;
   try {
-    await auth.api.changePassword({
+    // returnHeaders: revoking the other sessions also replaces this one, so the
+    // new session cookie has to reach the browser or the user is signed out.
+    ({ headers: authHeaders } = await auth.api.changePassword({
+      returnHeaders: true,
       headers: await headers(),
       body: {
         currentPassword: parsed.data.currentPassword,
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest) {
         // exactly when you want those sessions gone.
         revokeOtherSessions: true,
       },
-    });
+    }));
   } catch {
     // Better Auth does not distinguish "wrong password" from other failures in
     // a way worth exposing — and saying which it was would help an attacker
@@ -62,5 +66,7 @@ export async function POST(request: NextRequest) {
   // They now hold a password only they know — stop sending them to /change-password.
   await db.update(users).set({ mustChangePassword: false }).where(and(eq(users.id, ctx.userId), eq(users.tenantId, ctx.tenantId)));
 
-  return NextResponse.json({ data: { changed: true } });
+  const res = NextResponse.json({ data: { changed: true } });
+  for (const cookie of authHeaders.getSetCookie()) res.headers.append('set-cookie', cookie);
+  return res;
 }
