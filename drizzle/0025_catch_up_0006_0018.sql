@@ -78,9 +78,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS lead_follow_ups_pending_unique
 -- ═══ from 0010_site_visit_number_unique.sql ═══
 -- Ensure visit numbers are unique per tenant.
 -- Partial: NULLs are excluded so rows without a visit_number can coexist freely.
-CREATE UNIQUE INDEX IF NOT EXISTS site_visits_tenant_visit_number_unique
-  ON site_visits (tenant_id, visit_number)
-  WHERE visit_number IS NOT NULL;
+-- Guarded: on a fresh database visit_number arrives in 0027.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'site_visits' AND column_name = 'visit_number') THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS site_visits_tenant_visit_number_unique
+      ON site_visits (tenant_id, visit_number)
+      WHERE visit_number IS NOT NULL;
+  END IF;
+END $$;
 --> statement-breakpoint
 
 -- ═══ from 0011_site_visit_no_show.sql ═══
@@ -260,9 +265,14 @@ CREATE INDEX IF NOT EXISTS expenses_po_id_idx ON expenses (po_id);
 -- Additive only — no DROP or breaking ALTER.
 
 -- Link vendor_payments to a specific expense (vendor bill)
-ALTER TABLE vendor_payments
-  ADD COLUMN IF NOT EXISTS expense_id uuid REFERENCES expenses(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS vendor_payments_expense_id_idx ON vendor_payments (expense_id);
+-- Guarded: on a fresh database vendor_payments is created by 0027.
+DO $$ BEGIN
+  IF to_regclass('public.vendor_payments') IS NOT NULL THEN
+    ALTER TABLE vendor_payments
+      ADD COLUMN IF NOT EXISTS expense_id uuid REFERENCES expenses(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS vendor_payments_expense_id_idx ON vendor_payments (expense_id);
+  END IF;
+END $$;
 
 -- Allow a vendor bill (expense) to be voided
 ALTER TABLE expenses

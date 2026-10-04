@@ -67,11 +67,16 @@ SELECT p.tenant_id, p.id, m.id, p.amount_paise
    AND NOT EXISTS (SELECT 1 FROM payment_allocations a WHERE a.payment_id = p.id);
 --> statement-breakpoint
 -- Older payment paths left project/customer empty; fill them from the invoice.
-UPDATE payments p SET project_id = i.project_id
-  FROM invoices i WHERE i.id = p.invoice_id AND p.project_id IS NULL;
---> statement-breakpoint
-UPDATE payments p SET customer_id = pr.customer_id
-  FROM projects pr WHERE pr.id = p.project_id AND p.customer_id IS NULL AND pr.customer_id IS NOT NULL;
+-- On a fresh database these columns arrive later (0025 catch-up), and there is
+-- nothing to back-fill, so only run when they already exist.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'payments' AND column_name = 'project_id') THEN
+    UPDATE payments p SET project_id = i.project_id
+      FROM invoices i WHERE i.id = p.invoice_id AND p.project_id IS NULL;
+    UPDATE payments p SET customer_id = pr.customer_id
+      FROM projects pr WHERE pr.id = p.project_id AND p.customer_id IS NULL AND pr.customer_id IS NOT NULL;
+  END IF;
+END $$;
 --> statement-breakpoint
 DO $$ BEGIN
   CREATE TYPE ledger_adjustment_kind AS ENUM ('discount', 'refund', 'write_off');
