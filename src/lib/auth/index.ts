@@ -88,10 +88,16 @@ export async function mustChangePassword(userId: string): Promise<boolean> {
   return row?.mustChangePassword ?? false;
 }
 
-/** Layout guard: send anyone on a temporary password to choose their own first. */
-export async function redirectIfTemporaryPassword(): Promise<void> {
+/**
+ * Layout guard for signed-in areas. The proxy only checks that a session cookie
+ * exists, so a revoked session (password reset, sign-out elsewhere) still got the
+ * app shell with every API call failing; send it to /login instead. Anyone on a
+ * temporary password goes to choose their own first.
+ */
+export async function requireUsableSession(): Promise<void> {
   const ctx = await loadContext();
-  if (ctx && (await mustChangePassword(ctx.userId))) redirect('/change-password');
+  if (!ctx) redirect('/login');
+  if (await mustChangePassword(ctx.userId)) redirect('/change-password');
 }
 
 // Use in API routes — returns null instead of redirecting.

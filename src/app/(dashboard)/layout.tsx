@@ -2,10 +2,10 @@ import { UserProvider } from '@/components/providers/user-provider';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { AiAssistant } from '@/components/ai/AiAssistant';
-import { redirectIfTemporaryPassword } from '@/lib/auth';
+import { requireUsableSession } from '@/lib/auth';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  await redirectIfTemporaryPassword();
+  await requireUsableSession();
   return (
     <UserProvider>
       <div className="flex h-screen" style={{ backgroundColor: 'var(--surface-app)' }}>

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Image from 'next/image';
-import { redirectIfTemporaryPassword } from '@/lib/auth';
+import { requireUsableSession } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'Konst Design Field',
@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 };
 
 export default async function FieldLayout({ children }: { children: React.ReactNode }) {
-  await redirectIfTemporaryPassword();
+  await requireUsableSession();
   return (
     <div
       className="flex min-h-screen flex-col bg-gray-50"
