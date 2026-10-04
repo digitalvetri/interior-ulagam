@@ -1,6 +1,8 @@
 'use client';
+import { istDateOf, istToday } from '@/lib/dates/ist';
 import { useEffect, useState, useCallback } from 'react';
 import { CheckCircle2, Circle, Plus, Loader2, AlertCircle, ClipboardList, X, Clock } from 'lucide-react';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface Task {
@@ -54,11 +56,11 @@ function TaskKpiRow() {
       ]);
       const [pend, comp] = await Promise.all([pendRes.json(), compRes.json()]);
       const pendingList = (pend.data ?? []) as Task[];
-      const today = new Date().toISOString().slice(0, 10);
+      const today = istToday();
       setKpi({
         pending:  pendingList.length,
-        overdue:  pendingList.filter(t => !!t.dueAt && t.dueAt.slice(0, 10) < today).length,
-        dueToday: pendingList.filter(t => !!t.dueAt && t.dueAt.slice(0, 10) === today).length,
+        overdue:  pendingList.filter(t => !!t.dueAt && istDateOf(new Date(t.dueAt)) < today).length,
+        dueToday: pendingList.filter(t => !!t.dueAt && istDateOf(new Date(t.dueAt)) === today).length,
         completed: (comp.data ?? []).length,
       });
     }
@@ -183,19 +185,24 @@ function NewTaskForm({ onSuccess }: { onSuccess: () => void }) {
 /* ── Task row ───────────────────────────────────────────────────────────── */
 function TaskRow({ task, onToggle }: { task: Task; onToggle: (id: string, done: boolean) => void }) {
   const [toggling, setToggling] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
   const done = !!task.completedAt;
   const due  = fmtDue(task.dueAt);
   const overdue = !done && isOverdue(task.dueAt);
 
   async function handleToggle() {
     setToggling(true);
+    setToggleError(null);
     try {
-      await fetch(`/api/v1/me/tasks/${task.id}`, {
+      const res = await fetch(`/api/v1/me/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ completed: !done }),
       });
+      if (!res.ok) { setToggleError(await responseError(res, 'Could not update the task.')); return; }
       onToggle(task.id, !done);
+    } catch {
+      setToggleError(NETWORK_ERROR);
     } finally {
       setToggling(false);
     }
@@ -237,6 +244,9 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (id: string, done: 
         </div>
         {task.notes && !done && (
           <p className="text-[12px] text-gray-400 mt-1 line-clamp-2">{task.notes}</p>
+        )}
+        {toggleError && (
+          <div className="flex items-center gap-1.5 mt-1 text-[12px] text-red-600"><AlertCircle size={12} /> {toggleError}</div>
         )}
       </div>
     </div>
@@ -294,8 +304,8 @@ export default function MyTasksPage() {
   }
 
   const overdueTasks  = tasks.filter(t => !t.completedAt && isOverdue(t.dueAt));
-  const todayTasks    = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && t.dueAt?.slice(0, 10) === new Date().toISOString().slice(0, 10));
-  const upcomingTasks = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && t.dueAt?.slice(0, 10) !== new Date().toISOString().slice(0, 10));
+  const todayTasks    = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && !!t.dueAt && istDateOf(new Date(t.dueAt)) === istToday());
+  const upcomingTasks = tasks.filter(t => !t.completedAt && !isOverdue(t.dueAt) && !(!!t.dueAt && istDateOf(new Date(t.dueAt)) === istToday()));
   const noDueTasks    = tasks.filter(t => !t.completedAt && !t.dueAt);
   const doneTasks     = tasks.filter(t => !!t.completedAt);
 

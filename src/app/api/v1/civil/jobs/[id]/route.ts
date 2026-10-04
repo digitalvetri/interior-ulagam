@@ -87,12 +87,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
       const [row] = await tx.update(civilJobs).set({
         ...fields, managerId: managerId ?? null, totalPaise: sumLines(lines).totalPaise, updatedAt: new Date(),
-      }).where(and(eq(civilJobs.id, id), eq(civilJobs.tenantId, ctx.tenantId))).returning();
+      }).where(and(eq(civilJobs.id, id), eq(civilJobs.tenantId, ctx.tenantId))).returning({ id: civilJobs.id });
       return { status: 200 as const, row };
     });
 
     if (result.status !== 200) return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json({ data: result.row });
+    // Read back through the list query, which selects no cost: a full row from
+    // .returning() handed the owner-only cost to the accountant.
+    const [job] = await jobListQuery(ctx.tenantId, [eq(civilJobs.id, id)]).limit(1);
+    return NextResponse.json({ data: job });
   } catch (err) {
     return serverError('civil/jobs/:id PATCH', err);
   }

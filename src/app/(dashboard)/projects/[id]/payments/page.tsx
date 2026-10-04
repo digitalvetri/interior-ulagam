@@ -7,6 +7,7 @@ import {
   Check, AlertTriangle, X, IndianRupee,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
+import { copyText } from '@/lib/client-feedback';
 import { Milestone, MilestonePaymentStatus } from '@/types/milestones';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
@@ -37,6 +38,7 @@ function SendLinkModal({
   const [error, setError]     = useState<string | null>(null);
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [copied, setCopied]   = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
 
   function set<K extends keyof SendLinkForm>(k: K, v: SendLinkForm[K]) {
     setForm(f => ({ ...f, [k]: v }));
@@ -73,7 +75,9 @@ function SendLinkModal({
 
   async function handleCopy() {
     if (!shortUrl) return;
-    await navigator.clipboard.writeText(shortUrl).catch(() => {});
+    const ok = await copyText(shortUrl);
+    setCopyFailed(!ok);
+    if (!ok) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -116,6 +120,9 @@ function SendLinkModal({
                   {copied ? 'Copied!' : 'Copy'}
                 </button>
               </div>
+              {copyFailed && (
+                <p className="mt-2 text-xs" style={{ color: 'var(--danger)' }}>Copy blocked — select the link and copy it manually.</p>
+              )}
             </div>
             <button type="button" onClick={onClose} className="btn-primary w-full py-2.5 text-sm">Close</button>
           </div>

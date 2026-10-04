@@ -5,10 +5,11 @@ import {
   purchaseOrders, vendors, projects, vendorPayments,
   milestones, payments, expenses, invoices, customers,
 } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { calcCollect, calcReceived, calcToPayVendor } from '@/lib/finance/metrics';
 import type { MilestoneRow, PaymentRow, PoRow } from '@/lib/finance/metrics';
 import { PAYMENT_SETTLED } from '@/lib/finance/constants';
+import { istDateOf, istMonthRange, istYearMonth } from '@/lib/dates/ist';
 
 interface PoLine { totalPaise?: number; qty?: number; unitRatePaise?: number }
 
@@ -28,14 +29,19 @@ function poTotalPaise(linesJson: unknown): number {
 export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Studio finances — matches the Accounts menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const sp = new URL(request.url).searchParams;
   const now = new Date();
-  const mStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const mEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  // Month windows follow the IST calendar (server runs in UTC).
+  const { year: istYear, month: istMonth } = istYearMonth(now);
+  const { start: mStart, end: mEndExcl } = istMonthRange(istYear, istMonth);
+  const mEnd   = new Date(mEndExcl.getTime() - 1);
   const periodStart = sp.get('periodStart') ?? mStart.toISOString();
   const periodEnd   = sp.get('periodEnd')   ?? mEnd.toISOString();
-  const today = now.toISOString().split('T')[0];
+  const today = istDateOf(now);
 
   try {
     // ── Milestones (all non-paid) with invoice status ─────────────────────────
@@ -85,7 +91,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // ── All payments (for received KPI + 6-month chart + mode breakdown) ───────
-    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1).toISOString();
+    const sixMonthsAgo = istMonthRange(istYear, istMonth - 5).start.toISOString();
     const allPayments = await db
       .select({
         amountPaise:  payments.amountPaise,
@@ -140,8 +146,7 @@ export async function GET(request: NextRequest) {
     const expMonthMap = new Map<string, number>();
     for (const e of sixMoExpenses) {
       catMap.set(e.category, (catMap.get(e.category) ?? 0) + e.amountPaise);
-      const d   = new Date(e.createdAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const key = istDateOf(new Date(e.createdAt)).slice(0, 7);
       expMonthMap.set(key, (expMonthMap.get(key) ?? 0) + e.amountPaise);
     }
     const expenseByCategory = Array.from(catMap.entries())
@@ -262,12 +267,12 @@ export async function GET(request: NextRequest) {
     // ── 6-month chart (received + expenses per month) ─────────────────────────
     const chartMonths: { label: string; receivedPaise: number; expensesPaise: number }[] = [];
     for (let i = 5; i >= 0; i--) {
-      const d     = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const start = d.toISOString();
-      const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).toISOString();
-      const mKey  = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const range = istMonthRange(istYear, istMonth - i);
+      const start = range.start.toISOString();
+      const end   = new Date(range.end.getTime() - 1).toISOString();
+      const mKey  = istDateOf(range.start).slice(0, 7);
       chartMonths.push({
-        label:         d.toLocaleString('en-IN', { month: 'short', year: '2-digit' }),
+        label:         range.start.toLocaleString('en-IN', { month: 'short', year: '2-digit', timeZone: 'Asia/Kolkata' }),
         receivedPaise: calcReceived(paymentRows, start, end),
         expensesPaise: expMonthMap.get(mKey) ?? 0,
       });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Search, Plus, Edit2, Trash2, Package, X, AlertTriangle } from 'lucide-react';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
@@ -209,6 +210,7 @@ export default function MaterialsPage() {
   const [modalOpen,       setModalOpen]       = useState(false);
   const [editTarget,      setEditTarget]      = useState<Material | undefined>();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteError,     setDeleteError]     = useState<string | null>(null);
   const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000);
 
   useEffect(() => {
@@ -280,8 +282,14 @@ export default function MaterialsPage() {
   }, [editTarget]);
 
   async function handleDelete(id: string) {
-    const res = await fetch(`/api/v1/materials/${id}`, { method: 'DELETE' });
-    if (res.ok) setMaterials(prev => prev.filter(m => m.id !== id));
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/v1/materials/${id}`, { method: 'DELETE' });
+      if (res.ok) setMaterials(prev => prev.filter(m => m.id !== id));
+      else setDeleteError(await responseError(res, 'Could not delete the material.'));
+    } catch {
+      setDeleteError(NETWORK_ERROR);
+    }
     setDeleteConfirmId(null);
   }
 
@@ -302,6 +310,13 @@ export default function MaterialsPage() {
           </p>
         </div>
       </div>
+
+      {deleteError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{deleteError}
+          <button type="button" onClick={() => setDeleteError(null)} className="ml-auto underline opacity-70">dismiss</button>
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

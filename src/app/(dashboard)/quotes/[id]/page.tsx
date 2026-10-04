@@ -15,6 +15,7 @@ import { ImportBOQModal } from '@/components/quotes/ImportBOQModal';
 import { DocumentActions } from '@/components/ui/DocumentActions';
 import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 const FINANCE_ROLES = ['owner', 'accountant'];
 
@@ -59,6 +60,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [validUntil,    setValidUntil]    = useState('');
   const [paymentTerms,  setPaymentTerms]  = useState('');
   const [detailsSaving, setDetailsSaving] = useState(false);
+  const [detailsError, setDetailsError]   = useState<string | null>(null);
 
   // Cost/margin toggle — finance roles only
   const [userRole,       setUserRole]       = useState<string | null>(null);
@@ -99,12 +101,21 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
 
   async function patchQuoteField(field: 'validUntil' | 'paymentTerms', value: string | null) {
     setDetailsSaving(true);
+    setDetailsError(null);
+    const revert = () => {
+      if (field === 'validUntil') setValidUntil(quote?.validUntil ?? '');
+      else setPaymentTerms(quote?.paymentTerms ?? '');
+    };
     try {
-      await fetch(`/api/v1/quotes/${id}`, {
+      const res = await fetch(`/api/v1/quotes/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [field]: value || null }),
       });
+      if (!res.ok) { revert(); setDetailsError(await responseError(res, 'Could not save quote details.')); return; }
+      setQuote(q => (q ? { ...q, [field]: value || null } : q));
+    } catch {
+      revert(); setDetailsError(NETWORK_ERROR);
     } finally {
       setDetailsSaving(false);
     }
@@ -611,6 +622,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 />
               </div>
             </div>
+            {detailsError && <p className="mt-2 text-xs text-red-600">{detailsError}</p>}
           </div>
         )}
         {!isDraft && (quote.validUntil || quote.paymentTerms) && (

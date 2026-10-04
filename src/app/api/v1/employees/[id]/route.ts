@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { auth } from '@/lib/auth/config';
 
 const RoleEnum = z.enum(['owner', 'designer', 'supervisor', 'accountant']);
 const EmpTypeEnum = z.enum(['full_time', 'part_time', 'contract', 'intern', 'consultant']);
@@ -43,7 +44,7 @@ async function wouldRemoveLastOwner(id: string, tenantId: string) {
   const owners = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')));
+    .where(and(eq(users.tenantId, tenantId), inArray(users.role, ['owner', 'admin'])));
 
   const isLastOwner = owners.length <= 1 && owners.some((o) => o.id === id);
   if (!isLastOwner) return null;
@@ -69,6 +70,9 @@ export async function GET(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Full employee record incl. salary — owner only, matching the Employees menu.
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
@@ -120,7 +124,10 @@ export async function PATCH(
     // Demoting the last owner leaves the studio with nobody who can manage
     // staff, approve quotes, or restore the role — and no route to recover,
     // because every path back is itself owner-only.
-    if (patch.role && patch.role !== 'owner' && existing.role === 'owner') {
+    const demoting = patch.role && patch.role !== 'owner' && existing.role === 'owner';
+    // Deactivating the only owner strands the studio just like demoting them.
+    const deactivatingOwner = patch.status === 'inactive' && existing.role === 'owner';
+    if (demoting || deactivatingOwner) {
       const blocked = await wouldRemoveLastOwner(id, ctx.tenantId);
       if (blocked) return blocked;
     }
@@ -130,6 +137,13 @@ export async function PATCH(
       .set(patch)
       .where(and(eq(users.id, id), eq(users.tenantId, ctx.tenantId)))
       .returning();
+
+    // An inactive employee is refused at sign-in and on every request (see
+    // loadContext); end their live sessions now rather than when they expire.
+    if (patch.status === 'inactive' && existing.status !== 'inactive') {
+      const authCtx = await auth.$context;
+      await authCtx.internalAdapter.deleteUserSessions(id);
+    }
     return NextResponse.json({ data: row });
   } catch (e) {
     console.error('[PATCH /api/v1/employees/:id]', e);

@@ -57,7 +57,7 @@ export const siteIntelligence = defineJob(
         .values({
           tenantId,
           projectId,
-          logDate: sql`CURRENT_DATE`,
+          logDate: sql`(now() AT TIME ZONE 'Asia/Kolkata')::date`,
           voiceNoteUrl,
           transcript,
           progressPct: parsed.progressPct,

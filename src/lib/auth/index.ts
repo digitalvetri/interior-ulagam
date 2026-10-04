@@ -44,12 +44,14 @@ async function loadContext(): Promise<TenantContext | null> {
   // role change or tenant move takes effect immediately instead of whenever the
   // session next refreshes.
   const [row] = await db
-    .select({ id: users.id, tenantId: users.tenantId, role: users.role })
+    .select({ id: users.id, tenantId: users.tenantId, role: users.role, status: users.status })
     .from(users)
     .where(eq(users.id, session.user.id))
     .limit(1);
 
   if (!row?.tenantId) return null;
+  // A deactivated employee keeps no access, whatever sessions they still hold.
+  if (row.status === 'inactive') return null;
 
   return {
     userId: row.id,

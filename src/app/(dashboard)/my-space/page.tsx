@@ -1,4 +1,5 @@
 'use client';
+import { istDateOf, istToday } from '@/lib/dates/ist';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -592,8 +593,8 @@ function TaskPreview() {
       .finally(() => setLoading(false));
   }, []);
 
-  const today     = new Date().toISOString().slice(0, 10);
-  const isOverdue = (dueAt: string | null) => !!dueAt && dueAt.slice(0, 10) < today;
+  const today     = istToday();
+  const isOverdue = (dueAt: string | null) => !!dueAt && istDateOf(new Date(dueAt)) < today;
 
   return (
     <div className="rounded-2xl border p-5" style={{ borderColor: 'var(--border)' }}>

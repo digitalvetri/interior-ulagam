@@ -1,4 +1,5 @@
 'use client';
+import { istToday } from '@/lib/dates/ist';
 import { useEffect, useState, useCallback } from 'react';
 import {
   CalendarCheck, Clock, CheckCircle2, AlertCircle, XCircle,
@@ -227,7 +228,7 @@ function AttendanceCalendar({ records, year, month }: {
 }) {
   const daysInMonth = new Date(year, month, 0).getDate();
   const firstDay    = new Date(year, month - 1, 1).getDay();
-  const today       = new Date().toISOString().slice(0, 10);
+  const today       = istToday();
   const byDate      = new Map(records.map(r => [r.date, r.status]));
 
   const STATUS_STYLE: Record<string, { bg: string; dot: string; text: string }> = {

@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -10,6 +11,7 @@ import {
   Clock, Building2, Search, X,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
 import { Button } from '@/components/ui/button';
@@ -113,7 +115,7 @@ const MODE_COLOR: Record<string, { bg: string; color: string }> = {
   razorpay: { bg: 'rgba(79,70,229,0.12)',   color: '#4338ca' },
 };
 
-const TODAY = new Date().toISOString().split('T')[0];
+const TODAY = istToday();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -807,6 +809,7 @@ function ToPayTab() {
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [marking, setMarking] = useState<Set<string>>(new Set());
+  const [payError, setPayError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -835,14 +838,16 @@ function ToPayTab() {
 
   async function markPaid(id: string) {
     setMarking(prev => new Set(prev).add(id));
+    setPayError(null);
     try {
-      await fetch(`/api/v1/expenses/${id}`, {
+      const res = await fetch(`/api/v1/expenses/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ paidAt: new Date().toISOString() }),
       });
+      if (!res.ok) { setPayError(await responseError(res, 'Could not mark the expense as paid.')); return; }
       setRows(prev => prev.filter(r => r.id !== id));
-    } catch { /* noop */ } finally {
+    } catch { setPayError(NETWORK_ERROR); } finally {
       setMarking(prev => { const n = new Set(prev); n.delete(id); return n; });
     }
   }
@@ -879,6 +884,8 @@ function ToPayTab() {
           </span>
         </p>
       </div>
+
+      {payError && <p className="text-sm font-medium" style={{ color: 'var(--danger)' }}>{payError}</p>}
 
       {/* List */}
       {enriched.length === 0 ? (

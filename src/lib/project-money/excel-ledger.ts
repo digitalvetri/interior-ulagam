@@ -1,3 +1,4 @@
+import { istToday } from '@/lib/dates/ist';
 import ExcelJS from 'exceljs';
 
 // Client account statement as a styled workbook — twin of the PDF statement.
@@ -40,7 +41,7 @@ export async function buildLedgerExcel(input: LedgerExcelInput): Promise<Buffer>
   ws.getRow(1).height = 28;
   ws.mergeCells(2, 1, 2, 6);
   const s = ws.getCell(2, 1);
-  s.value = `${input.scope}  ·  Prepared by ${input.studioName} on ${new Date().toISOString().slice(0, 10).split('-').reverse().join('-')}  ·  Amounts include GST`;
+  s.value = `${input.scope}  ·  Prepared by ${input.studioName} on ${istToday().split('-').reverse().join('-')}  ·  Amounts include GST`;
   s.font = { name: 'Calibri', size: 10, italic: true, color: { argb: GREY } };
 
   const balanceLabel = input.totals.advancePaise > 0 ? 'ADVANCE WITH US' : 'BALANCE DUE';

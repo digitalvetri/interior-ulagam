@@ -14,14 +14,14 @@ export async function GET() {
 
   try {
     const [row] = await db.select({
-      monthCount: sql<number>`count(*) filter (where date_trunc('month', ${civilJobs.jobDate}) = date_trunc('month', current_date))::int`,
-      monthPaise: sql<number>`coalesce(sum(${civilJobs.totalPaise}) filter (where date_trunc('month', ${civilJobs.jobDate}) = date_trunc('month', current_date)), 0)::bigint`,
+      monthCount: sql<number>`count(*) filter (where date_trunc('month', ${civilJobs.jobDate}) = date_trunc('month', (now() at time zone 'Asia/Kolkata')::date))::int`,
+      monthPaise: sql<number>`coalesce(sum(${civilJobs.totalPaise}) filter (where date_trunc('month', ${civilJobs.jobDate}) = date_trunc('month', (now() at time zone 'Asia/Kolkata')::date)), 0)::bigint`,
       doneCount: sql<number>`count(*) filter (where ${civilJobs.status} = 'done')::int`,
       donePaise: sql<number>`coalesce(sum(${civilJobs.totalPaise}) filter (where ${civilJobs.status} = 'done'), 0)::bigint`,
       billedCount: sql<number>`count(*) filter (where ${civilJobs.status} = 'billed')::int`,
       billedPaise: sql<number>`coalesce(sum(${civilJobs.totalPaise}) filter (where ${civilJobs.status} = 'billed'), 0)::bigint`,
       paidThisMonthPaise: sql<number>`coalesce(sum(${civilJobs.totalPaise}) filter (
-        where ${civilJobs.status} = 'paid' and date_trunc('month', ${civilJobs.paidDate}) = date_trunc('month', current_date)
+        where ${civilJobs.status} = 'paid' and date_trunc('month', ${civilJobs.paidDate}) = date_trunc('month', (now() at time zone 'Asia/Kolkata')::date)
       ), 0)::bigint`,
     }).from(civilJobs).where(eq(civilJobs.tenantId, ctx.tenantId));
 

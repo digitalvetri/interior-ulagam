@@ -37,7 +37,8 @@ export async function DELETE(
 
 const UpdateQuoteSchema = z
   .object({
-    status:        z.enum(['draft', 'sent', 'approved', 'revised']).optional(),
+    // No status: approving and sending go through the owner-only /approve and
+    // /send routes. Accepting it here let a designer self-approve a quote.
     quoteNumber:   z.string().optional(),
     discountPaise: z.number().int().min(0).optional(),
     gstPct:        z.number().int().min(0).max(28).optional(),

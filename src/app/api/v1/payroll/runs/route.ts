@@ -14,6 +14,9 @@ const CreateSchema = z.object({
 
 export async function GET() {
   const ctx = await requireAuth();
+  // Pay for every employee — owner only, matching the Payroll menu.
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const runs = await db
     .select({

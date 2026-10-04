@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { istToday } from '@/lib/dates/ist';
 
 const MODES = [
   { value: 'upi',      label: 'UPI' },
@@ -32,7 +33,7 @@ export interface RecordPaymentDrawerProps {
 }
 
 function todayISO() {
-  return new Date().toISOString().split('T')[0];
+  return istToday();
 }
 
 export function RecordPaymentDrawer({

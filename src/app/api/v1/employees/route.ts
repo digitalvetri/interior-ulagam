@@ -13,7 +13,7 @@ const EmpTypeEnum = z.enum(['full_time', 'part_time', 'contract', 'intern', 'con
 const CreateSchema = z.object({
   fullName: z.string().min(1).max(120),
   role: RoleEnum.default('designer'),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().trim().email().optional().or(z.literal('')),
   phone: z.string().max(30).optional(),
   jobTitle: z.string().max(120).optional(),
   department: z.string().max(80).optional(),
@@ -69,6 +69,18 @@ export async function GET(request: NextRequest) {
           .where(inArray(accounts.userId, rows.map((r) => r.id)))
       : [];
     const withLogin = new Set(credentialled.map((a) => a.userId));
+
+    // Full records (salary, date of birth, emergency contact, permissions) are
+    // owner-only, matching the Employees menu. Other roles use this list for
+    // assignee pickers, so they get a directory view.
+    if (ctx.role !== 'owner') {
+      return NextResponse.json({
+        data: rows.map((r) => ({
+          id: r.id, fullName: r.fullName, role: r.role, jobTitle: r.jobTitle,
+          department: r.department, photoUrl: r.photoUrl, status: r.status,
+        })),
+      });
+    }
 
     return NextResponse.json({
       data: rows.map((r) => ({ ...r, hasLogin: withLogin.has(r.id) })),

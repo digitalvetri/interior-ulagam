@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { istToday } from '@/lib/dates/ist';
 
 interface FieldSiteLogForm {
   progressPct: number;
@@ -42,7 +43,7 @@ function SiteLogForm({ projectId }: { projectId: string }) {
     setError(null);
     setSuccess(false);
 
-    const logDate = new Date().toISOString().slice(0, 10);
+    const logDate = istToday();
     const labourCount =
       form.labourCount !== '' ? Number(form.labourCount) : undefined;
 

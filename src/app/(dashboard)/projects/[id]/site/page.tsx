@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { use, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -63,7 +64,7 @@ type LogFormState = {
 /* ── Utilities ─────────────────────────────────────────────────────────────── */
 
 function getTodayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  return istToday();
 }
 
 function parseBlockers(blockersJson: unknown): string[] {

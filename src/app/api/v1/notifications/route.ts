@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { notifications } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { visibleTo } from '@/lib/notifications/scope';
 
 const CreateSchema = z.object({
   severity: z.enum(['info', 'success', 'warning', 'critical']).default('info'),
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   const unreadOnly = request.nextUrl.searchParams.get('unread') === 'true';
 
   try {
-    const conditions = [eq(notifications.tenantId, ctx.tenantId)];
+    const conditions = [visibleTo(ctx)];
     if (unreadOnly) conditions.push(isNull(notifications.readAt));
 
     const rows = await db
@@ -57,6 +58,8 @@ export async function POST(request: NextRequest) {
     .insert(notifications)
     .values({
       tenantId: ctx.tenantId,
+      // Self-addressed: this endpoint must not let one user notify (or spam) others.
+      userId: ctx.userId,
       severity: parsed.data.severity,
       title: parsed.data.title,
       body: parsed.data.body ?? null,
@@ -76,7 +79,7 @@ export async function PATCH(_request: NextRequest) {
     await db
       .update(notifications)
       .set({ readAt: new Date() })
-      .where(and(eq(notifications.tenantId, ctx.tenantId), isNull(notifications.readAt)));
+      .where(and(visibleTo(ctx), isNull(notifications.readAt)));
     return NextResponse.json({ data: { ok: true } });
   } catch (e) {
     console.error('[PATCH /api/v1/notifications]', e);

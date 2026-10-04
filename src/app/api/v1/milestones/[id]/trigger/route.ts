@@ -92,7 +92,7 @@ export async function POST(
         tenantId: ctx.tenantId,
         projectId: milestone.projectId,
         invoiceNumber,
-        invoiceDate: sql`CURRENT_DATE`,
+        invoiceDate: sql`(now() AT TIME ZONE 'Asia/Kolkata')::date`,
         subtotalPaise,
         cgstPaise,
         sgstPaise,

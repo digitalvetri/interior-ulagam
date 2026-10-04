@@ -361,7 +361,8 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const denied = requireApiRole(ctx, ROLES.CRM);
+  // Deleting a lead (and its history) is irreversible — owner only, like deleting a client.
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
   if (denied) return denied;
 
   const { id } = await params;

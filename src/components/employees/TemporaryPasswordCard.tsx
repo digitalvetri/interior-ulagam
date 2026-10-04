@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Check, Copy, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { copyText } from '@/lib/client-feedback';
 
 /**
  * Shows a staff member's temporary password exactly once — it is not stored in
@@ -10,17 +11,17 @@ import { Button } from '@/components/ui/button';
  */
 export function TemporaryPasswordCard({ email, password }: { email: string | null; password: string }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const loginUrl = typeof window !== 'undefined' ? `${window.location.origin}/login` : '/login';
   const message = `Your Konst Design login\n${loginUrl}\nEmail: ${email ?? ''}\nTemporary password: ${password}\nYou will be asked to set your own password after signing in.`;
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(message);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard can be blocked (e.g. on plain http); the password stays visible to copy by hand.
-    }
+    // Clipboard can be blocked (e.g. on plain http); the password stays visible to copy by hand.
+    const ok = await copyText(message);
+    setCopyFailed(!ok);
+    if (!ok) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -43,6 +44,9 @@ export function TemporaryPasswordCard({ email, password }: { email: string | nul
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
         {copied ? 'Copied' : 'Copy login details'}
       </Button>
+      {copyFailed && (
+        <p className="text-xs font-medium text-red-700">Copy blocked — select the password and copy it manually.</p>
+      )}
     </div>
   );
 }

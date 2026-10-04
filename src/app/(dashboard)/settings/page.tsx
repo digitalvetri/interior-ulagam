@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -11,6 +12,7 @@ import {
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee } from '@/types/employees';
 import { useUser } from '@/components/providers/user-provider';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 type SettingsTab = 'profile' | 'users' | 'integrations' | 'data';
 
@@ -146,7 +148,7 @@ async function downloadExport(url: string, filename: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { refresh: refreshUser } = useUser();
+  const { refresh: refreshUser, isAdmin } = useUser();
   const [activeTab, setActiveTab]       = useState<SettingsTab>('profile');
   const [loading, setLoading]           = useState(true);
   const [employees, setEmployees]       = useState<Employee[]>([]);
@@ -184,16 +186,15 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [busyExport, setBusyExport] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [studioError, setStudioError]   = useState<string | null>(null);
+  const [permError, setPermError]       = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/settings/profile')
       .then(r => r.json())
       .then(({ data }: { data: ProfileData | null }) => {
-        const m: ProfileData = {
-          ownerName:    data?.ownerName    || DEFAULTS.ownerName,
-          ownerPhone:   data?.ownerPhone   || DEFAULTS.ownerPhone,
-          ownerEmail:   data?.ownerEmail   || DEFAULTS.ownerEmail,
-          ownerPhotoUrl: data?.ownerPhotoUrl || null,
+        const m: Omit<ProfileData, 'ownerName' | 'ownerPhone' | 'ownerEmail' | 'ownerPhotoUrl'> = {
           logoUrl:      data?.logoUrl      || null,
           studioName:   data?.studioName   || DEFAULTS.studioName,
           tagline:      data?.tagline      || DEFAULTS.tagline,
@@ -206,7 +207,9 @@ export default function SettingsPage() {
           pinCode:      data?.pinCode      || DEFAULTS.pinCode,
           gstin:        data?.gstin        || null,
         };
-        setProfile(m);
+        // Studio fields only: the My Profile fields come from /api/v1/me/profile below,
+        // and must not be overwritten if that response lands first.
+        setProfile(p => ({ ...p, ...m }));
 
       })
       .finally(() => setLoading(false));
@@ -236,45 +239,47 @@ export default function SettingsPage() {
   }, []);
 
   function openProfileEdit() { setDName(profile.ownerName ?? ''); setDPhone(profile.ownerPhone ?? ''); setDEmail(profile.ownerEmail ?? ''); setEditingProfile(true); }
-  function cancelProfileEdit() { setEditingProfile(false); }
+  function cancelProfileEdit() { setEditingProfile(false); setProfileError(null); }
   async function saveProfile() {
-    setSavingP(true);
+    setSavingP(true); setProfileError(null);
     try {
-      if (!dName.trim()) return;
+      if (!dName.trim()) { setProfileError('Name is required.'); return; }
       const res = await fetch('/api/v1/me/profile', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fullName: dName.trim(), phone: dPhone.trim() || null }) });
-      if (!res.ok) throw new Error();
+      if (!res.ok) { setProfileError(await responseError(res, 'Could not save your profile.')); return; }
       setProfile(p => ({ ...p, ownerName: dName.trim(), ownerPhone: dPhone.trim() || null }));
       refreshUser();
       setSavedP(true); setEditingProfile(false); setTimeout(() => setSavedP(false), 3000);
-    } catch { /* ignore */ } finally { setSavingP(false); }
+    } catch { setProfileError(NETWORK_ERROR); } finally { setSavingP(false); }
   }
 
   function openStudioEdit() { setDLogo(profile.logoUrl ?? ''); setDStName(profile.studioName ?? ''); setDTagline(profile.tagline ?? ''); setDStPhone(profile.phone ?? ''); setDStEmail(profile.email ?? ''); setDWebsite(profile.website ?? ''); setDAddress(profile.address ?? ''); setDCity(profile.city ?? ''); setDState(profile.state ?? ''); setDPin(profile.pinCode ?? ''); setDGstin(profile.gstin ?? ''); setEditingStudio(true); }
-  function cancelStudioEdit() { setEditingStudio(false); }
+  function cancelStudioEdit() { setEditingStudio(false); setStudioError(null); }
   async function saveStudio() {
-    setSavingS(true);
+    setSavingS(true); setStudioError(null);
     try {
       const res = await fetch('/api/v1/settings/profile', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ studioName: dStName.trim() || undefined, tagline: dTagline.trim() || null, phone: dStPhone.trim() || null, email: dStEmail.trim() || null, website: dWebsite.trim() || null, address: dAddress.trim() || null, city: dCity.trim() || null, state: dState.trim() || null, pinCode: dPin.trim() || null, gstin: dGstin.trim() || null, logoUrl: dLogo.trim() || null }) });
-      if (!res.ok) throw new Error();
+      if (!res.ok) { setStudioError(await responseError(res, 'Could not save studio details.')); return; }
       setProfile(p => ({ ...p, studioName: dStName, tagline: dTagline, phone: dStPhone, email: dStEmail, website: dWebsite, address: dAddress, city: dCity, state: dState, pinCode: dPin, gstin: dGstin, logoUrl: dLogo }));
       setSavedS(true); setEditingStudio(false); setTimeout(() => setSavedS(false), 3000);
-    } catch { /* ignore */ } finally { setSavingS(false); }
+    } catch { setStudioError(NETWORK_ERROR); } finally { setSavingS(false); }
   }
 
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
-    setUploading(true);
+    setUploading(true); setStudioError(null);
     try {
       const fd = new FormData(); fd.append('file', file);
       const res = await fetch('/api/v1/settings/logo', { method: 'POST', body: fd });
+      if (!res.ok) { setStudioError(await responseError(res, 'Logo upload failed.')); return; }
       const body = await res.json().catch(() => ({})) as { data?: { logoUrl?: string } };
       if (body.data?.logoUrl) setDLogo(body.data.logoUrl);
-    } catch { /* ignore */ } finally { setUploading(false); }
+      else setStudioError('Logo upload failed.');
+    } catch { setStudioError(NETWORK_ERROR); } finally { setUploading(false); e.target.value = ''; }
   }
 
   async function runExport(kind: string, ext: 'csv' | 'json') {
     setBusyExport(kind); setExportError(null);
-    try { await downloadExport(`/api/v1/exports/${kind}`, `${kind}_${new Date().toISOString().slice(0, 10)}.${ext}`); }
+    try { await downloadExport(`/api/v1/exports/${kind}`, `${kind}_${istToday()}.${ext}`); }
     catch (e) { setExportError(e instanceof Error ? e.message : 'Export failed'); }
     finally { setBusyExport(null); }
   }
@@ -383,13 +388,13 @@ export default function SettingsPage() {
                     {savingS ? 'Saving…' : 'Save'}
                   </button>
                 </>
-              ) : (
+              ) : isAdmin ? (
                 <button type="button" onClick={openStudioEdit}
                   className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-medium"
                   style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
                   <Pencil className="h-3 w-3" /> Edit
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -438,6 +443,7 @@ export default function SettingsPage() {
               <InfoRow label="Address" value={fullAddress}     icon={MapPin} />
             </div>
           )}
+          {studioError && <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{studioError}</div>}
           {savedS && (
             <div className="flex items-center gap-1 px-5 pb-3 text-[11px] font-medium" style={{ color: 'var(--success)' }}>
               <Check className="h-3 w-3" /> Saved
@@ -482,6 +488,7 @@ export default function SettingsPage() {
                 <InfoRow label="Email"     value={profile.ownerEmail} icon={Mail} />
               </div>
             )}
+            {profileError && <div className="mx-5 mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{profileError}</div>}
             {savedP && (
               <div className="flex items-center gap-1 px-5 pb-3 text-[11px] font-medium" style={{ color: 'var(--success)' }}>
                 <Check className="h-3 w-3" /> Saved
@@ -605,6 +612,7 @@ export default function SettingsPage() {
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                 Admin/owner users always have full access. Toggle flags for employee-role users below.
               </p>
+              {permError && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{permError}</div>}
               {loading ? (
                 <div className="space-y-3">
                   {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-16 w-full rounded-xl" />)}
@@ -640,15 +648,25 @@ export default function SettingsPage() {
                                 key={key}
                                 onClick={async () => {
                                   const next = !on;
+                                  setPermError(null);
                                   setUserPerms(prev => ({
                                     ...prev,
                                     [emp.id]: { ...prev[emp.id], [key]: next },
                                   }));
-                                  await fetch(`/api/v1/users/${emp.id}/permissions`, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ [key]: next }),
-                                  });
+                                  const revert = () => setUserPerms(prev => ({
+                                    ...prev,
+                                    [emp.id]: { ...prev[emp.id], [key]: on },
+                                  }));
+                                  try {
+                                    const res = await fetch(`/api/v1/users/${emp.id}/permissions`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ [key]: next }),
+                                    });
+                                    if (!res.ok) { revert(); setPermError(await responseError(res, 'Could not update permission.')); }
+                                  } catch {
+                                    revert(); setPermError(NETWORK_ERROR);
+                                  }
                                 }}
                                 className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors"
                                 style={{

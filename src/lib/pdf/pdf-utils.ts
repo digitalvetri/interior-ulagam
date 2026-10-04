@@ -14,6 +14,7 @@ export function fmtDate(d: Date | string): string {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    timeZone: 'Asia/Kolkata',
   });
 }
 

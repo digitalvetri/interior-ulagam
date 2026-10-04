@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import { Quote, Project } from '@/types/quotes';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -91,6 +92,7 @@ export default function QuotesPage() {
   const [copyFromQuoteId,   setCopyFromQuoteId]   = useState<string>('');
   const [creating,          setCreating]          = useState(false);
   const [createError,       setCreateError]       = useState<string | null>(null);
+  const [createdQuoteId,    setCreatedQuoteId]    = useState<string | null>(null);
 
   // Delete state
   const [deleteTarget,  setDeleteTarget]  = useState<Quote | null>(null);
@@ -111,6 +113,7 @@ export default function QuotesPage() {
     setSelectedProjectId('');
     setCopyFromQuoteId('');
     setCreateError(null);
+    setCreatedQuoteId(null);
     setDialogOpen(true);
     setProjectsLoading(true);
     fetch('/api/v1/projects')
@@ -144,13 +147,18 @@ export default function QuotesPage() {
 
       // Copy line items from source quote if selected
       if (copyFromQuoteId) {
+        // The quote already exists, so a copy failure keeps the dialog open
+        // with an "Open quote" button rather than inviting a duplicate create.
+        let copyError: string | null = null;
         try {
           const srcRes = await fetch(`/api/v1/quotes/${copyFromQuoteId}`);
-          if (srcRes.ok) {
+          if (!srcRes.ok) {
+            copyError = await responseError(srcRes, 'Could not read the source quote.');
+          } else {
             const { data: srcQuote } = (await srcRes.json()) as { data: Quote };
             const srcLines = srcQuote?.lines ?? [];
             if (srcLines.length > 0) {
-              await fetch(`/api/v1/quotes/${newQuote.id}/lines/bulk`, {
+              const bulkRes = await fetch(`/api/v1/quotes/${newQuote.id}/lines/bulk`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -164,10 +172,17 @@ export default function QuotesPage() {
                   })),
                 }),
               });
+              if (!bulkRes.ok) copyError = await responseError(bulkRes, 'Could not copy the line items.');
             }
           }
         } catch {
-          // Non-fatal — quote is created; lines can be added manually
+          copyError = NETWORK_ERROR;
+        }
+        if (copyError) {
+          setQuotes(prev => [newQuote, ...prev]);
+          setCreatedQuoteId(newQuote.id);
+          setCreateError(`Quote created, but its line items were not copied: ${copyError} Open the quote to add lines manually.`);
+          return;
         }
       }
 
@@ -446,9 +461,15 @@ export default function QuotesPage() {
             <button type="button" className="btn-secondary px-4 py-2" onClick={() => setDialogOpen(false)} disabled={creating}>
               Cancel
             </button>
-            <button type="button" className="btn-primary px-4 py-2" onClick={handleCreateQuote} disabled={creating || projectsLoading}>
-              {creating ? 'Creating…' : 'Create Quote'}
-            </button>
+            {createdQuoteId ? (
+              <button type="button" className="btn-primary px-4 py-2" onClick={() => { setDialogOpen(false); router.push(`/quotes/${createdQuoteId}`); }}>
+                Open Quote
+              </button>
+            ) : (
+              <button type="button" className="btn-primary px-4 py-2" onClick={handleCreateQuote} disabled={creating || projectsLoading}>
+                {creating ? 'Creating…' : 'Create Quote'}
+              </button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

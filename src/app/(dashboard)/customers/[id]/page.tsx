@@ -17,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LEAD_STAGE_LABEL } from '@/types/customers';
 import { ClientLedger } from '@/components/money/ClientLedger';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import type { Customer, CustomerActivity, CustomerActivityType, CustomerSource, CustomerStage, CustomerSummary } from '@/types/customers';
 
 /* ── Constants ──────────────────────────────────────────────────────────────── */
@@ -202,6 +203,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploading, setUploading]       = useState(false);
   const [uploadErr, setUploadErr]       = useState<string | null>(null);
+  const [deleteErr, setDeleteErr]       = useState<string | null>(null);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -276,8 +278,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   }
 
   async function handleDeleteFile(key: string) {
-    await fetch(`/api/v1/customers/${id}/files?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
-    setClientFiles(prev => prev.filter(f => f.key !== key));
+    setUploadErr(null);
+    try {
+      const res = await fetch(`/api/v1/customers/${id}/files?key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+      if (!res.ok) { setUploadErr(await responseError(res, 'Could not delete the file.')); return; }
+      setClientFiles(prev => prev.filter(f => f.key !== key));
+    } catch {
+      setUploadErr(NETWORK_ERROR);
+    }
   }
 
   function fmtSize(bytes: number): string {
@@ -377,8 +385,14 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
 
   async function remove() {
     if (!confirm('Delete this client? This cannot be undone.')) return;
-    const res = await fetch(`/api/v1/customers/${id}`, { method: 'DELETE' });
-    if (res.ok) window.location.href = '/customers';
+    setDeleteErr(null);
+    try {
+      const res = await fetch(`/api/v1/customers/${id}`, { method: 'DELETE' });
+      if (res.ok) window.location.href = '/customers';
+      else setDeleteErr(await responseError(res, 'Could not delete this client.'));
+    } catch {
+      setDeleteErr(NETWORK_ERROR);
+    }
   }
 
   /* ── Loading / not found ── */
@@ -545,6 +559,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
               </button>
             </div>
           </div>
+          {deleteErr && <p className="mt-3 text-xs text-red-600">{deleteErr}</p>}
         </div>
 
         {/* ── FINANCIAL KPI CARDS ─────────────────────────────────────── */}

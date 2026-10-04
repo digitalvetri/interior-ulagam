@@ -282,7 +282,7 @@ export async function loadCustomerLedger(tenantId: string, customerId: string, p
  */
 export async function applyStageMoneyEffects(tx: Db, tenantId: string, projectId: string, stage: ProjectStage): Promise<void> {
   const reached = STAGE_ORDER.filter(s => stageReached(stage, s));
-  await tx.update(milestones).set({ dueSince: sql`current_date` })
+  await tx.update(milestones).set({ dueSince: sql`(now() at time zone 'Asia/Kolkata')::date` })
     .where(and(eq(milestones.tenantId, tenantId), eq(milestones.projectId, projectId), isNull(milestones.dueSince),
       isNull(milestones.dueOn), inArray(milestones.triggerStage, reached)));
   if (stage === 'handover' || stage === 'complete') {

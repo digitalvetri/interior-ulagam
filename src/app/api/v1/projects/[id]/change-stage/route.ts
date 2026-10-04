@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { projects, leadActivities } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { applyStageMoneyEffects } from '@/lib/project-money/server';
+import { stageGateError } from '@/lib/projects/stage-gates';
 import { eq, and } from 'drizzle-orm';
 
 const PROJECT_STAGES = [
@@ -57,6 +58,14 @@ export async function POST(
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     if (project.lifecycleStage === newStage) {
       return NextResponse.json({ error: 'Project is already at this stage' }, { status: 409 });
+    }
+
+    // Staff must pass the stage gates (design sign-off, payment before
+    // procurement, …). The owner may move a project freely — e.g. projects
+    // brought in mid-way — and that move is recorded in the activity log.
+    if (ctx.role !== 'owner') {
+      const gateError = await stageGateError(ctx.tenantId, id, project.lifecycleStage, newStage);
+      if (gateError) return NextResponse.json({ error: gateError }, { status: 422 });
     }
 
     const [updated] = await db

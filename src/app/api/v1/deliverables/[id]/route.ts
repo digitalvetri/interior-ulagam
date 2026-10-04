@@ -94,6 +94,16 @@ export async function PATCH(
     );
   }
 
+  // Approval and the revision counter are owner decisions: approval has its own
+  // owner-only /approve route, and resetting revisionCount would stop the
+  // change-order trigger from ever firing.
+  if (ctx.role !== 'owner' && (parsed.data.status === 'approved' || parsed.data.revisionCount !== undefined)) {
+    return NextResponse.json(
+      { error: 'Only the studio owner can approve a deliverable or change its revision count.' },
+      { status: 403 },
+    );
+  }
+
   if (Object.keys(parsed.data).length === 0) {
     return NextResponse.json(
       { error: 'No fields provided for update' },

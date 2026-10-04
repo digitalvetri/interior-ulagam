@@ -4,6 +4,7 @@ import { Plus, Wrench, AlertCircle, Clock, ArrowUpCircle } from 'lucide-react';
 import { PageHeader }  from '@/components/ui/PageHeader';
 import { EmptyState }  from '@/components/ui/EmptyState';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 interface ServiceRequest {
   id: string;
@@ -53,11 +54,13 @@ function CreateDialog({
   const [priority,  setPriority]  = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [notes,     setNotes]     = useState('');
   const [saving,    setSaving]    = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!issue.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch('/api/v1/service-requests', {
         method: 'POST',
@@ -69,8 +72,11 @@ function CreateDialog({
           notes: notes.trim() || undefined,
         }),
       });
+      if (!res.ok) { setError(await responseError(res, 'Could not create the service request.')); return; }
       const json = await res.json();
-      if (res.ok) { onCreated(json.data); onClose(); }
+      onCreated(json.data); onClose();
+    } catch {
+      setError(NETWORK_ERROR);
     } finally { setSaving(false); }
   }
 
@@ -129,6 +135,9 @@ function CreateDialog({
               placeholder="Any additional context…"
             />
           </div>
+          {error && (
+            <p className="flex items-center gap-1.5 text-xs text-red-600"><AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />{error}</p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
             <button type="submit" disabled={saving || !issue.trim()} className="btn-primary px-4 py-2 text-sm rounded-lg">
@@ -224,6 +233,7 @@ export default function ServicePage() {
   const [loading,   setLoading]   = useState(true);
   const [creating,  setCreating]  = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -245,14 +255,21 @@ export default function ServicePage() {
     const updates: Record<string, string | null> = { status };
     if (status === 'resolved') updates.resolvedAt = new Date().toISOString();
 
-    const res = await fetch(`/api/v1/service-requests/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (res.ok) {
-      const json = await res.json();
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, ...json.data } : r));
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/service-requests/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setRequests(prev => prev.map(r => r.id === id ? { ...r, ...json.data } : r));
+      } else {
+        setActionError(await responseError(res, 'Could not update the service request.'));
+      }
+    } catch {
+      setActionError(NETWORK_ERROR);
     }
   }
 
@@ -269,6 +286,13 @@ export default function ServicePage() {
           </button>
         }
       />
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />{actionError}
+          <button type="button" onClick={() => setActionError(null)} className="ml-auto underline opacity-70">dismiss</button>
+        </div>
+      )}
 
       {/* Filter bar */}
       <div className="flex gap-2 flex-wrap">

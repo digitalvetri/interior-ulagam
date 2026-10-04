@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { SnagItem, SnagStatus } from '@/types/snag';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { copyText } from '@/lib/client-feedback';
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
@@ -136,6 +137,7 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
   const [linkLoading, setLinkLoading] = useState(false);
   const [linkError,   setLinkError]   = useState<string | null>(null);
   const [copied,      setCopied]      = useState(false);
+  const [copyFailed,  setCopyFailed]  = useState(false);
 
   const [handoverLoading, setHandoverLoading] = useState(false);
   const [handoverResult,  setHandoverResult]  = useState<{ success: boolean; message: string } | null>(null);
@@ -180,9 +182,9 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
   }
 
   async function handleGenerateClientLink() {
-    setLinkLoading(true); setLinkError(null); setClientUrl(null); setCopied(false);
+    setLinkLoading(true); setLinkError(null); setClientUrl(null); setCopied(false); setCopyFailed(false);
     try {
-      const res = await fetch(`/api/v1/projects/${id}/client-token`);
+      const res = await fetch(`/api/v1/projects/${id}/client-token`, { method: 'POST' });
       if (!res.ok) {
         const json = await res.json() as { error?: string };
         setLinkError(json.error ?? 'Failed to generate link'); return;
@@ -196,13 +198,14 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
     }
   }
 
-  function handleCopyLink() {
+  async function handleCopyLink() {
     if (!clientUrl) return;
-    void navigator.clipboard.writeText(clientUrl).then(() => {
-      setCopied(true);
-      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
-      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
-    });
+    const ok = await copyText(clientUrl);
+    setCopyFailed(!ok);
+    if (!ok) return;
+    setCopied(true);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
   }
 
   const allClear = snagItems.length === 0 ||
@@ -266,6 +269,9 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
             {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
+      )}
+      {clientUrl && copyFailed && (
+        <p className="text-xs" style={{ color: 'var(--danger)' }}>Copy blocked — select the link and copy it manually.</p>
       )}
       {linkError && (
         <p className="text-xs" style={{ color: 'var(--danger)' }}>{linkError}</p>

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects, leads, customers } from '@/lib/db/schema';
+import { stageGateError } from '@/lib/projects/stage-gates';
+import { applyStageMoneyEffects } from '@/lib/project-money/server';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
@@ -104,6 +106,26 @@ export async function PATCH(
   }
 
   try {
+    // Contract value and stage carry money and gate consequences. The edit dialog
+    // always sends both, so only a *change* is checked: contract changes are
+    // owner-only (as in projects/[id]/money), and staff stage changes must pass
+    // the same gates as the Change stage action.
+    const [current] = await db
+      .select({ totalContractPaise: projects.totalContractPaise, lifecycleStage: projects.lifecycleStage })
+      .from(projects)
+      .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)));
+    if (!current) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const stageChanged = input.lifecycleStage !== undefined && input.lifecycleStage !== current.lifecycleStage;
+    if (ctx.role !== 'owner') {
+      if (input.totalContractPaise !== undefined && input.totalContractPaise !== current.totalContractPaise) {
+        return NextResponse.json({ error: 'Only the studio owner can change the contract value.' }, { status: 403 });
+      }
+      if (stageChanged && input.lifecycleStage) {
+        const gateError = await stageGateError(ctx.tenantId, id, current.lifecycleStage, input.lifecycleStage);
+        if (gateError) return NextResponse.json({ error: gateError }, { status: 422 });
+      }
+    }
+
     const { expectedEndAt, ...rest } = input;
     const updateData = {
       ...rest,
@@ -120,6 +142,10 @@ export async function PATCH(
 
     if (!updated) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+    // Same money effects as the Change stage action (milestones falling due, handover date).
+    if (stageChanged && input.lifecycleStage) {
+      await applyStageMoneyEffects(db, ctx.tenantId, id, input.lifecycleStage);
     }
 
     return NextResponse.json({ data: updated, message: 'Project updated' });

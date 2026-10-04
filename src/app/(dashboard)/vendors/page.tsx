@@ -7,6 +7,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import type { MaterialCategory } from '@/types/vendors';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
@@ -86,6 +87,7 @@ export default function VendorsPage() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
   const [deleteBusy,   setDeleteBusy]   = useState(false);
+  const [deleteError,  setDeleteError]  = useState<string | null>(null);
 
   /* ── Load ─────────────────────────────────────────────────────────────────── */
 
@@ -176,11 +178,15 @@ export default function VendorsPage() {
 
   async function handleDelete() {
     if (!deleteTarget) return;
-    setDeleteBusy(true);
+    setDeleteBusy(true); setDeleteError(null);
     try {
       const res = await fetch(`/api/v1/vendors/${deleteTarget.id}`, { method: 'DELETE' });
-      if (res.ok) setVendors(prev => prev.filter(v => v.id !== deleteTarget.id));
-    } finally { setDeleteBusy(false); setDeleteTarget(null); }
+      if (!res.ok) { setDeleteError(await responseError(res, 'Could not remove this vendor.')); return; }
+      setVendors(prev => prev.filter(v => v.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch {
+      setDeleteError(NETWORK_ERROR);
+    } finally { setDeleteBusy(false); }
   }
 
   /* ── Render ───────────────────────────────────────────────────────────────── */
@@ -398,15 +404,20 @@ export default function VendorsPage() {
       </Dialog>
 
       {/* ── Delete confirm ────────────────────────────────────────────────────── */}
-      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null); }}>
+      <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) { setDeleteTarget(null); setDeleteError(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Remove vendor?</DialogTitle></DialogHeader>
           <p className="text-sm py-1" style={{ color: 'var(--text-secondary)' }}>
             <span className="font-semibold" style={{ color: 'var(--text-heading)' }}>{deleteTarget?.name}</span> will be
             removed. Existing POs linked to this vendor won&apos;t be affected.
           </p>
+          {deleteError && (
+            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{deleteError}
+            </div>
+          )}
           <DialogFooter>
-            <button type="button" onClick={() => setDeleteTarget(null)} disabled={deleteBusy} className="btn-secondary px-4 py-2 text-sm">Cancel</button>
+            <button type="button" onClick={() => { setDeleteTarget(null); setDeleteError(null); }} disabled={deleteBusy} className="btn-secondary px-4 py-2 text-sm">Cancel</button>
             <button type="button" onClick={handleDelete} disabled={deleteBusy}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-50"
               style={{ background: '#DC2626' }}>

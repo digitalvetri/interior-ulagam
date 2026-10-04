@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR, copyText } from '@/lib/client-feedback';
 import type { InvoiceDetail, InvoicePayment } from '@/types/accounts';
 
 type ExtendedPayment = InvoicePayment & {
@@ -56,6 +57,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [pdfError,      setPdfError]      = useState<string | null>(null);
   const [lastPaymentId, setLastPaymentId] = useState<string | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError,   setReceiptError]   = useState<string | null>(null);
 
   // Edit drawer (draft only)
   const [editOpen,       setEditOpen]       = useState(false);
@@ -72,6 +74,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const [sendPdfUrl,     setSendPdfUrl]     = useState<string | null>(null);
   const [sendGenerating, setSendGenerating] = useState(false);
   const [sendCopied,     setSendCopied]     = useState(false);
+  const [sendCopyFailed, setSendCopyFailed] = useState(false);
+  const [sendError,      setSendError]      = useState<string | null>(null);
   const [sendPhone,      setSendPhone]      = useState('');
 
   const loadInvoice = useCallback(() => {
@@ -162,6 +166,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     setSendOpen(true);
     setSendPdfUrl(null);
     setSendCopied(false);
+    setSendCopyFailed(false);
+    setSendError(null);
     setSendGenerating(true);
     // Auto-fill client phone if available and field is empty
     if (!sendPhone && detail?.project?.clientPhone) {
@@ -170,14 +176,16 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     try {
       if (detail?.invoice.pdfUrl) {
         const r = await fetch(`/api/v1/invoices/${id}/pdf`);
+        if (!r.ok) { setSendError(await responseError(r, 'Failed to generate PDF.')); return; }
         const b = await r.json();
-        if (r.ok && b?.data?.pdfUrl) setSendPdfUrl(b.data.pdfUrl as string);
+        if (b?.data?.pdfUrl) setSendPdfUrl(b.data.pdfUrl as string);
       } else {
         const r = await fetch(`/api/v1/invoices/${id}/pdf`, { method: 'POST' });
+        if (!r.ok) { setSendError(await responseError(r, 'Failed to generate PDF.')); return; }
         const b = await r.json();
-        if (r.ok && b?.data?.pdfUrl) { setSendPdfUrl(b.data.pdfUrl as string); loadInvoice(); }
+        if (b?.data?.pdfUrl) { setSendPdfUrl(b.data.pdfUrl as string); loadInvoice(); }
       }
-    } catch {}
+    } catch { setSendError(NETWORK_ERROR); }
     finally { setSendGenerating(false); }
   }
 
@@ -186,8 +194,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
     try {
       if (detail?.invoice.pdfUrl) {
         const r = await fetch(`/api/v1/invoices/${id}/pdf`);
+        if (!r.ok) { setPdfError(await responseError(r, 'PDF download failed')); return; }
         const b = await r.json();
-        if (r.ok && b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
+        if (b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
+        else setPdfError('PDF download failed');
       } else {
         const r = await fetch(`/api/v1/invoices/${id}/pdf`, { method: 'POST' });
         const b = await r.json();
@@ -200,10 +210,15 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   async function handleReceiptDownload() {
     setReceiptLoading(true);
+    setReceiptError(null);
     try {
       const r = await fetch(`/api/v1/payments/${lastPaymentId}/receipt`, { method: 'POST' });
+      if (!r.ok) { setReceiptError(await responseError(r, 'Could not generate the receipt.')); return; }
       const b = await r.json();
-      if (r.ok && b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
+      if (b?.data?.pdfUrl) window.open(b.data.pdfUrl as string, '_blank');
+      else setReceiptError('Could not generate the receipt.');
+    } catch {
+      setReceiptError(NETWORK_ERROR);
     } finally { setReceiptLoading(false); }
   }
 
@@ -576,6 +591,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   Download Receipt
                 </button>
               )}
+              {receiptError && <p className="px-3 text-xs" style={{ color: 'var(--danger)' }}>{receiptError}</p>}
             </div>
 
             {/* Divider + secondary actions */}
@@ -735,7 +751,9 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   <div className="flex items-center gap-2">
                     <button
                       onClick={async () => {
-                        await navigator.clipboard.writeText(sendPdfUrl);
+                        const ok = await copyText(sendPdfUrl);
+                        setSendCopyFailed(!ok);
+                        if (!ok) return;
                         setSendCopied(true);
                         setTimeout(() => setSendCopied(false), 2000);
                       }}
@@ -752,7 +770,10 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     </a>
                   </div>
                 ) : (
-                  <p className="text-xs" style={{ color: 'var(--danger)' }}>Failed to generate PDF. Try downloading directly.</p>
+                  <p className="text-xs" style={{ color: 'var(--danger)' }}>{sendError ?? 'Failed to generate PDF.'} Try downloading directly.</p>
+                )}
+                {sendPdfUrl && sendCopyFailed && (
+                  <p className="mt-1.5 text-xs" style={{ color: 'var(--danger)' }}>Copy blocked — open the PDF and copy its link manually.</p>
                 )}
               </div>
 

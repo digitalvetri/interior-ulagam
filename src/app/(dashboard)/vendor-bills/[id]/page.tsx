@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -151,7 +152,7 @@ export default function VendorBillDetailPage({
     setPayMethod('');
     setPayRef('');
     setPayNote('');
-    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayDate(istToday());
     setPayError(null);
     setPayOpen(true);
   }
@@ -770,7 +771,7 @@ export default function VendorBillDetailPage({
                   <input
                     type="date"
                     value={payDate}
-                    max={new Date().toISOString().slice(0, 10)}
+                    max={istToday()}
                     onChange={e => setPayDate(e.target.value)}
                     className="studio-input w-full h-10"
                     disabled={paySubmitting}

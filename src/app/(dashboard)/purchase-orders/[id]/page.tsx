@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Package, CheckCircle, Clock, CalendarDays, Download, MessageCircle, Paperclip, Plus, ChevronDown, ChevronUp, FileText } from 'lucide-react';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import type { PurchaseOrder, GRN, GRNDeliveryGroup, POLine, POStatus } from '@/types/purchase-orders';
 import type { Expense } from '@/types/accounts';
 
@@ -146,6 +148,7 @@ export default function PurchaseOrderDetailPage({
   const [pdfLoading, setPdfLoading]     = useState(false);
   const [waLoading, setWaLoading]       = useState(false);
   const [waMsg, setWaMsg]               = useState<{ ok: boolean; text: string } | null>(null);
+  const [pageError, setPageError]       = useState<string | null>(null);
 
   /* ── Load ── */
   const load = useCallback(async () => {
@@ -205,6 +208,7 @@ export default function PurchaseOrderDetailPage({
   async function advanceStatus(newStatus: POStatus) {
     if (!po) return;
     setStatusSaving(true);
+    setPageError(null);
     try {
       const res = await fetch(`/api/v1/purchase-orders/${id}`, {
         method: 'PATCH',
@@ -213,7 +217,11 @@ export default function PurchaseOrderDetailPage({
       });
       if (res.ok) {
         setPo(prev => prev ? { ...prev, status: newStatus } : prev);
+      } else {
+        setPageError(await responseError(res, 'Could not update the PO status.'));
       }
+    } catch {
+      setPageError(NETWORK_ERROR);
     } finally { setStatusSaving(false); }
   }
 
@@ -243,7 +251,7 @@ export default function PurchaseOrderDetailPage({
       return;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = istToday();
     setGrnDeliveryDate(today);
     setGrnNotes('');
     setGrnLines(pendingLines);
@@ -353,10 +361,17 @@ export default function PurchaseOrderDetailPage({
       }
       const { data: created } = (await res.json()) as { data?: { id: string } };
       // Upload receipt if one was selected
+      // The bill already exists at this point, so a failed upload closes the
+      // dialog anyway (retrying would create a duplicate bill) and says so.
       if (billReceiptFile && created?.id) {
         const form = new FormData();
         form.append('file', billReceiptFile);
-        await fetch(`/api/v1/vendor-bills/${created.id}/receipt`, { method: 'POST', body: form });
+        try {
+          const up = await fetch(`/api/v1/vendor-bills/${created.id}/receipt`, { method: 'POST', body: form });
+          if (!up.ok) setPageError(`Vendor bill saved, but the receipt upload failed: ${await responseError(up, 'please attach it again.')}`);
+        } catch {
+          setPageError('Vendor bill saved, but the receipt upload failed (network error). Please attach it again.');
+        }
       }
       setBillOpen(false);
       void load();
@@ -473,6 +488,14 @@ export default function PurchaseOrderDetailPage({
         <div className={`rounded-xl px-4 py-3 text-sm font-medium ${waMsg.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
           {waMsg.text}
           <button onClick={() => setWaMsg(null)} className="ml-3 text-xs underline opacity-70">dismiss</button>
+        </div>
+      )}
+
+      {/* Action error banner */}
+      {pageError && (
+        <div className="rounded-xl px-4 py-3 text-sm font-medium bg-red-50 text-red-700">
+          {pageError}
+          <button onClick={() => setPageError(null)} className="ml-3 text-xs underline opacity-70">dismiss</button>
         </div>
       )}
 
@@ -1081,7 +1104,7 @@ export default function PurchaseOrderDetailPage({
                   id="grn-date"
                   type="date"
                   value={grnDeliveryDate}
-                  max={new Date().toISOString().slice(0, 10)}
+                  max={istToday()}
                   onChange={e => setGrnDeliveryDate(e.target.value)}
                   className="h-9 text-sm"
                 />

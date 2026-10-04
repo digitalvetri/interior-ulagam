@@ -72,10 +72,6 @@ const PatchSchema = z.object({
   defaultGstPct:         z.number().min(0).max(100).nullable().optional(),
   placeOfSupply:         z.string().max(100).nullable().optional(),
   defaultMilestones:     z.array(z.object({ label: z.string().max(200), pct: z.number().min(0).max(100) })).nullable().optional(),
-  ownerName:             z.string().max(200).nullable().optional(),
-  ownerPhone:            z.string().max(30).nullable().optional(),
-  ownerEmail:            z.string().email().nullable().optional().or(z.literal('')),
-  ownerPhotoUrl:         z.string().url().nullable().optional(),
   coldDaysThreshold:     z.number().int().min(1).max(365).nullable().optional(),
   defaultRevisionCap:    z.number().int().min(0).max(20).nullable().optional(),
 });
@@ -111,19 +107,18 @@ function buildResponse(row: { name: string; gstin: string | null; brandingJson: 
     defaultGstPct:        typeof b.defaultGstPct === 'number' ? b.defaultGstPct : 18,
     placeOfSupply:        str(b.placeOfSupply),
     defaultMilestones:    Array.isArray(b.defaultMilestones) ? b.defaultMilestones as MilestoneDefault[] : null,
-    ownerName:            str(b.ownerName),
-    ownerPhone:           str(b.ownerPhone),
-    ownerEmail:           str(b.ownerEmail),
-    ownerPhotoUrl:        str(b.ownerPhotoUrl),
     coldDaysThreshold:    typeof b.coldDaysThreshold === 'number' ? b.coldDaysThreshold : 14,
     defaultRevisionCap:   typeof b.defaultRevisionCap === 'number' ? b.defaultRevisionCap : 2,
   };
 }
 
-// GET /api/v1/settings/profile
+// GET /api/v1/settings/profile — owner only: includes bank account and GSTIN,
+// and its only caller is the owner-only Settings page.
 export async function GET() {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const [row] = await db.select().from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1);
   if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -199,10 +194,11 @@ export async function PATCH(request: NextRequest) {
       if (p.defaultMilestones === null) delete branding.defaultMilestones;
       else branding.defaultMilestones = p.defaultMilestones;
     }
-    setStr('ownerName',           p.ownerName);
-    setStr('ownerPhone',          p.ownerPhone);
-    setStr('ownerEmail',          p.ownerEmail && p.ownerEmail !== '' ? p.ownerEmail : null);
-    setStr('ownerPhotoUrl',       p.ownerPhotoUrl);
+    // The old studio-wide ownerName/ownerPhone/ownerEmail/ownerPhotoUrl keys held
+    // one person's details for every owner; personal details live on the user row
+    // (/api/v1/me/profile). Drop any leftovers on the next studio save.
+    delete branding.ownerName; delete branding.ownerPhone;
+    delete branding.ownerEmail; delete branding.ownerPhotoUrl;
     setNum('coldDaysThreshold',   p.coldDaysThreshold);
     setNum('defaultRevisionCap',  p.defaultRevisionCap);
 

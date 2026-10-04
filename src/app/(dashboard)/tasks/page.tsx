@@ -4,6 +4,7 @@ import { CheckCircle2, Plus, Clock, Trash2, Loader2, AlertTriangle, Link2 } from
 import Link from 'next/link';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState }  from '@/components/ui/EmptyState';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 interface Task {
   id: string;
@@ -149,11 +150,13 @@ function CreateTaskDialog({
   const [dueAt,      setDueAt]      = useState('');
   const [notes,      setNotes]      = useState('');
   const [saving,     setSaving]     = useState(false);
+  const [error,      setError]      = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch('/api/v1/tasks', {
         method: 'POST',
@@ -165,8 +168,11 @@ function CreateTaskDialog({
           notes:      notes.trim() || undefined,
         }),
       });
+      if (!res.ok) { setError(await responseError(res, 'Could not create the task.')); return; }
       const json = await res.json();
-      if (res.ok) { onCreated(json.data); onClose(); }
+      onCreated(json.data); onClose();
+    } catch {
+      setError(NETWORK_ERROR);
     } finally { setSaving(false); }
   }
 
@@ -201,6 +207,9 @@ function CreateTaskDialog({
             <textarea className="input-field w-full" rows={2} value={notes} onChange={e => setNotes(e.target.value)}
               placeholder="Optional context..." />
           </div>
+          {error && (
+            <p className="flex items-center gap-1.5 text-xs text-red-600"><AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}</p>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm rounded-lg">Cancel</button>
             <button type="submit" disabled={saving || !title.trim()} className="btn-primary px-4 py-2 text-sm rounded-lg">
@@ -223,6 +232,7 @@ export default function TasksPage() {
   const [showDone, setShowDone] = useState(false);
   const [creating, setCreating] = useState(false);
   const [patching, setPatching] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -245,6 +255,7 @@ export default function TasksPage() {
 
   async function patchStatus(task: Task, newStatus: string) {
     setPatching(task.id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/v1/tasks/${task.id}`, {
         method: 'PATCH',
@@ -254,13 +265,23 @@ export default function TasksPage() {
       if (res.ok) {
         const json = await res.json();
         setTasks(prev => prev.map(t => t.id === task.id ? json.data : t));
+      } else {
+        setActionError(await responseError(res, 'Could not update the task.'));
       }
+    } catch {
+      setActionError(NETWORK_ERROR);
     } finally { setPatching(null); }
   }
 
   async function deleteTask(id: string) {
-    const res = await fetch(`/api/v1/tasks/${id}`, { method: 'DELETE' });
-    if (res.ok) setTasks(prev => prev.filter(t => t.id !== id));
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/tasks/${id}`, { method: 'DELETE' });
+      if (res.ok) setTasks(prev => prev.filter(t => t.id !== id));
+      else setActionError(await responseError(res, 'Could not delete the task.'));
+    } catch {
+      setActionError(NETWORK_ERROR);
+    }
   }
 
   const displayed = tasks.filter(t => {
@@ -296,6 +317,13 @@ export default function TasksPage() {
           </button>
         }
       />
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{actionError}
+          <button type="button" onClick={() => setActionError(null)} className="ml-auto underline opacity-70">dismiss</button>
+        </div>
+      )}
 
       {/* Tab pill — employees only */}
       {!isOwner && (

@@ -14,6 +14,8 @@ import {
 } from '@/lib/leads/stage-utils';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
 
 /* ── Helpers ── */
 function isOverdue(dateIso?: string | null): boolean {
@@ -39,11 +41,13 @@ function ProjectCard({
   index: number;
   onRefetch: () => void;
 }) {
+  const { isAdmin } = useUser();
   const router    = useRouter();
   const menuRef   = useRef<HTMLDivElement>(null);
   const [menuOpen,     setMenuOpen]     = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [deleting,     setDeleting]     = useState(false);
+  const [deleteError,  setDeleteError]  = useState<string | null>(null);
 
   /* close menu on outside click */
   useEffect(() => {
@@ -83,9 +87,13 @@ function ProjectCard({
     );
     if (!confirmed) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await fetch(`/api/v1/leads/${lead.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/v1/leads/${lead.id}`, { method: 'DELETE' });
+      if (!res.ok) { setDeleteError(await responseError(res, 'Could not delete this project.')); return; }
       onRefetch();
+    } catch {
+      setDeleteError(NETWORK_ERROR);
     } finally {
       setDeleting(false);
     }
@@ -224,6 +232,8 @@ function ProjectCard({
                 >
                   <Edit2 className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'var(--violet-primary)' }} /> Edit Project
                 </button>
+                {/* Deleting a lead is owner-only on the server. */}
+                {isAdmin && (<>
                 <div style={{ borderTop: '1px solid var(--border-subtle)', margin: '4px 0' }} />
                 <button
                   type="button"
@@ -233,11 +243,16 @@ function ProjectCard({
                 >
                   <Trash2 className="h-3.5 w-3.5 flex-shrink-0" /> Delete Project
                 </button>
+                </>)}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {deleteError && (
+        <p className="px-4 pb-3 text-[12px] font-medium" style={{ color: 'var(--danger)' }}>{deleteError}</p>
+      )}
 
       {followUpOpen && (
         <FollowUpModal

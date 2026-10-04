@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { siteVisits, leadActivities, leads, workOrders, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { istDateOf, istStartOfDay } from '@/lib/dates/ist';
 
 const QuerySchema = z.object({
   from: z.string().datetime(),
@@ -135,10 +136,11 @@ export async function GET(request: NextRequest) {
     for (const fu of fuRows) {
       if (!fu.followUpDate) continue;
       const d = fu.followUpDate;
-      // Anchor at 9:00 AM UTC so the event lands in a readable week-view slot.
-      const start = new Date(Date.UTC(
-        d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 9, 0, 0, 0,
-      )).toISOString();
+      // Anchor at 9:00 AM IST on the follow-up's IST calendar date (follow-ups
+      // are stored as IST midnight = 18:30Z the previous UTC day).
+      const start = new Date(
+        istStartOfDay(istDateOf(d)).getTime() + 9 * 60 * 60 * 1000,
+      ).toISOString();
       const stageLabel = fu.stage.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
       const color: CalendarEvent['color'] = d < now ? 'rose' : 'amber';
       events.push({
@@ -154,8 +156,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Work orders — appear on start date (or due date when only due date is set)
-    const fromDate = from.toISOString().slice(0, 10);
-    const toDate   = to.toISOString().slice(0, 10);
+    const fromDate = istDateOf(from);
+    const toDate   = istDateOf(to);
 
     const workOrderRows = await db
       .select({

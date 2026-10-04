@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { APIError } from 'better-auth/api';
 import { auth } from '@/lib/auth/config';
 import { checkRateLimit, loginLimiter } from '@/lib/ratelimit';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -33,6 +36,23 @@ export async function POST(request: NextRequest) {
     // "wrong password" would let an attacker enumerate accounts.
     if (!response.ok) {
       return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
+    }
+
+    // Checked only after the password is verified, so it reveals nothing to a
+    // guesser. Drop the session just issued and say why, rather than letting
+    // the app bounce them back to this page.
+    const [account] = await db
+      .select({ id: users.id, status: users.status })
+      .from(users)
+      .where(eq(users.email, parsed.data.email.trim().toLowerCase()))
+      .limit(1);
+    if (account?.status === 'inactive') {
+      const authCtx = await auth.$context;
+      await authCtx.internalAdapter.deleteUserSessions(account.id);
+      return NextResponse.json(
+        { error: 'This account has been deactivated. Contact your studio owner.' },
+        { status: 403 },
+      );
     }
 
     return response;

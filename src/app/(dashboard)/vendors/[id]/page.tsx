@@ -11,6 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import type { POStatus } from '@/types/purchase-orders';
 import type { MaterialCategory } from '@/types/vendors';
 
@@ -95,6 +96,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
   const [editError,  setEditError]  = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   /* ── Load ── */
   const load = useCallback(async () => {
@@ -160,11 +162,12 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
   }
 
   async function handleDelete() {
-    setDeleteBusy(true);
+    setDeleteBusy(true); setDeleteError(null);
     try {
-      await fetch(`/api/v1/vendors/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/v1/vendors/${id}`, { method: 'DELETE' });
+      if (!res.ok) { setDeleteError(await responseError(res, 'Could not remove this vendor.')); setDeleteBusy(false); return; }
       router.replace('/purchase-orders');
-    } catch { setDeleteBusy(false); }
+    } catch { setDeleteError(NETWORK_ERROR); setDeleteBusy(false); }
   }
 
   /* ── Guards ── */
@@ -256,7 +259,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               <Edit2 className="h-3.5 w-3.5" />Edit
             </button>
             <button
-              onClick={() => setDeleteOpen(true)}
+              onClick={() => { setDeleteError(null); setDeleteOpen(true); }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[var(--border-subtle)] text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
             >
               <Trash2 className="h-3.5 w-3.5" />Remove
@@ -568,6 +571,11 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800">
                 <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
                 This vendor has {openPOs.length} open PO{openPOs.length !== 1 ? 's' : ''}. Consider closing them first.
+              </div>
+            )}
+            {deleteError && (
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+                <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{deleteError}
               </div>
             )}
           </div>

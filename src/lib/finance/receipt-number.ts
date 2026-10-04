@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { payments } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
+import { istMonthRange, istYearMonth } from '@/lib/dates/ist';
 
 /**
  * Generate the next receipt number for a tenant in the format RCT-YYMM-NNNN.
@@ -8,10 +9,11 @@ import { and, eq, sql } from 'drizzle-orm';
  * Must be called inside the same transaction as the INSERT to avoid races.
  */
 export async function nextReceiptNumber(tenantId: string): Promise<string> {
-  const now = new Date();
-  const yy = String(now.getFullYear()).slice(2);
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  // IST calendar month (server runs in UTC).
+  const { year, month } = istYearMonth();
+  const yy = String(year).slice(2);
+  const mm = String(month).padStart(2, '0');
+  const monthStart = istMonthRange(year, month).start.toISOString();
 
   const [{ cnt }] = await db
     .select({ cnt: sql<number>`count(*)::int` })

@@ -1,3 +1,4 @@
+import { istToday } from '@/lib/dates/ist';
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -39,7 +40,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     const rows = ledger.entries.map(e => ({
       date: e.date, label: e.label, projectName: e.projectName, owedPaise: e.owedPaise, paidPaise: e.paidPaise, balancePaise: e.balancePaise,
     }));
-    const fileBase = `Statement-${c.fullName}-${new Date().toISOString().slice(0, 10)}`.replace(/[^A-Za-z0-9_.-]+/g, '-');
+    const fileBase = `Statement-${c.fullName}-${istToday()}`.replace(/[^A-Za-z0-9_.-]+/g, '-');
 
     if (format === 'xlsx') {
       const buf = await buildLedgerExcel({ studioName: tenant?.name ?? 'Konst Design', clientName: c.fullName, scope, rows, totals: ledger.totals });

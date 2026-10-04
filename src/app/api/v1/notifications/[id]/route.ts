@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { notifications } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
+import { visibleTo } from '@/lib/notifications/scope';
 
 const PatchSchema = z.object({
   read: z.boolean().optional(),
@@ -34,7 +35,7 @@ export async function PATCH(
     const [row] = await db
       .update(notifications)
       .set({ readAt: parsed.data.read === false ? null : new Date() })
-      .where(and(eq(notifications.id, id), eq(notifications.tenantId, ctx.tenantId)))
+      .where(and(eq(notifications.id, id), visibleTo(ctx)))
       .returning();
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ data: row });
@@ -58,7 +59,7 @@ export async function DELETE(
   try {
     const [row] = await db
       .delete(notifications)
-      .where(and(eq(notifications.id, id), eq(notifications.tenantId, ctx.tenantId)))
+      .where(and(eq(notifications.id, id), visibleTo(ctx)))
       .returning({ id: notifications.id });
     if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ data: { id: row.id } });

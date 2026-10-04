@@ -14,6 +14,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await requireAuth();
+  // Every payslip in the run — owner only, matching the Payroll menu.
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   const { id } = await params;
 
   const [run] = await db

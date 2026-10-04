@@ -84,7 +84,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           label: m.label, pctOfTotal: m.pctOfTotal, triggerStage: m.triggerStage, dueOn: m.dueOn, sortOrder: i,
           ...(paid ? {} : { amountPaise: Math.round((revised * m.pctOfTotal) / 100) }),
           // A dated milestone doesn't wait on a stage; a stage one already reached is due now.
-          ...(paid ? {} : { dueSince: m.dueOn ? null : (m.triggerStage && stageReached(p.stage, m.triggerStage)) || !m.triggerStage ? sql`coalesce(${milestones.dueSince}, current_date)` : null }),
+          ...(paid ? {} : { dueSince: m.dueOn ? null : (m.triggerStage && stageReached(p.stage, m.triggerStage)) || !m.triggerStage ? sql`coalesce(${milestones.dueSince}, (now() at time zone 'Asia/Kolkata')::date)` : null }),
         };
         if (prev) {
           await tx.update(milestones).set(fields).where(and(eq(milestones.id, prev.id), eq(milestones.tenantId, ctx.tenantId)));
@@ -92,7 +92,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
           await tx.insert(milestones).values({
             tenantId: ctx.tenantId, projectId: id, ...fields,
             amountPaise: Math.round((revised * m.pctOfTotal) / 100),
-            dueSince: m.dueOn ? null : (!m.triggerStage || stageReached(p.stage, m.triggerStage)) ? sql`current_date` : null,
+            dueSince: m.dueOn ? null : (!m.triggerStage || stageReached(p.stage, m.triggerStage)) ? sql`(now() at time zone 'Asia/Kolkata')::date` : null,
           });
         }
       }

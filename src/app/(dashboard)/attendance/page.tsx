@@ -1,8 +1,10 @@
 'use client';
 
+import { addDaysToDateStr, istToday } from '@/lib/dates/ist';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/components/providers/user-provider';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import {
   CalendarCheck, Users, UserCheck, UserX, Clock, Plane,
   ChevronLeft, ChevronRight, Check, X, Plus, Search,
@@ -104,7 +106,7 @@ const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; bg: string; color:
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function todayISO() {
-  return new Date().toISOString().split('T')[0];
+  return istToday();
 }
 
 function formatDate(iso: string) {
@@ -505,9 +507,7 @@ function DailyTab() {
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function shiftDate(days: number) {
-    const d = new Date(date);
-    d.setDate(d.getDate() + days);
-    setDate(d.toISOString().split('T')[0]);
+    setDate(addDaysToDateStr(date, days));
   }
 
   const filtered = (summary?.employees ?? []).filter(e =>
@@ -671,6 +671,8 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
   const [showAdd,  setShowAdd]  = useState(false);
   const [reviewDialog, setReviewDialog] = useState<{ req: LeaveRequest; action: 'approved' | 'rejected' } | null>(null);
   const [reviewNote, setReviewNote] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const { isAdmin } = useUser();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -688,15 +690,19 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
 
   async function review(id: string, action: 'approved' | 'rejected', note: string) {
     setActioning(id);
+    setReviewError('');
     try {
-      await fetch(`/api/v1/attendance/leave-requests/${id}`, {
+      const res = await fetch(`/api/v1/attendance/leave-requests/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action, reviewNote: note || null }),
       });
+      if (!res.ok) { setReviewError(await responseError(res, 'Could not update the leave request.')); return; }
       setReviewDialog(null);
       setReviewNote('');
       load();
+    } catch {
+      setReviewError(NETWORK_ERROR);
     } finally {
       setActioning(null);
     }
@@ -776,12 +782,12 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
       header: '',
       align: 'right',
       render: (row) => {
-        if (row.status !== 'pending') return null;
+        if (row.status !== 'pending' || !isAdmin) return null;
         const busy = actioning === row.id;
         return (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setReviewDialog({ req: row, action: 'approved' }); setReviewNote(''); }}
+              onClick={() => { setReviewDialog({ req: row, action: 'approved' }); setReviewNote(''); setReviewError(''); }}
               disabled={busy}
               className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold hover:opacity-80 disabled:opacity-40"
               style={{ background: '#DCFCE7', color: '#16A34A' }}>
@@ -789,7 +795,7 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
               Approve
             </button>
             <button
-              onClick={() => { setReviewDialog({ req: row, action: 'rejected' }); setReviewNote(''); }}
+              onClick={() => { setReviewDialog({ req: row, action: 'rejected' }); setReviewNote(''); setReviewError(''); }}
               disabled={busy}
               className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold hover:opacity-80 disabled:opacity-40"
               style={{ background: '#FEE2E2', color: '#DC2626' }}>
@@ -873,6 +879,13 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
                 placeholder="Add a note..."
                 className="w-full resize-none rounded-xl px-3 py-2 text-[13px]"
                 style={{ background: 'var(--surface-muted)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} />
+              {reviewError && (
+                <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-[12px]"
+                  style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {reviewError}
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 px-5 pb-5">
               <button onClick={() => setReviewDialog(null)}

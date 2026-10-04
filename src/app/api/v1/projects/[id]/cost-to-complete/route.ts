@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { projects, quotes, quoteLines, expenses } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 
 export async function GET(
@@ -12,6 +12,9 @@ export async function GET(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  // Real cost and margin — owner only, like the profit figures in projects/[id]/money.
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id: projectId } = await params;
 

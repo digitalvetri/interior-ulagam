@@ -1,17 +1,21 @@
+import { istToday } from '@/lib/dates/ist';
 import { NextRequest, NextResponse } from 'next/server';
 import { and, count, eq, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { attendanceRecords, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 // GET /api/v1/attendance/summary?date=YYYY-MM-DD
 // Returns today's KPIs + per-employee status for a given date
 export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Everyone's attendance incl. check-in GPS — matches the Attendance menu (owner, accountant).
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const date = request.nextUrl.searchParams.get('date')
-    ?? new Date().toISOString().split('T')[0];
+    ?? istToday();
 
   try {
     // All active employees in this tenant

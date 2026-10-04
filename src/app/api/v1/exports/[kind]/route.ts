@@ -1,3 +1,4 @@
+import { istToday } from '@/lib/dates/ist';
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, gte, lte } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -5,7 +6,7 @@ import {
   leads, projects, quotes, payments, materials, invoices, expenses, vendors,
   customers, designTasks, siteVisits,
 } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { toCsv } from '@/lib/csv';
 import {
   toTallySalesCsv, toTallySalesXml,
@@ -152,13 +153,16 @@ export async function GET(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Whole-table exports (costs, margins, payments, backup) — owner only; only Settings calls this.
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { kind } = await params;
   if (!(KINDS as readonly string[]).includes(kind)) {
     return NextResponse.json({ error: 'Unknown export kind' }, { status: 400 });
   }
   const k = kind as Kind;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istToday();
   const range = parseDateRange(req);
   const rangeSuffix = range.from || range.to
     ? `_${range.from?.toISOString().slice(0, 10) ?? 'start'}_to_${range.to?.toISOString().slice(0, 10) ?? 'today'}`

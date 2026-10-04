@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ const STATUS_STYLES: Record<WOStatus, { bg: string; color: string }> = {
 function StatusDropdown({ wo, onUpdated }: { wo: WorkOrder; onUpdated: (updated: WorkOrder) => void }) {
   const [open, setOpen]       = useState(false);
   const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState<string | null>(null);
 
   const statuses: WOStatus[] = ['draft', 'assigned', 'in_progress', 'on_hold', 'completed', 'cancelled'];
   const style = STATUS_STYLES[wo.status];
@@ -69,14 +71,19 @@ function StatusDropdown({ wo, onUpdated }: { wo: WorkOrder; onUpdated: (updated:
   async function handleSelect(status: WOStatus) {
     if (status === wo.status) { setOpen(false); return; }
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch(`/api/v1/work-orders/${wo.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
+      if (!res.ok) { setError(await responseError(res, 'Could not update the status.')); return; }
       const body = await res.json() as { data?: WorkOrder };
-      if (res.ok && body.data) onUpdated({ ...wo, status });
+      if (body.data) onUpdated({ ...wo, status });
+      else setError('Could not update the status.');
+    } catch {
+      setError(NETWORK_ERROR);
     } finally {
       setSaving(false);
       setOpen(false);
@@ -112,6 +119,7 @@ function StatusDropdown({ wo, onUpdated }: { wo: WorkOrder; onUpdated: (updated:
           ))}
         </div>
       )}
+      {error && <p className="mt-1 max-w-[220px] text-[11px] text-red-600">{error}</p>}
     </div>
   );
 }

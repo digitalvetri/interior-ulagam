@@ -56,13 +56,15 @@ export const mondayBrief = defineJob(
             ),
           );
 
-        // Find the owner's phone for this tenant
-        const [owner] = await db
+        // Every active owner with a phone gets the brief — a studio can have
+        // several owners, and picking "the" owner returned an arbitrary one.
+        const owners = (await db
           .select({ phone: users.phone, fullName: users.fullName })
           .from(users)
-          .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')));
+          .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner'), ne(users.status, 'inactive'))))
+          .filter((o): o is { phone: string; fullName: string } => !!o.phone);
 
-        if (!owner?.phone) {
+        if (owners.length === 0) {
           return { tenantId, sent: false, reason: 'no owner phone found' };
         }
 
@@ -77,13 +79,15 @@ export const mondayBrief = defineJob(
           model: 'heavy',
         });
 
-        await whatsapp.send({
-          type: 'text',
-          to: owner.phone,
-          text: `Good morning! Here is your Monday brief:\n\n${brief.summary}`,
-        });
+        for (const owner of owners) {
+          await whatsapp.send({
+            type: 'text',
+            to: owner.phone,
+            text: `Good morning! Here is your Monday brief:\n\n${brief.summary}`,
+          });
+        }
 
-        return { tenantId, sent: true };
+        return { tenantId, sent: true, recipients: owners.length };
       });
 
       results.push(result);

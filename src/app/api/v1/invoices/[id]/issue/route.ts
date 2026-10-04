@@ -1,3 +1,4 @@
+import { addDaysToDateStr, istToday } from '@/lib/dates/ist';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
@@ -44,7 +45,7 @@ export async function POST(
 
     const now = new Date();
     const dueDateStr = parsed.data.dueDate
-      ?? new Date(now.getTime() + DEFAULT_INVOICE_DUE_DAYS * 86400000).toISOString().split('T')[0];
+      ?? addDaysToDateStr(istToday(), DEFAULT_INVOICE_DUE_DAYS);
 
     const [updated] = await db.update(invoices)
       .set({ status: 'issued', issuedAt: now, dueDate: dueDateStr })

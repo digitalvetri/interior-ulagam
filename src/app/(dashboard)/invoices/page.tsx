@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -11,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue' | 'partial';
 
@@ -224,8 +226,8 @@ export default function InvoicesPage() {
   }>({ open: false, inv: null, reason: '', submitting: false, error: null });
 
   const [deleteConfirm, setDeleteConfirm] = useState<{
-    open: boolean; inv: InvoiceRow | null; deleting: boolean;
-  }>({ open: false, inv: null, deleting: false });
+    open: boolean; inv: InvoiceRow | null; deleting: boolean; error: string | null;
+  }>({ open: false, inv: null, deleting: false, error: null });
 
   async function handleRecordPayment() {
     if (!paymentDialog.inv) return;
@@ -267,16 +269,18 @@ export default function InvoicesPage() {
 
   async function handleDelete() {
     if (!deleteConfirm.inv) return;
-    setDeleteConfirm(p => ({ ...p, deleting: true }));
+    setDeleteConfirm(p => ({ ...p, deleting: true, error: null }));
     try {
       const res = await fetch(`/api/v1/invoices/${deleteConfirm.inv.id}`, { method: 'DELETE' });
-      const json = await res.json() as { error?: string };
-      if (!res.ok) { console.error(json.error ?? 'Failed to delete'); setDeleteConfirm(p => ({ ...p, deleting: false })); return; }
-      setDeleteConfirm({ open: false, inv: null, deleting: false });
+      if (!res.ok) {
+        const message = await responseError(res, 'Failed to delete the invoice.');
+        setDeleteConfirm(p => ({ ...p, deleting: false, error: message }));
+        return;
+      }
+      setDeleteConfirm({ open: false, inv: null, deleting: false, error: null });
       fetchInvoices();
-    } catch (err) {
-      console.error('Network error', err);
-      setDeleteConfirm(p => ({ ...p, deleting: false }));
+    } catch {
+      setDeleteConfirm(p => ({ ...p, deleting: false, error: NETWORK_ERROR }));
     }
   }
 
@@ -293,7 +297,7 @@ export default function InvoicesPage() {
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
   function openModal() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = istToday();
     const year  = new Date().getFullYear();
     setStep(1);
     setCreateError(null);
@@ -908,7 +912,7 @@ export default function InvoicesPage() {
                           inv={inv}
                           onPayment={(i) => setPaymentDialog({ open: true, inv: i, amount: '', mode: 'upi', submitting: false, error: null })}
                           onVoid={(i) => setVoidDialog({ open: true, inv: i, reason: '', submitting: false, error: null })}
-                          onDelete={(i) => setDeleteConfirm({ open: true, inv: i, deleting: false })}
+                          onDelete={(i) => setDeleteConfirm({ open: true, inv: i, deleting: false, error: null })}
                         />
                       </td>
                     </tr>
@@ -1036,6 +1040,7 @@ export default function InvoicesPage() {
           <p className="text-[13px] py-2" style={{ color: 'var(--text-secondary)' }}>
             <strong style={{ color: 'var(--text-heading)' }}>{deleteConfirm.inv?.invoiceNumber}</strong> will be permanently deleted. Only draft invoices can be deleted.
           </p>
+          {deleteConfirm.error && <p className="text-[12px]" style={{ color: '#DC2626' }}>{deleteConfirm.error}</p>}
           <DialogFooter>
             <button
               onClick={() => setDeleteConfirm(p => ({ ...p, open: false }))}

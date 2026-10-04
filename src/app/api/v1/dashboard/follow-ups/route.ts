@@ -26,6 +26,9 @@ export async function GET() {
       eq(leads.tenantId, ctx.tenantId),
       isNotNull(leads.followUpDate),
       isNull(leads.archivedAt),
+      // Staff dashboards say "your follow-ups": count only leads they own.
+      // The owner's dashboard shows the whole studio.
+      ctx.role === 'owner' ? undefined : eq(leads.ownerId, ctx.userId),
     );
 
     const [all, overdueRows, todayRows, upcomingRows] = await Promise.all([

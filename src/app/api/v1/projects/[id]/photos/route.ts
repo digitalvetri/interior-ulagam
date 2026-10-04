@@ -1,3 +1,4 @@
+import { istToday } from '@/lib/dates/ist';
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { projects, siteLogs } from '@/lib/db/schema';
@@ -57,7 +58,7 @@ export async function POST(
     return NextResponse.json({ error: 'No valid image files uploaded' }, { status: 400 });
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = istToday();
   const [siteLog] = await db
     .insert(siteLogs)
     .values({

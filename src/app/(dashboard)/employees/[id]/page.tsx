@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee, EmploymentType, UserRole } from '@/types/employees';
 import { TemporaryPasswordCard } from '@/components/employees/TemporaryPasswordCard';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 type TabKey = 'personal' | 'job' | 'contact';
 
@@ -47,6 +48,7 @@ export default function EmployeeDetailPage({
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<{ email: string | null; password: string } | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -112,8 +114,14 @@ export default function EmployeeDetailPage({
 
   async function remove() {
     if (!confirm('Remove this employee? This cannot be undone.')) return;
-    const res = await fetch(`/api/v1/employees/${id}`, { method: 'DELETE' });
-    if (res.ok) window.location.href = '/employees';
+    setRemoveError(null);
+    try {
+      const res = await fetch(`/api/v1/employees/${id}`, { method: 'DELETE' });
+      if (res.ok) window.location.href = '/employees';
+      else setRemoveError(await responseError(res, 'Could not remove this employee.'));
+    } catch {
+      setRemoveError(NETWORK_ERROR);
+    }
   }
 
   if (loading) return <div className="p-8 text-sm text-[var(--text-secondary)]">Loading…</div>;
@@ -190,6 +198,7 @@ export default function EmployeeDetailPage({
         </div>
 
         {resetError && <p className="mt-4 text-sm text-red-600">{resetError}</p>}
+        {removeError && <p className="mt-4 text-sm text-red-600">{removeError}</p>}
         {resetResult && (
           <div className="mt-4 max-w-md">
             <TemporaryPasswordCard email={resetResult.email} password={resetResult.password} />

@@ -12,6 +12,9 @@ export async function GET(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  // Invoices — finance roles, matching the Invoices menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id } = await params;
 

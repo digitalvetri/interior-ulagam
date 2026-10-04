@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -356,7 +357,7 @@ export default function CalendarPage() {
                     DATE
                   </label>
                   <input type="date" value={fuDate} onChange={e => setFUDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={istToday()}
                     className="studio-input w-full h-10 text-sm px-3" />
                 </div>
                 <div>

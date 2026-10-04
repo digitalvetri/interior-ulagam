@@ -5,7 +5,7 @@ import { civilJobEvents, civilJobs } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { CivilStatusChangeInput } from '@/types/civil';
 import { planStatusChange } from '@/lib/civil/status';
-import { invalid, readJson, serverError } from '@/lib/civil/server';
+import { invalid, jobListQuery, readJson, serverError } from '@/lib/civil/server';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       if (!plan.ok) return { status: 422 as const, error: plan.error };
 
       const [row] = await tx.update(civilJobs).set({ ...plan.patch, updatedAt: new Date() })
-        .where(and(eq(civilJobs.id, id), eq(civilJobs.tenantId, ctx.tenantId))).returning();
+        .where(and(eq(civilJobs.id, id), eq(civilJobs.tenantId, ctx.tenantId))).returning({ id: civilJobs.id });
       await tx.insert(civilJobEvents).values({
         tenantId: ctx.tenantId, jobId: id, fromStatus: job.status, toStatus: to, createdBy: ctx.dbUserId,
         note: to === 'billed' ? `Bill ${plan.patch.billNo} dated ${dmy(plan.patch.billDate)}`
@@ -44,7 +44,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     });
 
     if (result.status !== 200) return NextResponse.json({ error: result.error }, { status: result.status });
-    return NextResponse.json({ data: result.row });
+    // Read back through the list query, which selects no cost: a full row from
+    // .returning() handed the owner-only cost to the accountant.
+    const [job] = await jobListQuery(ctx.tenantId, [eq(civilJobs.id, id)]).limit(1);
+    return NextResponse.json({ data: job });
   } catch (err) {
     return serverError('civil/jobs/:id/status POST', err);
   }

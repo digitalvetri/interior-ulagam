@@ -95,6 +95,14 @@ export async function PATCH(
   if (Object.keys(parsed.data).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
+  // What the client owes and when it falls due are owner decisions (the money
+  // PUT and the audited /override route are owner-only too).
+  if (ctx.role !== 'owner' && (parsed.data.amountPaise !== undefined || parsed.data.triggerStage !== undefined)) {
+    return NextResponse.json(
+      { error: 'Only the studio owner can change a milestone amount or when it falls due.' },
+      { status: 403 },
+    );
+  }
 
   try {
     // Verify tenancy via JOIN before updating

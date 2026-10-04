@@ -14,6 +14,7 @@ import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { FollowUpModal } from '@/components/leads/FollowUpModal';
 import { LeadViewModal } from '@/components/leads/LeadViewModal';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useUser } from '@/components/providers/user-provider';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 type FilterKey = LeadStage | 'all' | 'follow_up' | 'in_progress';
@@ -78,6 +79,8 @@ const LeadListCard = memo(function LeadListCard({
   destinationHref?: string;
   count?: number;
 }) {
+  // Deleting a lead is owner-only on the server; staff archive instead.
+  const { isAdmin } = useUser();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -229,16 +232,18 @@ const LeadListCard = memo(function LeadListCard({
                       >
                         <Archive className="h-3.5 w-3.5 text-amber-500" /> Archive
                       </button>
-                      <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                        <button
-                          type="button"
-                    suppressHydrationWarning
-                          onClick={() => { setShowMenu(false); onDelete(lead.id); }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-red-50 transition-colors text-red-600"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
-                        </button>
-                      </div>
+                      {isAdmin && (
+                        <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                          <button
+                            type="button"
+                      suppressHydrationWarning
+                            onClick={() => { setShowMenu(false); onDelete(lead.id); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-red-50 transition-colors text-red-600"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

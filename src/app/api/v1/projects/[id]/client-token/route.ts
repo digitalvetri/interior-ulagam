@@ -10,7 +10,10 @@ import { sql } from 'drizzle-orm';
 // Tokens are valid for 30 days. Owners can revoke via DELETE.
 const TOKEN_TTL_DAYS = 30;
 
-export async function GET(
+// POST, not GET: issuing a link revokes the client's current one, and a GET
+// with side effects can be triggered just by opening a URL. Delivery roles only
+// (they share the snag/progress link with the client).
+export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -18,6 +21,8 @@ export async function GET(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 

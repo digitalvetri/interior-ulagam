@@ -1,4 +1,5 @@
 import { PAYMENT_SETTLED } from './constants';
+import { istToday } from '@/lib/dates/ist';
 
 // ─── Input types (raw DB row shapes passed in from the API) ───────────────────
 
@@ -69,7 +70,7 @@ export interface FinanceKPIs {
  */
 export function calcCollect(
   milestones: MilestoneRow[],
-  today = new Date().toISOString().split('T')[0],
+  today = istToday(),
 ): { toCollectPaise: number; overduePaise: number; notYetInvoicedPaise: number } {
   let toCollectPaise = 0;
   let overduePaise = 0;

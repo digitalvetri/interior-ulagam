@@ -2,24 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { invoices, expenses, projects, customers } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { istMonthRange, istYearMonth } from '@/lib/dates/ist';
 
 // GET /api/v1/finance/gst?year=2026&month=9
 // Returns output tax (issued invoices) and input credit (expenses) for the month.
 export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // GST returns data — matches the Accounts menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const sp = new URL(request.url).searchParams;
-  const year  = parseInt(sp.get('year')  ?? String(new Date().getFullYear()), 10);
-  const month = parseInt(sp.get('month') ?? String(new Date().getMonth() + 1), 10);
+  const istNow = istYearMonth();
+  const year  = parseInt(sp.get('year')  ?? String(istNow.year), 10);
+  const month = parseInt(sp.get('month') ?? String(istNow.month), 10);
 
   if (Number.isNaN(year) || Number.isNaN(month) || month < 1 || month > 12) {
     return NextResponse.json({ error: 'Invalid year or month' }, { status: 400 });
   }
 
-  const monthStart = new Date(year, month - 1, 1).toISOString();
-  const monthEnd   = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
+  // IST calendar month as UTC instants (server runs in UTC); end is inclusive.
+  const istRange   = istMonthRange(year, month);
+  const monthStart = istRange.start.toISOString();
+  const monthEnd   = new Date(istRange.end.getTime() - 1).toISOString();
 
   try {
     // ── Output tax (invoices issued in this month, excluding draft/void) ──────

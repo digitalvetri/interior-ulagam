@@ -1,5 +1,6 @@
 'use client';
 
+import { addDaysToDateStr, istToday } from '@/lib/dates/ist';
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -488,8 +489,7 @@ export default function LeadDetailPage() {
     { label: '1 week',   days: 7 },
   ];
   function applyQuickDate(days: number) {
-    const d = new Date(); d.setDate(d.getDate() + days);
-    setFollowUpDate(d.toISOString().split('T')[0]);
+    setFollowUpDate(addDaysToDateStr(istToday(), days));
   }
 
   const stageActionsDisabled = markingWon || markingLost || reopening;
@@ -687,12 +687,15 @@ export default function LeadDetailPage() {
                           style={{ color: 'var(--text-heading)' }}>
                           <Archive className="h-4 w-4 text-amber-500" /> Archive Lead
                         </button>
-                        <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-                          <button type="button" onClick={() => { setShowActionsMenu(false); setShowDeleteConfirm(true); }}
-                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-red-50 text-red-600">
-                            <Trash2 className="h-4 w-4" /> Delete Lead
-                          </button>
-                        </div>
+                        {/* Deleting a lead is owner-only on the server. */}
+                        {isOwnerRole && (
+                          <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                            <button type="button" onClick={() => { setShowActionsMenu(false); setShowDeleteConfirm(true); }}
+                              className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-red-50 text-red-600">
+                              <Trash2 className="h-4 w-4" /> Delete Lead
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -854,7 +857,7 @@ export default function LeadDetailPage() {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--text-tertiary)' }}>Due</p>
                     <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-                      className="studio-input text-sm h-9" min={new Date().toISOString().split('T')[0]}
+                      className="studio-input text-sm h-9" min={istToday()}
                       suppressHydrationWarning />
                   </div>
                   <div className="flex-1">
@@ -954,7 +957,7 @@ export default function LeadDetailPage() {
                                   type="date"
                                   value={rescheduleInput}
                                   onChange={e => setRescheduleInput(e.target.value)}
-                                  min={new Date().toISOString().split('T')[0]}
+                                  min={istToday()}
                                   className="studio-input h-8 text-xs px-2 w-36"
                                 />
                                 <button

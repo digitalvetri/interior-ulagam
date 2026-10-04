@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import type { Lead } from '@/types/leads';
+import { istToday } from '@/lib/dates/ist';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,7 +52,7 @@ interface ReceivablesData {
   items: ReceivableItem[]; totalOutstandingPaise: number; totalOverduePaise: number;
 }
 interface SiteVisit {
-  id: string; leadId: string | null;
+  id: string; leadId: string | null; designerId: string | null;
   scheduledAt: string; completedAt: string | null;
   status: string;
   locationJson: { address?: string } | null;
@@ -221,22 +223,26 @@ function MyTasksWidget({
   onTasksChange: (tasks: Task[]) => void;
 }) {
   const [patching, setPatching] = useState<string | null>(null);
+  const [patchError, setPatchError] = useState<string | null>(null);
 
   async function patchStatus(task: Task, newStatus: 'in_progress' | 'done') {
     setPatching(task.id);
+    setPatchError(null);
     try {
       const res = await fetch(`/api/v1/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      if (!res.ok) return;
+      if (!res.ok) { setPatchError(await responseError(res, 'Could not update the task.')); return; }
       if (newStatus === 'done') {
         onTasksChange(myTasks.filter(t => t.id !== task.id));
       } else {
         const json = await res.json();
         onTasksChange(myTasks.map(t => t.id === task.id ? { ...t, ...json.data } : t));
       }
+    } catch {
+      setPatchError(NETWORK_ERROR);
     } finally { setPatching(null); }
   }
 
@@ -264,6 +270,8 @@ function MyTasksWidget({
           View all <ArrowRight className="h-3 w-3" />
         </Link>
       </div>
+
+      {patchError && <p className="mb-3 text-[11px] text-red-600">{patchError}</p>}
 
       {/* Summary chips */}
       {!loading && activeCount > 0 && (
@@ -769,6 +777,7 @@ export default function DashboardPage() {
   const [showLeave,    setShowLeave]    = useState(false);
   const [checkingIn,   setCheckingIn]   = useState(false);
   const [checkingOut,  setCheckingOut]  = useState(false);
+  const [attdError,    setAttdError]    = useState<string | null>(null);
 
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState(false);
@@ -793,6 +802,8 @@ export default function DashboardPage() {
         allVisits
           .filter(v => {
             if (v.status !== 'scheduled') return false;
+            // Staff see their own visits; the owner's dashboard shows the studio's.
+            if (!admin && v.designerId !== contextId) return false;
             const d = new Date(v.scheduledAt);
             return d >= now && d <= sevenDaysLater;
           })
@@ -828,13 +839,12 @@ export default function DashboardPage() {
         if (Array.isArray(rl?.data)) setRecentLeads(rl.data);
       } else {
         const uid = contextId ?? '';
-        const todayStr = new Date().toISOString().split('T')[0];
-        const nowDate  = new Date();
-        const monthStart = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-01`;
+        const todayStr = istToday();
+        const monthStart = `${todayStr.slice(0, 7)}-01`;
 
         const [ts, ps, atdDay, atdMon, leaveData] = await Promise.all([
           fetch('/api/v1/tasks?assigned=me&status=active&limit=10').then(r => r.json()),
-          fetch('/api/v1/projects?limit=20').then(r => r.json()),
+          fetch('/api/v1/projects?limit=20&assignedTo=me').then(r => r.json()),
           uid ? fetch(`/api/v1/attendance?date=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
           uid ? fetch(`/api/v1/attendance?from=${monthStart}&to=${todayStr}&userId=${uid}`).then(r => r.json()).catch(() => null) : Promise.resolve(null),
           fetch('/api/v1/attendance/leave-requests?mine=1').then(r => r.json()).catch(() => null),
@@ -1143,6 +1153,7 @@ export default function DashboardPage() {
 
   async function handleCheckIn() {
     setCheckingIn(true);
+    setAttdError(null);
     try {
       // Collect GPS if available; proceed without it if denied or unavailable
       let gps: { latitude?: number; longitude?: number } = {};
@@ -1161,18 +1172,27 @@ export default function DashboardPage() {
       if (res.ok) {
         const json = await res.json();
         setTodayAttd(json.data);
+      } else {
+        setAttdError(await responseError(res, 'Check-in failed. Please try again.'));
       }
+    } catch {
+      setAttdError(NETWORK_ERROR);
     } finally { setCheckingIn(false); }
   }
 
   async function handleCheckOut() {
     setCheckingOut(true);
+    setAttdError(null);
     try {
       const res = await fetch('/api/v1/me/check-out', { method: 'POST' });
       if (res.ok) {
         const json = await res.json();
         setTodayAttd(json.data);
+      } else {
+        setAttdError(await responseError(res, 'Check-out failed. Please try again.'));
       }
+    } catch {
+      setAttdError(NETWORK_ERROR);
     } finally { setCheckingOut(false); }
   }
 
@@ -1291,6 +1311,7 @@ export default function DashboardPage() {
                 </button>
               </>
             )}
+            {attdError && <p className="mt-2 max-w-[220px] text-[11px] font-medium" style={{ color: '#fca5a5' }}>{attdError}</p>}
           </div>
         </div>
       </div>

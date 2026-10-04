@@ -7,6 +7,9 @@ const PUBLIC_PREFIXES = [
   '/api/',    // API routes handle their own auth
   '/_next/',
   '/favicon',
+  // Browsers fetch the manifest without cookies; redirecting it to /login made
+  // Chrome parse the login page as JSON ("Manifest: Syntax error").
+  '/manifest.webmanifest',
 ];
 
 function isPublic(pathname: string): boolean {

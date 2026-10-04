@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  // Invoices — finance roles, matching the Invoices menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get('projectId');

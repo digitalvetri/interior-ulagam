@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { eq, and, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { purchaseOrders, vendors, vendorPayments } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 interface PoLine { totalPaise?: number; qty?: number; unitRatePaise?: number }
 
@@ -20,6 +20,9 @@ function poTotalPaise(linesJson: unknown): number {
 export async function GET() {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Vendor dues — matches the Accounts menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   try {
     const poRows = await db

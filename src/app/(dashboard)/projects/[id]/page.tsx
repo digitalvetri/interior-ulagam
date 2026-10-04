@@ -1,5 +1,6 @@
 'use client';
 
+import { istToday } from '@/lib/dates/ist';
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -478,7 +479,7 @@ function CreateInvoiceDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = istToday();
   const clientName = project.customerFullName ?? project.leadContactName ?? '—';
 
   const [invoiceNumber, setInvoiceNumber] = useState('');

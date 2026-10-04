@@ -7,6 +7,7 @@ import {
   ExternalLink, } from 'lucide-react';
 import { Deliverable, DeliverableStatus, DeliverableType } from '@/types/deliverables';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 /* ── Config ────────────────────────────────────────────────────────────────── */
 
@@ -274,6 +275,7 @@ export default function DeliverablesPage({ params }: { params: Promise<{ id: str
   const [loading,         setLoading]         = useState(true);
   const [changeOrderIds,  setChangeOrderIds]  = useState<Set<string>>(new Set());
   const [modalOpen,       setModalOpen]       = useState(false);
+  const [actionError,     setActionError]     = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/v1/projects/${id}/deliverables`)
@@ -288,22 +290,34 @@ export default function DeliverablesPage({ params }: { params: Promise<{ id: str
   }
 
   async function handleStatusChange(deliverableId: string, status: DeliverableStatus) {
-    const res = await fetch(`/api/v1/deliverables/${deliverableId}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    const body = await res.json() as { data?: Deliverable; changeOrderNeeded?: boolean };
-    if (!res.ok || !body.data) return;
-    updateDeliverable(body.data);
-    if (body.changeOrderNeeded) setChangeOrderIds(prev => new Set(prev).add(deliverableId));
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/deliverables/${deliverableId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) { setActionError(await responseError(res, 'Could not update the deliverable.')); return; }
+      const body = await res.json() as { data?: Deliverable; changeOrderNeeded?: boolean };
+      if (!body.data) { setActionError('Could not update the deliverable.'); return; }
+      updateDeliverable(body.data);
+      if (body.changeOrderNeeded) setChangeOrderIds(prev => new Set(prev).add(deliverableId));
+    } catch {
+      setActionError(NETWORK_ERROR);
+    }
   }
 
   async function handleApprove(deliverableId: string) {
-    const res = await fetch(`/api/v1/deliverables/${deliverableId}/approve`, { method: 'POST' });
-    const body = await res.json() as { data?: Deliverable };
-    if (!res.ok || !body.data) return;
-    updateDeliverable(body.data);
-    setChangeOrderIds(prev => { const next = new Set(prev); next.delete(deliverableId); return next; });
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/deliverables/${deliverableId}/approve`, { method: 'POST' });
+      if (!res.ok) { setActionError(await responseError(res, 'Could not approve the deliverable.')); return; }
+      const body = await res.json() as { data?: Deliverable };
+      if (!body.data) { setActionError('Could not approve the deliverable.'); return; }
+      updateDeliverable(body.data);
+      setChangeOrderIds(prev => { const next = new Set(prev); next.delete(deliverableId); return next; });
+    } catch {
+      setActionError(NETWORK_ERROR);
+    }
   }
 
   const approvedCount = deliverables.filter(d => d.status === 'approved').length;
@@ -333,6 +347,13 @@ export default function DeliverablesPage({ params }: { params: Promise<{ id: str
           <Plus className="h-4 w-4" />Add Deliverable
         </button>
       </div>
+
+      {actionError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{actionError}
+          <button type="button" onClick={() => setActionError(null)} className="ml-auto underline opacity-70">dismiss</button>
+        </div>
+      )}
 
       {/* Progress bar (when items exist) */}
       {!loading && deliverables.length > 0 && (

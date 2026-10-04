@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, CheckCircle2, Banknote, AlertTriangle, Download } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 interface Payslip {
   id: string;
@@ -58,6 +59,7 @@ export default function PayrollRunPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +80,7 @@ export default function PayrollRunPage() {
 
   async function updateStatus(status: 'approved' | 'paid') {
     setUpdating(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/v1/payroll/runs/${id}`, {
         method: 'PATCH',
@@ -85,6 +88,9 @@ export default function PayrollRunPage() {
         body: JSON.stringify({ status }),
       });
       if (res.ok) await load();
+      else setActionError(await responseError(res, 'Could not update the payroll run.'));
+    } catch {
+      setActionError(NETWORK_ERROR);
     } finally {
       setUpdating(false);
     }
@@ -190,6 +196,10 @@ export default function PayrollRunPage() {
           )}
         </div>
       </div>
+
+      {actionError && (
+        <p className="text-[13px]" style={{ color: '#DC2626' }}>{actionError}</p>
+      )}
 
       {/* Missing salary warning */}
       {missingSalary.length > 0 && (
