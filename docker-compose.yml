@@ -67,7 +67,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:latest
+    image: coollabsio/minio:RELEASE.2025-10-15T17-29-55Z
     command: ["server", "/data", "--console-address", ":9001"]
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
@@ -90,7 +90,7 @@ services:
   #   quotes    — anonymous read, because a quote PDF's URL is stored on the
   #               quote and sent to clients, so it must not expire.
   minio-init:
-    image: minio/mc:latest
+    image: coollabsio/minio:RELEASE.2025-10-15T17-29-55Z  # same image ships mc; minio/mc left Docker Hub
     depends_on:
       minio:
         condition: service_healthy
