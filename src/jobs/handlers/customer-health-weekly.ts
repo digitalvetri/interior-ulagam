@@ -2,7 +2,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { customerActivities, customers, waMessages } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai';
+import { ai } from '@/lib/ai';
 import { z } from 'zod';
 
 const HealthSchema = z.object({
@@ -76,7 +76,7 @@ export const customerHealthWeekly = defineJob(
               ? messages.map(m => `[${m.direction.toUpperCase()}] ${m.bodyPreview ?? '(media)'}`).join('\n')
               : 'No WhatsApp messages.';
 
-            const brief = await groqProvider.chatJSON({
+            const brief = await ai.chatJSON({
               model: 'light',
               schema: HealthSchema,
               system: 'You are a CRM health scoring assistant. Score customer relationship health concisely. Reply with valid JSON only.',

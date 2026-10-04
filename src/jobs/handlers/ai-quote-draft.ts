@@ -3,7 +3,7 @@ import { and, eq, desc } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { requirements, materials } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
 
 interface RequirementsCompletedData {
   requirementsId: string;
@@ -73,7 +73,7 @@ export const aiQuoteDraft = defineJob(
     });
 
     const draftLines = await step.run('draft', async () => {
-      const draft = await groqProvider.chatJSON({
+      const draft = await ai.chatJSON({
         system:
           'You are an expert interior design BOQ (Bill of Quantities) generator for an Indian interior studio. ' +
           'Generate a realistic BOQ from the provided project requirements and available materials catalogue. ' +

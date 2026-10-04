@@ -6,6 +6,7 @@ import { renderQuotePdf, type QuotePdfInput } from '@/lib/pdf/quote';
 import { extractBranding, extractTerms, extractValidityDays } from '@/lib/pdf/branding';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 import { whatsapp } from '@/lib/whatsapp/send';
+import { getWhatsAppConfig } from '@/lib/integrations/resolve';
 
 interface QuoteData extends QuotePdfInput {
   clientPhone: string | null;
@@ -150,7 +151,8 @@ export const quotePdf = defineJob(
       if (existing?.waMessageId) {
         return { skipped: 'already-sent', messageId: existing.waMessageId };
       }
-      if (!process.env.WHATSAPP_ACCESS_TOKEN || !process.env.WHATSAPP_PHONE_NUMBER_ID) {
+      const wa = await getWhatsAppConfig(tenantId);
+      if (!wa.accessToken || !wa.phoneNumberId) {
         return { skipped: 'missing-whatsapp-env' };
       }
 

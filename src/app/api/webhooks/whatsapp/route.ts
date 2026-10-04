@@ -6,6 +6,7 @@ import { cancelFollowupSequence } from '@/jobs/workflows/schedule';
 import { db } from '@/lib/db';
 import { leads, waMessages } from '@/lib/db/schema';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
+import { getWhatsAppConfig } from '@/lib/integrations/resolve';
 
 // ─── Webhook payload types ─────────────────────────────────────────────────────
 
@@ -80,7 +81,8 @@ export async function GET(request: NextRequest) {
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+  const { verifyToken } = await getWhatsAppConfig();
+  if (mode === 'subscribe' && verifyToken && token === verifyToken) {
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -97,14 +99,15 @@ export async function POST(request: NextRequest) {
 
   // Verify X-Hub-Signature-256
   const signature = request.headers.get('x-hub-signature-256');
-  if (!signature || !process.env.WHATSAPP_APP_SECRET) {
+  const wa = await getWhatsAppConfig();
+  if (!signature || !wa.appSecret) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
   }
 
   const expectedSig =
     'sha256=' +
     crypto
-      .createHmac('sha256', process.env.WHATSAPP_APP_SECRET)
+      .createHmac('sha256', wa.appSecret)
       .update(body)
       .digest('hex');
 
@@ -245,7 +248,7 @@ export async function POST(request: NextRequest) {
               `https://graph.facebook.com/v21.0/${imageId}`,
               {
                 headers: {
-                  Authorization: `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+                  Authorization: `Bearer ${wa.accessToken}`,
                 },
               },
             );

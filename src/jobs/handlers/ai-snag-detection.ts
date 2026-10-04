@@ -3,8 +3,7 @@ import { eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { deliverables, snagItems } from '@/lib/db/schema';
-import { geminiProvider } from '@/lib/ai/gemini';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
 
 interface SiteLogPhotosUploadedData {
   projectId: string;
@@ -61,12 +60,12 @@ export const aiSnagDetection = defineJob(
       const detected: DetectedSnag[] = [];
 
       for (const photoUrl of photosToAnalyze) {
-        const description = await geminiProvider.describeImage(
+        const description = await ai.describeImage(
           photoUrl,
           'You are a quality inspector for an interior design project. Examine this site photo and identify any construction defects, incomplete work, surface imperfections, wrong material placements, or deviations from quality standards. List each issue as a snag item with a short description. Return JSON.'
         );
 
-        const analysis: SnagAnalysis = await groqProvider.chatJSON({
+        const analysis: SnagAnalysis = await ai.chatJSON({
           system:
             'You are a quality control assistant for interior design projects. ' +
             'Parse the following site inspection description into a structured list of snag items. ' +

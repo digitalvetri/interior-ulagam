@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { enqueue } from '@/jobs/queue';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
 import { nextReceiptNumber } from '@/lib/finance/receipt-number';
+import { getRazorpayConfig } from '@/lib/integrations/resolve';
 
 interface RazorpayPaymentEntity {
   id: string;
@@ -29,12 +30,13 @@ export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get('x-razorpay-signature');
 
-  if (!signature || !process.env.RAZORPAY_WEBHOOK_SECRET) {
+  const { webhookSecret } = await getRazorpayConfig();
+  if (!signature || !webhookSecret) {
     return NextResponse.json({ error: 'Missing signature' }, { status: 401 });
   }
 
   const expectedSig = crypto
-    .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
+    .createHmac('sha256', webhookSecret)
     .update(body)
     .digest('hex');
 

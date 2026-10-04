@@ -1,18 +1,19 @@
 import Razorpay from 'razorpay';
 import type { PaymentsProvider } from './index';
+import { getRazorpayConfig } from '@/lib/integrations/resolve';
 
-function getRazorpay(): Razorpay {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+async function getRazorpay(): Promise<Razorpay> {
+  // Saved in Settings → Integrations, or the server environment.
+  const { keyId, keySecret } = await getRazorpayConfig();
   if (!keyId || !keySecret) {
-    throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set');
+    throw new Error('Razorpay is not connected — the owner can set it up in Settings → Integrations.');
   }
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
 export const razorpayProvider: PaymentsProvider = {
   async createLink({ amountPaise, description, customerName, customerPhone, customerEmail, referenceId }) {
-    const razorpay = getRazorpay();
+    const razorpay = await getRazorpay();
     const link = await razorpay.paymentLink.create({
       amount: amountPaise,
       currency: 'INR',

@@ -4,7 +4,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { customerActivities, customers, waMessages } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { groqProvider } from '@/lib/ai';
+import { ai } from '@/lib/ai';
 
 const HealthSchema = z.object({
   healthScore: z.number().min(0).max(100),
@@ -82,7 +82,7 @@ export async function POST(
       ? messages.map(m => `[${m.direction.toUpperCase()}] ${m.bodyPreview ?? '(media)'}`).join('\n')
       : 'No WhatsApp messages yet.';
 
-    const brief = await groqProvider.chatJSON({
+    const brief = await ai.chatJSON({
       model: 'light',
       schema: HealthSchema,
       system: `You are an AI assistant for Konst Design, a premium interior design studio in Coimbatore, Tamil Nadu.

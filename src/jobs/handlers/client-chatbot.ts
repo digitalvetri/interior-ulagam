@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads, milestones, projects, siteLogs } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
 import { whatsapp } from '@/lib/whatsapp/send';
 
 interface ClientChatbotEventData {
@@ -118,7 +118,7 @@ export const clientChatbot = defineJob(
     });
 
     const aiResponse = await step.run('generate-response', async () => {
-      return groqProvider.chatJSON({
+      return ai.chatJSON({
         system:
           'You are a helpful project update assistant for an interior design studio. Answer client questions concisely based ONLY on the project data provided. If you cannot answer from the data, say so honestly and set escalateToDesigner=true. Never make up specific dates, amounts, or decisions. Keep reply under 200 characters for WhatsApp.',
         user: `Client question: ${messageText}\n\nProject context: ${contextString}`,

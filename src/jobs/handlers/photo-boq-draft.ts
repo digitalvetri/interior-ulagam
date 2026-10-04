@@ -3,8 +3,8 @@ import { eq, sql } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
-import { geminiProvider } from '@/lib/ai/gemini';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
+import { getWhatsAppConfig } from '@/lib/integrations/resolve';
 
 interface WaImageReceivedData {
   imageUrl: string;
@@ -44,8 +44,9 @@ export const photoBOQDraft = defineJob(
 
     // CRITICAL: Meta image URLs expire in ~5 minutes — download immediately with auth header
     const { base64, mimeType } = await step.run('download-image', async () => {
+      const { accessToken } = await getWhatsAppConfig();
       const res = await fetch(imageUrl, {
-        headers: { Authorization: 'Bearer ' + process.env.WHATSAPP_ACCESS_TOKEN },
+        headers: { Authorization: 'Bearer ' + accessToken },
       });
       if (!res.ok) {
         throw new Error(`Failed to download image: ${res.status} ${res.statusText}`);
@@ -60,12 +61,12 @@ export const photoBOQDraft = defineJob(
       // Build a data URL so Gemini fetches from memory — never re-hits the expired Meta URL
       const dataUrl = `data:${mimeType};base64,${base64}`;
 
-      const description = await geminiProvider.describeImage(
+      const description = await ai.describeImage(
         dataUrl,
         'Analyze this interior design room photo. Identify: 1) Room type (living room/bedroom/kitchen/bathroom/etc) 2) Approximate dimensions if visible 3) Existing furniture and fixtures 4) Style preference (modern/contemporary/traditional/rustic) 5) Material quality level (budget/mid-range/premium) based on visible finishes. Return JSON.'
       );
 
-      const analysis: RoomAnalysis = await groqProvider.chatJSON({
+      const analysis: RoomAnalysis = await ai.chatJSON({
         system:
           'You are an interior design estimator. Parse the following room description into structured JSON for a BOQ draft. ' +
           'Suggest typical items needed to furnish or renovate the room, with realistic cost and client rate estimates in Indian Rupees. ' +

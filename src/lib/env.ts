@@ -15,9 +15,8 @@ const RECOMMENDED: { name: string; disables: string }[] = [
   { name: 'REDIS_URL', disables: 'rate limiting and background jobs' },
   { name: 'S3_ENDPOINT', disables: 'document upload and download' },
   { name: 'S3_PUBLIC_URL', disables: 'quote PDF links' },
-  { name: 'GROQ_API_KEY', disables: 'AI text and voice features' },
-  { name: 'GOOGLE_AI_API_KEY', disables: 'AI image features' },
-  { name: 'WHATSAPP_ACCESS_TOKEN', disables: 'all WhatsApp messaging' },
+  // AI, WhatsApp and Razorpay can instead be connected in Settings → Integrations,
+  // so their env vars are no longer worth a boot warning.
 ];
 
 export function assertEnv(): void {

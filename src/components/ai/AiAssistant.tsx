@@ -146,7 +146,7 @@ export function AiAssistant() {
       setMessages(prev => [...prev, assistantMsg]);
     } catch (err) {
       const msg = err instanceof Error && err.message.includes('503')
-        ? 'AI service is temporarily unavailable. Check that GROQ_API_KEY is set in .env.local.'
+        ? 'AI is not available right now. The owner can connect an AI provider in Settings → Integrations → AI.'
         : err instanceof Error && err.message.includes('401')
         ? 'Session expired — please refresh the page.'
         : 'Something went wrong. Please try again.';

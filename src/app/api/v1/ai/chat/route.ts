@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users, leads, projects, customers, invoices, payments, milestones } from '@/lib/db/schema';
 import { getEnrichedAuthContext } from '@/lib/auth/get-context';
-import { groqProvider } from '@/lib/ai';
+import { ai } from '@/lib/ai';
 
 // ── Request types ─────────────────────────────────────────────────────────────
 
@@ -313,7 +313,7 @@ For notify_employee: use the exact employee ID from the directory. Only propose 
   }));
 
   try {
-    const rawText = await groqProvider.chatText({
+    const rawText = await ai.chatText({
       system: systemPrompt,
       messages: [...historyMessages, { role: 'user', content: message }],
       model: 'heavy',

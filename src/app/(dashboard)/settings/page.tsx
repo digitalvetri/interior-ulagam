@@ -12,6 +12,7 @@ import {
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee } from '@/types/employees';
 import { useUser } from '@/components/providers/user-provider';
+import { IntegrationsPanel } from '@/components/settings/IntegrationsPanel';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 type SettingsTab = 'profile' | 'users' | 'integrations' | 'data';
@@ -692,64 +693,7 @@ export default function SettingsPage() {
       )}
 
       {/* ── Integrations tab ─────────────────────────────────────────────── */}
-      {activeTab === 'integrations' && (
-        <div className="space-y-4">
-          <Card>
-            <div className="p-6 space-y-4">
-              <h3 className="text-sm font-bold mb-2" style={{ color: 'var(--text-heading)' }}>Integrations</h3>
-              {[
-                {
-                  name: 'WhatsApp Cloud API',
-                  icon: '💬',
-                  status: 'Configured',
-                  note: 'Meta Graph API v21+ · Phone Number ID set',
-                  ok: true,
-                },
-                {
-                  name: 'Razorpay',
-                  icon: '💳',
-                  status: 'Configured',
-                  note: 'Payment Links + Webhook · Key ID set',
-                  ok: true,
-                },
-                {
-                  name: 'Tally (Tally XML Push)',
-                  icon: '📊',
-                  status: 'Manual export',
-                  note: 'CSV/XML export available from Finance → Payments tab',
-                  ok: false,
-                },
-                {
-                  name: 'AI (Groq + Gemini)',
-                  icon: '🤖',
-                  status: 'Configured',
-                  note: 'Groq 120B/20B + Whisper · Gemini Flash for site photos',
-                  ok: true,
-                },
-              ].map(item => (
-                <div key={item.name}
-                  className="flex items-start gap-4 rounded-xl border px-4 py-4"
-                  style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-muted)' }}>
-                  <span className="text-2xl flex-shrink-0">{item.icon}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>{item.name}</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{item.note}</p>
-                  </div>
-                  <span
-                    className="flex-shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold"
-                    style={{
-                      backgroundColor: item.ok ? 'var(--success-soft)' : 'var(--surface-card)',
-                      color:            item.ok ? 'var(--success-text)' : 'var(--text-secondary)',
-                    }}
-                  >
-                    {item.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
-      )}
+      {activeTab === 'integrations' && <IntegrationsPanel />}
 
       {/* ── Data tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'data' && (

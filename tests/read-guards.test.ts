@@ -19,6 +19,7 @@ const GUARDED_GETS: [string, string][] = [
   ['projects/[id]/pnl/route.ts', 'OWNER_ONLY'],
   ['projects/[id]/cost-to-complete/route.ts', 'OWNER_ONLY'],
   ['settings/profile/route.ts', 'OWNER_ONLY'],
+  ['settings/integrations/route.ts', 'OWNER_ONLY'],
   ['attendance/summary/route.ts', 'FINANCE'],
   ['finance/overview/route.ts', 'FINANCE'],
   ['finance/gst/route.ts', 'FINANCE'],

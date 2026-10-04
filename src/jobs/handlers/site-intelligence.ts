@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { siteLogs } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
 import { sql } from 'drizzle-orm';
 
 interface SiteLogVoiceReceivedData {
@@ -33,12 +33,12 @@ export const siteIntelligence = defineJob(
 
     // CRITICAL: download + transcribe immediately — Meta voice URLs expire fast
     const { transcript } = await step.run('download-transcribe', async () => {
-      const text = await groqProvider.transcribe(voiceNoteUrl);
+      const text = await ai.transcribe(voiceNoteUrl);
       return { transcript: text };
     });
 
     const parsed = await step.run('parse-llm', async () => {
-      const result: ParsedSiteReport = await groqProvider.chatJSON({
+      const result: ParsedSiteReport = await ai.chatJSON({
         system:
           'Parse Tanglish interior design site report into JSON. ' +
           'Tanglish means Tamil sentences mixed with English. ' +

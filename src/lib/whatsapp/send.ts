@@ -1,3 +1,5 @@
+import { getWhatsAppConfig } from '@/lib/integrations/resolve';
+
 const GRAPH_URL = 'https://graph.facebook.com/v21.0';
 
 interface TextMessage {
@@ -27,8 +29,11 @@ interface DocumentMessage {
 type WaMessage = TextMessage | TemplateMessage | DocumentMessage;
 
 async function sendMessage(message: WaMessage): Promise<{ messageId: string }> {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID!;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN!;
+  // Saved in Settings → Integrations, or the server environment.
+  const { phoneNumberId, accessToken } = await getWhatsAppConfig();
+  if (!phoneNumberId || !accessToken) {
+    throw new Error('WhatsApp is not connected — the owner can set it up in Settings → Integrations.');
+  }
 
   let body: Record<string, unknown>;
 

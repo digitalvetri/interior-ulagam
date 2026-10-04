@@ -4,7 +4,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leadActivities, leads, waMessages } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { groqProvider } from '@/lib/ai';
+import { ai } from '@/lib/ai';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ export async function POST(
             .join('\n')
         : 'No WhatsApp messages yet.';
 
-    const brief = await groqProvider.chatJSON({
+    const brief = await ai.chatJSON({
       model: 'heavy',
       schema: BriefSchema,
       system: `You are an AI assistant for Konst Design, a premium interior design studio in Coimbatore, Tamil Nadu.

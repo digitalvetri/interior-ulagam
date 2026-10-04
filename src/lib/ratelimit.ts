@@ -22,6 +22,8 @@ export const loginLimiter: Limiter = { points: 10, durationSec: 60, keyPrefix: '
 export const clientPortalLimiter: Limiter = { points: 30, durationSec: 60, keyPrefix: 'rl:portal' };
 
 // 200 webhook calls per minute (bursts from Meta/Razorpay batches allowed)
+// Settings → Integrations "Test" — each run calls paid third-party APIs.
+export const integrationTestLimiter: Limiter = { points: 10, durationSec: 60, keyPrefix: 'rl:integration-test' };
 export const webhookLimiter: Limiter = { points: 200, durationSec: 60, keyPrefix: 'rl:webhook' };
 
 const instances = new Map<string, RateLimiterRedis>();

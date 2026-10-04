@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { groqProvider } from '@/lib/ai';
+import { ai } from '@/lib/ai';
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024; // 25 MB — Whisper's hard limit
 
@@ -52,7 +52,7 @@ export async function POST(
     }
 
     const audioBuffer = await audioFile.arrayBuffer();
-    const transcript = await groqProvider.transcribeBlob(
+    const transcript = await ai.transcribeBlob(
       audioBuffer,
       audioFile.name || 'voice-note.webm',
     );

@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
 
 interface LanguageDetectionEventData {
   leadId: string;
@@ -27,7 +27,7 @@ export const languageDetection = defineJob(
       event.data as LanguageDetectionEventData;
 
     const detected = await step.run('detect-language', async () => {
-      return groqProvider.chatJSON({
+      return ai.chatJSON({
         system:
           'You are a language detection assistant. Detect the language of the given text. Options: ta (Tamil/Tanglish), hi (Hindi), kn (Kannada), en (English), te (Telugu), ml (Malayalam).',
         user: messageText,

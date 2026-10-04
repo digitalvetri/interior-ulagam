@@ -127,6 +127,13 @@
       "when": 1792100000000,
       "tag": "0030_logo_url_https",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792200000000,
+      "tag": "0031_integration_settings",
+      "breakpoints": true
     }
   ]
 }

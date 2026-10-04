@@ -3,7 +3,7 @@ import { eq, ne, and } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { projects, users } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai/groq';
+import { ai } from '@/lib/ai';
 import { whatsapp } from '@/lib/whatsapp/send';
 
 const BriefSchema = z.object({
@@ -68,7 +68,7 @@ export const mondayBrief = defineJob(
           return { tenantId, sent: false, reason: 'no owner phone found' };
         }
 
-        const brief: Brief = await groqProvider.chatJSON({
+        const brief: Brief = await ai.chatJSON({
           system:
             'You are an interior design studio operations assistant. ' +
             'Generate a concise Monday morning brief in English for the studio owner. ' +

@@ -179,6 +179,22 @@ export const tenants = pgTable('tenants', {
   ...timestamps,
 });
 
+// Studio-level connections (AI providers, WhatsApp, Razorpay) entered by the owner
+// in Settings → Integrations. `config` holds non-secret choices; `secretsEnc` holds
+// API keys encrypted with AES-256-GCM (lib/integrations/crypto) — never plaintext.
+export const integrationSettings = pgTable('integration_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(), // 'ai' | 'whatsapp' | 'razorpay'
+  config: jsonb('config').notNull().default({}),
+  secretsEnc: text('secrets_enc'),
+  updatedBy: uuid('updated_by').references((): AnyPgColumn => users.id, { onDelete: 'set null' }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('integration_settings_tenant_kind_idx').on(t.tenantId, t.kind),
+]);
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),

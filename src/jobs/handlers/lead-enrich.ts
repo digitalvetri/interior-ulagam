@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { leads } from '@/lib/db/schema';
-import { groqProvider } from '@/lib/ai';
+import { ai } from '@/lib/ai';
 
 interface LeadCreatedData {
   leadId: string;
@@ -52,7 +52,7 @@ export const leadEnrich = defineJob(
     }
 
     const enrichment = await step.run('ai-extract', async () => {
-      return groqProvider.chatJSON({
+      return ai.chatJSON({
         model: 'light',
         system: `You are an assistant for an interior design studio in South India.
 Extract structured information from client inquiry messages.
