@@ -1,6 +1,7 @@
 'use client';
 
-import { addDaysToDateStr, istToday } from '@/lib/dates/ist';
+import { addDaysToDateStr, istToday, IST_TIME_ZONE } from '@/lib/dates/ist';
+import { mapsUrl } from '@/lib/attendance/geolocate';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/components/providers/user-provider';
@@ -25,6 +26,14 @@ interface AttendanceRecord {
   status: AttendanceStatus;
   checkInAt: string | null;
   checkOutAt: string | null;
+  checkInLatitude?: string | null;
+  checkInLongitude?: string | null;
+  checkInAddress?: string | null;
+  checkInAccuracyM?: number | null;
+  checkOutLatitude?: string | null;
+  checkOutLongitude?: string | null;
+  checkOutAddress?: string | null;
+  checkOutAccuracyM?: number | null;
   notes: string | null;
 }
 
@@ -115,7 +124,35 @@ function formatDate(iso: string) {
 
 function formatTime(iso: string | null) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: IST_TIME_ZONE });
+}
+
+/** Time plus where it was recorded: address, ±accuracy and a Google Maps link. */
+function TimeAndPlace({ iso, lat, lng, address, accuracyM }: {
+  iso: string | null; lat?: string | null; lng?: string | null; address?: string | null; accuracyM?: number | null;
+}) {
+  return (
+    <div className="min-w-0 max-w-[260px]">
+      <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>{formatTime(iso)}</span>
+      {iso && lat && lng && (
+        <div className="mt-0.5 text-[11px] leading-snug" style={{ color: 'var(--text-tertiary)' }}>
+          <p className="line-clamp-2" title={address ?? undefined}>
+            {address ?? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`}
+          </p>
+          <p className="mt-0.5 flex items-center gap-2">
+            {accuracyM != null && <span>±{accuracyM} m</span>}
+            <a href={mapsUrl(lat, lng)} target="_blank" rel="noopener noreferrer"
+              className="font-medium hover:underline" style={{ color: 'var(--accent-text)' }}>
+              Map
+            </a>
+          </p>
+        </div>
+      )}
+      {iso && !(lat && lng) && (
+        <p className="mt-0.5 text-[11px]" style={{ color: 'var(--text-tertiary)' }}>No location</p>
+      )}
+    </div>
+  );
 }
 
 function daysBetween(from: string, to: string) {
@@ -540,18 +577,22 @@ function DailyTab() {
       key: 'checkIn',
       header: 'Check In',
       render: (row) => (
-        <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-          {formatTime(row.attendance?.checkInAt ?? null)}
-        </span>
+        <TimeAndPlace
+          iso={row.attendance?.checkInAt ?? null}
+          lat={row.attendance?.checkInLatitude} lng={row.attendance?.checkInLongitude}
+          address={row.attendance?.checkInAddress} accuracyM={row.attendance?.checkInAccuracyM}
+        />
       ),
     },
     {
       key: 'checkOut',
       header: 'Check Out',
       render: (row) => (
-        <span className="text-[13px]" style={{ color: 'var(--text-secondary)' }}>
-          {formatTime(row.attendance?.checkOutAt ?? null)}
-        </span>
+        <TimeAndPlace
+          iso={row.attendance?.checkOutAt ?? null}
+          lat={row.attendance?.checkOutLatitude} lng={row.attendance?.checkOutLongitude}
+          address={row.attendance?.checkOutAddress} accuracyM={row.attendance?.checkOutAccuracyM}
+        />
       ),
     },
     {

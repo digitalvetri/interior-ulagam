@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { PhotoUploader } from '@/components/uploads/PhotoUploader';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,7 +43,7 @@ interface SiteVisitDetail {
 interface CompleteForm {
   notes: string;
   outcome: string;
-  photos: string;
+  photos: string[];
   createFollowUp: boolean;
   followUpDate: string;
   followUpStage: string;
@@ -119,6 +120,35 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+/** Thumbnail that opens full size; older pasted links that can't load fall back to a text link. */
+function PhotoThumb({ url, index }: { url: string; index: number }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Open full size"
+      className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-muted)] hover:opacity-90 transition-opacity"
+    >
+      {broken ? (
+        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[var(--accent-base)]">
+          <Camera className="h-3 w-3" /> Photo {index + 1}
+        </span>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt={`Site visit photo ${index + 1}`}
+          loading="lazy"
+          onError={() => setBroken(true)}
+          className="h-full w-full object-cover"
+        />
+      )}
+    </a>
+  );
+}
+
 function Skeleton() {
   return (
     <div className="px-6 py-6 space-y-6 animate-pulse">
@@ -166,8 +196,9 @@ export default function SiteVisitDetailPage() {
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completing,   setCompleting]   = useState(false);
   const [completeErr,  setCompleteErr]  = useState<string | null>(null);
+  const [photosBusy,   setPhotosBusy]   = useState(false);
   const [completeForm, setCompleteForm] = useState<CompleteForm>({
-    notes: '', outcome: '', photos: '',
+    notes: '', outcome: '', photos: [],
     createFollowUp: false,
     followUpDate: '', followUpStage: 'site_visit', followUpStatus: 'interested', followUpComments: '',
   });
@@ -275,6 +306,10 @@ export default function SiteVisitDetailPage() {
   }
 
   async function handleComplete() {
+    if (photosBusy) {
+      setCompleteErr('Wait for the photos to finish uploading.');
+      return;
+    }
     if (completeForm.createFollowUp && !completeForm.followUpStage) {
       setCompleteErr('Select a follow-up stage.');
       return;
@@ -282,10 +317,7 @@ export default function SiteVisitDetailPage() {
     setCompleting(true);
     setCompleteErr(null);
     try {
-      const photos = completeForm.photos
-        .split('\n')
-        .map(s => s.trim())
-        .filter(s => s.length > 0);
+      const photos = completeForm.photos;
 
       const body: Record<string, unknown> = {
         notes:   completeForm.notes.trim() || undefined,
@@ -471,19 +503,9 @@ export default function SiteVisitDetailPage() {
           {/* Photos */}
           {visit.photos && visit.photos.length > 0 && (
             <Card title="Photos" icon={Camera}>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {visit.photos.map((url, i) => (
-                  <a
-                    key={i}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[12px] font-medium border hover:opacity-80 transition-opacity"
-                    style={{ borderColor: 'var(--border-subtle)', color: 'var(--accent-base)', background: 'var(--surface-muted)' }}
-                  >
-                    <Camera className="h-3 w-3" />
-                    Photo {i + 1}
-                  </a>
+                  <PhotoThumb key={`${i}-${url}`} url={url} index={i} />
                 ))}
               </div>
             </Card>
@@ -691,14 +713,16 @@ export default function SiteVisitDetailPage() {
 
             <div className="space-y-1.5">
               <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>
-                Photo URLs <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(one per line, optional)</span>
+                Site Photos <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(optional)</span>
               </label>
-              <textarea
+              <PhotoUploader
+                scope="site-visit"
+                entityId={id}
                 value={completeForm.photos}
-                onChange={e => setCompleteForm(f => ({ ...f, photos: e.target.value }))}
-                placeholder="https://…"
-                rows={2}
-                className="studio-input w-full py-2 resize-none font-mono text-[11px]"
+                onChange={urls => setCompleteForm(f => ({ ...f, photos: urls }))}
+                onBusyChange={setPhotosBusy}
+                maxFiles={20}
+                disabled={completing}
               />
             </div>
 
@@ -777,10 +801,10 @@ export default function SiteVisitDetailPage() {
               style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}>
               Cancel
             </button>
-            <button onClick={handleComplete} disabled={completing}
+            <button onClick={handleComplete} disabled={completing || photosBusy}
               className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              {completing ? 'Completing…' : 'Mark Complete'}
+              {completing ? 'Completing…' : photosBusy ? 'Uploading photos…' : 'Mark Complete'}
             </button>
           </DialogFooter>
         </DialogContent>

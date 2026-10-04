@@ -17,7 +17,7 @@ export interface Vendor {
   phone: string | null;
   email: string | null;
   gstin: string | null;
-  category: MaterialCategory | null;
+  category: string | null; // a vendor_categories name
   address: string | null;
   notes: string | null;
   createdAt: string;

@@ -25,6 +25,9 @@ export async function GET(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Vendor bill — procurement roles, matching Purchase Orders.
+  const denied = requireApiRole(ctx, ROLES.PROCUREMENT);
+  if (denied) return denied;
 
   const { id: billId } = await params;
 

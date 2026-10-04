@@ -9,6 +9,7 @@ import {
 import type { SnagItem, SnagStatus } from '@/types/snag';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { copyText } from '@/lib/client-feedback';
+import { PhotoUploader } from '@/components/uploads/PhotoUploader';
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
@@ -37,6 +38,7 @@ function AddSnagModal({
   const [form, setForm]       = useState<AddSnagForm>(INITIAL_FORM);
   const [adding, setAdding]   = useState(false);
   const [error, setError]     = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   function set<K extends keyof AddSnagForm>(k: K, v: AddSnagForm[K]) {
     setForm(f => ({ ...f, [k]: v }));
@@ -45,6 +47,7 @@ function AddSnagModal({
   async function handleAdd() {
     setError(null);
     if (!form.description.trim()) { setError('Description is required'); return; }
+    if (photoBusy) { setError('Wait for the photo to finish uploading'); return; }
     const body: { description: string; photoUrl?: string; assigneeId?: string } = {
       description: form.description.trim(),
     };
@@ -92,10 +95,17 @@ function AddSnagModal({
           </div>
           <div>
             <label className="studio-label block mb-1.5">
-              Photo URL <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
+              Photo <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
             </label>
-            <input type="url" value={form.photoUrl} onChange={e => set('photoUrl', e.target.value)}
-              placeholder="https://…" className="studio-input w-full text-sm" />
+            <PhotoUploader
+              scope="snag"
+              entityId={projectId}
+              value={form.photoUrl ? [form.photoUrl] : []}
+              onChange={urls => set('photoUrl', urls[0] ?? '')}
+              onBusyChange={setPhotoBusy}
+              maxFiles={1}
+              disabled={adding}
+            />
           </div>
           <div>
             <label className="studio-label block mb-1.5">
@@ -112,10 +122,10 @@ function AddSnagModal({
         </div>
         <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
           <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
-          <button type="button" onClick={handleAdd} disabled={adding}
+          <button type="button" onClick={handleAdd} disabled={adding || photoBusy}
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
             <Plus className="h-4 w-4" />
-            {adding ? 'Adding…' : 'Add Snag Item'}
+            {adding ? 'Adding…' : photoBusy ? 'Uploading photo…' : 'Add Snag Item'}
           </button>
         </div>
       </div>

@@ -3,20 +3,11 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { vendors } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and, asc, count, inArray } from 'drizzle-orm';
+import { eq, and, asc, count, inArray, sql } from 'drizzle-orm';
 import { purchaseOrders } from '@/lib/db/schema';
 import { listRange, takePage } from '@/lib/pagination';
-
-const MATERIAL_CATEGORIES = [
-  'laminate',
-  'hardware',
-  'furniture',
-  'fabric',
-  'lighting',
-  'flooring',
-  'sanitary',
-  'other',
-] as const;
+import { VENDOR_CATEGORY_MAX } from '@/lib/vendor-categories';
+import { findVendorCategory } from '@/lib/vendor-categories-server';
 
 function firstZodMessage(err: z.ZodError): string | null {
   const first = err.issues[0];
@@ -30,7 +21,8 @@ const CreateVendorSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   gstin: z.string().optional(),
-  category: z.enum(MATERIAL_CATEGORIES).optional(),
+  // Must name one of the studio's vendor categories (matched case-insensitively).
+  category: z.string().trim().max(VENDOR_CATEGORY_MAX).nullable().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -48,12 +40,8 @@ export async function GET(request: NextRequest) {
   try {
     const conditions = [eq(vendors.tenantId, ctx.tenantId)];
 
-    if (category) {
-      const categoryParsed = z.enum(MATERIAL_CATEGORIES).safeParse(category);
-      if (!categoryParsed.success) {
-        return NextResponse.json({ error: 'Invalid category filter' }, { status: 400 });
-      }
-      conditions.push(eq(vendors.category, categoryParsed.data));
+    if (category?.trim()) {
+      conditions.push(sql`lower(${vendors.category}) = lower(${category.trim()})`);
     }
 
     const rows = await db
@@ -120,6 +108,15 @@ export async function POST(request: NextRequest) {
   const input = parsed.data;
 
   try {
+    let category: string | null = null;
+    if (input.category) {
+      const found = await findVendorCategory(ctx.tenantId, input.category);
+      if (!found) {
+        return NextResponse.json({ error: `Unknown category "${input.category}". Add it first.` }, { status: 422 });
+      }
+      category = found.name;
+    }
+
     const [vendor] = await db
       .insert(vendors)
       .values({
@@ -128,7 +125,7 @@ export async function POST(request: NextRequest) {
         phone: input.phone ?? null,
         email: input.email ?? null,
         gstin: input.gstin ?? null,
-        category: input.category ?? null,
+        category,
         address: input.address ?? null,
         notes: input.notes ?? null,
       })

@@ -100,6 +100,23 @@ export function expenseNetPaise(e: { amountPaise: number; gstAmountPaise: number
   return e.poId ? e.amountPaise : Math.max(0, e.amountPaise - e.gstAmountPaise);
 }
 
+/** A purchase order's value from its lines (stored line totals; qty × rate for older rows). */
+export function poTotalPaise(linesJson: unknown): number {
+  if (!Array.isArray(linesJson)) return 0;
+  return (linesJson as Record<string, unknown>[]).reduce((sum, l) => {
+    if (typeof l.totalPaise === 'number') return sum + l.totalPaise;
+    const qty = typeof l.qty === 'number' ? l.qty : 0;
+    const rate = typeof l.unitRatePaise === 'number' ? l.unitRatePaise : 0;
+    return sum + qty * rate;
+  }, 0);
+}
+
+/** What is still committed on a PO: its value less what has been billed against it (never negative). */
+export function poCommittedPaise(po: { linesJson: unknown; status: string }, billedPaise: number): number {
+  if (po.status === 'cancelled') return 0;
+  return Math.max(0, poTotalPaise(po.linesJson) - billedPaise);
+}
+
 export interface CostBreakdown {
   materialPaise: number;
   contractLabourPaise: number;

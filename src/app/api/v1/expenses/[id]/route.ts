@@ -12,6 +12,9 @@ export async function GET(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  // Spend detail — finance roles, matching the Accounts menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

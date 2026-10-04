@@ -4,17 +4,8 @@ import { db } from '@/lib/db';
 import { vendors } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
-
-const MATERIAL_CATEGORIES = [
-  'laminate',
-  'hardware',
-  'furniture',
-  'fabric',
-  'lighting',
-  'flooring',
-  'sanitary',
-  'other',
-] as const;
+import { VENDOR_CATEGORY_MAX } from '@/lib/vendor-categories';
+import { findVendorCategory } from '@/lib/vendor-categories-server';
 
 const UpdateVendorSchema = z
   .object({
@@ -22,7 +13,8 @@ const UpdateVendorSchema = z
     phone: z.string().optional(),
     email: z.string().email().optional(),
     gstin: z.string().optional(),
-    category: z.enum(MATERIAL_CATEGORIES).optional(),
+    // A studio vendor category name; null or '' clears it.
+    category: z.string().trim().max(VENDOR_CATEGORY_MAX).nullable().optional(),
     address: z.string().optional(),
     notes: z.string().optional(),
   })
@@ -89,10 +81,22 @@ export async function PATCH(
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
   }
 
+  const { category: rawCategory, ...rest } = input;
+  const values: typeof rest & { category?: string | null } = { ...rest };
+  if (rawCategory !== undefined) values.category = rawCategory || null;
+
   try {
+    if (values.category) {
+      const found = await findVendorCategory(ctx.tenantId, values.category);
+      if (!found) {
+        return NextResponse.json({ error: `Unknown category "${values.category}". Add it first.` }, { status: 422 });
+      }
+      values.category = found.name;
+    }
+
     const [updated] = await db
       .update(vendors)
-      .set(input)
+      .set(values)
       .where(and(eq(vendors.id, id), eq(vendors.tenantId, ctx.tenantId)))
       .returning();
 

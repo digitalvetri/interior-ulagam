@@ -14,7 +14,9 @@ import {
 } from 'lucide-react';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import type { Lead } from '@/types/leads';
-import { istToday } from '@/lib/dates/ist';
+import { istToday, IST_TIME_ZONE } from '@/lib/dates/ist';
+import { canonicalStage } from '@/lib/leads/stage-utils';
+import { getPreciseLocation, mapsUrl } from '@/lib/attendance/geolocate';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -67,6 +69,10 @@ interface Task {
 interface AttendanceRecord {
   id: string; date: string; status: string;
   checkInAt: string | null; checkOutAt: string | null;
+  checkInLatitude?: string | null; checkInLongitude?: string | null;
+  checkInAddress?: string | null; checkInAccuracyM?: number | null;
+  checkOutLatitude?: string | null; checkOutLongitude?: string | null;
+  checkOutAddress?: string | null; checkOutAccuracyM?: number | null;
 }
 interface LeaveRequest {
   id: string; leaveType: string; fromDate: string; toDate: string;
@@ -108,7 +114,7 @@ function getFollowUpUrgency(dateStr: string): 'overdue' | 'today' | 'upcoming' {
   return 'upcoming';
 }
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: IST_TIME_ZONE });
 }
 function fmtDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -707,34 +713,123 @@ function CardHeader({ title, href, linkLabel }: { title: string; href: string; l
   );
 }
 
-/** Ring chart: one arc per stage, drawn on a soft track. */
+/**
+ * Ring chart: one arc per stage, drawn on a soft track. Circles are centred in
+ * the viewBox (C = R + stroke/2 ≤ half the box) so nothing is clipped, and a
+ * stage holding every lead draws a plain full circle (no dash seam).
+ */
 function PipelineRing({ segments, total }: { segments: { value: number; color: string }[]; total: number }) {
-  const R = 50, C = 2 * Math.PI * R;
+  const SIZE = 120, CENTER = SIZE / 2, STROKE = 14, R = CENTER - STROKE / 2 - 1;
+  const C = 2 * Math.PI * R;
   let offset = 0;
   return (
-    <div className="relative h-[124px] w-[124px] flex-shrink-0">
-      <svg viewBox="0 0 124 124" className="h-full w-full -rotate-90">
-        <circle cx="74" cy="74" r={R} fill="none" stroke="var(--success-soft)" strokeWidth="16" />
+    <div className="relative aspect-square w-[132px] flex-shrink-0 sm:w-[144px]">
+      <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="block h-full w-full -rotate-90" aria-hidden="true">
+        <circle cx={CENTER} cy={CENTER} r={R} fill="none" stroke="var(--success-soft)" strokeWidth={STROKE} />
         {total > 0 && segments.map((s, i) => {
-          if (s.value === 0) return null;
+          if (s.value <= 0) return null;
+          if (s.value >= total) {
+            return <circle key={i} cx={CENTER} cy={CENTER} r={R} fill="none" stroke={s.color} strokeWidth={STROKE} />;
+          }
           const len = (s.value / total) * C;
           const el = (
             <circle
-              key={i} cx="74" cy="74" r={R} fill="none" stroke={s.color} strokeWidth="16"
+              key={i} cx={CENTER} cy={CENTER} r={R} fill="none" stroke={s.color} strokeWidth={STROKE}
               strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-offset}
             />
           );
           offset += len;
           return el;
         })}
-        {/* Soft highlight on the arc's start, echoing the design's two-tone ring */}
-        {total > 0 && <circle cx="74" cy="74" r={R} fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="16" strokeDasharray={`${C * 0.07} ${C}`} />}
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[28px] font-bold leading-none tabular-nums" style={{ color: 'var(--text-heading)' }}>{total}</span>
-        <span className="mt-1 text-[11.5px]" style={{ color: 'var(--text-secondary)' }}>Total leads</span>
+      {/* Label sits inside the hole: inner diameter ≈ 2·(R − STROKE/2) of the box */}
+      <div className="absolute inset-[18%] flex flex-col items-center justify-center text-center">
+        <span className="text-[26px] font-bold leading-none tabular-nums sm:text-[28px]" style={{ color: 'var(--text-heading)' }}>{total}</span>
+        <span className="mt-1 text-[11px] leading-tight" style={{ color: 'var(--text-secondary)' }}>Total leads</span>
       </div>
     </div>
+  );
+}
+
+/** Where a check-in/out was recorded: address (or coordinates) + map link + accuracy. */
+function AttendancePlace({ lat, lng, address, accuracyM }: {
+  lat?: string | null; lng?: string | null; address?: string | null; accuracyM?: number | null;
+}) {
+  if (!lat || !lng) return null;
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1">
+      <MapPin className="h-3 w-3 flex-shrink-0" strokeWidth={1.8} />
+      <span className="truncate" title={address ?? undefined}>{address ?? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`}</span>
+      {accuracyM != null && <span className="flex-shrink-0">±{accuracyM} m</span>}
+      <a href={mapsUrl(lat, lng)} target="_blank" rel="noopener noreferrer"
+        className="flex-shrink-0 font-medium hover:underline" style={{ color: 'var(--accent-text)' }}>
+        Map
+      </a>
+    </span>
+  );
+}
+
+/** Owner dashboard: the owner's own Check In / Check Out (owners are staff too). */
+function MyAttendanceCard({
+  record, loading, checkingIn, checkingOut, locating, error, notice, onCheckIn, onCheckOut,
+}: {
+  record: AttendanceRecord | null; loading: boolean;
+  checkingIn: boolean; checkingOut: boolean; locating: boolean;
+  error: string | null; notice: string | null;
+  onCheckIn: () => void; onCheckOut: () => void;
+}) {
+  const busyLabel = locating ? 'Getting location…' : 'Saving…';
+  const workedMin = record?.checkInAt && record.checkOutAt
+    ? Math.round((new Date(record.checkOutAt).getTime() - new Date(record.checkInAt).getTime()) / 60_000)
+    : 0;
+  return (
+    <section className="dash-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ background: 'var(--success-soft)' }}>
+          <UserCheck className="h-5 w-5" style={{ color: 'var(--accent-base)' }} strokeWidth={1.6} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-medium" style={{ color: 'var(--text-primary)' }}>My attendance today</p>
+          {loading ? (
+            <div className="skeleton mt-1.5 h-5 w-40 rounded" />
+          ) : record?.checkInAt ? (
+            <>
+              <p className="mt-0.5 text-[15px] font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }} suppressHydrationWarning>
+                In {fmtTime(record.checkInAt)}
+                <span className="mx-1.5 font-normal" style={{ color: 'var(--text-secondary)' }}>→</span>
+                {record.checkOutAt ? `Out ${fmtTime(record.checkOutAt)}` : <span style={{ color: 'var(--text-secondary)' }}>not checked out</span>}
+                {workedMin > 0 && <span className="ml-2 text-[12.5px] font-normal" style={{ color: 'var(--text-secondary)' }}>{fmtDuration(workedMin)}</span>}
+              </p>
+              <div className="mt-1 flex min-w-0 flex-col gap-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>
+                <AttendancePlace lat={record.checkInLatitude} lng={record.checkInLongitude} address={record.checkInAddress} accuracyM={record.checkInAccuracyM} />
+                <AttendancePlace lat={record.checkOutLatitude} lng={record.checkOutLongitude} address={record.checkOutAddress} accuracyM={record.checkOutAccuracyM} />
+              </div>
+            </>
+          ) : (
+            <p className="mt-0.5 text-[13.5px]" style={{ color: 'var(--text-secondary)' }}>Not checked in yet</p>
+          )}
+          {notice && <p className="mt-1.5 text-[12px] font-medium" style={{ color: 'var(--warning)' }}>{notice}</p>}
+          {error && <p className="mt-1.5 text-[12px] font-medium" style={{ color: 'var(--danger)' }}>{error}</p>}
+        </div>
+      </div>
+      {!loading && (
+        record?.checkOutAt ? (
+          <span className="inline-flex flex-shrink-0 items-center gap-1.5 text-[13px] font-semibold" style={{ color: 'var(--accent-text)' }}>
+            <CheckCircle2 className="h-4 w-4" />Day complete
+          </span>
+        ) : record?.checkInAt ? (
+          <button type="button" onClick={onCheckOut} disabled={checkingOut}
+            className="btn-primary inline-flex h-10 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-[14px] disabled:opacity-60">
+            {checkingOut ? <><Loader2 className="h-4 w-4 animate-spin" />{busyLabel}</> : 'Check Out'}
+          </button>
+        ) : (
+          <button type="button" onClick={onCheckIn} disabled={checkingIn}
+            className="btn-primary inline-flex h-10 flex-shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-[14px] disabled:opacity-60">
+            {checkingIn ? <><Loader2 className="h-4 w-4 animate-spin" />{busyLabel}</> : 'Check In'}
+          </button>
+        )
+      )}
+    </section>
   );
 }
 
@@ -778,6 +873,8 @@ export default function DashboardPage() {
   const [checkingIn,   setCheckingIn]   = useState(false);
   const [checkingOut,  setCheckingOut]  = useState(false);
   const [attdError,    setAttdError]    = useState<string | null>(null);
+  const [attdNotice,   setAttdNotice]   = useState<string | null>(null);
+  const [locating,     setLocating]     = useState(false);
 
   const [loading,    setLoading]    = useState(true);
   const [loadError,  setLoadError]  = useState(false);
@@ -815,13 +912,25 @@ export default function DashboardPage() {
         .catch(() => {});
 
       if (admin) {
-        const [ls, ps, rs, rl] = await Promise.all([
+        const [ls, ps, rs, rl, myAttd] = await Promise.all([
           fetch('/api/v1/leads/stats').then(r => r.json()),
           fetch('/api/v1/projects').then(r => r.json()),
           fetch('/api/v1/accounts/receivables').then(r => r.json()),
           fetch('/api/v1/leads?limit=15').then(r => r.json()),
+          // Owners are staff too — their own check-in for today
+          fetch('/api/v1/me/check-in').then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
-        if (ls?.data?.counts) setLeadStats(ls.data.counts);
+        setTodayAttd(myAttd?.data ?? null);
+        if (ls?.data?.counts) {
+          // The API returns every pipeline stage; the ring groups them into the
+          // four canonical buckets so contacted/quotation/etc. leads are counted.
+          const buckets: LeadStats = { new: 0, site_visit: 0, won: 0, lost: 0 };
+          for (const [stage, n] of Object.entries(ls.data.counts as Record<string, number>)) {
+            const key = canonicalStage(stage);
+            if (key in buckets) buckets[key] += Number(n) || 0;
+          }
+          setLeadStats(buckets);
+        }
         if (Array.isArray(ps?.data)) {
           setAllProjects(ps.data);
           setTotalRevenuePaise(
@@ -901,6 +1010,40 @@ export default function DashboardPage() {
     );
   }
 
+  /* ── Self attendance (owner + employees) ──────────────────────────── */
+  async function recordAttendance(kind: 'in' | 'out') {
+    const setBusy = kind === 'in' ? setCheckingIn : setCheckingOut;
+    setBusy(true);
+    setAttdError(null);
+    setAttdNotice(null);
+    try {
+      // Precise GPS; on failure still record attendance, but tell the user why.
+      setLocating(true);
+      const geo = await getPreciseLocation();
+      setLocating(false);
+      if (!geo.ok) setAttdNotice(geo.message);
+
+      const res = await fetch(`/api/v1/me/check-${kind}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geo.ok ? geo.location : {}),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setTodayAttd(json.data);
+      } else {
+        setAttdError(await responseError(res, kind === 'in' ? 'Check-in failed. Please try again.' : 'Check-out failed. Please try again.'));
+      }
+    } catch {
+      setAttdError(NETWORK_ERROR);
+    } finally {
+      setLocating(false);
+      setBusy(false);
+    }
+  }
+  const handleCheckIn  = () => recordAttendance('in');
+  const handleCheckOut = () => recordAttendance('out');
+
   /* ══════════════════════════════════════════════════════════════════════
      ADMIN VIEW
      ══════════════════════════════════════════════════════════════════════ */
@@ -960,6 +1103,14 @@ export default function DashboardPage() {
         {/* ── Hero ────────────────────────────────────────────────── */}
         <HeroBanner firstName={firstName} status={heroStatus} loading={loading} />
 
+        {/* ── My attendance (owner's own check-in / out) ──────────── */}
+        <MyAttendanceCard
+          record={todayAttd} loading={loading}
+          checkingIn={checkingIn} checkingOut={checkingOut} locating={locating}
+          error={attdError} notice={attdNotice}
+          onCheckIn={handleCheckIn} onCheckOut={handleCheckOut}
+        />
+
         {/* ── KPIs ────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 xl:grid-cols-4 2xl:gap-4">
           <StatCard
@@ -991,7 +1142,7 @@ export default function DashboardPage() {
             <CardHeader title="Lead Pipeline" href="/leads" linkLabel="View all" />
             {loading ? (
               <div className="flex items-center gap-6">
-                <div className="skeleton rounded-full" style={{ width: 124, height: 124, flexShrink: 0 }} />
+                <div className="skeleton aspect-square w-[132px] flex-shrink-0 rounded-full sm:w-[144px]" />
                 <div className="flex-1 space-y-4">{[...Array(4)].map((_, i) => <div key={i} className="skeleton h-5 rounded" />)}</div>
               </div>
             ) : totalLeads === 0 ? (
@@ -1011,13 +1162,18 @@ export default function DashboardPage() {
                   segments={FUNNEL_STAGES.map((s, i) => ({ value: funnelCount(s.key), color: FUNNEL_COLORS[i] }))}
                 />
                 <div className="w-full min-w-0 flex-1">
-                  {FUNNEL_STAGES.map((s, i) => (
-                    <div key={s.key} className="flex items-center gap-2.5 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: FUNNEL_COLORS[i] }} />
-                      <span className="flex-1 truncate text-[13.5px]" style={{ color: 'var(--text-primary)' }}>{s.label}</span>
-                      <span className="text-[13.5px] font-medium tabular-nums" style={{ color: 'var(--text-heading)' }}>{funnelCount(s.key)}</span>
-                    </div>
-                  ))}
+                  {FUNNEL_STAGES.map((s, i) => {
+                    const n = funnelCount(s.key);
+                    const pct = totalLeads > 0 ? Math.round((n / totalLeads) * 100) : 0;
+                    return (
+                      <div key={s.key} className="flex items-center gap-2.5 py-2" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                        <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: FUNNEL_COLORS[i] }} />
+                        <span className="min-w-0 flex-1 truncate text-[13.5px]" style={{ color: 'var(--text-primary)' }}>{s.label}</span>
+                        <span className="flex-shrink-0 text-[13.5px] font-semibold tabular-nums" style={{ color: 'var(--text-heading)' }}>{n}</span>
+                        <span className="w-10 flex-shrink-0 text-right text-[12px] tabular-nums" style={{ color: 'var(--text-secondary)' }}>{pct}%</span>
+                      </div>
+                    );
+                  })}
                   <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--success-soft)' }}>
                     <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${conversionPct}%`, background: 'var(--accent-base)' }} />
                   </div>
@@ -1151,51 +1307,6 @@ export default function DashboardPage() {
      EMPLOYEE VIEW
      ══════════════════════════════════════════════════════════════════════ */
 
-  async function handleCheckIn() {
-    setCheckingIn(true);
-    setAttdError(null);
-    try {
-      // Collect GPS if available; proceed without it if denied or unavailable
-      let gps: { latitude?: number; longitude?: number } = {};
-      try {
-        const pos = await new Promise<GeolocationPosition>((res, rej) =>
-          navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
-        );
-        gps = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-      } catch { /* geolocation denied or unavailable */ }
-
-      const res = await fetch('/api/v1/me/check-in', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(gps),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setTodayAttd(json.data);
-      } else {
-        setAttdError(await responseError(res, 'Check-in failed. Please try again.'));
-      }
-    } catch {
-      setAttdError(NETWORK_ERROR);
-    } finally { setCheckingIn(false); }
-  }
-
-  async function handleCheckOut() {
-    setCheckingOut(true);
-    setAttdError(null);
-    try {
-      const res = await fetch('/api/v1/me/check-out', { method: 'POST' });
-      if (res.ok) {
-        const json = await res.json();
-        setTodayAttd(json.data);
-      } else {
-        setAttdError(await responseError(res, 'Check-out failed. Please try again.'));
-      }
-    } catch {
-      setAttdError(NETWORK_ERROR);
-    } finally { setCheckingOut(false); }
-  }
-
   // Derived attendance stats
   const daysPresent  = monthAttd.filter(r => ['present', 'late', 'half_day'].includes(r.status)).length;
   const daysAbsent   = monthAttd.filter(r => r.status === 'absent').length;
@@ -1293,7 +1404,7 @@ export default function DashboardPage() {
                       disabled={checkingOut}
                       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
                       style={{ background: '#6ee7b7', color: '#064e3b' }}>
-                      {checkingOut ? 'Saving…' : 'Check Out'}
+                      {checkingOut ? (locating ? 'Getting location…' : 'Saving…') : 'Check Out'}
                     </button>
                   )}
                 </div>
@@ -1307,10 +1418,16 @@ export default function DashboardPage() {
                   disabled={checkingIn}
                   className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-80 disabled:opacity-50"
                   style={{ background: '#6ee7b7', color: '#064e3b' }}>
-                  {checkingIn ? 'Saving…' : 'Check In'}
+                  {checkingIn ? (locating ? 'Getting location…' : 'Saving…') : 'Check In'}
                 </button>
               </>
             )}
+            {todayAttd?.checkInAddress && (
+              <p className="mt-2 max-w-[220px] truncate text-[11px]" style={{ color: 'rgba(255,255,255,0.72)' }} title={todayAttd.checkInAddress}>
+                {todayAttd.checkInAddress}
+              </p>
+            )}
+            {attdNotice && <p className="mt-2 max-w-[220px] text-[11px] font-medium" style={{ color: '#fde68a' }}>{attdNotice}</p>}
             {attdError && <p className="mt-2 max-w-[220px] text-[11px] font-medium" style={{ color: '#fca5a5' }}>{attdError}</p>}
           </div>
         </div>

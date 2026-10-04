@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee, EmploymentType, UserRole } from '@/types/employees';
 import { TemporaryPasswordCard } from '@/components/employees/TemporaryPasswordCard';
+import { PhotoUploader } from '@/components/uploads/PhotoUploader';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 type TabKey = 'personal' | 'job' | 'contact';
@@ -44,6 +45,7 @@ export default function EmployeeDetailPage({
   const [draft, setDraft]       = useState<Partial<Employee>>({});
   const [saving, setSaving]     = useState(false);
   const [saveError, setSaveErr] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const [resetting, setResetting] = useState(false);
   const [resetResult, setResetResult] = useState<{ email: string | null; password: string } | null>(null);
@@ -75,7 +77,7 @@ export default function EmployeeDetailPage({
   }
 
   async function save() {
-    if (!dirty) return;
+    if (!dirty || photoBusy) return;
     setSaving(true);
     setSaveErr(null);
     try {
@@ -180,7 +182,7 @@ export default function EmployeeDetailPage({
           </div>
           <div className="flex items-center gap-2">
             {dirty && (
-              <Button onClick={save} disabled={saving} size="sm" className="gap-1.5">
+              <Button onClick={save} disabled={saving || photoBusy} size="sm" className="gap-1.5">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save changes
               </Button>
@@ -244,8 +246,15 @@ export default function EmployeeDetailPage({
               <Field label="Date of birth" icon={Calendar}>
                 <Input type="date" value={displayed.dob ?? ''} onChange={(e) => set('dob', (e.target.value || null) as Employee['dob'])} />
               </Field>
-              <Field label="Photo URL" icon={User}>
-                <Input value={displayed.photoUrl ?? ''} onChange={(e) => set('photoUrl', (e.target.value || null) as Employee['photoUrl'])} placeholder="https://…" />
+              <Field label="Photo" icon={User}>
+                <PhotoUploader
+                  scope="employee"
+                  entityId={id}
+                  value={displayed.photoUrl ? [displayed.photoUrl] : []}
+                  onChange={(urls) => set('photoUrl', urls[0] ?? null)}
+                  onBusyChange={setPhotoBusy}
+                  maxFiles={1}
+                />
               </Field>
               <Field label="Location" icon={MapPin}>
                 <Input value={displayed.location ?? ''} onChange={(e) => set('location', (e.target.value || null) as Employee['location'])} />

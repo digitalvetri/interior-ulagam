@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { tenants, users } from '@/lib/db/schema';
 import { auth } from '@/lib/auth/config';
+import { seedDefaultVendorCategories } from '@/lib/vendor-categories-server';
 
 /**
  * First-run setup: creates the studio tenant and its owner account.
@@ -66,6 +67,13 @@ export async function POST(request: NextRequest) {
   if (!owner) {
     // Never leave a "setup complete" studio whose only account is not the owner.
     return NextResponse.json({ error: 'Owner account was created but could not be promoted.' }, { status: 500 });
+  }
+
+  // Starter vendor categories; the studio can rename or delete them later.
+  try {
+    await seedDefaultVendorCategories(tenant.id);
+  } catch (err) {
+    console.error('[setup] vendor categories seed failed', err);
   }
 
   return NextResponse.json(

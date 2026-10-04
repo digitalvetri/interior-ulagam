@@ -14,12 +14,14 @@ import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import type { POStatus } from '@/types/purchase-orders';
 import type { MaterialCategory } from '@/types/vendors';
+import { categoryBadge } from '@/lib/vendor-categories';
+import { useVendorCategories, VendorCategorySelect } from '@/components/vendors/vendor-categories';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
 interface Vendor {
   id: string; name: string; phone: string | null; email: string | null;
-  gstin: string | null; category: MaterialCategory | null;
+  gstin: string | null; category: string | null;
   address: string | null; notes: string | null; createdAt: string;
 }
 
@@ -38,31 +40,10 @@ interface Material {
 
 interface VendorForm {
   name: string; phone: string; email: string;
-  gstin: string; category: MaterialCategory | ''; address: string; notes: string;
+  gstin: string; category: string; address: string; notes: string;
 }
 
 /* ── Config ───────────────────────────────────────────────────────────────── */
-
-const CAT_LABEL: Partial<Record<MaterialCategory, string>> = {
-  laminate: 'Laminate', hardware: 'Hardware', furniture: 'Furniture',
-  fabric: 'Fabric', lighting: 'Lighting', flooring: 'Flooring',
-  sanitary: 'Sanitary', other: 'Other',
-};
-
-const CAT_BADGE: Partial<Record<MaterialCategory, { bg: string; color: string }>> = {
-  laminate:  { bg: '#F3E8FF', color: '#7E22CE' },
-  hardware:  { bg: '#DBEAFE', color: '#1D4ED8' },
-  furniture: { bg: '#FEF3C7', color: '#92400E' },
-  fabric:    { bg: '#FCE7F3', color: '#9D174D' },
-  lighting:  { bg: '#FEFCE8', color: '#713F12' },
-  flooring:  { bg: '#D1FAE5', color: '#065F46' },
-  sanitary:  { bg: '#CCFBF1', color: '#0F766E' },
-  other:     { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
-};
-
-const VENDOR_CATEGORIES: MaterialCategory[] = [
-  'laminate', 'hardware', 'furniture', 'fabric', 'lighting', 'flooring', 'sanitary', 'other',
-];
 
 const STATUS_LABEL: Record<POStatus, string> = {
   draft: 'Draft', sent: 'Sent', acknowledged: 'Acknowledged',
@@ -94,6 +75,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
   const [editForm,   setEditForm]   = useState<VendorForm>({ name: '', phone: '', email: '', gstin: '', category: '', address: '', notes: '' });
   const [editBusy,   setEditBusy]   = useState(false);
   const [editError,  setEditError]  = useState<string | null>(null);
+  const { categories, setCategories } = useVendorCategories();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -146,7 +128,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
     if (editForm.phone.trim())   body.phone    = editForm.phone.trim();
     if (editForm.email.trim())   body.email    = editForm.email.trim();
     if (editForm.gstin.trim())   body.gstin    = editForm.gstin.trim();
-    if (editForm.category)       body.category = editForm.category;
+    body.category = editForm.category || null;
     if (editForm.address.trim()) body.address  = editForm.address.trim();
     if (editForm.notes.trim())   body.notes    = editForm.notes.trim();
     try {
@@ -157,7 +139,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
       if (!res.ok) { setEditError(typeof json.error === 'string' ? json.error : 'Failed to save.'); return; }
       setVendor(json.data!);
       setEditOpen(false);
-    } catch { setEditError('Network error.'); }
+    } catch { setEditError(NETWORK_ERROR); }
     finally  { setEditBusy(false); }
   }
 
@@ -184,8 +166,8 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const cat      = vendor.category ? CAT_BADGE[vendor.category] : undefined;
-  const catLabel = vendor.category ? CAT_LABEL[vendor.category] : null;
+  const cat      = vendor.category ? categoryBadge(vendor.category) : undefined;
+  const catLabel = vendor.category;
   const activePOs = pos.filter(p => p.status !== 'cancelled');
   const openPOs   = pos.filter(p => !['complete', 'cancelled'].includes(p.status));
 
@@ -505,12 +487,10 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
                   className="studio-input h-9 w-full text-sm" placeholder="+91 98765 43210" />
               </Field>
               <Field label="Category">
-                <select value={editForm.category}
-                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value as MaterialCategory | '' }))}
-                  className="studio-input h-9 w-full text-sm">
-                  <option value="">No category</option>
-                  {VENDOR_CATEGORIES.map(c => <option key={c} value={c}>{CAT_LABEL[c]}</option>)}
-                </select>
+                <VendorCategorySelect value={editForm.category}
+                  onChange={name => setEditForm(f => ({ ...f, category: name }))}
+                  categories={categories}
+                  onCreated={c => setCategories(prev => [...prev, c])} />
               </Field>
             </div>
             <div className="grid grid-cols-2 gap-4">

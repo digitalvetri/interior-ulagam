@@ -1,5 +1,6 @@
 'use client';
 import { istDateOf, istToday } from '@/lib/dates/ist';
+import { getPreciseLocation } from '@/lib/attendance/geolocate';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import {
@@ -355,7 +356,7 @@ function CheckInCard() {
   const [record, setRecord]   = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing]   = useState(false);
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'fetching' | 'ok' | 'denied'>('idle');
+  const [geoNotice, setGeoNotice] = useState<string | null>(null);
   const [error, setError]     = useState<string | null>(null);
 
   const loadToday = useCallback(async () => {
@@ -369,16 +370,12 @@ function CheckInCard() {
 
   useEffect(() => { loadToday(); }, [loadToday]);
 
-  async function getLocation(): Promise<{ latitude?: number; longitude?: number }> {
-    if (!navigator.geolocation) return {};
-    setGeoStatus('fetching');
-    return new Promise(resolve => {
-      navigator.geolocation.getCurrentPosition(
-        pos => { setGeoStatus('ok'); resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }); },
-        ()  => { setGeoStatus('denied'); resolve({}); },
-        { timeout: 8000, maximumAge: 0 },
-      );
-    });
+  // Precise GPS (lat/lng + accuracy); on failure attendance is still recorded and the reason shown.
+  async function getLocation(): Promise<{ latitude?: number; longitude?: number; accuracy?: number }> {
+    setGeoNotice(null);
+    const geo = await getPreciseLocation();
+    if (!geo.ok) { setGeoNotice(geo.message); return {}; }
+    return geo.location;
   }
 
   async function handleCheckIn() {
@@ -397,7 +394,10 @@ function CheckInCard() {
   async function handleCheckOut() {
     setActing(true); setError(null);
     try {
-      const res = await fetch('/api/v1/me/check-out', { method: 'POST' });
+      const loc = await getLocation();
+      const res = await fetch('/api/v1/me/check-out', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loc),
+      });
       if (!res.ok) { const j = await res.json(); setError(j.error ?? 'Check-out failed'); return; }
       await loadToday();
     } catch { setError('Network error. Please try again.'); }
@@ -502,10 +502,8 @@ function CheckInCard() {
             )}
           </>
         )}
-        {geoStatus === 'denied' && (
-          <p className="text-[11px] text-amber-600 text-center">
-            Location off — check-in recorded without GPS
-          </p>
+        {geoNotice && (
+          <p className="text-[11px] text-amber-600 text-center">{geoNotice}</p>
         )}
         {error && (
           <div className="flex items-center gap-2 text-sm text-red-600">

@@ -5,7 +5,7 @@ import {
   projectAdditions, projects, purchaseOrders, quotes, staffDayLogs, vendorPayments,
 } from '@/lib/db/schema';
 import {
-  allocateOldestFirst, costBreakdown, durationView, gstOf, ledgerWithBalance, milestoneState, profitView,
+  allocateOldestFirst, costBreakdown, durationView, gstOf, ledgerWithBalance, milestoneState, poCommittedPaise, profitView,
   revisedContract, stageReached, STAGE_ORDER, type LedgerEntry, type MilestoneView, type ProjectStage,
 } from './calc';
 
@@ -32,16 +32,6 @@ export function todayIso(): string {
 function iso(d: Date | string | null): string | null {
   if (!d) return null;
   return typeof d === 'string' ? d.slice(0, 10) : new Date(d.getTime() + 5.5 * 3_600_000).toISOString().slice(0, 10);
-}
-
-function poTotalPaise(linesJson: unknown): number {
-  if (!Array.isArray(linesJson)) return 0;
-  return (linesJson as Record<string, unknown>[]).reduce((sum, l) => {
-    if (typeof l.totalPaise === 'number') return sum + l.totalPaise;
-    const qty = typeof l.qty === 'number' ? l.qty : 0;
-    const rate = typeof l.unitRatePaise === 'number' ? l.unitRatePaise : 0;
-    return sum + qty * rate;
-  }, 0);
 }
 
 /* ── Milestones with what has been paid against them ────────────────────────── */
@@ -131,8 +121,7 @@ export async function loadProjectMoney(tenantId: string, projectId: string, toda
   const expenseRows = exp.map(e => ({ ...e, amountPaise: Number(e.amountPaise), gstAmountPaise: Number(e.gstAmountPaise) }));
   const billedByPo = new Map<string, number>();
   for (const e of expenseRows) if (e.poId && !e.voidedAt) billedByPo.set(e.poId, (billedByPo.get(e.poId) ?? 0) + e.amountPaise);
-  const committedPaise = pos.filter(po => po.status !== 'cancelled')
-    .reduce((s, po) => s + Math.max(0, poTotalPaise(po.linesJson) - (billedByPo.get(po.id) ?? 0)), 0);
+  const committedPaise = pos.reduce((s, po) => s + poCommittedPaise(po, billedByPo.get(po.id) ?? 0), 0);
 
   const costs = costBreakdown(expenseRows, Number(staff[0]?.cost ?? 0), committedPaise);
   const profit = profitView(revisedPaise, costs.totalPaise, costs.committedPaise);

@@ -1,5 +1,6 @@
 'use client';
 import { istToday } from '@/lib/dates/ist';
+import { getPreciseLocation } from '@/lib/attendance/geolocate';
 import { useEffect, useState, useCallback } from 'react';
 import {
   CalendarCheck, Clock, CheckCircle2, AlertCircle, XCircle,
@@ -91,6 +92,7 @@ function TodayCard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]       = useState(false);
   const [error, setError]     = useState<string | null>(null);
+  const [geoNotice, setGeoNotice] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/me/check-in')
@@ -100,21 +102,14 @@ function TodayCard() {
   }, []);
 
   async function checkIn() {
-    setBusy(true); setError(null);
-    let lat: number | null = null, lng: number | null = null;
-    if (navigator.geolocation) {
-      await new Promise<void>(res => {
-        navigator.geolocation.getCurrentPosition(
-          p => { lat = p.coords.latitude; lng = p.coords.longitude; res(); },
-          () => res(), { timeout: 5000 },
-        );
-      });
-    }
+    setBusy(true); setError(null); setGeoNotice(null);
+    const geo = await getPreciseLocation();
+    if (!geo.ok) setGeoNotice(geo.message);
     try {
       const r = await fetch('/api/v1/me/check-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lat !== null && lng !== null ? { latitude: lat, longitude: lng } : {}),
+        body: JSON.stringify(geo.ok ? geo.location : {}),
       });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? 'Check-in failed'); return; }
@@ -124,9 +119,15 @@ function TodayCard() {
   }
 
   async function checkOut() {
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setGeoNotice(null);
+    const geo = await getPreciseLocation();
+    if (!geo.ok) setGeoNotice(geo.message);
     try {
-      const r = await fetch('/api/v1/me/check-out', { method: 'POST' });
+      const r = await fetch('/api/v1/me/check-out', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geo.ok ? geo.location : {}),
+      });
       const j = await r.json();
       if (!r.ok) { setError(j.error ?? 'Check-out failed'); return; }
       setState(prev => prev ? { ...prev, checkOutAt: j.data?.checkOutAt ?? new Date().toISOString() } : prev);
@@ -217,6 +218,7 @@ function TodayCard() {
         </div>
       </div>
 
+      {geoNotice && <p className="text-[11px] text-amber-600 mt-2">{geoNotice}</p>}
       {error && <p className="text-[11px] text-red-500 mt-2">{error}</p>}
     </div>
   );

@@ -2,13 +2,16 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, X, Store, AlertTriangle, Trash2 } from 'lucide-react';
+import { Plus, Search, X, Store, AlertTriangle, Trash2, Tags } from 'lucide-react';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
-import type { MaterialCategory } from '@/types/vendors';
+import { categoryBadge } from '@/lib/vendor-categories';
+import {
+  useVendorCategories, VendorCategorySelect, ManageVendorCategoriesDialog,
+} from '@/components/vendors/vendor-categories';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -18,7 +21,7 @@ interface Vendor {
   phone:       string | null;
   email:       string | null;
   gstin:       string | null;
-  category:    MaterialCategory | null;
+  category:    string | null;
   address:     string | null;
   notes:       string | null;
   createdAt:   string;
@@ -35,31 +38,10 @@ interface PO {
 
 interface VendorForm {
   name: string; phone: string; email: string;
-  gstin: string; category: MaterialCategory | ''; address: string; notes: string;
+  gstin: string; category: string; address: string; notes: string;
 }
 
 /* ── Config ─────────────────────────────────────────────────────────────────── */
-
-const CATEGORY_LABELS: Partial<Record<MaterialCategory, string>> = {
-  laminate: 'Laminate', hardware: 'Hardware', furniture: 'Furniture',
-  fabric: 'Fabric', lighting: 'Lighting', flooring: 'Flooring',
-  sanitary: 'Sanitary', other: 'Other',
-};
-
-const CATEGORY_BADGE: Partial<Record<MaterialCategory, { bg: string; color: string }>> = {
-  laminate:  { bg: '#F3E8FF', color: '#7E22CE' },
-  hardware:  { bg: '#DBEAFE', color: '#1D4ED8' },
-  furniture: { bg: '#FEF3C7', color: '#92400E' },
-  fabric:    { bg: '#FCE7F3', color: '#9D174D' },
-  lighting:  { bg: '#FEFCE8', color: '#713F12' },
-  flooring:  { bg: '#D1FAE5', color: '#065F46' },
-  sanitary:  { bg: '#CCFBF1', color: '#0F766E' },
-  other:     { bg: 'var(--surface-muted)', color: 'var(--text-secondary)' },
-};
-
-const VENDOR_CATEGORIES: MaterialCategory[] = [
-  'laminate', 'hardware', 'furniture', 'fabric', 'lighting', 'flooring', 'sanitary', 'other',
-];
 
 const EMPTY_FORM: VendorForm = {
   name: '', phone: '', email: '', gstin: '', category: '', address: '', notes: '',
@@ -76,6 +58,11 @@ export default function VendorsPage() {
   const [pos,      setPos]      = useState<PO[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [search,   setSearch]   = useState('');
+  const [catFilter, setCatFilter] = useState('');
+
+  // Studio-managed categories
+  const { categories, setCategories, canManage, loadError: catLoadError, reload: reloadCategories } = useVendorCategories();
+  const [manageOpen, setManageOpen] = useState(false);
 
   // Add/Edit dialog
   const [dialogOpen,   setDialogOpen]   = useState(false);
@@ -119,16 +106,26 @@ export default function VendorsPage() {
     return map;
   }, [pos]);
 
+  // A filter on a category that was just renamed or deleted falls back to "All".
+  const activeCat = categories.some(c => c.name === catFilter) ? catFilter : '';
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return vendors;
-    return vendors.filter(v =>
-      v.name.toLowerCase().includes(q) ||
-      (v.phone ?? '').includes(q) ||
-      (v.gstin ?? '').toLowerCase().includes(q) ||
-      (v.category ? (CATEGORY_LABELS[v.category] ?? '').toLowerCase().includes(q) : false),
-    );
-  }, [vendors, search]);
+    const cf = activeCat.toLowerCase();
+    return vendors.filter(v => {
+      if (cf && (v.category ?? '').toLowerCase() !== cf) return false;
+      if (!q) return true;
+      return v.name.toLowerCase().includes(q) ||
+        (v.phone ?? '').includes(q) ||
+        (v.gstin ?? '').toLowerCase().includes(q) ||
+        (v.category ?? '').toLowerCase().includes(q);
+    });
+  }, [vendors, search, activeCat]);
+
+  async function onCategoriesChanged() {
+    // A rename or delete rewrites vendors' categories too.
+    await Promise.all([reloadCategories(), load()]);
+  }
 
   /* ── Handlers ─────────────────────────────────────────────────────────────── */
 
@@ -158,6 +155,7 @@ export default function VendorsPage() {
     if (form.email.trim())   body.email   = form.email.trim();
     if (form.gstin.trim())   body.gstin   = form.gstin.trim();
     if (form.category)       body.category = form.category;
+    else if (editTarget)     body.category = null;
     if (form.address.trim()) body.address  = form.address.trim();
     if (form.notes.trim())   body.notes    = form.notes.trim();
     try {
@@ -166,13 +164,14 @@ export default function VendorsPage() {
       const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const json   = await res.json() as { data?: Vendor; error?: unknown };
       if (!res.ok) { setSaveError(typeof json.error === 'string' ? json.error : 'Failed to save.'); return; }
+      void reloadCategories(); // vendor counts per category
       setVendors(prev =>
         editTarget
           ? prev.map(v => v.id === editTarget.id ? json.data! : v)
           : [json.data!, ...prev],
       );
       setDialogOpen(false);
-    } catch { setSaveError('Network error.'); }
+    } catch { setSaveError(NETWORK_ERROR); }
     finally  { setSaving(false); }
   }
 
@@ -202,18 +201,30 @@ export default function VendorsPage() {
             {loading ? 'Loading…' : `${vendors.length} vendor${vendors.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        <button type="button" onClick={openAdd}
-          className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm">
-          <Plus className="h-4 w-4" strokeWidth={2.25} />New vendor
-        </button>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => setManageOpen(true)}
+            className="btn-secondary inline-flex items-center gap-2 px-4 py-2.5 text-sm">
+            <Tags className="h-4 w-4" />Categories
+          </button>
+          <button type="button" onClick={openAdd}
+            className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm">
+            <Plus className="h-4 w-4" strokeWidth={2.25} />New vendor
+          </button>
+        </div>
       </div>
+
+      {catLoadError && (
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{catLoadError}
+        </div>
+      )}
 
       {/* Search + table */}
       <div className="rounded-2xl border overflow-hidden"
         style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
 
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="relative max-w-sm">
+        <div className="px-4 py-3 flex flex-wrap items-center gap-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+          <div className="relative w-full max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search vendors…"
@@ -225,6 +236,11 @@ export default function VendorsPage() {
               </button>
             )}
           </div>
+          <select value={activeCat} onChange={e => setCatFilter(e.target.value)}
+            aria-label="Filter by category" className="studio-input h-9 text-sm">
+            <option value="">All categories</option>
+            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
         </div>
 
         {loading ? (
@@ -244,9 +260,9 @@ export default function VendorsPage() {
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <Store className="h-10 w-10" style={{ color: 'var(--text-tertiary)' }} />
             <p className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>
-              {search ? 'No vendors match your search.' : 'No vendors yet.'}
+              {search || activeCat ? 'No vendors match your filters.' : 'No vendors yet.'}
             </p>
-            {!search && (
+            {!search && !activeCat && (
               <button type="button" onClick={openAdd} className="btn-secondary px-4 py-2 text-sm">
                 Add first vendor
               </button>
@@ -265,7 +281,7 @@ export default function VendorsPage() {
               </thead>
               <tbody>
                 {filtered.map((v, idx) => {
-                  const cat        = v.category ? CATEGORY_BADGE[v.category] : undefined;
+                  const cat        = v.category ? categoryBadge(v.category) : undefined;
                   const outstanding = toPayByVendor.get(v.id) ?? 0;
                   return (
                     <tr key={v.id}
@@ -293,7 +309,7 @@ export default function VendorsPage() {
                         {v.category && cat ? (
                           <span className="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
                             style={{ background: cat.bg, color: cat.color }}>
-                            {CATEGORY_LABELS[v.category]}
+                            {v.category}
                           </span>
                         ) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                       </td>
@@ -341,6 +357,7 @@ export default function VendorsPage() {
               style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)', color: 'var(--text-tertiary)' }}>
               {filtered.length} vendor{filtered.length !== 1 ? 's' : ''}
               {search && ` matching "${search}"`}
+              {activeCat && ` in ${activeCat}`}
             </div>
           </div>
         )}
@@ -363,11 +380,10 @@ export default function VendorsPage() {
                   placeholder="+91 98765 43210" className="studio-input h-9 w-full text-sm" />
               </FormField>
               <FormField label="Category">
-                <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value as MaterialCategory | '' }))}
-                  className="studio-input h-9 w-full text-sm">
-                  <option value="">No category</option>
-                  {VENDOR_CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
-                </select>
+                <VendorCategorySelect value={form.category}
+                  onChange={name => setForm(f => ({ ...f, category: name }))}
+                  categories={categories}
+                  onCreated={cat => setCategories(prev => [...prev, cat])} />
               </FormField>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -402,6 +418,9 @@ export default function VendorsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ManageVendorCategoriesDialog open={manageOpen} onOpenChange={setManageOpen}
+        categories={categories} canManage={canManage} onChanged={onCategoriesChanged} />
 
       {/* ── Delete confirm ────────────────────────────────────────────────────── */}
       <Dialog open={!!deleteTarget} onOpenChange={open => { if (!open) { setDeleteTarget(null); setDeleteError(null); } }}>

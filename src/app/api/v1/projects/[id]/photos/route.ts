@@ -9,7 +9,6 @@ import { putObject, getDownloadUrl } from '@/lib/storage/s3';
 const MAX_FILE_SIZE  = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES  = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 const MAX_FILES      = 20;
-const PRESIGN_EXPIRY = 604800; // 7 days
 
 export async function POST(
   req: NextRequest,
@@ -50,8 +49,9 @@ export async function POST(
     const buffer = Buffer.from(await file.arrayBuffer());
 
     await putObject({ key, body: buffer, contentType: file.type });
-    const url = await getDownloadUrl({ key, expiresIn: PRESIGN_EXPIRY, inline: true });
-    photoUrls.push(url);
+    // A stable app URL, not a presigned one: presigned links expired after 7 days,
+    // and these site photos stay private (served via GET below, signed-in staff only).
+    photoUrls.push(`/api/v1/projects/${projectId}/photos?key=${encodeURIComponent(key)}`);
   }
 
   if (!photoUrls.length) {
@@ -71,4 +71,32 @@ export async function POST(
     .returning({ id: siteLogs.id });
 
   return NextResponse.json({ data: { siteLogId: siteLog.id, photoUrls } }, { status: 201 });
+}
+
+/**
+ * GET /api/v1/projects/[id]/photos?key=… — open a site photo. Any signed-in staff
+ * member of the studio may view it; the key must belong to this project's photo
+ * folder. Redirects to a short-lived signed link, so the stored URL never expires.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await getAuthContext();
+  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id: projectId } = await params;
+  const key = req.nextUrl.searchParams.get('key') ?? '';
+  if (!key.startsWith(`projects/${projectId}/photos/`) || key.includes('..')) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const [project] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId)));
+  if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  const url = await getDownloadUrl({ key, expiresIn: 300, inline: true });
+  return NextResponse.redirect(url, 302);
 }

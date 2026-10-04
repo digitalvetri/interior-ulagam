@@ -32,6 +32,7 @@ const GUARDED_GETS: [string, string][] = [
   ['payments/route.ts', 'FINANCE'],
   ['payments/[id]/receipt/route.ts', 'FINANCE'],
   ['vendor-bills/[id]/receipt/route.ts', 'FINANCE'],
+  ['vendor-categories/route.ts', 'PROCUREMENT'],
 ];
 
 function getHandler(source: string): string {

@@ -660,12 +660,24 @@ export const vendors = pgTable('vendors', {
   phone: text('phone'),
   email: text('email'),
   gstin: text('gstin'),
-  category: materialCategoryEnum('category'),
+  // A vendor_categories name for this tenant (free text since 0033).
+  category: text('category'),
   address: text('address'),
   notes: text('notes'),
   ...timestamps,
 }, (t) => [
   index('vendors_tenant_idx').on(t.tenantId),
+]);
+
+// Studio-managed vendor categories (Vendors → Manage categories).
+export const vendorCategories = pgTable('vendor_categories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('vendor_categories_tenant_name_uq').on(t.tenantId, sql`lower(${t.name})`),
 ]);
 
 // Secure, revocable, expiring client portal share links.
@@ -1063,6 +1075,12 @@ export const attendanceRecords = pgTable('attendance_records', {
   checkInLatitude: decimal('check_in_latitude', { precision: 10, scale: 7 }),
   checkInLongitude: decimal('check_in_longitude', { precision: 10, scale: 7 }),
   checkInAddress: text('check_in_address'),
+  /** GPS accuracy radius (metres) reported by the browser at check-in. */
+  checkInAccuracyM: integer('check_in_accuracy_m'),
+  checkOutLatitude: decimal('check_out_latitude', { precision: 10, scale: 7 }),
+  checkOutLongitude: decimal('check_out_longitude', { precision: 10, scale: 7 }),
+  checkOutAddress: text('check_out_address'),
+  checkOutAccuracyM: integer('check_out_accuracy_m'),
   notes: text('notes'),
   markedBy: uuid('marked_by').references(() => users.id),
   ...timestamps,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { expenses, projects } from '@/lib/db/schema';
+import { expenses, projects, purchaseOrders, vendors } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, desc, count, isNull } from 'drizzle-orm';
 import type { ExpenseCategory } from '@/types/accounts';
@@ -31,6 +31,10 @@ const CreateExpenseSchema = z.object({
   paidAt: z.string().datetime({ offset: true }).optional(),
   paymentMode: z.string().optional(),
   payeeType: z.enum(PAYEE_TYPES).optional(),
+  /** Bill this expense against a purchase order (project + vendor must match the PO). */
+  poId: z.string().uuid().optional(),
+}).refine(d => d.gstAmountPaise <= d.amountPaise, {
+  message: 'GST cannot be more than the amount', path: ['gstAmountPaise'],
 });
 
 export async function GET(request: NextRequest) {
@@ -38,6 +42,9 @@ export async function GET(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  // Studio-wide spend — finance roles, matching the Accounts menu.
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { searchParams } = new URL(request.url);
   const projectId = searchParams.get('projectId');
@@ -99,6 +106,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
+    // Optional PO link — the expense then counts as a bill against that PO.
+    let po: { projectId: string; vendorId: string | null; status: string } | undefined;
+    if (input.poId) {
+      [po] = await db
+        .select({ projectId: purchaseOrders.projectId, vendorId: purchaseOrders.vendorId, status: purchaseOrders.status })
+        .from(purchaseOrders)
+        .where(and(eq(purchaseOrders.id, input.poId), eq(purchaseOrders.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (!po) return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
+      if (po.status === 'cancelled') {
+        return NextResponse.json({ error: 'Cannot bill a cancelled purchase order.' }, { status: 409 });
+      }
+      if (po.projectId !== input.projectId) {
+        return NextResponse.json({ error: 'That purchase order belongs to a different project.' }, { status: 422 });
+      }
+      if (input.vendorId && po.vendorId && input.vendorId !== po.vendorId) {
+        return NextResponse.json({ error: 'That purchase order is with a different vendor.' }, { status: 422 });
+      }
+    }
+
+    const vendorId = input.vendorId ?? po?.vendorId ?? null;
+    let vendorName = input.vendorName?.trim() || null;
+    if (vendorId) {
+      const [vendor] = await db
+        .select({ name: vendors.name })
+        .from(vendors)
+        .where(and(eq(vendors.id, vendorId), eq(vendors.tenantId, ctx.tenantId)))
+        .limit(1);
+      if (!vendor) return NextResponse.json({ error: 'Vendor not found' }, { status: 404 });
+      vendorName = vendorName ?? vendor.name;
+    }
+
+    // amountPaise arrives incl. GST. A PO-linked bill is stored net with GST
+    // alongside (same as vendor bills) — see expenseNetPaise in project-money.
+    const storedAmountPaise = input.poId ? input.amountPaise - input.gstAmountPaise : input.amountPaise;
+
     const [{ expCount }] = await db
       .select({ expCount: count() })
       .from(expenses)
@@ -111,20 +154,21 @@ export async function POST(request: NextRequest) {
         tenantId: ctx.tenantId,
         projectId: input.projectId,
         category: input.category,
-        amountPaise: input.amountPaise,
+        amountPaise: storedAmountPaise,
         description: input.description ?? null,
         receiptUrl: input.receiptUrl ?? null,
         loggedBy: ctx.dbUserId,
         loggedVia: input.loggedVia ?? 'manual',
-        vendorName: input.vendorName ?? null,
-        vendorId:   input.vendorId   ?? null,
+        vendorName,
+        vendorId,
+        poId:       input.poId ?? null,
         gstPct: input.gstPct,
         gstAmountPaise: input.gstAmountPaise,
         expenseNumber,
         dueDate:     input.dueDate     ?? null,
         paidAt:      input.paidAt      ? new Date(input.paidAt) : null,
         paymentMode: input.paymentMode ?? null,
-        payeeType:   input.payeeType   ?? null,
+        payeeType:   input.payeeType   ?? (vendorId ? 'vendor' : null),
       })
       .returning();
 
