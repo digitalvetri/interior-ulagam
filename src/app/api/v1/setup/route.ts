@@ -15,7 +15,8 @@ import { auth } from '@/lib/auth/config';
 const SetupSchema = z.object({
   studioName: z.string().min(1).max(120),
   fullName: z.string().min(1).max(120),
-  email: z.string().email(),
+  // Better Auth stores emails lowercased; normalise here so the owner lookup below matches.
+  email: z.string().trim().toLowerCase().email(),
   password: z.string().min(12, 'Password must be at least 12 characters.'),
 });
 
@@ -61,6 +62,11 @@ export async function POST(request: NextRequest) {
     .set({ role: 'owner', emailVerified: true })
     .where(eq(users.email, email))
     .returning({ id: users.id, email: users.email, role: users.role });
+
+  if (!owner) {
+    // Never leave a "setup complete" studio whose only account is not the owner.
+    return NextResponse.json({ error: 'Owner account was created but could not be promoted.' }, { status: 500 });
+  }
 
   return NextResponse.json(
     { data: { tenantId: tenant.id, tenantName: tenant.name, owner } },
