@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { NAV_GROUPS } from '@/lib/nav-items';
@@ -9,21 +10,20 @@ import { Menu, X, ChevronLeft, ChevronRight, LogOut, CircleHelp } from 'lucide-r
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { NotificationsPopover } from '@/components/layout/NotificationsPopover';
 
-// ─── Brand mark — the boxed "K" monogram ─────────────────────────────────────
+// ─── Brand mark — the Konst Design "KD" monogram (from konstdesign.in) ─────────
+// Black on the light theme, white on the dark one. `size` is the slot height the
+// sidebar reserves; the monogram is wider than tall, so width follows the aspect.
+
+const KD_ASPECT = 520 / 290;
 
 export function BrandMark({ size = 44 }: { size?: number }) {
+  const h = Math.round(size * 0.78);
+  const w = Math.round(h * KD_ASPECT);
   return (
-    <svg
-      width={size} height={size} viewBox="0 0 44 44" fill="none"
-      aria-hidden="true" className="flex-shrink-0"
-      style={{ color: 'var(--accent-base)' }}
-    >
-      <rect x="1.5" y="1.5" width="41" height="41" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M12 7.5v29" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M15 7.5v29" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M36 7.5 15 24" stroke="currentColor" strokeWidth="1.6" />
-      <path d="M21 19.5 36.5 36.5" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
+    <span className="flex flex-shrink-0 items-center justify-center" style={{ width: Math.max(size, w), height: size }} aria-hidden="true">
+      <Image src="/brand/kd-mark.png" alt="" width={w} height={h} className="dark:hidden" priority />
+      <Image src="/brand/kd-mark-white.png" alt="" width={w} height={h} className="hidden dark:block" priority />
+    </span>
   );
 }
 

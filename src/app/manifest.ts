@@ -8,16 +8,13 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: '/site-log',
     scope: '/',
     display: 'standalone',
-    background_color: '#111827',
-    theme_color: '#111827',
+    background_color: '#F6F3EC',
+    theme_color: '#1F4A36',
     orientation: 'portrait-primary',
     icons: [
-      {
-        src: '/brand/logo-icon.png',
-        sizes: 'any',
-        type: 'image/png',
-        purpose: 'any',
-      },
+      { src: '/brand/app-icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/brand/app-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/brand/app-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
