@@ -4,6 +4,7 @@ import { eq, and, inArray, count, sum, max } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { projects, milestones, snagItems, designDeliverables, purchaseOrders, siteLogs } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { applyStageMoneyEffects } from '@/lib/project-money/server';
 
 const patchBodySchema = z.object({
   stage: z.enum([
@@ -215,6 +216,7 @@ export async function PATCH(
     .set({ lifecycleStage: stage })
     .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
     .returning();
+  await applyStageMoneyEffects(db, ctx.tenantId, id, stage);
 
   return NextResponse.json({ data: updatedProject });
 }

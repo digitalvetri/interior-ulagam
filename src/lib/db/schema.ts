@@ -356,7 +356,12 @@ export const projects = pgTable('projects', {
   customerId: uuid('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   name: text('name').notNull().default(''),
   designerIds: text('designer_ids').array().notNull().default(sql`'{}'::text[]`),
-  totalContractPaise: integer('total_contract_paise'),
+  /** Contract value typed by the owner, EXCLUDING GST. Additions live in project_additions. */
+  totalContractPaise: bigint('total_contract_paise', { mode: 'number' }),
+  /** GST added on top of the contract and milestones (0 / 5 / 12 / 18 / 28). */
+  gstPct: smallint('gst_pct').notNull().default(18),
+  /** Actual handover — stamped when the stage reaches handover/complete. */
+  handoverAt: timestamp('handover_at', { withTimezone: true }),
   lifecycleStage: projectStageEnum('lifecycle_stage').notNull().default('design_pending'),
   timelineJson: jsonb('timeline_json'),
   startedAt: timestamp('started_at', { withTimezone: true }),
@@ -465,8 +470,14 @@ export const milestones = pgTable('milestones', {
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   label: text('label').notNull(),
   pctOfTotal: integer('pct_of_total').notNull(),
-  amountPaise: integer('amount_paise').notNull().default(0),
+  /** Ex-GST share of the revised contract; recomputed while unpaid. */
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull().default(0),
   triggerStage: projectStageEnum('trigger_stage'),
+  /** Falls due on this date (alternative to trigger_stage). */
+  dueOn: date('due_on'),
+  /** Date it actually fell due (stamped when the trigger stage is reached). */
+  dueSince: date('due_since'),
+  sortOrder: integer('sort_order').notNull().default(0),
   invoiceId: uuid('invoice_id').references(() => invoices.id),
   paymentStatus: paymentStatusEnum('payment_status').notNull().default('pending'),
   paidAt: timestamp('paid_at', { withTimezone: true }),
@@ -1268,4 +1279,68 @@ export const payslips = pgTable('payslips', {
   index('payslips_run_idx').on(t.runId),
   index('payslips_tenant_idx').on(t.tenantId),
   uniqueIndex('payslips_run_user_uq').on(t.runId, t.userId),
+]);
+
+// ─── Project money ────────────────────────────────────────────────────────────
+// Extra work agreed after the contract; adds to the revised contract (ex-GST).
+
+export const projectAdditions = pgTable('project_additions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+  addedOn: date('added_on').notNull().default(sql`current_date`),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+}, (t) => [
+  index('project_additions_project_idx').on(t.projectId),
+]);
+
+/** How much of a payment went to which milestone. */
+export const paymentAllocations = pgTable('payment_allocations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  paymentId: uuid('payment_id').notNull().references(() => payments.id, { onDelete: 'cascade' }),
+  milestoneId: uuid('milestone_id').notNull().references(() => milestones.id, { onDelete: 'cascade' }),
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+  ...timestamps,
+}, (t) => [
+  index('payment_allocations_payment_idx').on(t.paymentId),
+  index('payment_allocations_milestone_idx').on(t.milestoneId),
+]);
+
+export const ledgerAdjustmentKindEnum = pgEnum('ledger_adjustment_kind', ['discount', 'refund', 'write_off']);
+
+/** Discounts, refunds and write-offs on a client's account — never silent edits. */
+export const ledgerAdjustments = pgTable('ledger_adjustments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  customerId: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'set null' }),
+  kind: ledgerAdjustmentKindEnum('kind').notNull(),
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull(),
+  reason: text('reason').notNull(),
+  adjDate: date('adj_date').notNull().default(sql`current_date`),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+}, (t) => [
+  index('ledger_adjustments_customer_idx').on(t.tenantId, t.customerId),
+]);
+
+/** Salaried staff days per project per week; cost = days × (salary ÷ 26) at save time. */
+export const staffDayLogs = pgTable('staff_day_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  /** null = office / no project */
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }),
+  weekStart: date('week_start').notNull(),
+  days: decimal('days', { precision: 3, scale: 1 }).notNull(),
+  dayRatePaise: bigint('day_rate_paise', { mode: 'number' }).notNull(),
+  costPaise: bigint('cost_paise', { mode: 'number' }).notNull(),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+}, (t) => [
+  index('staff_day_logs_project_idx').on(t.projectId),
 ]);

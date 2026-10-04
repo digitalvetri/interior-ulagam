@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { projects, snagItems } from '@/lib/db/schema';
 import { requireUuid } from '@/lib/http';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { applyStageMoneyEffects } from '@/lib/project-money/server';
 import { eq, and, inArray, count } from 'drizzle-orm';
 import { enqueue } from '@/jobs/queue';
 
@@ -65,6 +66,7 @@ export async function POST(
       .set({ lifecycleStage: 'handover' })
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
       .returning();
+    await applyStageMoneyEffects(db, ctx.tenantId, id, 'handover');
 
     await enqueue('project/handover.initiated', {
         projectId: id,

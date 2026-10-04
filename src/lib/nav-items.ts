@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   TrendingUp,
   Banknote,
+  CalendarClock,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -71,6 +72,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/projects',    label: 'Projects',    icon: Folder, roles: FIELD_ROLES },
       { href: '/site-visits', label: 'Site Visits', icon: MapPin, roles: FIELD_ROLES },
+      { href: '/projects/staff-days', label: 'Staff Days', icon: CalendarClock, roles: ADMIN_ROLES },
     ],
   },
   {

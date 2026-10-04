@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { milestones, projects, payments } from '@/lib/db/schema';
+import { milestones, projects, payments, paymentAllocations } from '@/lib/db/schema';
+import { gstOf } from '@/lib/project-money/calc';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, sql } from 'drizzle-orm';
 
@@ -53,6 +54,8 @@ export async function POST(
         razorpayLinkId: milestones.razorpayLinkId,
         createdAt: milestones.createdAt,
         tenantId: projects.tenantId,
+        gstPct: projects.gstPct,
+        customerId: projects.customerId,
       })
       .from(milestones)
       .innerJoin(projects, eq(milestones.projectId, projects.id))
@@ -86,19 +89,28 @@ export async function POST(
       .where(eq(milestones.id, milestoneId))
       .returning();
 
-    // Create a captured payment row — manual confirmation by owner is equivalent to a confirmed receipt
+    // Create a captured payment row — manual confirmation by owner is equivalent to a confirmed receipt.
+    // The client pays the milestone plus GST; the allocation ties it to the milestone for the ledger.
+    const totalPaise = Number(milestone.amountPaise) + gstOf(Number(milestone.amountPaise), milestone.gstPct);
     const [payment] = await db
       .insert(payments)
       .values({
         tenantId: ctx.tenantId,
         invoiceId: milestone.invoiceId,
-        amountPaise: milestone.amountPaise,
+        projectId: milestone.projectId,
+        customerId: milestone.customerId,
+        amountPaise: totalPaise,
         status: 'captured',
         reconciledAt: new Date(),
         manualOverrideBy: ctx.dbUserId,
         manualOverrideNote: note,
       })
       .returning();
+    if (totalPaise > 0) {
+      await db.insert(paymentAllocations).values({
+        tenantId: ctx.tenantId, paymentId: payment.id, milestoneId: milestone.id, amountPaise: totalPaise,
+      });
+    }
 
     return NextResponse.json({ data: { milestone: updatedMilestone, payment } });
   } catch (err) {

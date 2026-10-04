@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LEAD_STAGE_LABEL } from '@/types/customers';
+import { ClientLedger } from '@/components/money/ClientLedger';
 import type { Customer, CustomerActivity, CustomerActivityType, CustomerSource, CustomerStage, CustomerSummary } from '@/types/customers';
 
 /* ── Constants ──────────────────────────────────────────────────────────────── */
@@ -411,41 +412,6 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   const outstandingPaise    = Math.max(0, totalInvoicedPaise - totalReceivedPaise);
   const collectedPct        = totalInvoicedPaise > 0 ? Math.round((totalReceivedPaise / totalInvoicedPaise) * 100) : 0;
 
-  // Ledger data (used by Payments tab)
-  type LedgerRow =
-    | { kind: 'invoice'; date: string; number: string; particulars: string; debitPaise: number; creditPaise: 0 }
-    | { kind: 'payment'; date: string; number: string; particulars: string; debitPaise: 0;    creditPaise: number };
-
-  const ledgerRows: LedgerRow[] = [
-    ...(summary?.invoices ?? []).map(inv => ({
-      kind: 'invoice' as const,
-      date: inv.invoiceDate,
-      number: inv.invoiceNumber,
-      particulars: summary?.projects.find(p => p.id === inv.projectId)?.name ?? 'Invoice',
-      debitPaise: inv.totalPaise,
-      creditPaise: 0 as const,
-    })),
-    ...(summary?.payments ?? []).map(pay => {
-      const inv = summary?.invoices.find(i => i.id === pay.invoiceId);
-      return {
-        kind: 'payment' as const,
-        date: pay.createdAt.slice(0, 10),
-        number: `PAY-${pay.id.slice(0, 8).toUpperCase()}`,
-        particulars: inv ? `Against ${inv.invoiceNumber}` : 'Payment received',
-        debitPaise: 0 as const,
-        creditPaise: pay.amountPaise,
-      };
-    }),
-  ].sort((a, b) => a.date.localeCompare(b.date));
-
-  const ledgerWithBalance = ledgerRows.reduce<Array<LedgerRow & { balancePaise: number }>>(
-    (acc, row) => {
-      const prev = acc.at(-1)?.balancePaise ?? 0;
-      return [...acc, { ...row, balancePaise: prev + row.debitPaise - row.creditPaise }];
-    },
-    []
-  );
-
   const filteredActivities = activities.filter(a => a.type !== 'project_created');
   const visibleActivities = filteredActivities.slice(0, activityPage * ACTIVITY_PAGE_SIZE);
   const hasMoreActivities = filteredActivities.length > activityPage * ACTIVITY_PAGE_SIZE;
@@ -586,16 +552,16 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {[
               {
-                label: 'TOTAL INVOICED',
+                label: 'DUE SO FAR',
                 value: totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '₹0',
-                sub: `${summary?.invoices.length ?? 0} invoice${(summary?.invoices.length ?? 0) !== 1 ? 's' : ''}`,
+                sub: 'milestones fallen due, incl. GST',
                 icon: <FileText className="h-5 w-5" />,
                 color: '#6366f1', bg: 'rgba(99,102,241,0.08)',
               },
               {
                 label: 'RECEIVED',
                 value: totalReceivedPaise > 0 ? formatRupees(totalReceivedPaise) : '₹0',
-                sub: `${summary?.payments.length ?? 0} payment${(summary?.payments.length ?? 0) !== 1 ? 's' : ''}`,
+                sub: 'all payments received',
                 icon: <CreditCard className="h-5 w-5" />,
                 color: '#059669', bg: 'rgba(16,185,129,0.08)',
               },
@@ -718,7 +684,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             >
               {([
                 { key: 'overview'  as Tab, label: 'Overview', icon: <LayoutGrid className="h-3.5 w-3.5" /> },
-                { key: 'payments'  as Tab, label: 'Accounts', icon: <Wallet     className="h-3.5 w-3.5" /> },
+                { key: 'payments'  as Tab, label: 'Payment ledger', icon: <Wallet     className="h-3.5 w-3.5" /> },
                 { key: 'activity'  as Tab, label: 'Activity', icon: <Activity   className="h-3.5 w-3.5" /> },
               ] as const).filter(t => showFinance || t.key !== 'payments').map((t) => (
                 <button
@@ -829,7 +795,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <div className="px-5">
                       {[
                         { label: 'Total project value', value: totalContractPaise, color: 'var(--text-heading)', bold: false },
-                        { label: 'Invoiced to date',    value: totalInvoicedPaise, color: 'var(--text-heading)', bold: false },
+                        { label: 'Due to date',         value: totalInvoicedPaise, color: 'var(--text-heading)', bold: false },
                         { label: 'Payments received',   value: totalReceivedPaise, color: '#059669',             bold: false },
                         { label: 'Outstanding balance', value: outstandingPaise,   color: outstandingPaise > 0 ? '#dc2626' : '#059669', bold: true },
                       ].map((row, i) => (
@@ -901,85 +867,9 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
             )}
 
 
-            {/* ── PAYMENTS TAB ──────────────────────────────────────── */}
+            {/* ── PAYMENT LEDGER TAB ─────────────────────────────────── */}
             {showFinance && tab === 'payments' && (
-              <div style={{ background: 'var(--surface-card)' }}>
-                <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                  <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                    Running account — invoices raised (debit) against payments received (credit).
-                  </p>
-                </div>
-                {ledgerWithBalance.length === 0 ? (
-                  <div className="flex flex-col items-center gap-3 py-14 text-center">
-                    <Wallet className="h-8 w-8" style={{ color: 'var(--text-tertiary)' }} />
-                    <div>
-                      <p className="text-[14px] font-semibold" style={{ color: 'var(--text-heading)' }}>No transactions yet</p>
-                      <p className="mt-0.5 text-[12px]" style={{ color: 'var(--text-secondary)' }}>Invoices and payments will appear here once raised.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[12px] border-collapse">
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                          {['DATE', 'TYPE', 'PARTICULARS', 'DEBIT', 'CREDIT', 'BALANCE'].map((h, i) => (
-                            <th key={h} className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest ${i >= 3 ? 'text-right' : 'text-left'}`}
-                              style={{ color: 'var(--text-tertiary)' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {ledgerWithBalance.map((row, idx) => (
-                          <tr key={idx} className="hover:bg-[var(--surface-muted)] transition-colors"
-                            style={{ borderTop: idx > 0 ? '1px solid var(--border-subtle)' : 'none' }}>
-                            <td className="px-4 py-3 whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
-                              {new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
-                                style={row.kind === 'payment'
-                                  ? { background: 'rgba(16,185,129,0.12)', color: '#059669', border: '1px solid rgba(16,185,129,0.30)' }
-                                  : { background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }
-                                }>
-                                {row.kind === 'payment' ? 'Received' : 'Invoice'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 max-w-[200px]">
-                              <p className="font-semibold truncate" style={{ color: 'var(--text-heading)' }}>{row.number}</p>
-                              <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>{row.particulars}</p>
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums" style={{ color: 'var(--text-heading)' }}>
-                              {row.debitPaise > 0 ? formatRupees(row.debitPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums" style={{ color: '#059669' }}>
-                              {row.creditPaise > 0 ? formatRupees(row.creditPaise) : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-right tabular-nums font-semibold" style={{ color: row.balancePaise > 0 ? '#dc2626' : '#059669' }}>
-                              {row.balancePaise !== 0
-                                ? `${row.balancePaise < 0 ? '-' : ''}${formatRupees(Math.abs(row.balancePaise))}`
-                                : '₹0'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr style={{ borderTop: '1px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                          <td colSpan={3} className="px-4 py-3 text-right text-[12px] font-bold" style={{ color: 'var(--text-heading)' }}>Closing balance</td>
-                          <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: 'var(--text-heading)' }}>
-                            {totalInvoicedPaise > 0 ? formatRupees(totalInvoicedPaise) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: '#059669' }}>
-                            {totalReceivedPaise > 0 ? formatRupees(totalReceivedPaise) : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-right tabular-nums font-bold text-[12px]" style={{ color: outstandingPaise > 0 ? '#dc2626' : '#059669' }}>
-                            {formatRupees(outstandingPaise)}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <ClientLedger customerId={id} isOwner={role === 'owner'} onChanged={load} />
             )}
 
 

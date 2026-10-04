@@ -4,12 +4,21 @@ import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Edit2, Plus, Receipt, Camera, FileText,
-  ChevronRight, X, AlertTriangle, IndianRupee, Layers,
+  ChevronRight, X, AlertTriangle, IndianRupee, Layers, Phone, MessageCircle,
 } from 'lucide-react';
+import { RecordPaymentDialog } from '@/components/money/RecordPaymentDialog';
+import { ContractEditorDialog } from '@/components/money/ContractEditorDialog';
+import type { ProjectMoney } from '@/components/money/types';
+import { projectHealth } from '@/lib/project-money/health';
+import { ProjectHeader } from '@/components/project-overview/ProjectHeader';
+import { AttentionList } from '@/components/project-overview/AttentionList';
+import { MoneySnapshot } from '@/components/project-overview/MoneySnapshot';
+import { PaymentsBox } from '@/components/project-overview/PaymentsBox';
+import { RecentActivity } from '@/components/project-overview/RecentActivity';
+import { STAGE_PCT, daysUntil, waLink, type ProjectPayment } from '@/components/project-overview/util';
 import { formatRupees } from '@/lib/utils';
 import { STAGE_STYLE_MAP, LIFECYCLE_STAGE_LABELS, LIFECYCLE_STAGE_ORDER } from '@/types/deliverables';
 import type { ProjectStage } from '@/types/deliverables';
-import type { Milestone } from '@/types/milestones';
 import type { Expense, ExpenseCategory } from '@/types/accounts';
 
 /* ── Types ─────────────────────────────────────────────────────────────────── */
@@ -65,19 +74,6 @@ const CATEGORY_CONFIG: Record<ExpenseCategory, { label: string; color: string }>
 };
 
 const ALL_CATEGORIES: ExpenseCategory[] = ['petty_cash', 'transport', 'labour', 'material', 'other'];
-
-/* ── Invoice status helpers ─────────────────────────────────────────────────── */
-
-function invoiceStatusBadge(status: string) {
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    draft:     { label: 'Draft',     bg: 'var(--surface-muted)',  color: 'var(--text-secondary)' },
-    issued:    { label: 'Issued',    bg: 'var(--accent-soft)',    color: 'var(--accent-base)' },
-    part_paid: { label: 'Part Paid', bg: 'var(--warning-soft)',   color: '#B45309' },
-    paid:      { label: 'Paid',      bg: 'var(--success-soft)',   color: 'var(--success)' },
-    void:      { label: 'Void',      bg: 'var(--surface-muted)',  color: 'var(--text-tertiary)' },
-  };
-  return map[status] ?? map.draft;
-}
 
 /* ── EditProjectDialog ──────────────────────────────────────────────────────── */
 
@@ -188,103 +184,6 @@ function EditProjectDialog({
             className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
             <Edit2 className="h-4 w-4" />
             {saving ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── RecordPaymentDialog ────────────────────────────────────────────────────── */
-
-function RecordPaymentDialog({
-  projectId, onClose, onSaved,
-}: {
-  projectId: string;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [amountRupees, setAmountRupees] = useState('');
-  const [notes,        setNotes]        = useState('');
-  const [saving,       setSaving]       = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
-
-  async function handleSave() {
-    setError(null);
-    const parsed = parseFloat(amountRupees);
-    if (!amountRupees || isNaN(parsed) || parsed <= 0) {
-      setError('Please enter a valid amount'); return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/v1/projects/${projectId}/milestones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label:         notes.trim() || 'Payment received',
-          pctOfTotal:    0,
-          amountPaise:   Math.round(parsed * 100),
-          paymentStatus: 'paid',
-          paidAt:        new Date().toISOString(),
-        }),
-      });
-      if (!res.ok) {
-        const json = await res.json() as { error?: unknown };
-        setError(typeof json.error === 'string' ? json.error : 'Failed to record payment');
-        return;
-      }
-      onSaved();
-      onClose();
-    } catch {
-      setError('Network error — please try again');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--surface-card)' }}>
-        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--success-soft)' }}>
-              <IndianRupee className="h-4 w-4" style={{ color: 'var(--success)' }} />
-            </div>
-            <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Record Payment</h2>
-          </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--border-subtle)]">
-            <X className="h-4 w-4" style={{ color: 'var(--text-secondary)' }} />
-          </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-4">
-          <div>
-            <label className="studio-label block mb-1.5">Amount Received (₹)</label>
-            <input type="number" min="0.01" step="0.01" placeholder="e.g. 50000"
-              value={amountRupees} onChange={e => setAmountRupees(e.target.value)}
-              className="studio-input w-full text-sm" autoFocus />
-          </div>
-          <div>
-            <label className="studio-label block mb-1.5">
-              Description <span style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
-            </label>
-            <input type="text" placeholder="e.g. Advance, Design approval payment…"
-              value={notes} onChange={e => setNotes(e.target.value)}
-              className="studio-input w-full text-sm" />
-          </div>
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-              <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-3 px-6 py-4" style={{ borderTop: '1px solid var(--border-subtle)' }}>
-          <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 text-sm">Cancel</button>
-          <button type="button" onClick={handleSave} disabled={saving}
-            className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2">
-            <IndianRupee className="h-4 w-4" />
-            {saving ? 'Saving…' : 'Record Payment'}
           </button>
         </div>
       </div>
@@ -904,10 +803,13 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
 
   const [project,    setProject]    = useState<Project | null>(null);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [expenses,   setExpenses]   = useState<Expense[]>([]);
   const [siteLogs,   setSiteLogs]   = useState<SiteLog[]>([]);
   const [invList,    setInvList]    = useState<ProjectInvoice[]>([]);
+  const [money,      setMoney]      = useState<ProjectMoney | null>(null);
+  const [payments,   setPayments]   = useState<ProjectPayment[]>([]);
+  const [clientPhone, setClientPhone] = useState<string | null>(null);
+  const [contractOpen, setContractOpen] = useState(false);
   const [role,       setRole]       = useState<string>('designer');
   const [loading,    setLoading]    = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -927,27 +829,43 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   const loadAll = useCallback(async () => {
     setLoading(true); setFetchError(null);
     try {
-      const [pRes, mRes, eRes, lRes, iRes] = await Promise.all([
+      const [pRes, eRes, lRes, iRes] = await Promise.all([
         fetch(`/api/v1/projects/${id}`),
-        fetch(`/api/v1/projects/${id}/milestones`),
         fetch(`/api/v1/projects/${id}/expenses`),
         fetch(`/api/v1/projects/${id}/site-logs`),
         fetch(`/api/v1/invoices?projectId=${id}`),
       ]);
       if (!pRes.ok) { setFetchError('Project not found'); setLoading(false); return; }
-      const [pd, md, ed, ld, inv] = await Promise.all([
+      const [pd, ed, ld, inv] = await Promise.all([
         pRes.json() as Promise<{ data: Project & { currentUserRole?: string } }>,
-        mRes.json() as Promise<{ data: Milestone[] }>,
         eRes.json() as Promise<{ data: Expense[] }>,
         lRes.json() as Promise<{ data: SiteLog[] }>,
         iRes.json() as Promise<{ data: ProjectInvoice[] }>,
       ]);
+      const userRole = pd.data.currentUserRole ?? 'designer';
       setProject(pd.data);
-      setRole(pd.data.currentUserRole ?? 'designer');
-      setMilestones(md.data ?? []);
+      setRole(userRole);
       setExpenses(ed.data ?? []);
       setSiteLogs(ld.data ?? []);
       setInvList(inv.data ?? []);
+
+      // Money (one engine for every number) and payments — finance roles only.
+      if (userRole === 'owner' || userRole === 'accountant') {
+        const [mRes, payRes] = await Promise.all([
+          fetch(`/api/v1/projects/${id}/money`),
+          fetch(`/api/v1/payments?projectId=${id}`),
+        ]);
+        setMoney(mRes.ok ? ((await mRes.json()) as { data: ProjectMoney }).data : null);
+        setPayments(payRes.ok ? (((await payRes.json()) as { data?: ProjectPayment[] }).data ?? []) : []);
+      }
+      // Client phone for Call / WhatsApp (best effort).
+      if (pd.data.customerId) {
+        const cRes = await fetch(`/api/v1/customers/${pd.data.customerId}`);
+        if (cRes.ok) {
+          const cj = (await cRes.json()) as { data?: { phone?: string | null } };
+          setClientPhone(cj.data?.phone ?? null);
+        }
+      }
     } catch {
       setFetchError('Failed to load project data');
     } finally {
@@ -958,20 +876,38 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   useEffect(() => { void loadAll(); }, [loadAll]);
 
   /* ── Derived values ── */
-  const showFinance        = role === 'owner' || role === 'accountant';
-  const contractPaise      = project?.totalContractPaise ?? 0;
-  const paidMilestones     = milestones.filter(m => m.paymentStatus === 'paid');
+  const showFinance    = role === 'owner' || role === 'accountant';
+  const isOwner        = role === 'owner';
+  // Matches the change-stage route (ROLES.DELIVERY).
+  const canChangeStage = role === 'owner' || role === 'designer' || role === 'supervisor';
+  const clientName     = project?.customerFullName ?? project?.leadContactName ?? null;
+  const allPhotos      = siteLogs.flatMap(l => l.photos ?? []);
   const totalExpensesPaise = expenses.reduce((s, e) => s + e.amountPaise, 0);
-  const clientName         = project?.customerFullName ?? project?.leadContactName ?? null;
-  const stage              = project ? STAGE_STYLE_MAP[project.lifecycleStage] : null;
-  const allPhotos          = siteLogs.flatMap(l => l.photos ?? []);
 
-  // Invoice-based financial KPIs (non-void invoices only)
-  const activeInvoices     = invList.filter(inv => inv.status !== 'void');
-  const invoicedPaise      = activeInvoices.reduce((s, inv) => s + inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise, 0);
-  const invoiceReceivedPaise = activeInvoices.reduce((s, inv) => s + (inv.paidPaise ?? 0), 0);
-  const invoiceOutstandingPaise = Math.max(0, invoicedPaise - invoiceReceivedPaise);
-  const collectionPct      = invoicedPaise > 0 ? Math.round((invoiceReceivedPaise / invoicedPaise) * 100) : 0;
+  // Time and stage — from the money engine when we have it, else from the dates.
+  const stagePct    = project ? STAGE_PCT[project.lifecycleStage] : 0;
+  const daysLeft    = money ? money.duration.daysLeft : project?.expectedEndAt ? daysUntil(project.expectedEndAt) : null;
+  const timeUsedPct = money ? money.duration.timeUsedPct : (() => {
+    if (!project?.startedAt || !project.expectedEndAt) return null;
+    const planned = -daysUntil(project.startedAt) + daysUntil(project.expectedEndAt);
+    return planned > 0 ? Math.round((-daysUntil(project.startedAt) / planned) * 100) : null;
+  })();
+  const finished    = money?.duration.finished ?? false;
+  const overdueMs   = money?.milestones.filter(m => m.status === 'overdue') ?? [];
+  const worstOverdue = overdueMs.sort((a, b) => b.daysOverdue - a.daysOverdue)[0] ?? null;
+  const health = projectHealth({
+    // Without money access, judge only on time and stage.
+    hasContract: showFinance ? !!money?.contract.contractPaise : true,
+    overduePaise: money?.billing.overduePaise ?? 0,
+    maxDaysOverdue: worstOverdue?.daysOverdue ?? 0,
+    overdueLabel: worstOverdue?.label ?? null,
+    collectedPct: money ? money.duration.collectedPct : null,
+    timeUsedPct,
+    stagePct,
+    daysLeft,
+    finished,
+    committedPaise: money?.costs.committedPaise ?? 0,
+  });
 
   async function handlePhotoUpload(files: FileList) {
     if (!files.length) return;
@@ -1017,79 +953,46 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
   return (
     <div className="p-6 space-y-6">
 
-      {/* Action bar */}
-      <div className="flex items-center justify-end gap-2 flex-wrap">
-        <button type="button" onClick={() => setEditOpen(true)}
-          className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
-          <Edit2 className="h-4 w-4" />Edit
-        </button>
-        {showFinance && (
-          <button type="button" onClick={() => setCreateInvoiceOpen(true)}
-            className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl"
-            style={{ borderColor: 'var(--accent-base)', color: 'var(--accent-base)' }}>
-            <FileText className="h-4 w-4" />Create Invoice
-          </button>
-        )}
-        {showFinance && (
-          <button type="button" onClick={() => setPaymentOpen(true)}
-            className="btn-primary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
-            <IndianRupee className="h-4 w-4" />Record Payment
-          </button>
-        )}
-        {showFinance && (
-          <button type="button" onClick={() => setExpenseOpen(true)}
-            className="btn-secondary inline-flex items-center gap-2 px-3.5 py-2 text-sm rounded-xl">
-            <Receipt className="h-4 w-4" />Add Expense
-          </button>
-        )}
-      </div>
+      <ProjectHeader
+        name={project.name}
+        stage={project.lifecycleStage}
+        health={health}
+        clientName={clientName}
+        customerId={project.customerId}
+        siteAddress={project.siteAddress}
+        startedAt={project.startedAt}
+        expectedEndAt={project.expectedEndAt}
+        daysLeft={daysLeft}
+        finished={finished}
+        showFinance={showFinance}
+        canChangeStage={canChangeStage}
+        moneyHref={`/projects/${id}/money`}
+        onEdit={() => setEditOpen(true)}
+        onExpense={() => setExpenseOpen(true)}
+        onRecordPayment={() => setPaymentOpen(true)}
+        onCreateInvoice={() => setCreateInvoiceOpen(true)}
+        onChangeStage={() => setChangeStageOpen(true)}
+      />
 
-      {/* Hero KPI cards — owner/accountant only */}
-      {showFinance && <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Contract Value</p>
-          <p className="text-2xl font-bold mt-1" style={{ color: 'var(--text-heading)' }}>
-            {contractPaise > 0
-              ? formatRupees(contractPaise)
-              : <span className="text-base font-medium" style={{ color: 'var(--text-tertiary)' }}>Not set</span>}
-          </p>
-        </div>
-        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Invoiced</p>
-          <p className="text-2xl font-bold mt-1"
-            style={{ color: invoicedPaise > 0 ? 'var(--accent-base)' : 'var(--text-tertiary)' }}>
-            {invoicedPaise > 0 ? formatRupees(invoicedPaise) : '₹0'}
-          </p>
-        </div>
-        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Received</p>
-          <p className="text-2xl font-bold mt-1"
-            style={{ color: invoiceReceivedPaise > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
-            {invoiceReceivedPaise > 0 ? formatRupees(invoiceReceivedPaise) : '₹0'}
-          </p>
-        </div>
-        <div className="rounded-2xl border p-5" style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-          <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>Outstanding</p>
-          <p className="text-2xl font-bold mt-1"
-            style={{ color: invoiceOutstandingPaise > 0 ? 'var(--danger)' : invoicedPaise > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
-            {invoicedPaise > 0 ? formatRupees(invoiceOutstandingPaise) : '—'}
-          </p>
-        </div>
-      </div>}
+      <AttentionList
+        items={health.items}
+        money={money}
+        projectName={project.name}
+        projectId={id}
+        customerId={project.customerId}
+        clientName={clientName}
+        clientPhone={clientPhone}
+        isOwner={isOwner}
+        canChangeStage={canChangeStage}
+        timeUsedPct={timeUsedPct}
+        stagePct={stagePct}
+        daysLeft={daysLeft}
+        onSetContract={() => setContractOpen(true)}
+        onChangeStage={() => setChangeStageOpen(true)}
+      />
 
-      {/* Collection progress bar — owner/accountant only */}
-      {showFinance && invoicedPaise > 0 && (
-        <div className="rounded-2xl border px-5 py-4"
-          style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Invoice Collection Progress</span>
-            <span className="text-xs font-bold" style={{ color: 'var(--text-heading)' }}>{collectionPct}% collected</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--surface-muted)' }}>
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(collectionPct, 100)}%`, background: 'var(--accent-base)' }} />
-          </div>
-        </div>
+      {showFinance && money && (
+        <MoneySnapshot money={money} projectId={id} isOwner={isOwner} onSetContract={() => setContractOpen(true)} />
       )}
 
       {/* Two-column grid */}
@@ -1098,171 +1001,20 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
         {/* LEFT: main content */}
         <div className="lg:col-span-2 space-y-6">
 
-          {/* Project Invoices — owner/accountant only */}
-          {showFinance && <div className="rounded-2xl border overflow-hidden"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center justify-between px-5 py-3.5"
-              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Project Invoices</h2>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={() => setCreateInvoiceOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
-                  <Plus className="h-3.5 w-3.5" />New Invoice
-                </button>
-                <Link href={`/invoices?projectId=${id}`}
-                  className="inline-flex items-center gap-0.5 text-xs font-medium"
-                  style={{ color: 'var(--text-secondary)' }}>
-                  All<ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-            </div>
-
-            {invList.length === 0 ? (
-              <div className="py-10 text-center">
-                <FileText className="h-8 w-8 mx-auto mb-2" style={{ color: 'var(--text-tertiary)' }} />
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No invoices created yet</p>
-                <button type="button" onClick={() => setCreateInvoiceOpen(true)}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                  style={{ background: 'var(--accent-base)' }}>
-                  <FileText className="h-3.5 w-3.5" />Create Invoice
-                </button>
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                    <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Invoice #</th>
-                    <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Date</th>
-                    <th className="px-5 py-2.5 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Total</th>
-                    <th className="px-5 py-2.5 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Paid</th>
-                    <th className="px-5 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Status</th>
-                    <th className="px-5 py-2.5 text-center text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invList.map((inv, idx) => {
-                    const totalPaise = inv.subtotalPaise + inv.cgstPaise + inv.sgstPaise + inv.igstPaise;
-                    const outstanding = Math.max(0, totalPaise - (inv.paidPaise ?? 0));
-                    const badge = invoiceStatusBadge(inv.status);
-                    const canPay = inv.status !== 'void' && outstanding > 0;
-                    return (
-                      <tr key={inv.id}
-                        className="hover:bg-[var(--surface-muted)] transition-colors"
-                        style={{ borderBottom: idx < invList.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                        <td className="px-5 py-3 text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>
-                          <Link href={`/invoices/${inv.id}`} className="hover:underline"
-                            style={{ color: 'var(--accent-base)' }}>
-                            {inv.invoiceNumber}
-                          </Link>
-                        </td>
-                        <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                          {new Date(inv.invoiceDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </td>
-                        <td className="px-5 py-3 text-right text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>
-                          {formatRupees(totalPaise)}
-                        </td>
-                        <td className="px-5 py-3 text-right text-xs font-semibold"
-                          style={{ color: (inv.paidPaise ?? 0) > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
-                          {formatRupees(inv.paidPaise ?? 0)}
-                        </td>
-                        <td className="px-5 py-3 text-center">
-                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold"
-                            style={{ background: badge.bg, color: badge.color }}>
-                            {badge.label}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-center">
-                          {canPay && (
-                            <button type="button"
-                              onClick={() => setInvoicePayTarget({ id: inv.id, invoiceNumber: inv.invoiceNumber, outstandingPaise: outstanding })}
-                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-opacity hover:opacity-80"
-                              style={{ background: 'var(--success-soft)', color: 'var(--success)' }}>
-                              <IndianRupee className="h-3 w-3" />Pay
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                {activeInvoices.length > 0 && (
-                  <tfoot>
-                    <tr style={{ borderTop: '2px solid var(--border-subtle)', background: 'var(--surface-muted)' }}>
-                      <td colSpan={2} className="px-5 py-3 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                        Total ({activeInvoices.length} active)
-                      </td>
-                      <td className="px-5 py-3 text-right text-sm font-bold" style={{ color: 'var(--text-heading)' }}>
-                        {formatRupees(invoicedPaise)}
-                      </td>
-                      <td className="px-5 py-3 text-right text-sm font-bold" style={{ color: 'var(--success)' }}>
-                        {formatRupees(invoiceReceivedPaise)}
-                      </td>
-                      <td colSpan={2} className="px-5 py-3 text-right text-xs font-semibold" style={{ color: 'var(--danger)' }}>
-                        {invoiceOutstandingPaise > 0 ? `${formatRupees(invoiceOutstandingPaise)} due` : 'Fully paid'}
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            )}
-          </div>}
-
-          {/* Ad-hoc Payments — owner/accountant only */}
-          {showFinance && <div className="rounded-2xl border overflow-hidden"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <div className="flex items-center justify-between px-5 py-3.5"
-              style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <h2 className="text-sm font-bold" style={{ color: 'var(--text-heading)' }}>Ad-hoc Payments</h2>
-              <div className="flex items-center gap-3">
-                <Link href={`/projects/${id}/payments`}
-                  className="inline-flex items-center gap-0.5 text-xs font-medium"
-                  style={{ color: 'var(--text-secondary)' }}>
-                  All<ChevronRight className="h-3 w-3" />
-                </Link>
-              </div>
-            </div>
-
-            {paidMilestones.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>No ad-hoc payments recorded</p>
-                <button
-                  type="button"
-                  onClick={() => setPaymentOpen(true)}
-                  className="mt-2 text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
-                  Record advance payment →
-                </button>
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
-                    <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Date</th>
-                    <th className="px-5 py-2.5 text-left text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Description</th>
-                    <th className="px-5 py-2.5 text-right text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paidMilestones.map((m, idx) => (
-                    <tr key={m.id}
-                      className="hover:bg-[var(--surface-muted)] transition-colors"
-                      style={{ borderBottom: idx < paidMilestones.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
-                      <td className="px-5 py-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-                        {m.paidAt
-                          ? new Date(m.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                          : '—'}
-                      </td>
-                      <td className="px-5 py-3 text-xs font-medium" style={{ color: 'var(--text-heading)' }}>
-                        {m.label}
-                      </td>
-                      <td className="px-5 py-3 text-right text-xs font-bold" style={{ color: 'var(--success)' }}>
-                        {formatRupees(m.amountPaise)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>}
+          {showFinance && money && (
+            <PaymentsBox
+              money={money}
+              payments={payments}
+              invoices={invList}
+              projectId={id}
+              projectName={project.name}
+              clientName={clientName}
+              clientPhone={clientPhone}
+              onRecord={() => setPaymentOpen(true)}
+              onCreateInvoice={() => setCreateInvoiceOpen(true)}
+              onPayInvoice={setInvoicePayTarget}
+            />
+          )}
 
           {/* Site Expenses — owner/accountant only */}
           {showFinance && <div className="rounded-2xl border overflow-hidden"
@@ -1493,12 +1245,35 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
               <p className="text-[10px] font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
                 Client
               </p>
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{clientName ?? '—'}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>{clientName ?? '—'}</p>
+                {clientPhone && (
+                  <div className="flex items-center gap-1.5">
+                    <a href={`tel:${clientPhone}`} title="Call" aria-label="Call client"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:bg-[var(--surface-muted)]"
+                      style={{ borderColor: 'var(--border-strong)', color: 'var(--text-secondary)' }}>
+                      <Phone className="h-3.5 w-3.5" />
+                    </a>
+                    <a href={waLink(clientPhone, `Hello ${clientName ?? ''}, `)} target="_blank" rel="noopener noreferrer"
+                      title="WhatsApp" aria-label="WhatsApp client"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:bg-[var(--surface-muted)]"
+                      style={{ borderColor: 'var(--border-strong)', color: 'var(--success-text)' }}>
+                      <MessageCircle className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
+              </div>
               {project.customerId && (
-                <Link href={`/customers/${project.customerId}`}
-                  className="text-xs hover:underline" style={{ color: 'var(--accent-base)' }}>
-                  View profile →
-                </Link>
+                <div className="mt-1 flex gap-3 text-xs">
+                  <Link href={`/customers/${project.customerId}`} className="hover:underline" style={{ color: 'var(--accent-base)' }}>
+                    View profile →
+                  </Link>
+                  {showFinance && (
+                    <Link href={`/customers/${project.customerId}`} className="hover:underline" style={{ color: 'var(--accent-base)' }}>
+                      Ledger →
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
 
@@ -1549,73 +1324,7 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
             )}
           </div>
 
-          {/* Stage */}
-          <div className="rounded-2xl border p-5"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--text-tertiary)' }}>
-              Project Stage
-            </p>
-            {stage && (
-              <span className="inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold"
-                style={{ background: stage.bg, color: stage.fg }}>
-                {stage.label}
-              </span>
-            )}
-            <button type="button" onClick={() => setChangeStageOpen(true)}
-              className="mt-4 w-full text-xs font-medium py-2 rounded-xl transition-colors hover:opacity-80"
-              style={{ background: 'var(--surface-muted)', color: 'var(--text-secondary)' }}>
-              Change Stage
-            </button>
-          </div>
-
-          {/* Money summary — owner/accountant only */}
-          {showFinance && <div className="rounded-2xl border p-5 space-y-3"
-            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)' }}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--text-tertiary)' }}>
-              Money Summary
-            </p>
-            <div className="space-y-2.5">
-              {contractPaise > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Contract</span>
-                  <span className="text-xs font-semibold" style={{ color: 'var(--text-heading)' }}>{formatRupees(contractPaise)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Invoiced</span>
-                <span className="text-xs font-semibold" style={{ color: 'var(--accent-base)' }}>{formatRupees(invoicedPaise)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Received</span>
-                <span className="text-xs font-semibold" style={{ color: 'var(--success)' }}>{formatRupees(invoiceReceivedPaise)}</span>
-              </div>
-              {invoicedPaise > 0 && (
-                <div className="flex items-center justify-between">
-                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Outstanding</span>
-                  <span className="text-xs font-semibold"
-                    style={{ color: invoiceOutstandingPaise > 0 ? 'var(--danger)' : 'var(--success)' }}>
-                    {formatRupees(invoiceOutstandingPaise)}
-                  </span>
-                </div>
-              )}
-              {totalExpensesPaise > 0 && (
-                <>
-                  <div className="h-px" style={{ background: 'var(--border-subtle)' }} />
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Site Expenses</span>
-                    <span className="text-xs font-semibold" style={{ color: '#F97316' }}>{formatRupees(totalExpensesPaise)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>Cash Balance</span>
-                    <span className="text-xs font-semibold"
-                      style={{ color: invoiceReceivedPaise >= totalExpensesPaise ? 'var(--text-heading)' : 'var(--danger)' }}>
-                      {formatRupees(invoiceReceivedPaise - totalExpensesPaise)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>}
+          <RecentActivity payments={payments} expenses={expenses} siteLogs={siteLogs} showFinance={showFinance} />
 
         </div>
       </div>
@@ -1623,7 +1332,26 @@ export default function ProjectOverviewPage({ params }: { params: Promise<{ id: 
       {/* Dialogs */}
       {editOpen           && <EditProjectDialog     project={project}  onClose={() => setEditOpen(false)}           onSaved={loadAll} />}
       {changeStageOpen    && <ChangeStageDialog     project={project}  onClose={() => setChangeStageOpen(false)}    onSaved={loadAll} />}
-      {paymentOpen        && <RecordPaymentDialog   projectId={id}     onClose={() => setPaymentOpen(false)}        onSaved={loadAll} />}
+      {project && (
+        <RecordPaymentDialog
+          open={paymentOpen}
+          onClose={() => setPaymentOpen(false)}
+          onSaved={() => void loadAll()}
+          projects={[{ id, name: project.name }]}
+          defaultProjectId={id}
+          customerId={project.customerId}
+          customerName={clientName ?? undefined}
+          customerPhone={clientPhone}
+        />
+      )}
+      {money && isOwner && (
+        <ContractEditorDialog
+          open={contractOpen}
+          money={money}
+          onClose={() => setContractOpen(false)}
+          onSaved={m => { setMoney(m); setContractOpen(false); }}
+        />
+      )}
       {expenseOpen        && <AddExpenseDialog      projectId={id}     onClose={() => setExpenseOpen(false)}        onSaved={loadAll} />}
       {createInvoiceOpen  && <CreateInvoiceDialog   project={project}  onClose={() => setCreateInvoiceOpen(false)}  onSaved={loadAll} />}
       {invoicePayTarget   && (

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects, leadActivities } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { applyStageMoneyEffects } from '@/lib/project-money/server';
 import { eq, and } from 'drizzle-orm';
 
 const PROJECT_STAGES = [
@@ -28,6 +29,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 
@@ -61,6 +64,7 @@ export async function POST(
       .set({ lifecycleStage: newStage })
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
       .returning();
+    await applyStageMoneyEffects(db, ctx.tenantId, id, newStage);
 
     // Log to lead activity history
     if (project.leadId) {

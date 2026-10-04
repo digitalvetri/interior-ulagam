@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
-import { payments, milestones } from '@/lib/db/schema';
+import { payments, milestones, paymentAllocations } from '@/lib/db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { enqueue } from '@/jobs/queue';
 import { checkRateLimit, webhookLimiter } from '@/lib/ratelimit';
@@ -101,6 +101,16 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(milestones.razorpayLinkId, rpLinkId))
         .returning();
+
+      // Tie the money to the milestone (client ledger + project money) and the project.
+      if (updatedMilestone) {
+        await db.update(payments).set({ projectId: updatedMilestone.projectId })
+          .where(eq(payments.id, existingPayment.id));
+        await db.insert(paymentAllocations).values({
+          tenantId: existingPayment.tenantId, paymentId: existingPayment.id,
+          milestoneId: updatedMilestone.id, amountPaise,
+        });
+      }
 
       // Enqueue the follow-up job
       await enqueue('milestone/payment.captured', {

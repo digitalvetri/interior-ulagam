@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { payments, invoices, projects, leads, tenants } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { payments, invoices, projects, leads, tenants, customers } from '@/lib/db/schema';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { sql } from 'drizzle-orm';
 import { renderReceiptPdf } from '@/lib/pdf/receipt';
 import { extractBranding } from '@/lib/pdf/branding';
 import { putObject, getDownloadUrl, DOCUMENTS_BUCKET } from '@/lib/storage/s3';
@@ -14,10 +15,13 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id: paymentId } = await params;
 
   try {
+    // Works for payments without an invoice too: project and client come from the payment itself.
     const [row] = await db
       .select({
         id:                payments.id,
@@ -25,16 +29,21 @@ export async function POST(
         razorpayPaymentId: payments.razorpayPaymentId,
         reconciledAt:      payments.reconciledAt,
         createdAt:         payments.createdAt,
+        receivedAt:        payments.receivedAt,
+        receiptNumber:     payments.receiptNumber,
+        mode:              payments.mode,
+        reference:         payments.reference,
         invoiceId:         payments.invoiceId,
         invoiceNumber:     invoices.invoiceNumber,
         invoiceDate:       invoices.invoiceDate,
         projectName:       projects.name,
-        clientName:        leads.contactName,
-        clientPhone:       leads.contactPhone,
+        clientName:        sql<string | null>`coalesce(${customers.fullName}, ${leads.contactName})`,
+        clientPhone:       sql<string | null>`coalesce(${customers.phone}, ${leads.contactPhone})`,
       })
       .from(payments)
-      .innerJoin(invoices, eq(payments.invoiceId, invoices.id))
-      .innerJoin(projects, eq(invoices.projectId, projects.id))
+      .leftJoin(invoices, eq(payments.invoiceId, invoices.id))
+      .leftJoin(projects, sql`${projects.id} = coalesce(${payments.projectId}, ${invoices.projectId})`)
+      .leftJoin(customers, sql`${customers.id} = coalesce(${payments.customerId}, ${projects.customerId})`)
       .leftJoin(leads, eq(projects.leadId, leads.id))
       .where(and(eq(payments.id, paymentId), eq(payments.tenantId, ctx.tenantId)))
       .limit(1);
@@ -49,20 +58,21 @@ export async function POST(
 
     const studio = extractBranding(tenant ?? { name: 'Konst Design' });
 
-    const paymentDate = row.reconciledAt ?? row.createdAt;
-    const receiptNumber = `REC-${row.invoiceNumber}-${row.id.slice(0, 6).toUpperCase()}`;
+    const paymentDate = row.receivedAt ?? row.reconciledAt ?? row.createdAt;
+    const receiptNumber = row.receiptNumber ?? `REC-${row.id.slice(0, 8).toUpperCase()}`;
+    const MODES: Record<string, string> = { upi: 'UPI', cash: 'Cash', bank: 'Bank transfer', cheque: 'Cheque', card: 'Card', razorpay: 'Razorpay' };
 
     const buffer = await renderReceiptPdf({
       receiptNumber,
       paymentDate,
       studio,
       client: { name: row.clientName ?? 'Client', phone: row.clientPhone ?? null },
-      project: { name: row.projectName },
+      project: { name: row.projectName ?? 'Advance payment' },
       invoiceNumber: row.invoiceNumber,
       invoiceDate: row.invoiceDate,
       amountPaise: row.amountPaise,
-      paymentMode: row.razorpayPaymentId ? 'Razorpay' : 'Manual',
-      referenceId: row.razorpayPaymentId ?? null,
+      paymentMode: row.mode ? MODES[row.mode] ?? row.mode : row.razorpayPaymentId ? 'Razorpay' : 'Manual',
+      referenceId: row.razorpayPaymentId ?? row.reference ?? null,
     });
 
     const s3Key = `receipts/${ctx.tenantId}/${paymentId}.pdf`;

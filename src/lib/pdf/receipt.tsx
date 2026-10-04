@@ -14,8 +14,9 @@ export interface ReceiptPdfInput {
   studio: StudioBranding;
   client: { name: string; phone?: string | null };
   project: { name: string };
-  invoiceNumber: string;
-  invoiceDate: Date | string;
+  /** Null for a payment recorded against the project, not a specific invoice. */
+  invoiceNumber: string | null;
+  invoiceDate: Date | string | null;
   amountPaise: number;
   paymentMode: string;
   referenceId?: string | null;
@@ -105,14 +106,18 @@ function ReceiptDocument({ input }: { input: ReceiptPdfInput }) {
               {input.client.name}{input.client.phone ? `  ·  ${input.client.phone}` : ''}
             </Text>
           </View>
-          <View style={rs.row}>
-            <Text style={rs.label}>Against Invoice</Text>
-            <Text style={rs.value}>{input.invoiceNumber}</Text>
-          </View>
-          <View style={rs.row}>
-            <Text style={rs.label}>Invoice Date</Text>
-            <Text style={rs.value}>{fmtDate(input.invoiceDate)}</Text>
-          </View>
+          {input.invoiceNumber ? (
+            <View style={rs.row}>
+              <Text style={rs.label}>Against Invoice</Text>
+              <Text style={rs.value}>{input.invoiceNumber}</Text>
+            </View>
+          ) : null}
+          {input.invoiceDate ? (
+            <View style={rs.row}>
+              <Text style={rs.label}>Invoice Date</Text>
+              <Text style={rs.value}>{fmtDate(input.invoiceDate)}</Text>
+            </View>
+          ) : null}
           <View style={rs.row}>
             <Text style={rs.label}>Project</Text>
             <Text style={rs.value}>{input.project.name}</Text>

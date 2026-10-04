@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { and, eq, or, inArray, count, ne, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { loadCustomerLedger } from '@/lib/project-money/server';
 import { customers, projects, leads, quotes, siteVisits, invoices, payments } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
@@ -160,12 +161,22 @@ export async function GET(
       createdAt:   typeof p.createdAt === 'string' ? p.createdAt : (p.createdAt as Date).toISOString(),
     }));
 
+    // Money totals come from the project-money engine so this page agrees with the
+    // payment ledger: milestones that have fallen due (incl. GST) net of discounts,
+    // and every settled payment — including ones not attached to an invoice.
+    const ledger = await loadCustomerLedger(ctx.tenantId, id, null);
+    const t = ledger.totals;
+
     return NextResponse.json({
       data: {
         projectCount: linkedProjects.length,
-        totalContractPaise,
-        totalInvoicedPaise,
-        totalReceivedPaise,
+        totalContractPaise: t.contractWithGstPaise || totalContractPaise,
+        totalInvoicedPaise: t.outstandingPaise - t.advancePaise + t.receivedPaise,
+        totalReceivedPaise: t.receivedPaise,
+        outstandingPaise: t.outstandingPaise,
+        overduePaise: t.overduePaise,
+        legacyInvoicedPaise: totalInvoicedPaise,
+        legacyReceivedPaise: totalReceivedPaise,
         quoteCount,
         siteVisitCount,
         projects: linkedProjects,

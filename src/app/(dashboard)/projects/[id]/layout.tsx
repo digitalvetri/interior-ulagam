@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { STAGE_STYLE_MAP } from '@/types/deliverables';
 import type { ProjectStage } from '@/types/deliverables';
@@ -22,6 +23,7 @@ export default function ProjectShellLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const pathname = usePathname();
   const [project, setProject] = useState<ProjectMini | null>(null);
 
   useEffect(() => {
@@ -33,6 +35,11 @@ export default function ProjectShellLayout({
 
   const clientName = project?.customerFullName ?? project?.leadContactName ?? null;
   const stage      = project?.lifecycleStage ? STAGE_STYLE_MAP[project.lifecycleStage] : null;
+
+  // The overview has its own richer header (health, actions); sub-pages keep this one.
+  if (pathname === `/projects/${id}`) {
+    return <div className="flex min-h-full flex-col" style={{ background: 'var(--surface-bg)' }}>{children}</div>;
+  }
 
   return (
     <div className="flex min-h-full flex-col" style={{ background: 'var(--surface-bg)' }}>
