@@ -35,16 +35,17 @@ export const poPdf = defineJob(
       const [project] = await db
         .select({ name: projects.name })
         .from(projects)
-        .where(eq(projects.id, po.projectId))
+        .where(and(eq(projects.id, po.projectId), eq(projects.tenantId, tenantId)))
         .limit(1);
 
       let vendorName = po.vendorContactName ?? 'Vendor';
       let vendorPhone: string | null = po.vendorPhone;
       let vendorAddress: string | null = null;
 
+      let vendorGstin: string | null = null;
       if (po.vendorId) {
         const [vendor] = await db
-          .select({ name: vendors.name, phone: vendors.phone, address: vendors.address })
+          .select({ name: vendors.name, phone: vendors.phone, address: vendors.address, gstin: vendors.gstin })
           .from(vendors)
           .where(eq(vendors.id, po.vendorId))
           .limit(1);
@@ -52,6 +53,7 @@ export const poPdf = defineJob(
           vendorName = vendor.name;
           vendorPhone = vendor.phone ?? vendorPhone;
           vendorAddress = vendor.address;
+          vendorGstin = vendor.gstin ?? null;
         }
       }
 
@@ -80,14 +82,14 @@ export const poPdf = defineJob(
       }));
 
       const subtotalPaise = lines.reduce((s, l) => s + l.ratePaise * l.qty, 0);
-      const balanceDuePaise = subtotalPaise - po.advancePaidPaise;
+      const balanceDuePaise = Math.max(0, subtotalPaise - po.advancePaidPaise);
 
       return {
         poNumber: po.poNumber,
         issuedAt: new Date(po.createdAt),
         expectedDeliveryAt: po.expectedDeliveryAt ? new Date(po.expectedDeliveryAt) : null,
         studio,
-        vendor: { name: vendorName, phone: vendorPhone, address: vendorAddress },
+        vendor: { name: vendorName, phone: vendorPhone, address: vendorAddress, gstin: vendorGstin },
         project: { name: project?.name ?? 'Project' },
         lines,
         subtotalPaise,

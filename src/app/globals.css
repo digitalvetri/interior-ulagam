@@ -15,6 +15,7 @@
 :root {
   /* ── Neutrals — the 95% of the interface ──────────────── */
   --surface-app:     #F6F3EC;   /* page background — warm cream canvas       */
+  --surface-bg:      var(--surface-app);  /* alias used by some layouts */
   --surface-card:    #FCFAF6;   /* raised surfaces                           */
   --surface-muted:   #F1EDE4;   /* table stripes, inert fills                */
   --surface-hover:   #EEE9DE;   /* row / item hover                          */

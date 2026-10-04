@@ -21,9 +21,7 @@ test.describe('Finance module', () => {
     // URL defaults to Overview tab
     await expect(page).toHaveURL(/\/finance/);
 
-    // At least one KPI card should be present
-    const kpiCards = page.locator('[data-testid="kpi-card"], .kpi-card').first();
-    // Fall back: look for rupee symbol which KPI cards display
+    // At least one KPI card should be present — look for rupee symbol which KPI cards display
     const rupeeSigns = page.locator('text=₹').first();
     await expect(rupeeSigns).toBeVisible({ timeout: 8000 });
     console.log('✅ Finance overview page loaded with rupee values');

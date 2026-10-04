@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar, User, Save, Loader2, Trash2, Building2,
+  ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar, User, Save, Loader2, Trash2, Building2, Banknote,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -210,45 +210,66 @@ export default function EmployeeDetailPage({
           )}
 
           {tab === 'job' && (
-            <Section title="Job details">
-              <Field label="Job title" icon={Briefcase}>
-                <Input value={displayed.jobTitle ?? ''} onChange={(e) => set('jobTitle', (e.target.value || null) as Employee['jobTitle'])} />
-              </Field>
-              <Field label="Department" icon={Building2}>
-                <Input value={displayed.department ?? ''} onChange={(e) => set('department', (e.target.value || null) as Employee['department'])} />
-              </Field>
-              <Field label="Role (system)" icon={User}>
-                <Select value={displayed.role} onValueChange={(v) => set('role', v as UserRole)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
-              <Field label="Employment type" icon={Briefcase}>
-                <Select
-                  value={displayed.employmentType ?? ''}
-                  onValueChange={(v) => set('employmentType', v as EmploymentType)}
-                >
-                  <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
-              <Field label="Hire date" icon={Calendar}>
-                <Input type="date" value={displayed.hireDate ?? ''} onChange={(e) => set('hireDate', (e.target.value || null) as Employee['hireDate'])} />
-              </Field>
-              <Field label="Status" icon={User}>
-                <Select
-                  value={displayed.status}
-                  onValueChange={(v) => set('status', v as Employee['status'])}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="on_leave">On leave</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </Section>
+            <>
+              <Section title="Job details">
+                <Field label="Job title" icon={Briefcase}>
+                  <Input value={displayed.jobTitle ?? ''} onChange={(e) => set('jobTitle', (e.target.value || null) as Employee['jobTitle'])} />
+                </Field>
+                <Field label="Department" icon={Building2}>
+                  <Input value={displayed.department ?? ''} onChange={(e) => set('department', (e.target.value || null) as Employee['department'])} />
+                </Field>
+                <Field label="Role (system)" icon={User}>
+                  <Select value={displayed.role} onValueChange={(v) => set('role', v as UserRole)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Employment type" icon={Briefcase}>
+                  <Select
+                    value={displayed.employmentType ?? ''}
+                    onValueChange={(v) => set('employmentType', v as EmploymentType)}
+                  >
+                    <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                    <SelectContent>{TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Hire date" icon={Calendar}>
+                  <Input type="date" value={displayed.hireDate ?? ''} onChange={(e) => set('hireDate', (e.target.value || null) as Employee['hireDate'])} />
+                </Field>
+                <Field label="Status" icon={User}>
+                  <Select
+                    value={displayed.status}
+                    onValueChange={(v) => set('status', v as Employee['status'])}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="on_leave">On leave</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </Section>
+              <Section title="Compensation">
+                <Field label="Monthly salary (₹)" icon={Banknote}>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm" style={{ color: 'var(--text-secondary)' }}>₹</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="pl-7"
+                      value={displayed.salaryPaise != null ? displayed.salaryPaise / 100 : ''}
+                      onChange={(e) => {
+                        const rupees = e.target.value;
+                        set('salaryPaise', rupees === '' ? null : Math.round(Number(rupees) * 100));
+                      }}
+                      placeholder="0"
+                    />
+                  </div>
+                </Field>
+              </Section>
+            </>
           )}
 
           {tab === 'contact' && (

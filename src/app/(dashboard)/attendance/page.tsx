@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@/components/providers/user-provider';
 import {
   CalendarCheck, Users, UserCheck, UserX, Clock, Plane,
   ChevronLeft, ChevronRight, Check, X, Plus, Search,
@@ -900,6 +902,15 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AttendancePage() {
+  const router = useRouter();
+  const { role, isAdmin, roleLoaded } = useUser();
+
+  useEffect(() => {
+    if (!roleLoaded) return;
+    const allowed = isAdmin || role === 'owner' || role === 'accountant';
+    if (!allowed) router.replace('/dashboard');
+  }, [roleLoaded, isAdmin, role, router]);
+
   const [tab, setTab]     = useState<Tab>('daily');
   const [staff, setStaff] = useState<StaffOption[]>([]);
 

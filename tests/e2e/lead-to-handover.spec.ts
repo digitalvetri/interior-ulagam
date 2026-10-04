@@ -117,8 +117,8 @@ test.describe('Lead → Handover flow', () => {
     );
     await page.goto('/leads');
     await expect(page.getByRole('heading', { name: /leads/i })).toBeVisible();
-    // Pipeline stage badges should be present
-    await expect(page.locator('text=Quotation').first()).toBeVisible();
+    // Pipeline stage badges should be present (quotation stage maps to Site Visit)
+    await expect(page.locator('text=Site Visit').first()).toBeVisible();
   });
 
   test('Lead detail page shows contact info and stage actions', async ({ page }) => {

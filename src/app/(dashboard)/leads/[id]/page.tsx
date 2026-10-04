@@ -12,6 +12,9 @@ import {
   Upload, ExternalLink,
 } from 'lucide-react';
 import { Lead, PRIORITY_CONFIG, LeadActivity } from '@/types/leads';
+import {
+  canonicalStage, STAGE_STYLE, SOURCE_LABELS, fmtBudgetBand, fmtFollowUpDate,
+} from '@/lib/leads/stage-utils';
 import { NewLeadDialog } from '@/components/leads/NewLeadDialog';
 import { ProjectDetailsDialog } from '@/components/leads/ProjectDetailsDialog';
 import { ScheduleSiteVisitModal } from '@/components/leads/ScheduleSiteVisitModal';
@@ -45,10 +48,7 @@ interface WaMessage {
   createdAt: string;
 }
 
-/* â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-function fmt(paise: number) {
-  return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-}
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
@@ -64,17 +64,6 @@ function followUpUrgency(dateIso: string): 'overdue' | 'today' | 'upcoming' {
   if (due.getTime() === today.getTime()) return 'today';
   return 'upcoming';
 }
-function fmtFollowUpDate(dateStr: string): string {
-  const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
-  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-  const t = new Date(d); t.setHours(0, 0, 0, 0);
-  if (t.getTime() === today.getTime())     return 'Today';
-  if (t.getTime() === tomorrow.getTime())  return 'Tomorrow';
-  if (t.getTime() === yesterday.getTime()) return 'Yesterday';
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 function relDate(iso: string): string {
   const d = new Date(iso);
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -84,43 +73,13 @@ function relDate(iso: string): string {
   if (t.getTime() === yesterday.getTime()) return 'Yesterday';
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
-function fmtBudgetBand(band: string): string {
-  if (!band) return '';
-  const fmtNum = (s: string) =>
-    s.replace(/(\d+(?:\.\d+)?)cr/i, '$1 Cr').replace(/(\d+(?:\.\d+)?)l/i, '$1L');
-  if (band.startsWith('above_')) return `Above ${fmtNum(band.slice(6))}`;
-  if (band.startsWith('below_')) return `Below ${fmtNum(band.slice(6))}`;
-  const parts = band.split('_');
-  if (parts.length === 2 && parts[0] && parts[1]) return `${fmtNum(parts[0])} – ${fmtNum(parts[1])}`;
-  return band.replace(/_/g, ' ');
-}
-const SOURCE_LABELS: Record<string, string> = {
-  instagram: 'Instagram', whatsapp: 'WhatsApp', referral: 'Referral',
-  website: 'Website', walk_in: 'Walk-in', other: 'Other',
-};
 
 const MOVE_STAGE_OPTIONS = [
-  { value: 'new',        label: 'New Enquiry' },
-  { value: 'site_visit', label: 'Site Visit'  },
-  { value: 'won',        label: 'Won'         },
-  { value: 'lost',       label: 'Lost'        },
+  { value: 'site_visit', label: 'Site Visit' },
+  { value: 'won',        label: 'Won'        },
+  { value: 'lost',       label: 'Lost'       },
 ] as const;
 
-const STAGE_CANONICAL: Record<string, 'new' | 'site_visit' | 'won' | 'lost'> = {
-  contacted: 'new', qualified: 'new',
-  measurement: 'site_visit', measured: 'site_visit', booked: 'site_visit',
-  quotation: 'site_visit', negotiation: 'site_visit',
-  site_visit_scheduled: 'site_visit', consultation_done: 'site_visit', proposal_sent: 'site_visit',
-};
-function canonicalStage(stage: string): 'new' | 'site_visit' | 'won' | 'lost' {
-  return (STAGE_CANONICAL[stage] ?? stage) as 'new' | 'site_visit' | 'won' | 'lost';
-}
-const CANONICAL_STAGE_STYLE = {
-  new:        { bg: 'var(--accent-soft)',   color: 'var(--accent-text)',    label: 'New Enquiry' },
-  site_visit: { bg: '#FEF9C3',             color: '#854D0E',               label: 'Site Visit'  },
-  won:        { bg: 'var(--success-soft)', color: 'var(--success-text)',   label: 'Won'         },
-  lost:       { bg: 'var(--surface-muted)', color: 'var(--text-secondary)', label: 'Lost'        },
-} as const;
 
 
 
@@ -324,8 +283,8 @@ export default function LeadDetailPage() {
 
       // Map lead stage to a value accepted by the follow-ups endpoint
       // CX-5: measured and booked are valid active stages for follow-ups
-      const validFUStages = new Set(['new','contacted','qualified','site_visit','measurement','measured','booked','quotation','negotiation','won','lost','site_visit_scheduled','consultation_done','proposal_sent']);
-      const fuStage = validFUStages.has(lead?.stage ?? '') ? (lead?.stage ?? 'new') : 'contacted';
+      const validFUStages = new Set(['new', 'site_visit', 'won', 'lost']);
+      const fuStage = validFUStages.has(lead?.stage ?? '') ? (lead?.stage ?? 'new') : 'new';
 
       // 1. Create follow-up row (also updates lead.followUpDate + lastActivityAt via DB transaction)
       const fuRes = await fetch(`/api/v1/leads/${id}/follow-ups`, {
@@ -429,7 +388,7 @@ export default function LeadDetailPage() {
       router.push('/leads');
     } catch (e) {
       setShowDeleteConfirm(false);
-      alert(e instanceof Error ? e.message : 'Delete failed');
+      console.error(e instanceof Error ? e.message : 'Delete failed');
     } finally { setDeleting(false); }
   }
 
@@ -445,7 +404,7 @@ export default function LeadDetailPage() {
       router.push('/leads');
     } catch (e) {
       setShowArchiveConfirm(false);
-      alert(e instanceof Error ? e.message : 'Archive failed');
+      console.error(e instanceof Error ? e.message : 'Archive failed');
     } finally { setArchiving(false); }
   }
 
@@ -465,6 +424,7 @@ export default function LeadDetailPage() {
       const json = await res.json().catch(() => ({})) as { data?: Lead; error?: string };
       if (!res.ok) throw new Error(json.error ?? `Failed (${res.status})`);
       setLead(json.data!); setShowMarkLostDialog(false); setLostReasonInput('');
+      if (targetStage === 'site_visit') setShowSiteVisitModal(true);
       if (isWonTarget) {
         const refreshRes = await fetch(`/api/v1/leads/${id}`);
         if (refreshRes.ok) {
@@ -486,7 +446,7 @@ export default function LeadDetailPage() {
       const json = await res.json() as { data?: LeadDocument; error?: string };
       if (!res.ok) throw new Error(json.error ?? 'Upload failed');
       setLeadDocs(prev => [{ ...json.data!, downloadUrl: null }, ...prev]);
-    } catch (e) { alert(e instanceof Error ? e.message : 'Upload failed'); }
+    } catch (e) { console.error(e instanceof Error ? e.message : 'Upload failed'); }
     finally { setUploadingDoc(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   }
 
@@ -679,9 +639,9 @@ export default function LeadDetailPage() {
                       )}
                       <span
                         className="text-[11px] px-2.5 py-0.5 rounded-full font-semibold"
-                        style={(() => { const s = CANONICAL_STAGE_STYLE[canonicalStage(lead.stage)]; return { background: s.bg, color: s.color }; })()}
+                        style={(() => { const s = STAGE_STYLE[canonicalStage(lead.stage)]; return { background: s.bg, color: s.color }; })()}
                       >
-                        {CANONICAL_STAGE_STYLE[canonicalStage(lead.stage)].label}
+                        {STAGE_STYLE[canonicalStage(lead.stage)].label}
                       </span>
                     </div>
                     <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
@@ -765,7 +725,7 @@ export default function LeadDetailPage() {
               </Link>
             )}
             {isLost && (
-              <button type="button" onClick={() => changeStage('contacted')} disabled={stageActionsDisabled}
+              <button type="button" onClick={() => changeStage('new')} disabled={stageActionsDisabled}
                 className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border disabled:opacity-50"
                 style={{ background: 'var(--surface-card)', borderColor: 'var(--border-subtle)', color: 'var(--violet-primary)' }}>
                 <Zap className="h-4 w-4" />{reopening ? 'Reopening…' : 'Reopen Lead'}
@@ -1029,18 +989,22 @@ export default function LeadDetailPage() {
               {/* AT A GLANCE */}
               <div className="rounded-2xl p-5" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
                 <p className="text-[11px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--text-tertiary)' }}>At a Glance</p>
-                <SidebarRow label="Stage" value={CANONICAL_STAGE_STYLE[canonicalStage(lead.stage)].label} />
+                <SidebarRow label="Stage" value={STAGE_STYLE[canonicalStage(lead.stage)].label} />
                 <SidebarRow label="Assigned To" value={lead.designerName ?? '—'} />
                 <SidebarRow label="Next Follow-up" value={lead.followUpDate ? fmtDate(lead.followUpDate) : '—'} />
                 {(() => {
                   const now = new Date();
-                  const nextVisit = siteVisitsData
-                    .filter(v => v.status === 'scheduled' && new Date(v.scheduledAt) >= now)
+                  const scheduled = siteVisitsData.filter(v => v.status === 'scheduled');
+                  const upcomingVisit = scheduled
+                    .filter(v => new Date(v.scheduledAt) >= now)
                     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
+                  const pastScheduledVisit = scheduled
+                    .filter(v => new Date(v.scheduledAt) < now)
+                    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
                   const lastVisit = siteVisitsData
                     .filter(v => v.status === 'completed')
                     .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime())[0];
-                  const displayVisit = nextVisit ?? lastVisit;
+                  const displayVisit = upcomingVisit ?? pastScheduledVisit ?? lastVisit;
                   return (
                     <SidebarRow
                       label="Site Visit"

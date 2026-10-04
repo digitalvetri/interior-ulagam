@@ -13,6 +13,7 @@ interface ProjectMini {
   leadContactName?: string | null;
 }
 
+
 export default function ProjectShellLayout({
   children,
   params,
@@ -77,6 +78,7 @@ export default function ProjectShellLayout({
             )}
           </div>
         </div>
+
       </div>
 
       {children}

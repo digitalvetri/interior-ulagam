@@ -63,12 +63,10 @@ const PURPOSE_LABELS: Record<string, string> = {
 };
 
 const FOLLOW_UP_STAGES = [
-  { value: 'contacted',    label: 'Contacted'    },
-  { value: 'qualified',    label: 'Qualified'    },
-  { value: 'site_visit',   label: 'Site Visit'   },
-  { value: 'measurement',  label: 'Measurement'  },
-  { value: 'quotation',    label: 'Quotation'    },
-  { value: 'negotiation',  label: 'Negotiation'  },
+  { value: 'new',        label: 'New Enquiry' },
+  { value: 'site_visit', label: 'Site Visit'  },
+  { value: 'won',        label: 'Won'         },
+  { value: 'lost',       label: 'Lost'        },
 ];
 
 const FOLLOW_UP_STATUSES = [

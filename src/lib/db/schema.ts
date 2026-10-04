@@ -157,6 +157,10 @@ export const leaveStatusEnum = pgEnum('leave_status', [
   'pending', 'approved', 'rejected', 'cancelled',
 ]);
 
+export const payrollRunStatusEnum = pgEnum('payroll_run_status', [
+  'draft', 'approved', 'paid',
+]);
+
 // ─── Shared ───────────────────────────────────────────────────────────────────
 
 const timestamps = {
@@ -198,6 +202,7 @@ export const users = pgTable('users', {
   managerId: uuid('manager_id'),                     // self-FK, added via SQL
   emergencyContact: jsonb('emergency_contact_json'), // { name, relation, phone }
   status: text('status').notNull().default('active'), // active | on_leave | inactive
+  salaryPaise: integer('salary_paise'),               // monthly gross salary in paise; null = not set
   // Granular permission flags — defaults to all-false (least privilege).
   // The migration script (migrate-p0.ts) back-fills based on legacy role values.
   permissionsJson: jsonb('permissions_json').notNull().default(sql`'{"canSeeFinance":false,"canCreateQuotes":false,"canSendQuotes":false,"canRaisePO":false,"canRecordPayments":false,"canSeeAllLeads":false}'::jsonb`),
@@ -1216,4 +1221,51 @@ export const civilJobEvents = pgTable('civil_job_events', {
   ...timestamps,
 }, (t) => [
   index('civil_job_events_job_idx').on(t.jobId),
+]);
+
+// ─── Payroll ──────────────────────────────────────────────────────────────────
+
+export const payrollRuns = pgTable('payroll_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  month: text('month').notNull(),   // YYYY-MM, e.g. "2026-09"
+  status: payrollRunStatusEnum('status').notNull().default('draft'),
+  workingDays: integer('working_days').notNull().default(26),
+  totalGrossPaise: integer('total_gross_paise').notNull().default(0),
+  totalNetPaise: integer('total_net_paise').notNull().default(0),
+  totalEmployeePFPaise: integer('total_employee_pf_paise').notNull().default(0),
+  totalEmployeeESIPaise: integer('total_employee_esi_paise').notNull().default(0),
+  totalEmployerPFPaise: integer('total_employer_pf_paise').notNull().default(0),
+  totalEmployerESIPaise: integer('total_employer_esi_paise').notNull().default(0),
+  totalCostPaise: integer('total_cost_paise').notNull().default(0),
+  notes: text('notes'),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  ...timestamps,
+}, (t) => [
+  index('payroll_runs_tenant_idx').on(t.tenantId),
+  uniqueIndex('payroll_runs_tenant_month_uq').on(t.tenantId, t.month),
+]);
+
+export const payslips = pgTable('payslips', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  runId: uuid('run_id').notNull().references(() => payrollRuns.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // Attendance summary for the pay period
+  daysPresent: decimal('days_present', { precision: 5, scale: 1 }).notNull().default('0'),
+  daysAbsent: decimal('days_absent', { precision: 5, scale: 1 }).notNull().default('0'),
+  // Pay components (all in paise)
+  grossPaise: integer('gross_paise').notNull().default(0),
+  employeePFPaise: integer('employee_pf_paise').notNull().default(0),
+  employeeESIPaise: integer('employee_esi_paise').notNull().default(0),
+  netPaise: integer('net_paise').notNull().default(0),
+  // Employer cost (not deducted from employee)
+  employerPFPaise: integer('employer_pf_paise').notNull().default(0),
+  employerESIPaise: integer('employer_esi_paise').notNull().default(0),
+  totalCostPaise: integer('total_cost_paise').notNull().default(0),
+  ...timestamps,
+}, (t) => [
+  index('payslips_run_idx').on(t.runId),
+  index('payslips_tenant_idx').on(t.tenantId),
+  uniqueIndex('payslips_run_user_uq').on(t.runId, t.userId),
 ]);

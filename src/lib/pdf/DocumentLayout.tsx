@@ -17,6 +17,7 @@ export interface StudioBranding {
   phone?: string | null;
   email?: string | null;
   gstin?: string | null;
+  pan?: string | null;
   logoUrl?: string | null;
   bankName?: string | null;
   bankAccount?: string | null;
@@ -209,6 +210,7 @@ export function StudioHeader({
           </Text>
         ) : null}
         {studio.gstin ? <Text style={S.studioMeta}>GSTIN: {studio.gstin}</Text> : null}
+        {studio.pan ? <Text style={S.studioMeta}>PAN: {studio.pan}</Text> : null}
       </View>
       <View style={S.docBlock}>
         <Text style={S.docTypeLabel}>{meta.docType}</Text>

@@ -34,6 +34,7 @@ export interface InvoicePdfInput {
   totalPaise: number;
   isInterstate: boolean;
   placeOfSupply?: string | null;
+  reverseCharge?: boolean;
   terms?: string | null;
 }
 
@@ -98,9 +99,10 @@ function InvoiceDocument({ input }: { input: InvoicePdfInput }) {
             docType: 'TAX INVOICE',
             docNumber: input.invoiceNumber,
             issuedAt: input.invoiceDate,
-            extra: input.placeOfSupply
-              ? [{ label: 'Place of Supply', value: input.placeOfSupply }]
-              : [],
+            extra: [
+              { label: 'Reverse Charge', value: input.reverseCharge ? 'Yes' : 'No' },
+              ...(input.placeOfSupply ? [{ label: 'Place of Supply', value: input.placeOfSupply }] : []),
+            ],
           }}
         />
 
@@ -139,8 +141,6 @@ function InvoiceDocument({ input }: { input: InvoicePdfInput }) {
           })}
         </View>
 
-        <Text style={is.amtWords}>{amountInWords(input.totalPaise)}</Text>
-
         <TotalsBlock
           subtotalPaise={input.subtotalPaise}
           cgstPaise={input.cgstPaise}
@@ -149,6 +149,8 @@ function InvoiceDocument({ input }: { input: InvoicePdfInput }) {
           totalPaise={input.totalPaise}
           isInterstate={input.isInterstate}
         />
+
+        <Text style={is.amtWords}>{amountInWords(input.totalPaise)}</Text>
 
         <BankFooter
           bank={input.studio}

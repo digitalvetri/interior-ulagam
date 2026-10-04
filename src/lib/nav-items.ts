@@ -19,6 +19,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   TrendingUp,
+  Banknote,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -45,8 +46,10 @@ const FIELD_ROLES    = ['admin', 'owner', 'designer', 'employee', 'supervisor'];
 const PROC_ROLES     = ['admin', 'owner', 'designer', 'accountant'];
 // Civil Management division — office staff (matches ROLES.CIVIL in lib/auth)
 const CIVIL_ROLES    = ['admin', 'owner', 'accountant'];
-// Self-service: all non-owner staff
-const MY_SPACE_ROLES = ['employee', 'designer', 'supervisor', 'accountant'];
+// Self-service: all staff including admin/owner
+const MY_SPACE_ROLES  = ['admin', 'owner', 'employee', 'designer', 'supervisor', 'accountant'];
+// Employee self-service only — owners/admins have dedicated pages for these
+const EMPLOYEE_ROLES  = ['employee', 'designer', 'supervisor', 'accountant'];
 
 export const NAV_GROUPS: NavGroup[] = [
   {
@@ -109,10 +112,26 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/reports',             label: 'Reports',            icon: ChartColumn,   roles: FINANCE_ROLES  },
       { href: '/attendance',          label: 'Attendance',         icon: CalendarDays,  roles: FINANCE_ROLES  },
       // Employees use /tasks for their assigned work; owners assign tasks via lead/project pages directly
-      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: MY_SPACE_ROLES },
-      { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: MY_SPACE_ROLES },
-      { href: '/my-space/profile',    label: 'My Profile',         icon: UserCircle,    roles: MY_SPACE_ROLES },
-      { href: '/settings',            label: 'Settings',           icon: Settings,      roles: ADMIN_ROLES    },
+      { href: '/tasks',               label: 'Tasks',              icon: CheckSquare,   roles: EMPLOYEE_ROLES },
+      { href: '/my-space/attendance', label: 'Attendance & Leave', icon: CalendarCheck, roles: EMPLOYEE_ROLES },
+    ],
+  },
+  {
+    key: 'hr',
+    label: 'HR & Payroll',
+    roles: ADMIN_ROLES,
+    items: [
+      { href: '/employees', label: 'Employees', icon: UsersRound, roles: ADMIN_ROLES },
+      { href: '/payroll',   label: 'Payroll',   icon: Banknote,   roles: ADMIN_ROLES },
+    ],
+  },
+  {
+    key: 'administration',
+    label: 'Administration',
+    roles: ALL_ROLES,
+    items: [
+      { href: '/my-space/profile', label: 'My Profile', icon: UserCircle, roles: EMPLOYEE_ROLES },
+      { href: '/settings',         label: 'Settings',   icon: Settings,   roles: ADMIN_ROLES   },
     ],
   },
 ];

@@ -1128,6 +1128,7 @@ function RecordExpenseModal({ onClose, onSaved }: { onClose: () => void; onSaved
 // ─── Expenses Tab ─────────────────────────────────────────────────────────────
 
 function ExpensesTab() {
+  const router = useRouter();
   const [rows, setRows]       = useState<ExpenseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [catFilter, setCat]   = useState<string>('all');
@@ -1265,7 +1266,7 @@ function ExpensesTab() {
                         borderBottom: idx < filtered.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                         cursor:       'pointer',
                       }}
-                      onClick={() => window.location.href = r.poId ? `/vendor-bills/${r.id}` : `/expenses/${r.id}`}>
+                      onClick={() => router.push(r.poId ? `/vendor-bills/${r.id}` : `/expenses/${r.id}`)}>
 
                       {/* Date */}
                       <td className="px-4 py-3.5 whitespace-nowrap"

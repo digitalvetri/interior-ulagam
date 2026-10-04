@@ -271,11 +271,11 @@ export default function InvoicesPage() {
     try {
       const res = await fetch(`/api/v1/invoices/${deleteConfirm.inv.id}`, { method: 'DELETE' });
       const json = await res.json() as { error?: string };
-      if (!res.ok) { alert(json.error ?? 'Failed to delete'); setDeleteConfirm(p => ({ ...p, deleting: false })); return; }
+      if (!res.ok) { console.error(json.error ?? 'Failed to delete'); setDeleteConfirm(p => ({ ...p, deleting: false })); return; }
       setDeleteConfirm({ open: false, inv: null, deleting: false });
       fetchInvoices();
-    } catch {
-      alert('Network error — try again');
+    } catch (err) {
+      console.error('Network error', err);
       setDeleteConfirm(p => ({ ...p, deleting: false }));
     }
   }
@@ -350,6 +350,11 @@ export default function InvoicesPage() {
     const subtotalPaise = Math.round(parseFloat(subtotalInput || '0') * 100);
     if (subtotalPaise <= 0 || !invNumber.trim() || !invDate) return;
 
+    const cgst = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
+    const sgst = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
+    const igst = gstType === 'interstate' ? Math.round(subtotalPaise * 0.18) : 0;
+    const projName = projectList.find(p => p.id === selProjectId)?.name ?? 'Project';
+
     setCreating(true);
     setCreateError(null);
     try {
@@ -364,6 +369,14 @@ export default function InvoicesPage() {
           subtotalPaise,
           isInterstate: gstType === 'interstate',
           noGst: gstType === null,
+          hsnSacLinesJson: [{
+            hsnSac:      '9954',
+            description: `Interior Design Works — ${projName}`,
+            amountPaise: subtotalPaise,
+            cgstPaise:   cgst,
+            sgstPaise:   sgst,
+            igstPaise:   igst,
+          }],
         }),
       });
       const body = await res.json();

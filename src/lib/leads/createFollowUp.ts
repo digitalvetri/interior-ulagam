@@ -2,19 +2,14 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, leadFollowUps, leadActivities } from '@/lib/db/schema';
 
-const VALID_STAGES = [
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'measured', 'booked',
-  'quotation', 'negotiation', 'won', 'lost',
-  'site_visit_scheduled', 'consultation_done', 'proposal_sent',
-] as const;
+export type FollowUpStage =
+  | 'new' | 'contacted' | 'qualified' | 'site_visit' | 'measurement' | 'measured' | 'booked'
+  | 'quotation' | 'negotiation' | 'won' | 'lost'
+  | 'site_visit_scheduled' | 'consultation_done' | 'proposal_sent';
 
-const VALID_STATUSES = [
-  'interested', 'not_interested', 'callback', 'meeting_scheduled',
-  'thinking', 'no_response', 'negotiating', 'deal_closed',
-] as const;
-
-export type FollowUpStage = (typeof VALID_STAGES)[number];
-export type FollowUpClientStatus = (typeof VALID_STATUSES)[number];
+export type FollowUpClientStatus =
+  | 'interested' | 'not_interested' | 'callback' | 'meeting_scheduled'
+  | 'thinking' | 'no_response' | 'negotiating' | 'deal_closed';
 
 export interface CreateFollowUpInput {
   tenantId: string;

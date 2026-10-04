@@ -10,7 +10,6 @@ interface Props {
   open: boolean;
   onClose: () => void;
   acceptedQuoteTotalPaise?: number;
-  acceptedQuoteRef?: string;
 }
 
 const PROJECT_TYPES = ['Design', 'Architecture', 'Construction', 'Renovation'];

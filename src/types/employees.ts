@@ -28,5 +28,6 @@ export interface Employee {
   managerId: string | null;
   emergencyContact: EmergencyContact | null;
   status: EmployeeStatus | string;
+  salaryPaise: number | null;
   createdAt: string;
 }

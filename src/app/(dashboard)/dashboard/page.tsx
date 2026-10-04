@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@/components/providers/user-provider';
 import Link from 'next/link';
@@ -23,9 +23,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface LeadStats {
-  new: number; contacted: number; qualified: number;
-  site_visit: number; measurement: number; quotation: number;
-  negotiation: number; won: number; lost: number;
+  new: number;
+  site_visit: number;
+  won: number;
+  lost: number;
+  [key: string]: number;
 }
 interface RecentLead {
   id: string; contactName: string; stage: string;
@@ -136,8 +138,9 @@ const FUNNEL_STAGES = [
   { key: 'new',        label: 'New Enquiry' },
   { key: 'site_visit', label: 'Site Visit'  },
   { key: 'won',        label: 'Won'         },
+  { key: 'lost',       label: 'Lost'        },
 ];
-const FUNNEL_COLORS = ['var(--info)', 'var(--warning)', 'var(--accent-base)'];
+const FUNNEL_COLORS = ['var(--info)', 'var(--warning)', 'var(--accent-base)', 'var(--danger)'];
 
 /* ── Upcoming visits widget ────────────────────────────────────────────── */
 function TodayVisitsWidget({ todayVisits, loading }: { todayVisits: SiteVisit[]; loading: boolean }) {

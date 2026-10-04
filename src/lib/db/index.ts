@@ -7,7 +7,6 @@ import * as schema from './schema';
 // connections exhaust Postgres's limit. Caching on `global` means reloads
 // reuse the existing pool instead of leaking connections.
 declare global {
-  // eslint-disable-next-line no-var
   var __dbClient: ReturnType<typeof postgres> | undefined;
 }
 

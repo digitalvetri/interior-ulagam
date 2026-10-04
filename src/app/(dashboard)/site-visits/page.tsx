@@ -428,13 +428,13 @@ export default function SiteVisitsPage() {
       const res = await fetch(`/api/v1/site-visits/${visitId}`, { method: 'DELETE' });
       if (!res.ok) {
         const b = (await res.json()) as { error?: string };
-        alert(typeof b.error === 'string' ? b.error : 'Failed to delete');
+        console.error(typeof b.error === 'string' ? b.error : 'Failed to delete');
         return;
       }
       setVisits(prev => prev.filter(v => v.id !== visitId));
       setDeleteConfirm({ open: false, visitId: '', label: '' });
-    } catch {
-      alert('Network error — try again');
+    } catch (err) {
+      console.error('Network error', err);
     } finally {
       setDeleting(false);
     }

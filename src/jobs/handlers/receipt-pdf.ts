@@ -39,7 +39,7 @@ export const receiptPdf = defineJob(
           projectId:     invoices.projectId,
         })
         .from(invoices)
-        .where(eq(invoices.id, invoiceId))
+        .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)))
         .limit(1);
 
       if (!invoice) throw new Error(`Invoice for payment ${paymentId} not found`);
@@ -47,7 +47,7 @@ export const receiptPdf = defineJob(
       const [project] = await db
         .select({ name: projects.name, customerId: projects.customerId })
         .from(projects)
-        .where(eq(projects.id, invoice.projectId))
+        .where(and(eq(projects.id, invoice.projectId), eq(projects.tenantId, tenantId)))
         .limit(1);
 
       let clientName = 'Valued Client';
@@ -57,7 +57,7 @@ export const receiptPdf = defineJob(
         const [customer] = await db
           .select({ fullName: customers.fullName, phone: customers.phone })
           .from(customers)
-          .where(eq(customers.id, project.customerId))
+          .where(and(eq(customers.id, project.customerId), eq(customers.tenantId, tenantId)))
           .limit(1);
         if (customer) {
           clientName = customer.fullName;

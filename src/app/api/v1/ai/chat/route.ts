@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, and, ne, inArray, desc, not } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { users } from '@/lib/db/schema';
+import { users, leads, projects, customers, invoices, payments, milestones } from '@/lib/db/schema';
 import { getEnrichedAuthContext } from '@/lib/auth/get-context';
 import { groqProvider } from '@/lib/ai';
 
@@ -23,7 +23,7 @@ const BodySchema = z.object({
 
 function moduleContext(module: string): string {
   const map: Record<string, string> = {
-    leads:         'Leads pipeline (stages: new→contacted→qualified→site_visit→measurement→quotation→negotiation→won/lost)',
+    leads:         'Leads pipeline (stages: new → site_visit → won / lost)',
     clients:       'Clients (customers) — project history, payments, health status',
     projects:      'Projects (lifecycle: design_pending→design_approved→procurement→execution→snagging→handover→complete)',
     'site-visits': 'Site Visits — scheduled/completed visits linked to leads or projects',
@@ -42,8 +42,6 @@ function moduleContext(module: string): string {
 }
 
 // ── Action extraction ─────────────────────────────────────────────────────────
-// The model is instructed to embed a JSON block only when proposing an action.
-// We extract it with a lightweight parse — if anything is wrong we return null.
 
 interface ProposedAction {
   type: 'notify_employee' | 'create_task' | 'set_followup';
@@ -60,15 +58,10 @@ interface ProposedAction {
 }
 
 function extractAction(text: string): { answer: string; proposedAction: ProposedAction | null } {
-  // Look for ```json ... ``` block (model-friendly format)
   const fenced = text.match(/```json\s*([\s\S]*?)```/);
-  // Also accept a bare { ... } block if no fenced block
   const bare    = text.match(/(\{[\s\S]*"type"\s*:\s*"(?:notify_employee|create_task|set_followup)"[\s\S]*\})/);
-
   const jsonStr = fenced?.[1]?.trim() ?? bare?.[1]?.trim();
-
   if (!jsonStr) return { answer: text.trim(), proposedAction: null };
-
   try {
     const parsed = JSON.parse(jsonStr) as Partial<ProposedAction>;
     if (
@@ -91,6 +84,138 @@ function extractAction(text: string): { answer: string; proposedAction: Proposed
   }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmt(paise: number | null | undefined): string {
+  if (!paise) return '₹0';
+  return `₹${(paise / 100).toLocaleString('en-IN')}`;
+}
+
+function fmtDate(d: string | Date | null | undefined): string {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── Live data fetchers ────────────────────────────────────────────────────────
+
+async function fetchReceivables(tenantId: string): Promise<string> {
+  // Get all non-void, non-draft invoices with client names
+  const invRows = await db
+    .select({
+      invoiceNumber: invoices.invoiceNumber,
+      subtotalPaise: invoices.subtotalPaise,
+      cgstPaise:     invoices.cgstPaise,
+      sgstPaise:     invoices.sgstPaise,
+      igstPaise:     invoices.igstPaise,
+      dueDate:       invoices.dueDate,
+      status:        invoices.status,
+      projectName:   projects.name,
+      clientName:    customers.fullName,
+      clientPhone:   customers.phone,
+      invoiceId:     invoices.id,
+    })
+    .from(invoices)
+    .innerJoin(projects,  eq(invoices.projectId, projects.id))
+    .leftJoin(customers,  eq(projects.customerId, customers.id))
+    .where(and(
+      eq(invoices.tenantId, tenantId),
+      ne(invoices.status, 'void'),
+      ne(invoices.status, 'draft'),
+      ne(invoices.status, 'paid'),
+    ))
+    .orderBy(desc(invoices.createdAt));
+
+  if (invRows.length === 0) return '  (no outstanding invoices)';
+
+  // Sum payments per invoice
+  const ids = invRows.map(r => r.invoiceId);
+  const paidMap = new Map<string, number>();
+  if (ids.length > 0) {
+    const sums = await db
+      .select({
+        invoiceId: payments.invoiceId,
+        total:     payments.amountPaise,
+      })
+      .from(payments)
+      .where(and(
+        inArray(payments.invoiceId, ids),
+        ne(payments.status, 'pending'),
+      ));
+    for (const s of sums) {
+      if (s.invoiceId) paidMap.set(s.invoiceId, (paidMap.get(s.invoiceId) ?? 0) + s.total);
+    }
+  }
+
+  const today = new Date();
+  const lines = invRows.map(r => {
+    const total       = r.subtotalPaise + r.cgstPaise + r.sgstPaise + r.igstPaise;
+    const paid        = paidMap.get(r.invoiceId) ?? 0;
+    const outstanding = total - paid;
+    if (outstanding <= 0) return null;
+    const overdue = r.dueDate && new Date(r.dueDate) < today ? ' ⚠️ OVERDUE' : '';
+    return `  • ${r.invoiceNumber} | Client: ${r.clientName ?? 'Unknown'}${r.clientPhone ? ` (${r.clientPhone})` : ''} | Project: ${r.projectName} | Outstanding: ${fmt(outstanding)}${r.dueDate ? ` | Due: ${fmtDate(r.dueDate)}` : ''}${overdue}`;
+  }).filter(Boolean);
+
+  return lines.length > 0 ? lines.join('\n') : '  (all invoices fully paid)';
+}
+
+async function fetchLeads(tenantId: string): Promise<string> {
+  const rows = await db
+    .select({
+      id:            leads.id,
+      contactName:   leads.contactName,
+      contactPhone:  leads.contactPhone,
+      stage:         leads.stage,
+      followUpDate:  leads.followUpDate,
+      projectLocation: leads.projectLocation,
+      projectValuePaise: leads.projectValuePaise,
+      notes:         leads.notes,
+    })
+    .from(leads)
+    .where(eq(leads.tenantId, tenantId))
+    .orderBy(desc(leads.createdAt))
+    .limit(60);
+
+  if (rows.length === 0) return '  (no leads)';
+
+  return rows.map(r => {
+    const followUp = r.followUpDate ? ` | Follow-up: ${fmtDate(r.followUpDate)}` : '';
+    const value    = r.projectValuePaise ? ` | Value: ${fmt(r.projectValuePaise)}` : '';
+    const location = r.projectLocation ? ` | Location: ${r.projectLocation}` : '';
+    return `  • ${r.contactName} (${r.contactPhone}) — Stage: ${r.stage}${location}${value}${followUp} | ID: ${r.id}`;
+  }).join('\n');
+}
+
+async function fetchProjects(tenantId: string): Promise<string> {
+  const rows = await db
+    .select({
+      id:               projects.id,
+      name:             projects.name,
+      lifecycleStage:   projects.lifecycleStage,
+      totalContractPaise: projects.totalContractPaise,
+      expectedEndAt:    projects.expectedEndAt,
+      clientName:       customers.fullName,
+      clientPhone:      customers.phone,
+    })
+    .from(projects)
+    .leftJoin(customers, eq(projects.customerId, customers.id))
+    .where(and(
+      eq(projects.tenantId, tenantId),
+      not(eq(projects.lifecycleStage, 'complete')),
+    ))
+    .orderBy(desc(projects.createdAt))
+    .limit(30);
+
+  if (rows.length === 0) return '  (no active projects)';
+
+  return rows.map(r => {
+    const client   = r.clientName ? ` | Client: ${r.clientName}${r.clientPhone ? ` (${r.clientPhone})` : ''}` : '';
+    const contract = r.totalContractPaise ? ` | Contract: ${fmt(r.totalContractPaise)}` : '';
+    const deadline = r.expectedEndAt ? ` | Deadline: ${fmtDate(r.expectedEndAt)}` : '';
+    return `  • ${r.name}${client} | Stage: ${r.lifecycleStage}${contract}${deadline} | ID: ${r.id}`;
+  }).join('\n');
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -107,15 +232,19 @@ export async function POST(request: NextRequest) {
   }
   const { message, module, conversationHistory } = parsed.data;
 
-  // Fetch employee directory for the system prompt
-  const employees = await db
-    .select({ id: users.id, fullName: users.fullName, role: users.role, phone: users.phone })
-    .from(users)
-    .where(eq(users.tenantId, ctx.tenantId));
+  // Fetch all live data in parallel
+  const [employees, receivables, leadsData, projectsData] = await Promise.all([
+    db.select({ id: users.id, fullName: users.fullName, role: users.role, phone: users.phone })
+      .from(users)
+      .where(eq(users.tenantId, ctx.tenantId)),
+    fetchReceivables(ctx.tenantId),
+    fetchLeads(ctx.tenantId),
+    fetchProjects(ctx.tenantId),
+  ]);
 
   const employeeDir = employees.length > 0
     ? employees.map(e =>
-        `  • ${e.fullName} (${e.role}) — ID: ${e.id}${e.phone ? `, phone: ${e.phone}` : ''}`
+        `  • ${e.fullName} (${e.role})${e.phone ? ` — phone: ${e.phone}` : ''} — ID: ${e.id}`
       ).join('\n')
     : '  (no employees found)';
 
@@ -129,16 +258,36 @@ You are talking to: ${ctx.fullName} (role: ${ctx.role})
 Today: ${today}
 Current section: ${moduleContext(module)}
 
-You can answer ANY question the user asks — whether it's about the CRM, interior design, business calculations, general knowledge, or anything else. Be helpful, concise, and friendly.
+You have FULL ACCESS to the live CRM data below. Answer questions directly using this data — never ask the user to tell you something that is already listed here.
 
-ORGANISATION EMPLOYEES:
+════════════════════════════════════════
+LIVE CRM DATA
+════════════════════════════════════════
+
+OUTSTANDING INVOICES / ACCOUNTS RECEIVABLE:
+${receivables}
+
+ALL LEADS:
+${leadsData}
+
+ACTIVE PROJECTS:
+${projectsData}
+
+EMPLOYEES & TEAM:
 ${employeeDir}
 
-SPECIAL ACTIONS (only use when the user clearly requests one):
-You can propose one of these actions by embedding a JSON block in your reply:
+════════════════════════════════════════
 
-1. Notify an employee (in-app + WhatsApp):
-Your explanation text here.
+RULES:
+- Answer questions directly from the data above. Never ask for information already present in the data.
+- Monetary values are in paise in the DB; they are already converted to ₹ in the data above.
+- Keep answers concise and specific. Use names, amounts, and dates from the data.
+- If something is not in the data, say so clearly rather than guessing.
+
+SPECIAL ACTIONS (only propose when the user explicitly requests one):
+You can embed a JSON block to trigger an action:
+
+1. Notify an employee:
 \`\`\`json
 {"type":"notify_employee","label":"Short description","targetUserId":"<ID from directory>","targetUserName":"<Name>","message":"<message text>"}
 \`\`\`
@@ -148,19 +297,13 @@ Your explanation text here.
 {"type":"create_task","label":"Short description","taskTitle":"<title>","assignToId":"<optional ID>","assignToName":"<optional name>","dueAt":"<optional ISO date>"}
 \`\`\`
 
-3. Set a lead follow-up date:
+3. Set a lead follow-up:
 \`\`\`json
-{"type":"set_followup","label":"Short description","leadId":"<lead UUID>","followUpDate":"<ISO datetime>"}
+{"type":"set_followup","label":"Short description","leadId":"<lead ID from data above>","followUpDate":"<ISO datetime>"}
 \`\`\`
 
-RULES:
-- For notify_employee: use the exact employee ID from the directory above.
-- Only propose an action when the user explicitly asks for one. For regular questions, just answer in plain text — no JSON needed.
-- Monetary values in the CRM are stored in paise; display as ₹ by dividing by 100.
-- Keep answers concise unless the user asks for detail.
-- You can ask clarifying questions when an action is ambiguous (e.g. which employee, which lead).`;
+For notify_employee: use the exact employee ID from the directory. Only propose an action when the user explicitly asks for one.`;
 
-  // Build multi-turn message array (last 6 turns = 3 exchanges)
   const historyMessages = conversationHistory.slice(-6).map(m => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
@@ -175,7 +318,6 @@ RULES:
 
     const { answer, proposedAction } = extractAction(rawText);
 
-    // Validate: strip any action that references an employee not in our tenant
     let safeAction = proposedAction;
     if (safeAction?.type === 'notify_employee' && safeAction.targetUserId) {
       const knownIds = new Set(employees.map(e => e.id));
