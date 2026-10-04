@@ -88,6 +88,7 @@ Run it **separately** for each password — never reuse the same value.
 
 | Variable | Value | Notes |
 |----------|-------|-------|
+| `POSTGRES_HOST` | *(container name of the Coolify PostgreSQL database)* | REQUIRED — create a PostgreSQL resource in the same project first (user `interioos`, db `interior_studio`, same password as below) and enable its scheduled backups |
 | `POSTGRES_USER` | `interioos` | Fixed — don't change |
 | `POSTGRES_PASSWORD` | *(generate one)* | REQUIRED |
 | `POSTGRES_DB` | `interior_studio` | Fixed — don't change |

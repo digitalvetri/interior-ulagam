@@ -2,8 +2,10 @@
 #
 # Coolify deployment — identical to the base docker-compose.yml except:
 #   1. Caddy is removed (Coolify's built-in Traefik handles TLS + routing)
-#   2. Internal services (postgres, redis, minio) do NOT publish host ports
+#   2. Internal services (redis, minio) do NOT publish host ports
 #      — they're reachable only on the internal Docker network
+#   2b. Postgres is NOT in this file: it runs as a separate Coolify database
+#      (scheduled backups). Set POSTGRES_HOST to that database's container name.
 #   3. The app IS the only public-facing service; Coolify routes your domain to it
 #
 # HOW TO DEPLOY IN COOLIFY:
@@ -19,10 +21,10 @@
 name: interioos
 
 x-owner-db-url: &owner-db-url
-  DATABASE_URL: postgres://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  DATABASE_URL: postgres://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@${POSTGRES_HOST:?set POSTGRES_HOST to the konst-crm-db container name}:5432/${POSTGRES_DB:?}
 
 x-app-db-url: &app-db-url
-  DATABASE_URL: postgres://interioos_app:${APP_DB_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
+  DATABASE_URL: postgres://interioos_app:${APP_DB_PASSWORD:?}@${POSTGRES_HOST:?set POSTGRES_HOST to the konst-crm-db container name}:5432/${POSTGRES_DB:?}
 
 x-storage-env: &storage-env
   S3_ENDPOINT: http://minio:9000
@@ -37,24 +39,6 @@ x-storage-env: &storage-env
   S3_PUBLIC_URL: ${S3_PUBLIC_URL:?set S3_PUBLIC_URL to https://<your-domain>/api/public}
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    command: postgres -c max_connections=200 -c shared_buffers=256MB
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:?}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-      POSTGRES_DB: ${POSTGRES_DB:?}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - postgres_backups:/backups
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    mem_limit: 1g
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -107,12 +91,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: migrate
+    networks:
+      - default
+      - coolify
     environment:
       <<: *owner-db-url
       APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: "no"
 
   worker:
@@ -120,6 +104,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: worker
+    networks:
+      - default
+      - coolify
     environment:
       <<: [*app-db-url, *storage-env]
       REDIS_URL: redis://redis:6379
@@ -134,8 +121,6 @@ services:
       WORKER_CONCURRENCY: "${WORKER_CONCURRENCY:-5}"
       CRON_TZ: ${CRON_TZ:-Asia/Kolkata}
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       migrate:
@@ -152,6 +137,9 @@ services:
         S3_PUBLIC_URL: ${S3_PUBLIC_URL:?}
     ports:
       - "3000"
+    networks:
+      - default
+      - coolify
     environment:
       <<: [*app-db-url, *storage-env]
       REDIS_URL: redis://redis:6379
@@ -175,8 +163,6 @@ services:
       retries: 5
       start_period: 30s
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       migrate:
@@ -185,7 +171,11 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-  postgres_backups:
   redis_data:
   minio_data:
+
+# Postgres runs as its own Coolify database (konst-crm-db) on Coolify's shared
+# network, so it gets Coolify's scheduled backups and survives app redeploys.
+networks:
+  coolify:
+    external: true
