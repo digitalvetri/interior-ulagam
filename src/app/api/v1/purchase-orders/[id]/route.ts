@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { purchaseOrders, vendors, projects } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { withServerLineIds } from '@/lib/procurement/line-ids';
 
 const PO_STATUSES = [
   'draft',
@@ -113,7 +114,7 @@ export async function PATCH(
 
     if (input.status !== undefined) updateValues.status = input.status;
     if (input.advancePaidPaise !== undefined) updateValues.advancePaidPaise = input.advancePaidPaise;
-    if (input.linesJson !== undefined) updateValues.linesJson = input.linesJson;
+    if (input.linesJson !== undefined) updateValues.linesJson = withServerLineIds(input.linesJson);
     if (input.expectedDeliveryAt !== undefined) {
       updateValues.expectedDeliveryAt = new Date(input.expectedDeliveryAt);
     }

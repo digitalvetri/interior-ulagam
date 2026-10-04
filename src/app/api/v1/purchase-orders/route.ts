@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { purchaseOrders, projects, vendors } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, count, desc } from 'drizzle-orm';
+import { withServerLineIds } from '@/lib/procurement/line-ids';
 
 const PO_STATUSES = [
   'draft',
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
         projectId: input.projectId,
         vendorId: input.vendorId ?? null,
         poNumber,
-        linesJson: input.linesJson,
+        linesJson: withServerLineIds(input.linesJson),
         status: 'draft',
         advancePaidPaise: 0,
         expectedDeliveryAt: input.expectedDeliveryAt

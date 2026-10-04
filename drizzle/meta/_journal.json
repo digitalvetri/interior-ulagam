@@ -134,6 +134,13 @@
       "when": 1792200000000,
       "tag": "0031_integration_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792300000000,
+      "tag": "0032_po_line_uuid_ids",
+      "breakpoints": true
     }
   ]
 }
