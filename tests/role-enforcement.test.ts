@@ -35,6 +35,14 @@ const ALLOWED = new Map<string, string>([
     'signature-verified machine caller; acts as the system, not as a user',
   ],
   [
+    'v1/client-view/[token]/deliverables/[id]/route.ts',
+    'client portal (no login): the client approves a design via their unguessable, expiring link token',
+  ],
+  [
+    'v1/client-view/[token]/snags/[id]/route.ts',
+    'client portal (no login): the client confirms a snag fix via their unguessable, expiring link token',
+  ],
+  [
     'v1/notifications/route.ts',
     'self-scoped — a user reads and dismisses their own notifications, any role',
   ],

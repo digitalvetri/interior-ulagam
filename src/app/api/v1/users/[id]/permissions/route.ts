@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiRole, ROLES } from '@/lib/auth';
 import { requireEnrichedAdmin } from '@/lib/auth/get-context';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
@@ -20,6 +21,8 @@ export async function PATCH(
 ) {
   try {
     const ctx = await requireEnrichedAdmin();
+    const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+    if (denied) return denied;
     const { id } = await params;
     const body = await req.json();
     const parsed = permissionsSchema.safeParse(body);

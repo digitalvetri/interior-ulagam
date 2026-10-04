@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, tenants, measurementRounds, measurementItems, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { extractBranding } from '@/lib/pdf/branding';
 import { renderMeasurementSheetPdf } from '@/lib/pdf/measurement-sheet';
 import { putObject, getDownloadUrl, DOCUMENTS_BUCKET } from '@/lib/storage/s3';
@@ -15,6 +15,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id: leadId, roundId } = await params;
 

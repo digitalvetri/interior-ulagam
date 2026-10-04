@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { designDeliverables } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const ApproveSchema = z.object({
   approvedByClient: z.string().min(1),
@@ -16,6 +16,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
 

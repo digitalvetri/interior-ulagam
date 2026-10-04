@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { milestones, projects, leads, customers } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { whatsapp } from '@/lib/whatsapp/send';
 import { formatRupees } from '@/lib/utils';
 
@@ -12,6 +12,8 @@ export async function POST(
 ): Promise<NextResponse> {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id: projectId, milestoneId } = await params;
 

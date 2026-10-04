@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { invoices } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { DEFAULT_INVOICE_DUE_DAYS } from '@/lib/finance/constants';
 
 const IssueSchema = z.object({
@@ -18,6 +18,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id } = await params;
 

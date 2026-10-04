@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { leads, measurementRounds, measurementItems } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const UpdateItemSchema = z
   .object({
@@ -63,6 +63,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id, roundId, itemId } = await params;
 
@@ -111,6 +113,8 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id, roundId, itemId } = await params;
 

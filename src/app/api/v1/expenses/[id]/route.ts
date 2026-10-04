@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { expenses, projects, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 // GET /api/v1/expenses/[id]
 export async function GET(
@@ -61,6 +61,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

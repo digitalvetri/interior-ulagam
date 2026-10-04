@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { workOrders, vendors, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const UpdateWorkOrderSchema = z.object({
   title:            z.string().min(1).max(200).optional(),
@@ -65,6 +65,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 

@@ -3,7 +3,7 @@ import { and, eq, gte, lte, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users, attendanceRecords, leaveRequests, payrollRuns, payslips } from '@/lib/db/schema';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, requireApiRole, ROLES } from '@/lib/auth';
 import { calcPayslip } from '@/lib/payroll/calculate';
 
 const CreateSchema = z.object({
@@ -36,6 +36,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const ctx = await requireAuth();
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   if (ctx.role !== 'owner') {
     return NextResponse.json({ error: 'Only owners can create payroll runs' }, { status: 403 });
   }

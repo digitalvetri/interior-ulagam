@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users, payrollRuns, payslips } from '@/lib/db/schema';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, requireApiRole, ROLES } from '@/lib/auth';
 
 const StatusSchema = z.object({
   status: z.enum(['approved', 'paid']),
@@ -55,6 +55,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await requireAuth();
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   if (ctx.role !== 'owner') {
     return NextResponse.json({ error: 'Only owners can update payroll runs' }, { status: 403 });
   }

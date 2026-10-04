@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { documents, leads } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { putObject, getDownloadUrl, DOCUMENTS_BUCKET } from '@/lib/storage/s3';
 
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -22,6 +22,8 @@ const ALLOWED = new Set([
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let formData: FormData;
   try {

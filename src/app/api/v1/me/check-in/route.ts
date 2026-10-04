@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { attendanceRecords } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const CheckInSchema = z.object({
   latitude:  z.number().min(-90).max(90).optional(),
@@ -15,6 +15,8 @@ const CheckInSchema = z.object({
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); }

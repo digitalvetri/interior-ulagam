@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leaveRequests } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const CreateLeaveSchema = z.object({
   leaveType: z.enum(['casual', 'sick', 'earned', 'unpaid', 'maternity', 'paternity', 'comp_off']),
@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); }

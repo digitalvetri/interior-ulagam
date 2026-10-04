@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiRole, ROLES } from '@/lib/auth';
 import { z } from 'zod';
 import { and, asc, desc, eq, or, isNotNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -79,6 +80,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); }

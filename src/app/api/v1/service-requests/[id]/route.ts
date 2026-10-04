@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiRole, ROLES } from '@/lib/auth';
 import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
@@ -72,6 +73,8 @@ export async function PATCH(
 ) {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
   const existing = await resolveRequest(ctx.tenantId, id);

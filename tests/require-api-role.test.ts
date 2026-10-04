@@ -67,4 +67,17 @@ describe('requireApiRole', () => {
       expect(requireApiRole(ctx('owner'), set)).toBeNull();
     }
   });
+
+  it('reads the legacy role names the enriched auth context still uses', () => {
+    // getEnrichedAuthContext() reports 'admin' for the owner and 'employee' for designers.
+    expect(requireApiRole({ role: 'admin' }, ROLES.OWNER_ONLY)).toBeNull();
+    expect(requireApiRole({ role: 'employee' }, ROLES.DELIVERY)).toBeNull();
+    expect(requireApiRole({ role: 'employee' }, ROLES.OWNER_ONLY)).not.toBeNull();
+  });
+
+  it('lets every staff role through STAFF (self-service routes)', () => {
+    for (const r of ['owner', 'designer', 'supervisor', 'accountant'] as const) {
+      expect(requireApiRole(ctx(r), ROLES.STAFF)).toBeNull();
+    }
+  });
 });

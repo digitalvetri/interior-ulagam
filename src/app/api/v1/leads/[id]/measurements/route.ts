@@ -3,7 +3,7 @@ import { and, asc, count, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { measurementRounds, measurementItems, leads, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const CreateRoundSchema = z.object({
   roundName:    z.string().min(1).max(100).default('Round 1'),
@@ -71,6 +71,8 @@ export async function POST(
   const { id } = await params;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });

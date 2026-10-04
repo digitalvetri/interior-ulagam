@@ -15,6 +15,8 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

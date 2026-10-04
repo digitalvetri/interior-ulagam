@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { tasks } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const UpdateSchema = z.object({
   status: z.enum(['pending', 'in_progress', 'done']).optional(),
@@ -18,6 +18,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   const { id } = await params;
   let body: unknown;

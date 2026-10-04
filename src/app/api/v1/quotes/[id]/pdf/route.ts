@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, leads, tenants } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { renderQuotePdf } from '@/lib/pdf/quote';
 import { extractBranding, extractTerms, extractValidityDays } from '@/lib/pdf/branding';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
@@ -40,6 +40,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id: quoteId } = await params;
 

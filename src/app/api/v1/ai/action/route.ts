@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireApiRole, ROLES } from '@/lib/auth';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
@@ -34,6 +35,8 @@ const BodySchema = z.discriminatedUnion('type', [
 export async function POST(request: NextRequest) {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let raw: unknown;
   try { raw = await request.json(); } catch {

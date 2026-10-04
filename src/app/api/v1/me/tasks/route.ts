@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { tasks } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 // GET /api/v1/me/tasks?status=pending|completed|all
 export async function GET(request: NextRequest) {
@@ -52,6 +52,8 @@ const CreateTaskSchema = z.object({
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); }

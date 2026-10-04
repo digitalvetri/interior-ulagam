@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, customers, projects, quotes, milestones } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const ConvertSchema = z.object({
   projectName:  z.string().min(1).max(200),
@@ -27,6 +27,8 @@ export async function POST(
   const { id: leadId } = await params;
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); }

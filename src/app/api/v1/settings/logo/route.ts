@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { tenants } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
@@ -17,6 +17,8 @@ const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   if (ctx.role !== 'owner') {
     return NextResponse.json({ error: 'Only owners can change the studio logo' }, { status: 403 });
   }

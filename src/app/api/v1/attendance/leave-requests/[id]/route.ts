@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { attendanceRecords, leaveRequests } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const ReviewSchema = z.object({
   action:     z.enum(['approved', 'rejected']),
@@ -17,6 +17,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const { id } = await params;

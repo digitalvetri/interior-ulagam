@@ -108,6 +108,11 @@ export const ROLES = {
   CIVIL: ['owner', 'accountant'] as UserRole[],
   /** Irreversible or financially binding actions. */
   OWNER_ONLY: ['owner'] as UserRole[],
+  /**
+   * Any signed-in staff member. For self-service routes (my profile, my tasks,
+   * check-in, the AI assistant) where the route itself scopes rows to the caller.
+   */
+  STAFF: ['owner', 'designer', 'supervisor', 'accountant'] as UserRole[],
 } as const;
 
 /**
@@ -122,10 +127,12 @@ export const ROLES = {
  * authorisation denial inside the noise of real failures.
  */
 export function requireApiRole(
-  ctx: TenantContext,
+  ctx: Pick<TenantContext, 'role'> | { role: string },
   allowedRoles: readonly UserRole[],
 ): NextResponse | null {
-  if (allowedRoles.includes(ctx.role)) return null;
+  // Accepts both auth helpers: the enriched context still speaks the legacy
+  // role names ('admin' = owner, 'employee' = designer).
+  if (allowedRoles.includes(toRole(ctx.role))) return null;
 
   return NextResponse.json(
     {

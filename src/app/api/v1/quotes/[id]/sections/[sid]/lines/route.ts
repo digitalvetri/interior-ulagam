@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { quotes, quoteSections, quoteLines } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 import { recalculateQuoteTotals } from '@/lib/quotes/totals';
 
@@ -26,6 +26,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id, sid } = await params;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 import { and, eq } from 'drizzle-orm';
 
@@ -12,6 +12,8 @@ const ALLOWED_TYPES  = new Set(['image/jpeg', 'image/jpg', 'image/png']);
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   let formData: FormData;
   try {

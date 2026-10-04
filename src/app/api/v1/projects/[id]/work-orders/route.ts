@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, count } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { workOrders, vendors, users, projects } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const WorkOrderTypeEnum = z.enum(['inhouse_carpentry', 'factory', 'vendor_job', 'site_work']);
 
@@ -74,6 +74,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id: projectId } = await params;
 

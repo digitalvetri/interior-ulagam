@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { leads, measurementRounds, measurementItems, quotes, quoteLines } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const PushToQuoteSchema = z.object({
   quoteId: z.string().uuid(),
@@ -16,6 +16,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id, roundId } = await params;
 

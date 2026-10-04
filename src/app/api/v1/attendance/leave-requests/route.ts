@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leaveRequests, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const CreateLeaveSchema = z.object({
   userId:    z.string().uuid(),
@@ -74,6 +74,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   let body: unknown;

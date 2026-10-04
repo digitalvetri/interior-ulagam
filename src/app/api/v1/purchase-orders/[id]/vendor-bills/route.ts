@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { expenses, purchaseOrders, vendors } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, desc, count } from 'drizzle-orm';
 
 const GST_RATES = [0, 5, 12, 18, 28] as const;
@@ -57,6 +57,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.PROCUREMENT);
+  if (denied) return denied;
 
   const { id: poId } = await params;
 

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq, desc, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { vendorPayments, purchaseOrders } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const RecordSchema = z.object({
   amountPaise: z.number().int().positive(),
@@ -52,6 +52,8 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id: poId } = await params;
 

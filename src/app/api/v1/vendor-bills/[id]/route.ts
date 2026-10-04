@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { expenses, purchaseOrders, vendors, projects, vendorPayments, grns } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -151,6 +151,8 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id: billId } = await params;
 

@@ -2,12 +2,14 @@ import { NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { attendanceRecords } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 // POST /api/v1/me/check-out — employee self check-out for today
 export async function POST() {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.STAFF);
+  if (denied) return denied;
 
   const now = new Date();
   const istOffset = 5.5 * 60 * 60 * 1000;

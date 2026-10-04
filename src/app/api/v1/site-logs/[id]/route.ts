@@ -152,6 +152,8 @@ export async function DELETE(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 
