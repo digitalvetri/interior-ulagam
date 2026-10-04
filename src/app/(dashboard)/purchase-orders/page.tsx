@@ -53,8 +53,12 @@ interface NewPOForm {
   lines: FormLine[]; expectedDeliveryAt: string;
 }
 
+// Row keys only. Not crypto.randomUUID(): browsers expose it only on HTTPS, and
+// this runs at module load, so on plain http the whole page crashed.
+let lineSeq = 0;
 function makeEmptyLine(): FormLine {
-  return { id: crypto.randomUUID(), description: '', qty: '', unit: '', unitRatePaise: '' };
+  lineSeq += 1;
+  return { id: `line-${lineSeq}`, description: '', qty: '', unit: '', unitRatePaise: '' };
 }
 
 const EMPTY_PO_FORM: NewPOForm = {
