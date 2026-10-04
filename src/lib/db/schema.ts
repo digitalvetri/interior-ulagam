@@ -191,6 +191,9 @@ export const users = pgTable('users', {
   // way to authenticate, while Better Auth still gets the uniqueness it needs.
   email: text('email').unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
+  // Set when the account holds a temporary password (new staff login or an
+  // owner reset); the app sends them to /change-password until they pick their own.
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
   // ── HR extended fields (employees module) ─────────────────
   photoUrl: text('photo_url'),
   jobTitle: text('job_title'),

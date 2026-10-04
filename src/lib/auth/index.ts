@@ -78,6 +78,22 @@ export async function requireRole(allowedRoles: UserRole[]): Promise<TenantConte
   return ctx;
 }
 
+/** True while the user holds a temporary password (new login or owner reset). */
+export async function mustChangePassword(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ mustChangePassword: users.mustChangePassword })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.mustChangePassword ?? false;
+}
+
+/** Layout guard: send anyone on a temporary password to choose their own first. */
+export async function redirectIfTemporaryPassword(): Promise<void> {
+  const ctx = await loadContext();
+  if (ctx && (await mustChangePassword(ctx.userId))) redirect('/change-password');
+}
+
 // Use in API routes — returns null instead of redirecting.
 export async function getAuthContext(): Promise<TenantContext | null> {
   return loadContext();

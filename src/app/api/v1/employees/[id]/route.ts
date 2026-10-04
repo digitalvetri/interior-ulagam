@@ -12,7 +12,8 @@ const StatusEnum = z.enum(['active', 'on_leave', 'inactive']);
 const PatchSchema = z.object({
   fullName:       z.string().min(1).max(120).optional(),
   role:           RoleEnum.optional(),
-  email:          z.string().email().nullable().optional().or(z.literal('')),
+  // Lowercased: Better Auth lowercases the email at sign-in, so a stored capital would never match.
+  email:          z.string().trim().toLowerCase().email().nullable().optional().or(z.literal('')),
   phone:          z.string().max(30).nullable().optional(),
   jobTitle:       z.string().max(120).nullable().optional(),
   department:     z.string().max(80).nullable().optional(),

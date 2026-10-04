@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar, User, Save, Loader2, Trash2, Building2, Banknote,
+  ArrowLeft, Mail, Phone, MapPin, Briefcase, Calendar, User, Save, Loader2, Trash2, Building2, Banknote, KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee, EmploymentType, UserRole } from '@/types/employees';
+import { TemporaryPasswordCard } from '@/components/employees/TemporaryPasswordCard';
 
 type TabKey = 'personal' | 'job' | 'contact';
 
@@ -42,6 +43,10 @@ export default function EmployeeDetailPage({
   const [draft, setDraft]       = useState<Partial<Employee>>({});
   const [saving, setSaving]     = useState(false);
   const [saveError, setSaveErr] = useState<string | null>(null);
+
+  const [resetting, setResetting] = useState(false);
+  const [resetResult, setResetResult] = useState<{ email: string | null; password: string } | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -85,6 +90,23 @@ export default function EmployeeDetailPage({
       setSaveErr(e instanceof Error ? e.message : 'Failed to save');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function resetPassword() {
+    if (!confirm('Reset this employee\'s password? They will be signed out and get a new temporary password.')) return;
+    setResetting(true);
+    setResetError(null);
+    setResetResult(null);
+    try {
+      const res = await fetch(`/api/v1/employees/${id}/reset-password`, { method: 'POST' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error ?? `Reset failed (${res.status})`);
+      setResetResult({ email: body.data.email ?? null, password: body.data.temporaryPassword });
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : 'Failed to reset password');
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -155,11 +177,24 @@ export default function EmployeeDetailPage({
                 Save changes
               </Button>
             )}
+            {emp.email && (
+              <Button variant="outline" size="sm" onClick={resetPassword} disabled={resetting} className="gap-1.5">
+                {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                Reset password
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={remove} className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700">
               <Trash2 className="h-4 w-4" /> Remove
             </Button>
           </div>
         </div>
+
+        {resetError && <p className="mt-4 text-sm text-red-600">{resetError}</p>}
+        {resetResult && (
+          <div className="mt-4 max-w-md">
+            <TemporaryPasswordCard email={resetResult.email} password={resetResult.password} />
+          </div>
+        )}
 
         {/* Tabs */}
         <nav className="mt-6 flex items-center gap-1 text-sm">

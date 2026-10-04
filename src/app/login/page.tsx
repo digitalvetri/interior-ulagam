@@ -90,6 +90,9 @@ export default function LoginPage() {
           </div>
 
           <LoginForm />
+          <p className="mt-5 text-center text-xs text-[var(--text-tertiary)]">
+            Forgot your password? Ask your studio owner to reset it from Employees.
+          </p>
         </div>
 
         <p className="login-form-footer">Built by DigitalVetri</p>

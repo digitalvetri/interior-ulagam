@@ -98,7 +98,8 @@ export async function POST(request: NextRequest) {
     );
   }
   const p = parsed.data;
-  const email = p.email && p.email !== '' ? p.email : null;
+  // Better Auth stores emails lowercased; match that or the lookups below miss.
+  const email = p.email && p.email.trim() !== '' ? p.email.trim().toLowerCase() : null;
 
   // Fields that are ours rather than Better Auth's, applied either way.
   const profile = {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     const [row] = await db
       .update(users)
-      .set(profile)
+      .set({ ...profile, mustChangePassword: true })
       .where(and(eq(users.email, email), eq(users.tenantId, ctx.tenantId)))
       .returning();
 

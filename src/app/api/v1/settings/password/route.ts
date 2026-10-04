@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { z } from 'zod';
 import { auth } from '@/lib/auth/config';
+import { and, eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
 
 /**
@@ -55,6 +58,9 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  // They now hold a password only they know — stop sending them to /change-password.
+  await db.update(users).set({ mustChangePassword: false }).where(and(eq(users.id, ctx.userId), eq(users.tenantId, ctx.tenantId)));
 
   return NextResponse.json({ data: { changed: true } });
 }

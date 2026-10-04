@@ -533,7 +533,7 @@ export default function ProfilePage() {
                 {
                   icon: KeyRound, label: 'Change Password',
                   color: 'var(--accent-base)', bg: 'var(--accent-soft)',
-                  onClick: () => router.push('/settings'),
+                  onClick: () => router.push('/change-password'),
                 },
               ].map(({ icon: Icon, label, color, bg, onClick }) => (
                 <button key={label} type="button" onClick={onClick}

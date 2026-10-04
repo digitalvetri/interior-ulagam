@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Employee, EmploymentType, UserRole } from '@/types/employees';
+import { TemporaryPasswordCard } from '@/components/employees/TemporaryPasswordCard';
 
 const ROLES: { value: UserRole; label: string }[] = [
   { value: 'designer',   label: 'Designer'   },
@@ -33,6 +34,8 @@ interface Props {
 export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set after creating someone with a login: the dialog stays open to show it once.
+  const [issued, setIssued] = useState<{ email: string | null; password: string } | null>(null);
 
   const [fullName, setFullName]     = useState('');
   const [role, setRole]             = useState<UserRole>('designer');
@@ -47,7 +50,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
   function reset() {
     setFullName(''); setRole('designer'); setEmail(''); setPhone('');
     setJobTitle(''); setDepartment(''); setLocation(''); setEmpType('full_time');
-    setHireDate(''); setError(null);
+    setHireDate(''); setError(null); setIssued(null);
   }
 
   async function onSubmit(e: FormEvent) {
@@ -73,6 +76,10 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `Failed (${res.status})`);
       onCreated(body.data as Employee);
+      if (body.temporaryPassword) {
+        setIssued({ email: (body.data as Employee).email ?? null, password: body.temporaryPassword as string });
+        return;
+      }
       reset();
       onOpenChange(false);
     } catch (e) {
@@ -85,7 +92,15 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <DialogContent className="sm:max-w-xl">
-        <DialogHeader><DialogTitle>Add employee</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{issued ? 'Employee added' : 'Add employee'}</DialogTitle></DialogHeader>
+        {issued ? (
+          <div className="space-y-4">
+            <TemporaryPasswordCard email={issued.email} password={issued.password} />
+            <DialogFooter>
+              <Button type="button" onClick={() => { reset(); onOpenChange(false); }}>Done</Button>
+            </DialogFooter>
+          </div>
+        ) : (
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5 sm:col-span-2">
@@ -124,6 +139,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
             <div className="space-y-1.5">
               <Label htmlFor="ef-email">Email</Label>
               <Input id="ef-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <p className="text-xs text-[var(--text-tertiary)]">With an email they get a login; leave blank for no login.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ef-phone">Phone</Label>
@@ -151,6 +167,7 @@ export function NewEmployeeDialog({ open, onOpenChange, onCreated }: Props) {
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );
