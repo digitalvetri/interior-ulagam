@@ -164,6 +164,7 @@ export async function POST(
       for (const def of defaults) {
         const amountPaise = Math.round((totalContractPaise * def.pctOfTotal) / 100);
         await tx.insert(milestones).values({
+          tenantId:    ctx.tenantId,
           projectId:   project.id,
           label:       def.label,
           pctOfTotal:  def.pctOfTotal,

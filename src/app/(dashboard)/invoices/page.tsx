@@ -728,8 +728,8 @@ export default function InvoicesPage() {
           label="e-Invoices (IRN)"
           value={String(eInvoiceCount)}
           icon={Zap}
-          iconBg="#EDE9FE"
-          iconColor="#7C3AED"
+          iconBg="var(--accent-soft)"
+          iconColor="var(--accent-base)"
         />
       </div>
 

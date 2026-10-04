@@ -117,7 +117,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
   }
 
-  const payload = JSON.parse(body) as WaWebhookPayload;
+  // Signature-verified, so this is genuinely from Meta — but a truncated or
+  // malformed delivery would still throw here and surface as a 500, which Meta
+  // retries indefinitely. Parse defensively and acknowledge instead.
+  let payload: WaWebhookPayload;
+  try {
+    payload = JSON.parse(body) as WaWebhookPayload;
+  } catch {
+    console.error('[WhatsApp webhook] Body failed to parse as JSON; acknowledging.');
+    return NextResponse.json({ received: true });
+  }
 
   // Collect every inbound message phone number from the payload
   const inboundPhones: string[] = [];

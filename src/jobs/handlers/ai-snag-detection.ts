@@ -42,7 +42,8 @@ export const aiSnagDetection = defineJob(
       event.data as SiteLogPhotosUploadedData;
 
     const { referenceUrl } = await step.run('get-design-reference', async () => {
-      // deliverables has no tenantId — filter by projectId only
+      // Scoped by project, which is itself tenant-scoped; deliverables now
+      // carries tenant_id too (migration 0004).
       const rows = await db
         .select({ latestFileUrl: deliverables.latestFileUrl })
         .from(deliverables)
@@ -95,9 +96,9 @@ export const aiSnagDetection = defineJob(
         return { insertedCount: 0 };
       }
 
-      // snagItems has no tenantId column — insert by projectId only
       await db.insert(snagItems).values(
         allSnags.map((snag) => ({
+          tenantId,
           projectId,
           description: snag.description + ' [AI detected]',
           photoUrl: snag.photoUrl,

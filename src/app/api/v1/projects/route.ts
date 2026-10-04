@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects, leads, customers, milestones } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { listRange, takePage } from '@/lib/pagination';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
 import { applyStageTransition } from '@/lib/leads/transitions';
 import { eq, and, desc, inArray, asc, ne, sql } from 'drizzle-orm';
@@ -33,11 +34,12 @@ const CreateProjectSchema = z.object({
   { message: 'Either leadId or both clientName and clientPhone are required' }
 );
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  const range = listRange(request);
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const assignedTo = _request.nextUrl.searchParams.get('assignedTo');
+  const assignedTo = request.nextUrl.searchParams.get('assignedTo');
 
   try {
     const baseWhere = eq(projects.tenantId, ctx.tenantId);
@@ -65,15 +67,20 @@ export async function GET(_request: NextRequest) {
         customerFullName:   customers.fullName,
         leadContactName:    leads.contactName,
         projectLocation:    leads.projectLocation,
+        propertyType:       leads.propertyType,
       })
       .from(projects)
       .leftJoin(customers, eq(projects.customerId, customers.id))
       .leftJoin(leads, eq(projects.leadId, leads.id))
       .where(where)
-      .orderBy(desc(projects.createdAt));
+      .orderBy(desc(projects.createdAt))
+      .limit(range.limit + 1)
+      .offset(range.offset);
+
+    const { page, hasMore } = takePage(rows, range);
 
     // Enrich with milestone data: collected paise + next unpaid milestone label
-    const projectIds = rows.map((r) => r.id);
+    const projectIds = page.map((r) => r.id);
     const collectedByProject = new Map<string, number>();
     const nextMilestoneByProject = new Map<string, string>();
 
@@ -100,13 +107,13 @@ export async function GET(_request: NextRequest) {
       }
     }
 
-    const enriched = rows.map((r) => ({
+    const enriched = page.map((r) => ({
       ...r,
       collectedPaise:     collectedByProject.get(r.id) ?? 0,
       nextMilestoneLabel: nextMilestoneByProject.get(r.id) ?? null,
     }));
 
-    return NextResponse.json({ data: enriched });
+    return NextResponse.json({ data: enriched, hasMore, limit: range.limit, offset: range.offset });
   } catch (err) {
     return serverError('GET select', err);
   }
@@ -115,6 +122,8 @@ export async function GET(_request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   let body: unknown;
   try {

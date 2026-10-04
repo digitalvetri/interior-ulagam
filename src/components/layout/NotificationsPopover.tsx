@@ -115,18 +115,20 @@ export function NotificationsPopover() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="relative rounded-lg p-2 transition-colors hover:bg-[var(--surface-muted)]"
+        className="relative rounded-lg p-2 transition-colors hover:bg-[var(--surface-hover)]"
         style={{ color: 'var(--text-heading)' }}
         suppressHydrationWarning
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="h-5 w-5" strokeWidth={1.5} />
         {unreadCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white ring-2 ring-[var(--surface-card)]">
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
+          <span
+            aria-hidden="true"
+            className="absolute right-[8px] top-[7px] h-2 w-2 rounded-full ring-2 ring-[var(--surface-app)]"
+            style={{ background: 'var(--accent-gold)' }}
+          />
         )}
       </button>
 
@@ -134,7 +136,7 @@ export function NotificationsPopover() {
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-11 z-40 w-96 origin-top-right overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-2xl "
+          className="fixed left-3 right-3 top-16 z-50 w-auto lg:absolute lg:left-auto lg:right-0 lg:top-11 lg:w-96 origin-top-right overflow-hidden rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] shadow-2xl "
         >
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-3 ">
             <div>
@@ -179,7 +181,7 @@ export function NotificationsPopover() {
                       }
                     >
                       {unread && (
-                        <span className="absolute left-1.5 top-4 h-1.5 w-1.5 rounded-full bg-blue-500" aria-label="Unread" />
+                        <span className="absolute left-1.5 top-4 h-1.5 w-1.5 rounded-full bg-[var(--accent-base)]" aria-label="Unread" />
                       )}
                       <span className={'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ' + s.bg}>
                         <Icon className={'h-3.5 w-3.5 ' + s.iconClass} />

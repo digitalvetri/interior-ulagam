@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
 import { recalculateQuoteTotals } from '@/lib/quotes/totals';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { eq, and } from 'drizzle-orm';
 
 const UpdateLineSchema = z
   .object({
@@ -62,6 +62,8 @@ export async function PATCH(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id, lineId } = await params;
 
@@ -95,13 +97,16 @@ export async function PATCH(
     const newCostRate = input.costRatePaise ?? line.costRatePaise;
     const marginPaise = Math.round((newClientRate - newCostRate) * newQty);
 
-    const [updated] = await db
-      .update(quoteLines)
-      .set({ ...input, marginPaise })
-      .where(and(eq(quoteLines.id, lineId), eq(quoteLines.quoteId, id)))
-      .returning();
+    const updated = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(quoteLines)
+        .set({ ...input, marginPaise })
+        .where(and(eq(quoteLines.id, lineId), eq(quoteLines.quoteId, id)))
+        .returning();
 
-    await recalculateQuoteTotals(id);
+      await recalculateQuoteTotals(id, tx);
+      return row;
+    });
 
     return NextResponse.json({ data: updated, message: 'Line updated' });
   } catch (err) {
@@ -118,6 +123,8 @@ export async function DELETE(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id, lineId } = await params;
 
@@ -127,11 +134,13 @@ export async function DELETE(
       return NextResponse.json({ error }, { status: status ?? 500 });
     }
 
-    await db
-      .delete(quoteLines)
-      .where(and(eq(quoteLines.id, lineId), eq(quoteLines.quoteId, id)));
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(quoteLines)
+        .where(and(eq(quoteLines.id, lineId), eq(quoteLines.quoteId, id)));
 
-    await recalculateQuoteTotals(id);
+      await recalculateQuoteTotals(id, tx);
+    });
 
     return NextResponse.json({ data: null, message: 'Line deleted' });
   } catch (err) {

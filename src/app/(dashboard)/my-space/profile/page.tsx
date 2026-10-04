@@ -481,7 +481,7 @@ export default function ProfilePage() {
                 <InfoRow icon={Phone}     label="Mobile"      value={profile.phone}
                   iconColor="#16a34a" iconBg="#dcfce7" />
                 <InfoRow icon={Building2} label="Department"  value={profile.department}
-                  iconColor="#7c3aed" iconBg="#ede9fe" />
+                  iconColor="var(--accent-base)" iconBg="var(--accent-soft)" />
                 <InfoRow icon={Briefcase} label="Designation" value={profile.jobTitle}
                   iconColor="#f59e0b" iconBg="#fef3c7" />
                 <InfoRow icon={Hash}      label="Employee ID" value={profile.id.slice(0, 8).toUpperCase()}
@@ -509,7 +509,7 @@ export default function ProfilePage() {
                 <InfoRow icon={Phone}    label="Mobile Number"  value={profile.phone}
                   iconColor="#16a34a" iconBg="#dcfce7" />
                 <InfoRow icon={MapPin}   label="Work Location"  value={profile.location}
-                  iconColor="#7c3aed" iconBg="#ede9fe" />
+                  iconColor="var(--accent-base)" iconBg="var(--accent-soft)" />
               </div>
             )}
           </Card>
@@ -532,7 +532,7 @@ export default function ProfilePage() {
                 },
                 {
                   icon: KeyRound, label: 'Change Password',
-                  color: '#7c3aed', bg: '#ede9fe',
+                  color: 'var(--accent-base)', bg: 'var(--accent-soft)',
                   onClick: () => router.push('/settings'),
                 },
               ].map(({ icon: Icon, label, color, bg, onClick }) => (
@@ -578,7 +578,7 @@ export default function ProfilePage() {
             <InfoRow icon={Building2} label="Department"      value={profile.department}
               iconColor="#2563eb" iconBg="#dbeafe" />
             <InfoRow icon={Briefcase} label="Designation"     value={profile.jobTitle}
-              iconColor="#7c3aed" iconBg="#ede9fe" />
+              iconColor="var(--accent-base)" iconBg="var(--accent-soft)" />
             <InfoRow icon={User}      label="Role"            value={roleLabel} />
             <InfoRow icon={Clock}     label="Employment Type" value={empTypeLabel}
               iconColor="#16a34a" iconBg="#dcfce7" />

@@ -819,7 +819,7 @@ export default function LeadDetailPage() {
                   return upcoming ? (
                     <span
                       className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-sm font-medium border"
-                      style={{ borderColor: 'rgba(99,102,241,0.3)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
+                      style={{ borderColor: 'var(--border-strong)', color: 'var(--accent-base)', background: 'var(--accent-soft)' }}>
                       <Calendar className="h-4 w-4" /> Visit {fmtDate(upcoming.scheduledAt)}
                     </span>
                   ) : (

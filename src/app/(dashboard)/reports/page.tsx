@@ -286,7 +286,7 @@ async function exportReport(report: string, from: string, to: string) {
 
 function ActivityIcon({ type }: { type: ActivityItem['type'] }) {
   const MAP: Record<ActivityItem['type'], { bg: string; fg: string; el: React.ReactNode }> = {
-    lead:    { bg: 'rgba(99,102,241,.12)', fg: '#6366f1', el: <Users className="w-4 h-4" /> },
+    lead:    { bg: 'var(--accent-soft)', fg: 'var(--accent-base)', el: <Users className="w-4 h-4" /> },
     project: { bg: 'rgba(16,185,129,.12)', fg: '#10b981', el: <FolderOpen className="w-4 h-4" /> },
     invoice: { bg: 'rgba(245,158,11,.12)', fg: '#f59e0b', el: <FileText className="w-4 h-4" /> },
     payment: { bg: 'rgba(16,185,129,.12)', fg: '#10b981', el: <IndianRupee className="w-4 h-4" /> },

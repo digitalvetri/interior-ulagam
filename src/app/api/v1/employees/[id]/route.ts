@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const RoleEnum = z.enum(['owner', 'designer', 'supervisor', 'accountant']);
 const EmpTypeEnum = z.enum(['full_time', 'part_time', 'contract', 'intern', 'consultant']);
@@ -29,6 +29,28 @@ const PatchSchema = z.object({
     phone: z.string().optional(),
   }).nullable().optional(),
 });
+
+/**
+ * Returns a 409 when `id` is the tenant's only owner, otherwise null.
+ *
+ * Guards both demotion and deletion. Without it a studio can strand itself:
+ * every route that could restore an owner is owner-only, so there is no way
+ * back through the product.
+ */
+async function wouldRemoveLastOwner(id: string, tenantId: string) {
+  const owners = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(eq(users.tenantId, tenantId), eq(users.role, 'owner')));
+
+  const isLastOwner = owners.length <= 1 && owners.some((o) => o.id === id);
+  if (!isLastOwner) return null;
+
+  return NextResponse.json(
+    { error: 'This is the only owner. Promote another user to owner first.' },
+    { status: 409 },
+  );
+}
 
 async function fetchOne(id: string, tenantId: string) {
   const [row] = await db
@@ -61,7 +83,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
@@ -92,6 +115,14 @@ export async function PATCH(
     const existing = await fetchOne(id, ctx.tenantId);
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+    // Demoting the last owner leaves the studio with nobody who can manage
+    // staff, approve quotes, or restore the role — and no route to recover,
+    // because every path back is itself owner-only.
+    if (patch.role && patch.role !== 'owner' && existing.role === 'owner') {
+      const blocked = await wouldRemoveLastOwner(id, ctx.tenantId);
+      if (blocked) return blocked;
+    }
+
     const [row] = await db
       .update(users)
       .set(patch)
@@ -110,13 +141,17 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
   }
   try {
+    const blocked = await wouldRemoveLastOwner(id, ctx.tenantId);
+    if (blocked) return blocked;
+
     const [row] = await db
       .delete(users)
       .where(and(eq(users.id, id), eq(users.tenantId, ctx.tenantId)))

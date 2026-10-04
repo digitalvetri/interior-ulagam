@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { recalculateQuoteTotals } from '@/lib/quotes/totals';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
 const BulkCreateLinesSchema = z.object({
@@ -21,28 +22,14 @@ const BulkCreateLinesSchema = z.object({
     .max(500),
 });
 
-async function recalculateQuoteTotals(quoteId: string): Promise<void> {
-  const allLines = await db
-    .select({ clientRatePaise: quoteLines.clientRatePaise, qty: quoteLines.qty })
-    .from(quoteLines)
-    .where(eq(quoteLines.quoteId, quoteId));
-
-  const subtotalPaise = allLines.reduce((acc, l) => acc + l.clientRatePaise * l.qty, 0);
-  const gstPaise      = Math.round(subtotalPaise * 0.18);
-  const totalPaise    = subtotalPaise + gstPaise;
-
-  await db
-    .update(quotes)
-    .set({ subtotalPaise, gstPaise, totalPaise })
-    .where(eq(quotes.id, quoteId));
-}
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id: quoteId } = await params;
 
@@ -76,6 +63,7 @@ export async function POST(
     const values = parsed.data.lines.map((l) => ({
       quoteId,
       room:            l.room,
+      tenantId:        ctx.tenantId,
       item:            l.item,
       unit:            l.unit,
       qty:             l.qty,
@@ -84,8 +72,11 @@ export async function POST(
       marginPaise:     Math.round((l.clientRatePaise - l.costRatePaise) * l.qty),
     }));
 
-    const inserted = await db.insert(quoteLines).values(values).returning({ id: quoteLines.id });
-    await recalculateQuoteTotals(quoteId);
+    const inserted = await db.transaction(async (tx) => {
+      const rows = await tx.insert(quoteLines).values(values).returning({ id: quoteLines.id });
+      await recalculateQuoteTotals(quoteId, tx);
+      return rows;
+    });
 
     return NextResponse.json(
       { data: { count: inserted.length }, message: `${inserted.length} lines imported` },

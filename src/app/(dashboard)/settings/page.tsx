@@ -271,7 +271,7 @@ export default function SettingsPage() {
 
   const ROLE_COUNTS = employees.reduce<Record<string, number>>((acc, e) => { acc[e.role] = (acc[e.role] ?? 0) + 1; return acc; }, {});
   const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
-    owner: { bg: '#EDE9FE', color: '#7C3AED' }, designer: { bg: '#D1FAE5', color: '#059669' },
+    owner: { bg: 'var(--accent-soft)', color: 'var(--accent-text)' }, designer: { bg: '#D1FAE5', color: '#059669' },
     supervisor: { bg: '#FEF3CD', color: '#D97706' }, accountant: { bg: '#DBEAFE', color: '#2563EB' },
   };
 
@@ -284,7 +284,7 @@ export default function SettingsPage() {
     { kind: 'backup',    label: 'Full Backup',       desc: 'Complete workspace — JSON',       ext: 'json' },
   ];
   const ICON_MAP: Record<string, React.ReactNode> = {
-    leads:     <Users        className="h-5 w-5" style={{ color: '#7C3AED' }} />,
+    leads:     <Users        className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />,
     projects:  <Briefcase    className="h-5 w-5" style={{ color: '#2D8A6A' }} />,
     quotes:    <FileText     className="h-5 w-5" style={{ color: '#2563EB' }} />,
     payments:  <IndianRupee  className="h-5 w-5" style={{ color: '#D97706' }} />,
@@ -437,7 +437,7 @@ export default function SettingsPage() {
           {/* My Profile */}
           <Card>
             <CardHead
-              icon={Briefcase} iconBg="#EDE9FE" iconColor="#7C3AED"
+              icon={Briefcase} iconBg="var(--accent-soft)" iconColor="var(--accent-base)"
               title="My Profile" subtitle="Your personal details as owner"
               editing={editingProfile} onEdit={openProfileEdit}
               onCancel={cancelProfileEdit} saving={savingP} onSave={saveProfile}

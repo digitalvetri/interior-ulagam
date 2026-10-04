@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { projects, deliverables } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const postBodySchema = z.object({
   type: z.enum(['2d_plan', '3d_render', 'color_palette', 'working_drawings', 'bom']),
@@ -65,6 +65,8 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 
@@ -93,6 +95,7 @@ export async function POST(
   const [created] = await db
     .insert(deliverables)
     .values({
+      tenantId: ctx.tenantId,
       projectId: id,
       type,
       revisionCap,

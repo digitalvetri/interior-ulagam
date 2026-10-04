@@ -62,18 +62,59 @@ function presignClient(): S3Client {
   return cachedPublic;
 }
 
+/**
+ * What callers are allowed to store.
+ *
+ * The content type was previously passed straight through to S3 with no
+ * allowlist and no size ceiling, so any authenticated caller could park
+ * arbitrary files of arbitrary size in the bucket — and a stored text/html
+ * served back from the storage origin is a scripting vector.
+ */
+const ALLOWED_CONTENT_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+  'application/pdf',
+  'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/webm',
+  'text/csv',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/octet-stream',
+]);
+
+/** 25 MB — comfortably above a phone photo, well below a memory problem. */
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+export class UploadRejected extends Error {}
+
 export async function putObject(opts: {
   bucket?: string;
   key: string;
   body: Buffer;
   contentType?: string;
 }): Promise<void> {
+  if (opts.body.byteLength > MAX_UPLOAD_BYTES) {
+    throw new UploadRejected(
+      `File is ${(opts.body.byteLength / 1024 / 1024).toFixed(1)} MB. The limit is ` +
+        `${MAX_UPLOAD_BYTES / 1024 / 1024} MB.`,
+    );
+  }
+
+  // Normalise `image/jpeg; charset=…` down to the media type before checking.
+  const contentType = (opts.contentType ?? 'application/octet-stream')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+    throw new UploadRejected(`Files of type "${contentType}" cannot be uploaded.`);
+  }
+
   await client().send(
     new PutObjectCommand({
       Bucket: opts.bucket ?? DOCUMENTS_BUCKET,
       Key: opts.key,
       Body: opts.body,
-      ContentType: opts.contentType,
+      // Store the normalised type, never the caller's raw header.
+      ContentType: contentType,
     }),
   );
 }

@@ -75,7 +75,7 @@ export function CreateQuotationModal({ leadId, leadName, open, onOpenChange, onS
               disabled={submitting}
               onClick={() => handleCreate(true)}
               className="w-full flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl text-white disabled:opacity-50"
-              style={{ background: '#7C3AED' }}
+              style={{ background: 'var(--accent-base)' }}
             >
               <ExternalLink className="h-4 w-4" />
               {submitting ? 'Creating…' : 'Create & Open Quote Editor'}

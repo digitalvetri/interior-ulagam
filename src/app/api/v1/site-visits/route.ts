@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteVisits, leads, users, customers, notifications } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const VISIT_PURPOSE_VALUES = [
   'initial', 'measurement', 'design_review',
@@ -87,6 +87,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   let body: unknown;
   try {

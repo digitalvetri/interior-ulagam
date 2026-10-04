@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { milestones, projects } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, asc } from 'drizzle-orm';
 
 const CreateMilestoneSchema = z.object({
@@ -74,6 +74,8 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id: projectId } = await params;
 
@@ -118,21 +120,27 @@ export async function POST(
         { label: 'Handover', pctOfTotal: 10 },
       ];
 
-      // Insert sequentially so createdAt ordering is guaranteed
-      const created = [];
-      for (const def of defaults) {
-        const amountPaise = Math.round((total * def.pctOfTotal) / 100);
-        const [row] = await db
-          .insert(milestones)
-          .values({
-            projectId,
-            label: def.label,
-            pctOfTotal: def.pctOfTotal,
-            amountPaise,
-          })
-          .returning();
-        created.push(row);
-      }
+      // Insert sequentially so createdAt ordering is guaranteed, and inside one
+      // transaction so a failure part-way cannot leave a project with half a
+      // payment schedule — which would silently under-bill the client.
+      const created = await db.transaction(async (tx) => {
+        const rows = [];
+        for (const def of defaults) {
+          const amountPaise = Math.round((total * def.pctOfTotal) / 100);
+          const [row] = await tx
+            .insert(milestones)
+            .values({
+              tenantId: ctx.tenantId,
+              projectId,
+              label: def.label,
+              pctOfTotal: def.pctOfTotal,
+              amountPaise,
+            })
+            .returning();
+          rows.push(row);
+        }
+        return rows;
+      });
 
       return NextResponse.json({ data: created }, { status: 201 });
     }
@@ -143,6 +151,7 @@ export async function POST(
     const [created] = await db
       .insert(milestones)
       .values({
+        tenantId: ctx.tenantId,
         projectId,
         label: input.label,
         pctOfTotal: input.pctOfTotal,

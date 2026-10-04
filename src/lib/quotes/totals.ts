@@ -3,6 +3,16 @@ import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
 
 /**
+ * A database handle: the pool, or a transaction taken from it.
+ *
+ * Drizzle's transaction object exposes the same query builder as `db` but is a
+ * distinct type, so the callback parameter type is derived from
+ * `db.transaction` rather than restated — it cannot drift from the real one.
+ */
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type DbHandle = typeof db | Transaction;
+
+/**
  * Recalculate and persist quote totals after any line or header change.
  *
  * Formula (discount-aware):
@@ -10,10 +20,18 @@ import { quotes, quoteLines } from '@/lib/db/schema';
  *   marginPaise    = SUM(line.marginPaise) over all lines
  *   gstPaise       = ROUND((subtotalPaise - discountPaise) * gstPct / 100)
  *   totalPaise     = subtotalPaise - discountPaise + gstPaise
+ *
+ * Pass the transaction handle when called alongside a line change, so the
+ * recalculation commits or rolls back with the change that prompted it —
+ * otherwise a failure in between leaves the quote's totals disagreeing with
+ * its lines, on the document a client is sent.
  */
-export async function recalculateQuoteTotals(quoteId: string): Promise<void> {
+export async function recalculateQuoteTotals(
+  quoteId: string,
+  tx: DbHandle = db,
+): Promise<void> {
   // Fetch the quote's discount and GST rate
-  const [quote] = await db
+  const [quote] = await tx
     .select({
       discountPaise: quotes.discountPaise,
       gstPct: quotes.gstPct,
@@ -24,7 +42,7 @@ export async function recalculateQuoteTotals(quoteId: string): Promise<void> {
   if (!quote) return;
 
   // Aggregate line totals
-  const allLines = await db
+  const allLines = await tx
     .select({
       clientRatePaise: quoteLines.clientRatePaise,
       qty: quoteLines.qty,
@@ -47,7 +65,7 @@ export async function recalculateQuoteTotals(quoteId: string): Promise<void> {
   const gstPaise = Math.round((subtotalPaise - discountPaise) * gstPct / 100);
   const totalPaise = subtotalPaise - discountPaise + gstPaise;
 
-  await db
+  await tx
     .update(quotes)
     .set({ subtotalPaise, gstPaise, totalPaise, marginPaise: quoteMarginPaise })
     .where(eq(quotes.id, quoteId));

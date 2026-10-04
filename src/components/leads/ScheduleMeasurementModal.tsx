@@ -153,7 +153,7 @@ export function ScheduleMeasurementModal({ leadId, open, onOpenChange, onSuccess
                   onOpenChange(false);
                 }}
                 className="px-5 py-2 text-sm font-semibold rounded-xl text-white"
-                style={{ background: '#7C3AED' }}>
+                style={{ background: 'var(--accent-base)' }}>
                 Move to Measurement
               </button>
             </div>
@@ -222,7 +222,7 @@ export function ScheduleMeasurementModal({ leadId, open, onOpenChange, onSuccess
               </button>
               <button type="submit" disabled={submitting}
                 className="px-5 py-2 text-sm font-semibold rounded-xl text-white disabled:opacity-50"
-                style={{ background: '#7C3AED' }}>
+                style={{ background: 'var(--accent-base)' }}>
                 {submitting ? 'Creating…' : 'Create Round & Move to Measurement'}
               </button>
             </div>

@@ -82,6 +82,7 @@ export async function POST(
       .insert(quoteLines)
       .values(
         items.map((item) => ({
+          tenantId: ctx.tenantId,
           quoteId,
           room: item.room,
           item: item.itemName,

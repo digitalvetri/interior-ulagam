@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { milestones, projects, invoices, payments } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, count, sql } from 'drizzle-orm';
 import { razorpayProvider as paymentsProvider } from '@/lib/payments';
 import { logPendingWorkflow } from '@/jobs/queue';
@@ -23,6 +23,8 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { id: milestoneId } = await params;
 

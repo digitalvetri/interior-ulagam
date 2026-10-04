@@ -3,7 +3,8 @@ import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { projects, deliverables } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { requireUuid } from '@/lib/http';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 export async function POST(
   _request: NextRequest,
@@ -13,9 +14,15 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
 
+
+  const badId = requireUuid(id);
+
+  if (badId) return badId;
   // Verify deliverable exists and belongs to this tenant via JOIN
   const rows = await db
     .select({ id: deliverables.id })

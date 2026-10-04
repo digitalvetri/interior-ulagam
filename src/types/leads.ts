@@ -136,11 +136,6 @@ export const STAGE_ORDER: LeadStage[] = [
   'quotation', 'negotiation', 'booked', 'lost',
 ];
 
-export const ACTIVE_STAGES: LeadStage[] = [
-  'new', 'contacted', 'site_visit', 'measured',
-  'quotation', 'negotiation',
-];
-
 export const STAGE_LABELS: Record<LeadStage, string> = {
   new:         'New Inquiry',
   contacted:   'Contacted',

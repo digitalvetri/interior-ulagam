@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, desc, ne } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, waMessages, projects, users, customers } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
 import { applyStageTransition } from '@/lib/leads/transitions';
 
@@ -149,6 +149,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
@@ -359,10 +361,8 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  if (!['owner', 'designer'].includes(ctx.role)) {
-    return NextResponse.json({ error: 'Only owners and designers can delete leads' }, { status: 403 });
-  }
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

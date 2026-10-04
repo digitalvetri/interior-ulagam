@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { materials } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { listRange, takePage } from '@/lib/pagination';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, desc } from 'drizzle-orm';
 
 // Real enum values from schema.ts materialCategoryEnum
@@ -31,6 +32,7 @@ const CreateMaterialSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const range = listRange(request);
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -59,9 +61,12 @@ export async function GET(request: NextRequest) {
       .select()
       .from(materials)
       .where(and(...conditions))
-      .orderBy(desc(materials.createdAt));
+      .orderBy(desc(materials.createdAt))
+        .limit(range.limit + 1)
+        .offset(range.offset);
 
-    return NextResponse.json({ data: rows });
+    const { page, hasMore } = takePage(rows, range);
+    return NextResponse.json({ data: page, hasMore, limit: range.limit, offset: range.offset });
   } catch (err) {
     console.error('[materials GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -73,10 +78,8 @@ export async function POST(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  if (ctx.role !== 'owner') {
-    return NextResponse.json({ error: 'Forbidden: owner role required to add materials' }, { status: 403 });
-  }
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   let body: unknown;
   try {

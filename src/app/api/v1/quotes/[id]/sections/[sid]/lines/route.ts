@@ -76,6 +76,7 @@ export async function POST(
     const [line] = await db
       .insert(quoteLines)
       .values({
+        tenantId: ctx.tenantId,
         quoteId: id,
         sectionId: sid,
         room: input.room,

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { quotes, projects, leads } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, desc, count, or, inArray } from 'drizzle-orm';
+import { listRange, takePage } from '@/lib/pagination';
 
 const CreateQuoteSchema = z.object({
   projectId: z.string().uuid().optional(),
@@ -13,6 +14,7 @@ const CreateQuoteSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const range = listRange(request);
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -70,9 +72,12 @@ export async function GET(request: NextRequest) {
       .leftJoin(projects, eq(quotes.projectId, projects.id))
       .leftJoin(leads, eq(quotes.leadId, leads.id))
       .where(and(...conditions))
-      .orderBy(desc(quotes.createdAt));
+      .orderBy(desc(quotes.createdAt))
+        .limit(range.limit + 1)
+        .offset(range.offset);
 
-    return NextResponse.json({ data: rows });
+    const { page, hasMore } = takePage(rows, range);
+    return NextResponse.json({ data: page, hasMore, limit: range.limit, offset: range.offset });
   } catch (err) {
     console.error('[quotes GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -84,6 +89,8 @@ export async function POST(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   let body: unknown;
   try {

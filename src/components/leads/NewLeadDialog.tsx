@@ -36,7 +36,7 @@ function fromLead(lead: Lead): FormState {
 interface NewLeadDialogProps {
   onSuccess: (lead: Lead) => void;
   defaultOpen?: boolean;
-  triggerLabel?: string;
+  triggerLabel?: React.ReactNode;
   triggerClassName?: string;
   onClose?: () => void;
   preselectedCustomer?: {

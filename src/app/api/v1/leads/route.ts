@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { eq, and, desc, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { listRange, takePage } from '@/lib/pagination';
 import { enqueueBestEffort } from '@/jobs/queue';
 
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ const CreateLeadSchema = z.object({
 // ─── GET /api/v1/leads ───────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
+  const range = listRange(request);
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -103,9 +105,12 @@ export async function GET(request: NextRequest) {
       })
       .from(leads)
       .where(and(...conditions))
-      .orderBy(desc(leads.lastActivityAt));
+      .orderBy(desc(leads.lastActivityAt))
+        .limit(range.limit + 1)
+        .offset(range.offset);
 
-    return NextResponse.json({ data: result });
+    const { page, hasMore } = takePage(result, range);
+    return NextResponse.json({ data: page, hasMore, limit: range.limit, offset: range.offset });
   } catch (e) {
     console.error('[GET /api/v1/leads]', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -117,6 +122,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   let body: unknown;
   try {

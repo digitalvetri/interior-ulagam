@@ -193,7 +193,7 @@ export function ScheduleSiteVisitModal({ leadId, open, onOpenChange, defaultAddr
                 type="submit"
                 disabled={submitting}
                 className="px-5 py-2 text-sm font-semibold rounded-xl text-white disabled:opacity-50"
-                style={{ background: '#7C3AED' }}
+                style={{ background: 'var(--accent-base)' }}
               >
                 {submitting ? 'Scheduling…' : 'Schedule Site Visit'}
               </button>

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { vendors } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, asc, count, inArray } from 'drizzle-orm';
 import { purchaseOrders } from '@/lib/db/schema';
+import { listRange, takePage } from '@/lib/pagination';
 
 const MATERIAL_CATEGORIES = [
   'laminate',
@@ -35,6 +36,7 @@ const CreateVendorSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
+  const range = listRange(request);
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -58,10 +60,14 @@ export async function GET(request: NextRequest) {
       .select()
       .from(vendors)
       .where(and(...conditions))
-      .orderBy(asc(vendors.name));
+      .orderBy(asc(vendors.name))
+        .limit(range.limit + 1)
+        .offset(range.offset);
+
+    const { page, hasMore } = takePage(rows, range);
 
     // Enrich with open PO counts
-    const vendorIds = rows.map((v) => v.id);
+    const vendorIds = page.map((v) => v.id);
     const openPOCountByVendor = new Map<string, number>();
     if (vendorIds.length > 0) {
       const openStatuses = ['draft', 'sent', 'acknowledged', 'partial'] as const;
@@ -79,9 +85,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const enriched = rows.map((v) => ({ ...v, openPOCount: openPOCountByVendor.get(v.id) ?? 0 }));
+    const enriched = page.map((v) => ({ ...v, openPOCount: openPOCountByVendor.get(v.id) ?? 0 }));
 
-    return NextResponse.json({ data: enriched });
+    return NextResponse.json({ data: enriched, hasMore, limit: range.limit, offset: range.offset });
   } catch (err) {
     console.error('[vendors GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -93,6 +99,8 @@ export async function POST(request: NextRequest) {
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.PROCUREMENT);
+  if (denied) return denied;
 
   let body: unknown;
   try {

@@ -34,7 +34,7 @@ const ACTIVITY_DOT_COLOR: Record<string, string> = {
   meeting:          'var(--accent-base)',
   site_visit:       'var(--warning)',
   stage_change:     '#64748b',
-  project_created:  '#6366f1',
+  project_created:  'var(--accent-base)',
   payment_received: '#14b8a6',
   quote_sent:       '#f97316',
   follow_up:        '#ec4899',

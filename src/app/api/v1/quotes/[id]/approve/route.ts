@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { quotes } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { requireUuid } from '@/lib/http';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(
@@ -12,9 +13,15 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
 
+
+  const badId = requireUuid(id);
+
+  if (badId) return badId;
   try {
     const [quote] = await db
       .select()

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects, snagItems } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, asc } from 'drizzle-orm';
 
 const CreateSnagItemSchema = z.object({
@@ -53,6 +53,8 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 
@@ -83,6 +85,7 @@ export async function POST(
     const [created] = await db
       .insert(snagItems)
       .values({
+        tenantId: ctx.tenantId,
         projectId: id,
         description: input.description,
         photoUrl: input.photoUrl ?? null,

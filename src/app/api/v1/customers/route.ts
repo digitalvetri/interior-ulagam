@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, count, desc, eq, ilike, inArray, notInArray, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { customers, leads, projects } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { enqueueBestEffort } from '@/jobs/queue';
 
 const CustomerSourceEnum = z.enum([
@@ -122,6 +122,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   let body: unknown;
   try {

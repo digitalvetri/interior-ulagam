@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { db } from '@/lib/db';
 import { projects, clientTokens } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { requireUuid } from '@/lib/http';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 
@@ -20,6 +21,10 @@ export async function GET(
 
   const { id } = await params;
 
+
+  const badId = requireUuid(id);
+
+  if (badId) return badId;
   try {
     const [project] = await db
       .select({ id: projects.id, tenantId: projects.tenantId })
@@ -69,10 +74,8 @@ export async function DELETE(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  if (ctx.role !== 'owner' && ctx.role !== 'designer') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id } = await params;
 

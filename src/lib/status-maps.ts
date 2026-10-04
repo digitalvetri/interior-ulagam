@@ -117,7 +117,13 @@ export const PAYMENT_MODE_MAP: StatusMap = {
   razorpay: { label: 'Razorpay', bg: '#FFF7ED',              color: '#C2410C' },
 };
 
-export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests' | 'site_visits' | 'measurements' | 'work_orders' | 'invoices' | 'payment_modes';
+export const CIVIL_JOB_STATUS_MAP: StatusMap = {
+  done:    { label: 'Done',    bg: '#E0F2FE',             color: '#0369A1',             dot: '#0284C7' },
+  billed:  { label: 'Billed',  bg: '#EEF2FF',             color: '#4338CA',             dot: '#6366F1' },
+  paid:    { label: 'Paid',    bg: 'var(--success-soft)', color: 'var(--success-text)', dot: 'var(--success)' },
+};
+
+export type StatusModule = 'leads' | 'quotes' | 'milestones' | 'deliverables' | 'snags' | 'pos' | 'service_requests' | 'site_visits' | 'measurements' | 'work_orders' | 'invoices' | 'payment_modes' | 'civil_jobs';
 
 export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
   leads:            LEAD_STATUS_MAP,
@@ -132,4 +138,5 @@ export const STATUS_MAPS: Record<StatusModule, StatusMap> = {
   work_orders:      WORK_ORDER_STATUS_MAP,
   invoices:         INVOICE_STATUS_MAP,
   payment_modes:    PAYMENT_MODE_MAP,
+  civil_jobs:       CIVIL_JOB_STATUS_MAP,
 };

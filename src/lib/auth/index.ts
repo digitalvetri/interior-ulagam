@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
@@ -20,13 +21,13 @@ export interface TenantContext {
   role: UserRole;
 }
 
-const ROLES: readonly UserRole[] = ['owner', 'designer', 'supervisor', 'accountant'];
+const ALL_ROLES: readonly UserRole[] = ['owner', 'designer', 'supervisor', 'accountant'];
 // 'admin' is a migration alias for 'owner'; 'employee' falls back to 'designer'.
 const ROLE_ALIASES: Record<string, UserRole> = { admin: 'owner', employee: 'designer' };
 
 function toRole(value: unknown): UserRole {
   if (typeof value !== 'string') return 'designer';
-  if (ROLES.includes(value as UserRole)) return value as UserRole;
+  if (ALL_ROLES.includes(value as UserRole)) return value as UserRole;
   return ROLE_ALIASES[value] ?? 'designer';
 }
 
@@ -64,6 +65,11 @@ export async function requireAuth(): Promise<TenantContext> {
   return ctx;
 }
 
+/**
+ * Server-component guard. Throws, which React renders as an error boundary —
+ * appropriate for a page, wrong for an API route. API routes use
+ * requireApiRole() below.
+ */
 export async function requireRole(allowedRoles: UserRole[]): Promise<TenantContext> {
   const ctx = await requireAuth();
   if (!allowedRoles.includes(ctx.role)) {
@@ -75,4 +81,56 @@ export async function requireRole(allowedRoles: UserRole[]): Promise<TenantConte
 // Use in API routes — returns null instead of redirecting.
 export async function getAuthContext(): Promise<TenantContext | null> {
   return loadContext();
+}
+
+/**
+ * Named role sets, derived from src/lib/nav-items.ts.
+ *
+ * The sidebar already encodes who is meant to see each module; these mirror it
+ * so the API enforces the boundary the interface advertises, rather than a
+ * second opinion invented here. Operations with financial or destructive
+ * consequence — approving, sending, deleting, changing a role, overriding a
+ * milestone, issuing a client token — are narrowed to OWNER_ONLY regardless of
+ * what the module's read access allows.
+ */
+export const ROLES = {
+  /** Leads and customers — the CRM group. */
+  CRM: ['owner', 'designer'] as UserRole[],
+  /** Projects, design tasks, site logs, snags — anyone who works on delivery. */
+  DELIVERY: ['owner', 'designer', 'supervisor'] as UserRole[],
+  /** Quotes and requirements — commercial documents, before approval. */
+  COMMERCIAL: ['owner', 'designer'] as UserRole[],
+  /** Materials, vendors, purchase orders — the procurement group. */
+  PROCUREMENT: ['owner', 'designer', 'accountant'] as UserRole[],
+  /** Invoices, payments, expenses, milestones — the finance group. */
+  FINANCE: ['owner', 'accountant'] as UserRole[],
+  /** Civil Management division — office staff only, reads included (it is all billing data). */
+  CIVIL: ['owner', 'accountant'] as UserRole[],
+  /** Irreversible or financially binding actions. */
+  OWNER_ONLY: ['owner'] as UserRole[],
+} as const;
+
+/**
+ * API-route role guard. Returns a 403 response to hand back, or null to proceed:
+ *
+ *   const denied = requireApiRole(ctx, ROLES.CRM);
+ *   if (denied) return denied;
+ *
+ * Deliberately mirrors checkRateLimit's shape rather than requireRole's. A
+ * thrown error inside a route handler becomes a 500, which tells the caller the
+ * server broke when in fact they were not allowed — and hides a genuine
+ * authorisation denial inside the noise of real failures.
+ */
+export function requireApiRole(
+  ctx: TenantContext,
+  allowedRoles: readonly UserRole[],
+): NextResponse | null {
+  if (allowedRoles.includes(ctx.role)) return null;
+
+  return NextResponse.json(
+    {
+      error: `Access denied. This action requires: ${allowedRoles.join(', ')}.`,
+    },
+    { status: 403 },
+  );
 }

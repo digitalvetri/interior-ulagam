@@ -99,6 +99,7 @@ export async function POST(
       .insert(milestones)
       .values([
         {
+          tenantId: ctx.tenantId,
           projectId: project.id,
           label: 'Advance Payment',
           pctOfTotal: 10,
@@ -106,6 +107,7 @@ export async function POST(
           paymentStatus: (input.advancePaidPaise > 0 ? 'paid' : 'pending') as 'paid' | 'pending',
         },
         {
+          tenantId: ctx.tenantId,
           projectId: project.id,
           label: 'Design Approval',
           pctOfTotal: 40,
@@ -113,6 +115,7 @@ export async function POST(
           paymentStatus: 'pending',
         },
         {
+          tenantId: ctx.tenantId,
           projectId: project.id,
           label: 'Before Handover',
           pctOfTotal: 40,
@@ -120,6 +123,7 @@ export async function POST(
           paymentStatus: 'pending',
         },
         {
+          tenantId: ctx.tenantId,
           projectId: project.id,
           label: 'Completion',
           pctOfTotal: 10,

@@ -43,6 +43,34 @@
       "when": 1788681290385,
       "tag": "0005_tough_rictor",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790228437351,
+      "tag": "0019_tenant_id_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791100000000,
+      "tag": "0020_civil_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791200000000,
+      "tag": "0021_civil_costs",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791300000000,
+      "tag": "0022_civil_no_pending",
+      "breakpoints": true
     }
   ]
 }

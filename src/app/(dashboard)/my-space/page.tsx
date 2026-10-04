@@ -328,7 +328,7 @@ function GreetingBanner() {
         <button
           onClick={() => setShowTask(true)}
           className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
-          style={{ background: '#7c3aed14', color: '#7c3aed', border: '1px solid #ddd6fe' }}
+          style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}
         >
           <Plus size={15} />
           New Task

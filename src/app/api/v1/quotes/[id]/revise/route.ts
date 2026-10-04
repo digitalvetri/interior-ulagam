@@ -89,6 +89,7 @@ export async function POST(
     if (originalLines.length > 0) {
       await db.insert(quoteLines).values(
         originalLines.map((line) => ({
+          tenantId: ctx.tenantId,
           quoteId: newQuote.id,
           sectionId: line.sectionId ? (sectionIdMap.get(line.sectionId) ?? null) : null,
           room: line.room,

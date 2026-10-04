@@ -24,9 +24,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  // Short-circuit before touching Supabase for public paths.
-  // This prevents AuthRetryableFetchError from crashing all requests
-  // when Supabase is temporarily unreachable.
+  // Public paths skip the session lookup entirely — there is nothing to check
+  // and no reason to pay for it.
   if (isPublic(pathname)) {
     return NextResponse.next({ request });
   }

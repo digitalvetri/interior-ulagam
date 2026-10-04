@@ -61,7 +61,7 @@ const ACTIVITY_META: Record<CustomerActivityType, { label: string; color: string
   meeting:          { label: 'Meeting',          color: 'var(--accent-base)', icon: <Users            className="h-3.5 w-3.5" /> },
   site_visit:       { label: 'Site visit',       color: '#f59e0b',            icon: <MapPin           className="h-3.5 w-3.5" /> },
   stage_change:     { label: 'Stage changed',    color: '#64748b',            icon: <ArrowRightCircle className="h-3.5 w-3.5" /> },
-  project_created:  { label: 'Project created',  color: '#6366f1',            icon: <FolderOpen       className="h-3.5 w-3.5" /> },
+  project_created:  { label: 'Project created',  color: 'var(--accent-base)',            icon: <FolderOpen       className="h-3.5 w-3.5" /> },
   payment_received: { label: 'Payment received', color: '#14b8a6',            icon: <CreditCard       className="h-3.5 w-3.5" /> },
   quote_sent:       { label: 'Quote sent',       color: '#f97316',            icon: <Send             className="h-3.5 w-3.5" /> },
   follow_up:        { label: 'Follow-up',        color: '#ec4899',            icon: <Bell             className="h-3.5 w-3.5" /> },
@@ -500,7 +500,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <Link
                       href={`/leads/${displayed.activeLeadId}`}
                       className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[12px] font-semibold hover:opacity-75 transition-opacity"
-                      style={{ background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.20)' }}
+                      style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }}
                     >
                       <ChevronRight className="h-3 w-3" />
                       {LEAD_STAGE_LABEL[displayed.activeLeadStage] ?? displayed.activeLeadStage}
@@ -753,8 +753,8 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                     <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: 'var(--text-secondary)' }} /></div>
                   ) : !summary || (summary.projects.length === 0 && summary.leads.length === 0) ? (
                     <div className="flex flex-col items-center gap-3 py-10 text-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'rgba(99,102,241,0.08)' }}>
-                        <FolderOpen className="h-5 w-5" style={{ color: '#6366f1' }} />
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: 'var(--accent-soft)' }}>
+                        <FolderOpen className="h-5 w-5" style={{ color: 'var(--accent-base)' }} />
                       </div>
                       <div>
                         <p className="text-[13px] font-semibold" style={{ color: 'var(--text-heading)' }}>No projects yet</p>
@@ -939,7 +939,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
                               <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
                                 style={row.kind === 'payment'
                                   ? { background: 'rgba(16,185,129,0.12)', color: '#059669', border: '1px solid rgba(16,185,129,0.30)' }
-                                  : { background: 'rgba(99,102,241,0.10)', color: '#4f46e5', border: '1px solid rgba(99,102,241,0.25)' }
+                                  : { background: 'var(--accent-soft)', color: 'var(--accent-text)', border: '1px solid var(--border-subtle)' }
                                 }>
                                 {row.kind === 'payment' ? 'Received' : 'Invoice'}
                               </span>

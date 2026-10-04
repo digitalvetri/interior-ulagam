@@ -1,17 +1,18 @@
 import { NextRequest } from 'next/server';
-import postgres from 'postgres';
 import { getAuthContext } from '@/lib/auth';
+import { subscribe } from '@/lib/realtime/listener';
 
 /**
  * Server-sent events stream of database changes — replaces Supabase Realtime.
  *
- * Postgres triggers (migration 0002) emit pg_notify on 'table_changes'; this
- * route LISTENs and forwards each event to the browser. Events for other
- * tenants are dropped here, so a client never learns that another studio's data
- * changed.
+ * Postgres triggers (migration 0002) emit pg_notify on 'table_changes'; a single
+ * shared listener per process (src/lib/realtime/listener.ts) receives them and
+ * fans them out to every open stream. Events for other tenants are dropped
+ * here, so a client never learns that another studio's data changed.
  *
- * LISTEN occupies its connection for as long as it is held, so this uses its own
- * single-socket client rather than borrowing from the app's shared pool.
+ * This route previously opened its own Postgres connection per request, which
+ * made connection count scale with concurrent viewers and could starve the pool
+ * the rest of the application depends on.
  */
 export const dynamic = 'force-dynamic';
 
@@ -21,14 +22,12 @@ export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return new Response('Unauthorized', { status: 401 });
 
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) return new Response('Not configured', { status: 503 });
+  if (!process.env.DATABASE_URL) return new Response('Not configured', { status: 503 });
 
   const encoder = new TextEncoder();
-  const sql = postgres(databaseUrl, { max: 1 });
 
   let heartbeat: ReturnType<typeof setInterval> | undefined;
-  let unlisten: (() => Promise<void>) | undefined;
+  let unsubscribe: (() => void) | undefined;
   let closed = false;
 
   const stream = new ReadableStream({
@@ -42,36 +41,27 @@ export async function GET(request: NextRequest) {
         }
       };
 
-      const cleanup = async () => {
+      const cleanup = () => {
         if (closed) return;
         closed = true;
         if (heartbeat) clearInterval(heartbeat);
-        try { await unlisten?.(); } catch { /* connection already gone */ }
-        try { await sql.end({ timeout: 5 }); } catch { /* already closed */ }
+        unsubscribe?.();
         try { controller.close(); } catch { /* already closed */ }
       };
 
-      request.signal.addEventListener('abort', () => void cleanup());
+      request.signal.addEventListener('abort', cleanup);
 
       try {
-        const subscription = await sql.listen('table_changes', (payload) => {
-          try {
-            const event = JSON.parse(payload) as {
-              table?: string;
-              op?: string;
-              tenantId?: string | null;
-            };
-            // Drop anything belonging to a different tenant.
-            if (event.tenantId && event.tenantId !== ctx.tenantId) return;
-            send(`data: ${JSON.stringify({ table: event.table, op: event.op })}\n\n`);
-          } catch {
-            // Malformed payload — ignore rather than kill the stream.
-          }
+        unsubscribe = await subscribe((event) => {
+          // Fail closed: an event with no tenant belongs to nobody, so it goes
+          // to nobody. The previous `event.tenantId && ...` form skipped the
+          // check on a null tenant and broadcast to every connected client.
+          if (event.tenantId !== ctx.tenantId) return;
+          send(`data: ${JSON.stringify({ table: event.table, op: event.op })}\n\n`);
         });
-        unlisten = subscription.unlisten;
       } catch (err) {
         console.error('[events] LISTEN failed:', err);
-        await cleanup();
+        cleanup();
         return;
       }
 
@@ -81,11 +71,10 @@ export async function GET(request: NextRequest) {
       heartbeat = setInterval(() => send(': ping\n\n'), HEARTBEAT_MS);
     },
 
-    async cancel() {
+    cancel() {
       closed = true;
       if (heartbeat) clearInterval(heartbeat);
-      try { await unlisten?.(); } catch { /* ignore */ }
-      try { await sql.end({ timeout: 5 }); } catch { /* ignore */ }
+      unsubscribe?.();
     },
   });
 

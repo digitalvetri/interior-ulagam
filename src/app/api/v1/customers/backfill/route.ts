@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { backfillLeadsToCustomers } from '@/lib/customers/sync';
 
 // POST /api/v1/customers/backfill
@@ -9,10 +9,8 @@ import { backfillLeadsToCustomers } from '@/lib/customers/sync';
 export async function POST() {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (ctx.role !== 'owner') {
-    return NextResponse.json({ error: 'Forbidden — owner only' }, { status: 403 });
-  }
-
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   try {
     const result = await backfillLeadsToCustomers(ctx.tenantId);
     return NextResponse.json({ data: result, message: 'Backfill complete' });

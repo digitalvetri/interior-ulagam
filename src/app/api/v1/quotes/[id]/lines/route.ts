@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
 import { recalculateQuoteTotals } from '@/lib/quotes/totals';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { eq, and } from 'drizzle-orm';
 
 const CreateLineSchema = z.object({
   room: z.string().min(1),
@@ -23,6 +23,8 @@ export async function POST(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  if (denied) return denied;
 
   const { id } = await params;
   const quoteId = id;
@@ -63,9 +65,11 @@ export async function POST(
       (input.clientRatePaise - input.costRatePaise) * input.qty,
     );
 
-    const [line] = await db
+    const line = await db.transaction(async (tx) => {
+    const [row] = await tx
       .insert(quoteLines)
       .values({
+        tenantId: ctx.tenantId,
         quoteId,
         room: input.room,
         item: input.item,
@@ -77,7 +81,9 @@ export async function POST(
       })
       .returning();
 
-    await recalculateQuoteTotals(quoteId);
+      await recalculateQuoteTotals(quoteId, tx);
+      return row;
+    });
 
     return NextResponse.json({ data: line, message: 'Line added' }, { status: 201 });
   } catch (err) {

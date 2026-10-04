@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { grns, purchaseOrders, users } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, sum, sql, isNotNull } from 'drizzle-orm';
 import type { POLine } from '@/types/purchase-orders';
 
@@ -69,7 +69,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const ctx = await getAuthContext();
-  if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!ctx) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const denied = requireApiRole(ctx, ROLES.PROCUREMENT);
+  if (denied) return denied;
 
   const { id } = await params;
 

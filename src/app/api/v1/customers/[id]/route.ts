@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, eq, desc, notInArray, ne, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { customers, customerActivities, leads, waMessages } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const CustomerSourceEnum = z.enum([
   'referral', 'instagram', 'whatsapp', 'website', 'walk_in', 'imported', 'other',
@@ -81,6 +81,8 @@ export async function PATCH(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.CRM);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {
@@ -195,7 +197,8 @@ export async function DELETE(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (ctx.role !== 'owner') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) {

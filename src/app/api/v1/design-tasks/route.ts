@@ -3,7 +3,7 @@ import { and, asc, desc, eq, ilike, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { designTasks, projects, customers } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const StatusEnum = z.enum(['todo', 'in_progress', 'review', 'done']);
 const PriorityEnum = z.enum(['low', 'normal', 'high', 'urgent']);
@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); } catch {

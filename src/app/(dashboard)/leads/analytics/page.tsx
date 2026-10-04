@@ -24,7 +24,7 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 const STAGE_COLOR: Record<string, string> = {
-  new:                  '#6366f1',
+  new:                  'var(--info)',
   site_visit_scheduled: 'var(--accent-base)',
   consultation_done:    '#a855f7',
   proposal_sent:        '#d946ef',
@@ -284,7 +284,7 @@ export default async function LeadsAnalyticsPage() {
         <KpiCard
           label="Total Leads" value={String(total)}
           sub={`${active} active · ${total - active} decided`}
-          icon={<Users size={15} />} accent="#6366f1"
+          icon={<Users size={15} />} accent="var(--accent-base)"
         />
         <KpiCard
           label="Pipeline Value" value={fmtRupeesL(totalPipelinePaise)}

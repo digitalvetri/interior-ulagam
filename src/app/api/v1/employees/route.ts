@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users, accounts } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { auth } from '@/lib/auth/config';
 import { generateTemporaryPassword } from '@/lib/auth/temp-password';
 
@@ -84,10 +84,8 @@ export async function POST(request: NextRequest) {
   // action. Any signed-in user could do this previously.
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (ctx.role !== 'owner') {
-    return NextResponse.json({ error: 'Only an owner can add employees.' }, { status: 403 });
-  }
-
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
   let body: unknown;
   try { body = await request.json(); } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
@@ -167,10 +165,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'An employee with this email already exists' }, { status: 409 });
     }
     if (err.code === '42703') {
-      return NextResponse.json({ error: 'Database schema is out of date — run migrate-employees.sql in Supabase SQL Editor' }, { status: 500 });
+      return NextResponse.json({ error: 'The database schema is out of date. Run the pending migrations and try again.' }, { status: 500 });
     }
     if (err.code === '42P01') {
-      return NextResponse.json({ error: 'Database table missing — run migrate-employees.sql in Supabase SQL Editor' }, { status: 500 });
+      return NextResponse.json({ error: 'A required database table is missing. Run the pending migrations and try again.' }, { status: 500 });
     }
     const detail = process.env.NODE_ENV === 'development' ? (err.message ?? 'Internal server error') : 'Internal server error';
     return NextResponse.json({ error: detail }, { status: 500 });

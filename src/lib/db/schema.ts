@@ -393,6 +393,7 @@ export const quotes = pgTable('quotes', {
 
 export const quoteLines = pgTable('quote_lines', {
   id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   quoteId: uuid('quote_id').notNull().references(() => quotes.id, { onDelete: 'cascade' }),
   room: text('room').notNull(),
   item: text('item').notNull(),
@@ -413,6 +414,7 @@ export const quoteLines = pgTable('quote_lines', {
 
 export const deliverables = pgTable('deliverables', {
   id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   type: deliverableTypeEnum('type').notNull(),
   status: deliverableStatusEnum('status').notNull().default('pending'),
@@ -454,6 +456,7 @@ export const invoices = pgTable('invoices', {
 
 export const milestones = pgTable('milestones', {
   id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   label: text('label').notNull(),
   pctOfTotal: integer('pct_of_total').notNull(),
@@ -586,6 +589,7 @@ export const expenses = pgTable('expenses', {
 
 export const snagItems = pgTable('snag_items', {
   id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   description: text('description').notNull(),
   photoUrl: text('photo_url'),
@@ -646,7 +650,8 @@ export const clientTokens = pgTable('client_tokens', {
 
 // Google-Drive-style hierarchical documents. Folders have kind='folder' and
 // storage_path=null. Files have kind='file' and a storage_path pointing at
-// an object in the Supabase Storage 'documents' bucket.
+// an object in the 'documents' bucket in object storage (MinIO, or any
+// S3-compatible host in production).
 // Note: parent_id is self-referential but we don't declare the FK inline
 // because Drizzle can't forward-reference the table variable.
 export const documents = pgTable('documents', {
@@ -1085,4 +1090,130 @@ export const vendorPayments = pgTable('vendor_payments', {
   index('vendor_payments_vendor_idx').on(t.vendorId),
   index('vendor_payments_expense_id_idx').on(t.expenseId),
   uniqueIndex('vendor_payments_po_ref_uq').on(t.purchaseOrderId, t.reference).where(sql`reference IS NOT NULL`),
+]);
+
+// ─── Civil Management ─────────────────────────────────────────────────────────
+// Facility-maintenance contracts for retail chains (D-Mart, Varamahalakshmi…).
+// Company → Branch (in a City) → Job → Lines. Separate from interior projects:
+// a job has no project, room or quote, and is billed one bill per job.
+
+// No 'pending': jobs are entered once the work is finished.
+export const civilJobStatusEnum = pgEnum('civil_job_status', ['done', 'billed', 'paid']);
+export const civilLineKindEnum = pgEnum('civil_line_kind', ['material', 'labour']);
+
+export const civilCompanies = pgTable('civil_companies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  gstin: text('gstin'),
+  address: text('address'),
+  contactName: text('contact_name'),
+  contactPhone: text('contact_phone'),
+  notes: text('notes'),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('civil_companies_tenant_name_uq').on(t.tenantId, sql`lower(${t.name})`),
+]);
+
+export const civilCities = pgTable('civil_cities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('civil_cities_tenant_name_uq').on(t.tenantId, sql`lower(${t.name})`),
+]);
+
+export const civilBranches = pgTable('civil_branches', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  companyId: uuid('company_id').notNull().references(() => civilCompanies.id, { onDelete: 'restrict' }),
+  cityId: uuid('city_id').notNull().references(() => civilCities.id, { onDelete: 'restrict' }),
+  name: text('name').notNull(),
+  address: text('address'),
+  contactName: text('contact_name'),
+  contactPhone: text('contact_phone'),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('civil_branches_company_city_name_uq').on(t.companyId, t.cityId, sql`lower(${t.name})`),
+  index('civil_branches_tenant_idx').on(t.tenantId),
+]);
+
+export const civilManagers = pgTable('civil_managers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  phone: text('phone'),
+  active: boolean('active').notNull().default(true),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('civil_managers_tenant_name_uq').on(t.tenantId, sql`lower(${t.name})`),
+]);
+
+export const civilJobs = pgTable('civil_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  // Continues the S.No of the Excel sheet the office used before this module.
+  jobNo: integer('job_no').notNull(),
+  branchId: uuid('branch_id').notNull().references(() => civilBranches.id, { onDelete: 'restrict' }),
+  jobDate: date('job_date').notNull(),
+  heading: text('heading').notNull(),
+  remark: text('remark'),
+  managerId: uuid('manager_id').references(() => civilManagers.id, { onDelete: 'set null' }),
+  status: civilJobStatusEnum('status').notNull().default('done'),
+  billNo: text('bill_no'),
+  billDate: date('bill_date'),
+  paidDate: date('paid_date'),
+  // Sum of the lines — written by the server in the same transaction as the lines.
+  totalPaise: bigint('total_paise', { mode: 'number' }).notNull().default(0),
+  // Private real cost (line costs + unbilled costs). Owner-only; never exported.
+  costPaise: bigint('cost_paise', { mode: 'number' }).notNull().default(0),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('civil_jobs_tenant_job_no_uq').on(t.tenantId, t.jobNo),
+  index('civil_jobs_tenant_status_idx').on(t.tenantId, t.status),
+  index('civil_jobs_branch_idx').on(t.branchId),
+]);
+
+export const civilJobLines = pgTable('civil_job_lines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  jobId: uuid('job_id').notNull().references(() => civilJobs.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  description: text('description').notNull(),
+  kind: civilLineKindEnum('kind').notNull().default('material'),
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull().default(0),
+  /** What this line really cost; null until the owner enters it. Owner-only; never exported. */
+  costPaise: bigint('cost_paise', { mode: 'number' }),
+  ...timestamps,
+}, (t) => [
+  index('civil_job_lines_job_idx').on(t.jobId),
+]);
+
+/** Expenses on a job that are not billed to the client (transport, vehicle hire…). Owner-only. */
+export const civilJobCosts = pgTable('civil_job_costs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  jobId: uuid('job_id').notNull().references(() => civilJobs.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  description: text('description').notNull(),
+  amountPaise: bigint('amount_paise', { mode: 'number' }).notNull().default(0),
+  ...timestamps,
+}, (t) => [
+  index('civil_job_costs_job_idx').on(t.jobId),
+]);
+
+export const civilJobEvents = pgTable('civil_job_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  jobId: uuid('job_id').notNull().references(() => civilJobs.id, { onDelete: 'cascade' }),
+  fromStatus: civilJobStatusEnum('from_status'),
+  toStatus: civilJobStatusEnum('to_status').notNull(),
+  note: text('note'),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  ...timestamps,
+}, (t) => [
+  index('civil_job_events_job_idx').on(t.jobId),
 ]);

@@ -31,7 +31,11 @@ const securityHeaders = [
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // 'unsafe-eval' is required by Turbopack's dev-time HMR runtime and by
+      // nothing in the production bundle, so it is scoped to development. It
+      // previously shipped to production, where it removes most of the value of
+      // having a script-src at all.
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
       "style-src 'self' 'unsafe-inline'",
       `img-src 'self' data: blob: https://theinteriorstudios.in${storageOrigin ? ` ${storageOrigin}` : ''}`,
       "font-src 'self'",
@@ -44,6 +48,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // The dev-only route badge sits on top of the sidebar's user footer.
+  devIndicators: false,
   output: 'standalone',
   turbopack: {
     root: path.resolve(__dirname),

@@ -28,6 +28,11 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    // One policy, enforced by Better Auth for every path that sets a password:
+    // first-run setup, staff creation, and any future reset. Previously setup
+    // demanded 12 characters while everything else accepted Better Auth's
+    // default of 8, so the strength of an account depended on how it was made.
+    minPasswordLength: 12,
   },
 
   databaseHooks: {
@@ -38,10 +43,11 @@ export const auth = betterAuth({
         // accounts join the existing tenant. Sign-up is not publicly reachable
         // (see the /api/auth/sign-up block in proxy.ts).
         //
-        // NOTE: today the only caller is /api/v1/setup. The employees module
-        // inserts straight into `users` and never creates an `accounts` row, so
-        // staff created there cannot sign in (hasLogin is false for them).
-        // Giving employees credentials is still outstanding.
+        // Two callers: /api/v1/setup for the first owner, and /api/v1/employees
+        // when a new staff member is given an email — that route calls
+        // signUpEmail with a generated temporary password, so they get an
+        // `accounts` row and can sign in (hasLogin is true). Staff created
+        // without an email are directory records only, by design.
         before: async (user) => {
           const record = user as typeof user & { tenantId?: string };
           if (record.tenantId) return { data: user };

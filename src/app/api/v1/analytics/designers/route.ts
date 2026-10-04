@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users, projects, quotes, quoteLines, deliverables } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { DesignerMetrics } from '@/types/analytics';
 
@@ -11,9 +11,8 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (ctx.role !== 'owner') {
-    return NextResponse.json({ error: 'Forbidden: owner role required' }, { status: 403 });
-  }
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   try {
     // a) Get all designers for tenant

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { eq, and, inArray, count, sum, max } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { projects, milestones, snagItems, designDeliverables, purchaseOrders, siteLogs } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 const patchBodySchema = z.object({
   stage: z.enum([
@@ -26,6 +26,8 @@ export async function PATCH(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const denied = requireApiRole(ctx, ROLES.DELIVERY);
+  if (denied) return denied;
 
   const { id } = await params;
 

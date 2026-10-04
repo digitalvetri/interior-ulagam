@@ -185,7 +185,7 @@ export default function NotificationsPage() {
                   >
                     {/* Unread dot */}
                     {unread && (
-                      <span className="absolute left-2 top-5 h-1.5 w-1.5 rounded-full bg-blue-500" />
+                      <span className="absolute left-2 top-5 h-1.5 w-1.5 rounded-full bg-[var(--accent-base)]" />
                     )}
 
                     {/* Icon */}

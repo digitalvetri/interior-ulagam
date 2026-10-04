@@ -257,7 +257,7 @@ export default function SnagPage({ params }: { params: Promise<{ id: string }> }
       {/* Client link */}
       {clientUrl && (
         <div className="rounded-xl border flex items-center gap-3 px-4 py-3"
-          style={{ borderColor: '#E0E7FF', background: '#EEF2FF' }}>
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--accent-soft)' }}>
           <span className="flex-1 truncate font-mono text-xs" style={{ color: 'var(--accent-text)' }}>{clientUrl}</span>
           <button type="button" onClick={handleCopyLink}
             className="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
