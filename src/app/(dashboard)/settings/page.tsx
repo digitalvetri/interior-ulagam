@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { EmployeeAvatar } from '@/components/employees/Avatar';
 import type { Employee } from '@/types/employees';
+import { useUser } from '@/components/providers/user-provider';
 
 type SettingsTab = 'profile' | 'users' | 'integrations' | 'data';
 
@@ -145,6 +146,7 @@ async function downloadExport(url: string, filename: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { refresh: refreshUser } = useUser();
   const [activeTab, setActiveTab]       = useState<SettingsTab>('profile');
   const [loading, setLoading]           = useState(true);
   const [employees, setEmployees]       = useState<Employee[]>([]);
@@ -209,6 +211,16 @@ export default function SettingsPage() {
       })
       .finally(() => setLoading(false));
 
+    // "My Profile" is the signed-in user's own account, not a studio-wide record —
+    // it used to live on the tenant, so every owner saw and overwrote one shared name.
+    fetch('/api/v1/me/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then((body: { data?: { fullName: string; phone: string | null; email: string | null } } | null) => {
+        const me = body?.data;
+        if (me) setProfile(p => ({ ...p, ownerName: me.fullName, ownerPhone: me.phone, ownerEmail: me.email }));
+      })
+      .catch(() => {});
+
     fetch('/api/v1/employees')
       .then(r => r.json())
       .then(({ data }: { data: Employee[] | null }) => {
@@ -228,9 +240,11 @@ export default function SettingsPage() {
   async function saveProfile() {
     setSavingP(true);
     try {
-      const res = await fetch('/api/v1/settings/profile', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ownerName: dName.trim() || null, ownerPhone: dPhone.trim() || null, ownerEmail: dEmail.trim() || null }) });
+      if (!dName.trim()) return;
+      const res = await fetch('/api/v1/me/profile', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ fullName: dName.trim(), phone: dPhone.trim() || null }) });
       if (!res.ok) throw new Error();
-      setProfile(p => ({ ...p, ownerName: dName, ownerPhone: dPhone, ownerEmail: dEmail }));
+      setProfile(p => ({ ...p, ownerName: dName.trim(), ownerPhone: dPhone.trim() || null }));
+      refreshUser();
       setSavedP(true); setEditingProfile(false); setTimeout(() => setSavedP(false), 3000);
     } catch { /* ignore */ } finally { setSavingP(false); }
   }
@@ -438,7 +452,7 @@ export default function SettingsPage() {
           <Card>
             <CardHead
               icon={Briefcase} iconBg="var(--accent-soft)" iconColor="var(--accent-base)"
-              title="My Profile" subtitle="Your personal details as owner"
+              title="My Profile" subtitle="Your own account details"
               editing={editingProfile} onEdit={openProfileEdit}
               onCancel={cancelProfileEdit} saving={savingP} onSave={saveProfile}
             />
@@ -453,10 +467,11 @@ export default function SettingsPage() {
                     <input value={dPhone} onChange={e => setDPhone(e.target.value)} className={`${inputCls} pl-8`} style={inputStyle} />
                   </div>
                 </Field>
-                <Field label="Email Address">
+                <Field label="Login Email">
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: 'var(--text-tertiary)' }} />
-                    <input type="email" value={dEmail} onChange={e => setDEmail(e.target.value)} className={`${inputCls} pl-8`} style={inputStyle} />
+                    {/* Read-only: it is the sign-in email; changing it here would change the login. */}
+                    <input type="email" value={dEmail} readOnly disabled className={`${inputCls} pl-8 opacity-70`} style={inputStyle} />
                   </div>
                 </Field>
               </div>

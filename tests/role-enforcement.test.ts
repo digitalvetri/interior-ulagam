@@ -51,10 +51,6 @@ const ALLOWED = new Map<string, string>([
     'self-scoped — a user reads and dismisses their own notifications, any role',
   ],
   [
-    'v1/settings/profile/route.ts',
-    'self-scoped — a user edits their own profile, any role',
-  ],
-  [
     'v1/settings/password/route.ts',
     'self-scoped — a user changes their own password; Better Auth verifies the current one',
   ],

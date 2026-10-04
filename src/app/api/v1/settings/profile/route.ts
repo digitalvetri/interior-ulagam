@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { tenants } from '@/lib/db/schema';
-import { getAuthContext } from '@/lib/auth';
+import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 interface MilestoneDefault {
   label: string;
@@ -132,9 +132,14 @@ export async function GET() {
 }
 
 // PATCH /api/v1/settings/profile
+// Studio-wide settings (name, GSTIN, bank details, terms, numbering) — owner only.
+// It was previously open to any signed-in role. A user's own name and phone are
+// edited through /api/v1/me/profile.
 export async function PATCH(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
 
   let body: unknown;
   try { body = await request.json(); } catch {
