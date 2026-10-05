@@ -3,10 +3,8 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { payments, invoices, projects, customers } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { allocatePayment, customerProjectIds } from '@/lib/project-money/server';
-import { eq, and, desc, ne, sql } from 'drizzle-orm';
-import { nextReceiptNumber } from '@/lib/finance/receipt-number';
-import { PAYMENT_SETTLED } from '@/lib/finance/constants';
+import { eq, and, desc, sql } from 'drizzle-orm';
+import { recordClientPayment } from '@/lib/finance/payments-server';
 
 const PAYMENT_MODES = ['upi', 'cash', 'bank', 'cheque', 'card', 'razorpay'] as const;
 
@@ -108,102 +106,15 @@ export async function POST(request: NextRequest) {
   const d = parsed.data;
 
   try {
-    // Verify invoice belongs to this tenant if supplied; fetch totals for status update.
-    let invoiceTotals: { subtotalPaise: number; cgstPaise: number; sgstPaise: number; igstPaise: number } | null = null;
-    if (d.invoiceId) {
-      const [inv] = await db
-        .select({
-          tenantId:      invoices.tenantId,
-          subtotalPaise: invoices.subtotalPaise,
-          cgstPaise:     invoices.cgstPaise,
-          sgstPaise:     invoices.sgstPaise,
-          igstPaise:     invoices.igstPaise,
-        })
-        .from(invoices).where(eq(invoices.id, d.invoiceId)).limit(1);
-      if (!inv || inv.tenantId !== ctx.tenantId) {
-        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-      }
-      invoiceTotals = inv;
-    }
-
-    // A payment always lands on a project and client this tenant owns.
-    let projectId = d.projectId ?? null;
-    let customerId = d.customerId ?? null;
-    if (d.invoiceId && !projectId) {
-      const [inv] = await db.select({ projectId: invoices.projectId }).from(invoices)
-        .where(and(eq(invoices.id, d.invoiceId), eq(invoices.tenantId, ctx.tenantId))).limit(1);
-      projectId = inv?.projectId ?? null;
-    }
-    if (projectId) {
-      const [proj] = await db.select({ customerId: projects.customerId }).from(projects)
-        .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId))).limit(1);
-      if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-      if (customerId) {
-        const owned = await customerProjectIds(ctx.tenantId, customerId);
-        if (!owned.some(p => p.id === projectId)) {
-          return NextResponse.json({ error: 'That project does not belong to this client.' }, { status: 422 });
-        }
-      }
-      customerId = customerId ?? proj.customerId;
-    }
-    if (customerId) {
-      const [cust] = await db.select({ id: customers.id }).from(customers)
-        .where(and(eq(customers.id, customerId), eq(customers.tenantId, ctx.tenantId))).limit(1);
-      if (!cust) return NextResponse.json({ error: 'Client not found' }, { status: 404 });
-    }
-    if (d.allocations && d.allocations.reduce((sum, a) => sum + a.amountPaise, 0) > d.amountPaise) {
-      return NextResponse.json({ error: 'The split adds up to more than the payment.' }, { status: 422 });
-    }
-    if (d.allocations?.length && !projectId) {
-      return NextResponse.json({ error: 'Pick the project to apply this payment to.' }, { status: 422 });
-    }
-
-    const receiptNumber = await nextReceiptNumber(ctx.tenantId);
-    const receivedAt    = d.receivedAt ? new Date(d.receivedAt) : new Date();
-
-    const { row, allocation } = await db.transaction(async (tx) => {
-    const [row] = await tx.insert(payments).values({
-      tenantId:    ctx.tenantId,
-      invoiceId:   d.invoiceId ?? null,
-      projectId,
-      customerId,
-      amountPaise: d.amountPaise,
-      status:      PAYMENT_SETTLED,
-      mode:        d.mode,
-      reference:   d.reference ?? null,
-      receivedAt,
-      recordedBy:  ctx.userId,
-      note:        d.note ?? null,
-      receiptNumber,
-    }).returning();
-    const allocation = projectId
-      ? await allocatePayment(tx, ctx.tenantId, row.id, projectId, d.amountPaise, d.allocations)
-      : { allocatedPaise: 0, advancePaise: d.amountPaise };
-    return { row, allocation };
+    const result = await recordClientPayment(ctx.tenantId, ctx.userId, {
+      ...d,
+      receivedAt: d.receivedAt ? new Date(d.receivedAt) : undefined,
+      // Every receipt must land on a project (directly or via its invoice) or at least a client.
+      requireProject: !d.customerId,
     });
-
-    // Keep invoice lifecycle status in sync when this payment is linked to an invoice.
-    if (d.invoiceId && invoiceTotals) {
-      const totalInvoicePaise =
-        invoiceTotals.subtotalPaise + invoiceTotals.cgstPaise +
-        invoiceTotals.sgstPaise    + invoiceTotals.igstPaise;
-
-      const [{ paidPaise }] = await db
-        .select({ paidPaise: sql<number>`coalesce(sum(${payments.amountPaise}), 0)`.mapWith(Number) })
-        .from(payments)
-        .where(and(eq(payments.invoiceId, d.invoiceId), ne(payments.status, 'pending')));
-
-      const newStatus =
-        paidPaise >= totalInvoicePaise ? 'paid' :
-        paidPaise > 0                  ? 'part_paid' : 'issued';
-
-      await db
-        .update(invoices)
-        .set({ status: newStatus })
-        .where(eq(invoices.id, d.invoiceId));
-    }
-
-    return NextResponse.json({ data: { ...row, ...allocation } }, { status: 201 });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    const { payment, allocatedPaise, advancePaise } = result;
+    return NextResponse.json({ data: { ...payment, allocatedPaise, advancePaise } }, { status: 201 });
   } catch (err) {
     console.error('[payments POST]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

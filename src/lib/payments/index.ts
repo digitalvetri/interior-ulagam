@@ -13,6 +13,11 @@ export interface PaymentsProvider {
     customerEmail?: string;
     referenceId: string;
   }): Promise<PaymentLink>;
+  /**
+   * Cancel a link that has not been paid. Already paid/expired/cancelled links are
+   * left alone. Resolves to the link's status afterwards ('cancelled', 'paid', 'expired', …).
+   */
+  cancelLink(linkId: string): Promise<string>;
 }
 
 export { razorpayProvider } from './razorpay';

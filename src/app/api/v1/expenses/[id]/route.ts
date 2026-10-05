@@ -86,7 +86,7 @@ export async function PATCH(
 
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Validation error', details: parsed.error.flatten() }, { status: 422 });
   }
 
   try {

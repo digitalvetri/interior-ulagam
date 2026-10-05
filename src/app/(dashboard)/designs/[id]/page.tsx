@@ -383,7 +383,7 @@ export default function DesignDeliverableDetailPage({
     const res = await fetch(`/api/v1/design-deliverables/${id}/approve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientName }),
+      body: JSON.stringify({ approvedByClient: clientName }),
     });
     if (!res.ok) throw new Error('Approve failed');
     load();

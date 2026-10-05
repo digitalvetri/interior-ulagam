@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, isNull, lte, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { invoices, expenses, projects, customers } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
       .from(expenses)
       .where(and(
         eq(expenses.tenantId, ctx.tenantId),
+        isNull(expenses.voidedAt),
         sql`${expenses.gstPct} > 0`,
         sql`COALESCE(${expenses.paidAt}, ${expenses.createdAt}) >= ${monthStart}`,
         sql`COALESCE(${expenses.paidAt}, ${expenses.createdAt}) <= ${monthEnd}`,

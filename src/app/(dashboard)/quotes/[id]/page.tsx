@@ -16,6 +16,10 @@ import { DocumentActions } from '@/components/ui/DocumentActions';
 import { Quote, QuoteLine, QuoteStatus } from '@/types/quotes';
 import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
+import { quoteNumberOf } from '@/lib/quotes/number';
+import { contractFromQuote } from '@/lib/projects/booking';
+import { isAcceptedQuoteStatus } from '@/lib/quotes/status';
 
 const FINANCE_ROLES = ['owner', 'accountant'];
 
@@ -28,6 +32,8 @@ interface QuoteExtended extends Quote {
   validUntil?: string | null;
   paymentTerms?: string | null;
   acceptedAt?: string;
+  /** Milestones on the linked project — 0 means it has not been booked yet. */
+  projectMilestoneCount?: number;
 }
 
 const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: string; dot: string }> = {
@@ -42,6 +48,7 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; bg: string; color: str
 export default function QuotePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { isAdmin } = useUser();
   const [quote, setQuote]                     = useState<QuoteExtended | null>(null);
   const [loading, setLoading]                 = useState(true);
   const [actionPending, setActionPending]     = useState(false);
@@ -55,6 +62,9 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   const [bookProjectName, setBookProjectName]   = useState('');
   const [booking, setBooking]                   = useState(false);
   const [bookError, setBookError]               = useState<string | null>(null);
+
+  // Create revision (V+1)
+  const [revising, setRevising]                 = useState(false);
 
   // Quote details editable fields
   const [validUntil,    setValidUntil]    = useState('');
@@ -218,7 +228,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
     if ((quote.lines?.length ?? 0) > 0) {
       sheetRows.push(['', '', '', '', '', '', '', '']);
       sheetRows.push(['', '', '', '', '', 'Subtotal', '', quote.subtotalPaise / 100]);
-      sheetRows.push(['', '', '', '', '', 'GST (18%)', '', quote.gstPaise     / 100]);
+      sheetRows.push(['', '', '', '', '', `GST (${quote.gstPct ?? 18}%)`, '', quote.gstPaise     / 100]);
       sheetRows.push(['', '', '', '', '', 'TOTAL',    '', quote.totalPaise    / 100]);
     }
 
@@ -280,6 +290,25 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
       setBooking(false); }
   }
 
+  async function handleCreateRevision() {
+    setRevising(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/quotes/${id}/revise`, { method: 'POST' });
+      const json = await res.json().catch(() => ({})) as {
+        data?: { id: string }; error?: string; details?: { quoteId?: string };
+      };
+      // A revision already exists — open it instead of creating another.
+      if (res.status === 409 && json.details?.quoteId) { router.push(`/quotes/${json.details.quoteId}`); return; }
+      if (!res.ok || !json.data) throw new Error(json.error ?? `Failed (${res.status})`);
+      router.push(`/quotes/${json.data.id}`);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Failed to create revision');
+    } finally {
+      setRevising(false);
+    }
+  }
+
   const roomGroups = (() => {
     const lines = quote?.lines ?? [];
     const map = new Map<string, { displayName: string; lines: QuoteLine[]; totalPaise: number }>();
@@ -325,8 +354,13 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
   }
 
   const cfg        = STATUS_CONFIG[quote.status];
-  const quoteLabel = `QUO-${quote.id.slice(-6).toUpperCase()}`;
+  const quoteLabel = quoteNumberOf(quote);
   const isDraft    = quote.status === 'draft';
+  const isAccepted = isAcceptedQuoteStatus(quote.status);
+  const canRevise  = isAccepted || quote.status === 'sent';
+  const isBooked   = Boolean(quote.projectId) && (quote.projectMilestoneCount ?? 0) > 0;
+  // Contract is EXCLUDING GST — the project adds GST on top of each milestone.
+  const contractPaise = contractFromQuote({ subtotalPaise: quote.subtotalPaise, discountPaise: quote.discountPaise ?? 0 });
   const hasLead    = Boolean(quote.leadId);
   const stageLabel = quote.leadStage
     ? quote.leadStage.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -424,10 +458,10 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 <DocumentActions
                   pdfUrl={quote.pdfUrl ?? null}
                   docType="quote"
-                  docNumber={quote.quoteNumber ?? quoteLabel}
+                  docNumber={quoteLabel}
                   generateEndpoint={`/api/v1/quotes/${quote.id}/pdf`}
                   waPhone={quote.leadContactPhone ?? undefined}
-                  waCaption={`Here is your Quotation ${quote.quoteNumber ?? quoteLabel} from Konst Design.`}
+                  waCaption={`Here is your Quotation ${quoteLabel} from Konst Design.`}
                   className="mt-2"
                 />
               </div>
@@ -443,7 +477,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                 <Download className="h-4 w-4" />
                 Download
               </Link>
-              {isDraft && (
+              {isDraft && isAdmin && (
                 <button type="button"
                   className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
                   onClick={handleSendQuote} disabled={actionPending}>
@@ -451,7 +485,7 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                   {actionPending ? 'Sending…' : 'Send Quotation'}
                 </button>
               )}
-              {quote.status === 'sent' && (
+              {quote.status === 'sent' && isAdmin && (
                 <button type="button"
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   style={{ background: 'var(--success)' }}
@@ -460,7 +494,24 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
                   {actionPending ? 'Accepting…' : 'Mark Accepted'}
                 </button>
               )}
-              {quote.status === 'accepted' && !showBookForm && (
+              {canRevise && (
+                <button type="button"
+                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all hover:bg-[var(--surface-muted)]"
+                  style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+                  onClick={handleCreateRevision} disabled={revising}>
+                  <FileText className="h-4 w-4" />
+                  {revising ? 'Creating…' : `Create revision (v${quote.version + 1})`}
+                </button>
+              )}
+              {quote.projectId && (
+                <Link href={`/projects/${quote.projectId}`}
+                  className="inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-all hover:bg-[var(--surface-muted)]"
+                  style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                  <FolderKanban className="h-4 w-4" />
+                  Open Project
+                </Link>
+              )}
+              {isAccepted && !isBooked && !showBookForm && (
                 <button type="button"
                   className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   style={{ background: 'var(--violet-primary)' }}
@@ -498,7 +549,8 @@ export default function QuotePage({ params }: { params: Promise<{ id: string }> 
               </div>
               {bookError && <p className="text-xs text-red-600">{bookError}</p>}
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                Milestones will be seeded at 10 / 40 / 40 / 10% of ₹{(quote.totalPaise / 100).toLocaleString('en-IN')}.
+                Contract ₹{(contractPaise / 100).toLocaleString('en-IN')} (excl. GST, {quote.gstPct ?? 18}% GST added on each
+                milestone). Milestones will be seeded at 10 / 40 / 40 / 10%.
               </p>
               <div className="flex gap-2">
                 <button type="button" onClick={handleBookProject} disabled={booking || !bookProjectName.trim()}

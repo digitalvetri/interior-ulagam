@@ -11,6 +11,7 @@ import { copyText } from '@/lib/client-feedback';
 import { Milestone, MilestonePaymentStatus } from '@/types/milestones';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { RecordPaymentDrawer } from '@/components/finance/RecordPaymentDrawer';
+import { useUser } from '@/components/providers/user-provider';
 
 /* ── Status config ─────────────────────────────────────────────────────────── */
 
@@ -24,16 +25,21 @@ const STATUS_CONFIG: Record<MilestonePaymentStatus, { label: string; bg: string;
 
 /* ── Send Payment Link Modal ───────────────────────────────────────────────── */
 
-interface SendLinkForm { clientName: string; contactPhone: string; placeOfSupply: string; gstType: 'intrastate' | 'interstate' | null; }
+interface SendLinkForm { clientName: string; contactPhone: string; placeOfSupply: string; gstType: 'intrastate' | 'interstate'; }
+
+/** What the money engine says about a milestone (incl. GST). */
+interface MilestoneMoney { totalPaise: number; balancePaise: number; gstPct: number }
 
 function SendLinkModal({
-  milestone, onClose, onSuccess,
+  milestone, money, onClose, onSuccess,
 }: {
   milestone: Milestone;
+  money: MilestoneMoney | undefined;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [form, setForm]       = useState<SendLinkForm>({ clientName: '', contactPhone: '', placeOfSupply: '', gstType: null });
+  const [form, setForm]       = useState<SendLinkForm>({ clientName: '', contactPhone: '', placeOfSupply: '', gstType: 'intrastate' });
+  const resend = milestone.paymentStatus === 'link_sent';
   const [sending, setSending] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [shortUrl, setShortUrl] = useState<string | null>(null);
@@ -56,7 +62,8 @@ function SendLinkModal({
           clientName: form.clientName.trim(), contactPhone: form.contactPhone.trim(),
           placeOfSupply: form.placeOfSupply.trim() || undefined,
           isInterstate: form.gstType === 'interstate',
-          noGst: form.gstType === null,
+          // Resending cancels the live link first so the client can't pay twice.
+          replace: resend,
         }),
       });
       if (!res.ok) {
@@ -93,7 +100,7 @@ function SendLinkModal({
             <div>
               <h2 className="text-base font-bold" style={{ color: 'var(--text-heading)' }}>Send Payment Link</h2>
               <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                {milestone.label} · {formatRupees(milestone.amountPaise)}
+                {milestone.label} · {money ? `${formatRupees(money.balancePaise)} incl. GST` : formatRupees(milestone.amountPaise)}
               </p>
             </div>
           </div>
@@ -156,17 +163,23 @@ function SendLinkModal({
                           type="radio"
                           checked={form.gstType === type}
                           onChange={() => set('gstType', type)}
-                          onClick={() => { if (form.gstType === type) set('gstType', null); }}
                           className="accent-purple-600"
                         />
                         <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
-                          {type === 'intrastate' ? 'Intrastate — 9% CGST + 9% SGST' : 'Interstate — 18% IGST'}
+                          {type === 'intrastate'
+                            ? `Intrastate — CGST + SGST${money ? ` (${money.gstPct}%)` : ''}`
+                            : `Interstate — IGST${money ? ` (${money.gstPct}%)` : ''}`}
                         </span>
                       </label>
                     ))}
                   </div>
                 </div>
               </div>
+              {resend && (
+                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  The link already sent will be cancelled and a new one created.
+                </p>
+              )}
               {error && (
                 <div className="flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
                   <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />{error}
@@ -295,6 +308,11 @@ function OverrideModal({
 
 export default function PaymentsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: projectId } = use(params);
+  const { role } = useUser();
+  // Mirrors the API: links, receipts and seeding are finance roles; overrides are owner-only.
+  const canFinance = role === 'owner' || role === 'accountant';
+  const canOverride = role === 'owner';
+  const [moneyById, setMoneyById] = useState<Record<string, MilestoneMoney>>({});
 
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -312,7 +330,17 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
       .then(r => r.json())
       .then(({ data }: { data: Milestone[] }) => { setMilestones(data ?? []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [projectId]);
+    if (canFinance) {
+      fetch(`/api/v1/projects/${projectId}/money`)
+        .then(r => (r.ok ? r.json() : null))
+        .then((body: { data?: { project: { gstPct: number }; milestones: { id: string; totalPaise: number; balancePaise: number }[] } } | null) => {
+          const d = body?.data;
+          if (!d) return;
+          setMoneyById(Object.fromEntries(d.milestones.map(m => [m.id, { totalPaise: m.totalPaise, balancePaise: m.balancePaise, gstPct: d.project.gstPct }])));
+        })
+        .catch(() => {});
+    }
+  }, [projectId, canFinance]);
 
   useEffect(() => { loadMilestones(); }, [loadMilestones]);
 
@@ -425,11 +453,13 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
           {seedError && (
             <p className="text-xs" style={{ color: 'var(--danger)' }}>{seedError}</p>
           )}
-          <button type="button" onClick={handleSeedDefaults} disabled={seeding}
-            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
-            <IndianRupee className="h-4 w-4" />
-            {seeding ? 'Seeding…' : 'Seed Default Milestones (10/40/40/10%)'}
-          </button>
+          {canFinance && (
+            <button type="button" onClick={handleSeedDefaults} disabled={seeding}
+              className="btn-primary flex items-center gap-2 px-5 py-2.5 text-sm rounded-xl">
+              <IndianRupee className="h-4 w-4" />
+              {seeding ? 'Seeding…' : 'Seed Default Milestones (10/40/40/10%)'}
+            </button>
+          )}
         </div>
 
       ) : (
@@ -472,7 +502,7 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
                   <StatusBadge module="milestones" status={m.paymentStatus} />
                 </div>
 
-                {m.paymentStatus !== 'paid' && (
+                {m.paymentStatus !== 'paid' && canFinance && (
                   <div className="flex flex-wrap gap-2 mt-4 pt-4"
                     style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     {canSend && (
@@ -489,12 +519,14 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
                       <Plus className="h-3.5 w-3.5" />
                       Record Payment
                     </button>
-                    <button type="button"
-                      onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
-                      className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
-                      <Settings2 className="h-3.5 w-3.5" />
-                      Manual Override
-                    </button>
+                    {canOverride && (
+                      <button type="button"
+                        onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
+                        className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm rounded-xl">
+                        <Settings2 className="h-3.5 w-3.5" />
+                        Manual Override
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -503,12 +535,6 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
                     style={{ borderTop: '1px solid var(--border-subtle)' }}>
                     <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--success)' }} />
                     <span className="text-sm font-medium" style={{ color: 'var(--success-text)' }}>Payment received</span>
-                    <button type="button"
-                      onClick={() => { setActiveMilestone(m); setOverrideOpen(true); }}
-                      className="ml-auto text-xs font-medium transition-colors hover:underline"
-                      style={{ color: 'var(--text-tertiary)' }}>
-                      Override
-                    </button>
                   </div>
                 )}
               </div>
@@ -521,6 +547,7 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
       {sendOpen && activeMilestone && (
         <SendLinkModal
           milestone={activeMilestone}
+          money={moneyById[activeMilestone.id]}
           onClose={() => { setSendOpen(false); setActiveMilestone(null); }}
           onSuccess={loadMilestones}
         />
@@ -538,7 +565,8 @@ export default function PaymentsPage({ params }: { params: Promise<{ id: string 
         onSuccess={() => { setRecordOpen(false); setActiveMilestone(null); loadMilestones(); }}
         defaultInvoiceId={activeMilestone?.invoiceId ?? undefined}
         defaultProjectId={projectId}
-        defaultAmountPaise={activeMilestone?.amountPaise}
+        defaultMilestoneId={activeMilestone?.id}
+        defaultAmountPaise={activeMilestone ? (moneyById[activeMilestone.id]?.balancePaise ?? activeMilestone.amountPaise) : undefined}
         contextLabel={activeMilestone?.label}
       />
     </div>

@@ -101,24 +101,30 @@ export async function POST(request: NextRequest) {
 
   const parsed = CreateQuoteSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
 
   try {
     let nextVersion = 1;
+    let leadId: string | null = input.leadId ?? null;
 
     if (input.projectId) {
       // Verify project belongs to tenant
       const [project] = await db
-        .select({ id: projects.id })
+        .select({ id: projects.id, leadId: projects.leadId })
         .from(projects)
         .where(and(eq(projects.id, input.projectId), eq(projects.tenantId, ctx.tenantId)));
 
       if (!project) {
         return NextResponse.json({ error: 'Project not found' }, { status: 404 });
       }
+      // Keep the lead link so the quote shows the client and books into this project.
+      leadId = leadId ?? project.leadId;
 
       const [{ total }] = await db
         .select({ total: count() })
@@ -150,7 +156,7 @@ export async function POST(request: NextRequest) {
       .values({
         tenantId:  ctx.tenantId,
         projectId: input.projectId ?? null,
-        leadId:    input.leadId ?? null,
+        leadId,
         version:   nextVersion,
         status:    'draft',
         createdBy: ctx.dbUserId,

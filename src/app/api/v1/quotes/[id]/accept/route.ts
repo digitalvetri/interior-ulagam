@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { quotes } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 export async function POST(
   _request: NextRequest,
@@ -10,7 +10,7 @@ export async function POST(
 ) {
   const ctx = await getAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const denied = requireApiRole(ctx, ROLES.COMMERCIAL);
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
   if (denied) return denied;
 
   const { id } = await params;
@@ -51,6 +51,16 @@ export async function POST(
       })
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)))
       .returning();
+
+    // An accepted revision supersedes the version it was made from.
+    if (updated?.parentQuoteId) {
+      await db.update(quotes).set({ status: 'revised' })
+        .where(and(
+          eq(quotes.id, updated.parentQuoteId),
+          eq(quotes.tenantId, ctx.tenantId),
+          inArray(quotes.status, ['sent', 'accepted', 'approved']),
+        ));
+    }
 
     return NextResponse.json({ data: updated });
   } catch (err) {

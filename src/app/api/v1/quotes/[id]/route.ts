@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { quotes, quoteLines, projects, leads } from '@/lib/db/schema';
+import { quotes, quoteLines, projects, leads, milestones } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { recalculateQuoteTotals } from '@/lib/quotes/totals';
 
 export async function DELETE(
@@ -68,13 +68,18 @@ export async function GET(
         leadId: quotes.leadId,
         version: quotes.version,
         status: quotes.status,
+        quoteNumber: quotes.quoteNumber,
+        parentQuoteId: quotes.parentQuoteId,
         subtotalPaise: quotes.subtotalPaise,
+        discountPaise: quotes.discountPaise,
         gstPct: quotes.gstPct,
         gstPaise: quotes.gstPaise,
         totalPaise: quotes.totalPaise,
         pdfUrl: quotes.pdfUrl,
         sentAt: quotes.sentAt,
         approvedAt: quotes.approvedAt,
+        acceptedAt: quotes.acceptedAt,
+        termsText: quotes.termsText,
         createdBy: quotes.createdBy,
         createdAt: quotes.createdAt,
         validUntil: quotes.validUntil,
@@ -113,7 +118,17 @@ export async function GET(
       .from(quoteLines)
       .where(eq(quoteLines.quoteId, id));
 
-    return NextResponse.json({ data: { ...quote, lines } });
+    // "Booked" = the linked project already has its payment milestones.
+    let projectMilestoneCount = 0;
+    if (quote.projectId) {
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(milestones)
+        .where(and(eq(milestones.projectId, quote.projectId), eq(milestones.tenantId, ctx.tenantId)));
+      projectMilestoneCount = n;
+    }
+
+    return NextResponse.json({ data: { ...quote, lines, projectMilestoneCount } });
   } catch (err) {
     console.error('[quotes/:id GET]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -142,7 +157,10 @@ export async function PATCH(
 
   const parsed = UpdateQuoteSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
@@ -171,7 +189,8 @@ export async function PATCH(
 
     const [updated] = await db
       .update(quotes)
-      .set(input)
+      // Any field change makes the stored PDF stale — it is regenerated on next download.
+      .set({ ...input, pdfUrl: null })
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)))
       .returning();
 

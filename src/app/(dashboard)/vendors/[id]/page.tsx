@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
 import type { POStatus } from '@/types/purchase-orders';
 import type { MaterialCategory } from '@/types/vendors';
 import { categoryBadge } from '@/lib/vendor-categories';
@@ -62,6 +63,7 @@ const STATUS_STYLE: Record<POStatus, { bg: string; fg: string }> = {
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function VendorDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { isAdmin } = useUser(); // vendor edit / remove are owner-only on the API
   const { id } = use(params);
   const router  = useRouter();
 
@@ -125,18 +127,17 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
     if (!editForm.name.trim()) { setEditError('Vendor name is required.'); return; }
     setEditBusy(true); setEditError(null);
     const body: Record<string, unknown> = { name: editForm.name.trim() };
-    if (editForm.phone.trim())   body.phone    = editForm.phone.trim();
-    if (editForm.email.trim())   body.email    = editForm.email.trim();
-    if (editForm.gstin.trim())   body.gstin    = editForm.gstin.trim();
+    // Emptied fields are sent as null so the server clears them.
+    for (const k of ['phone', 'email', 'gstin', 'address', 'notes'] as const) {
+      body[k] = editForm[k].trim() || null;
+    }
     body.category = editForm.category || null;
-    if (editForm.address.trim()) body.address  = editForm.address.trim();
-    if (editForm.notes.trim())   body.notes    = editForm.notes.trim();
     try {
       const res  = await fetch(`/api/v1/vendors/${id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      const json = await res.json() as { data?: Vendor; error?: unknown };
-      if (!res.ok) { setEditError(typeof json.error === 'string' ? json.error : 'Failed to save.'); return; }
+      if (!res.ok) { setEditError(await responseError(res, 'Failed to save.')); return; }
+      const json = await res.json() as { data?: Vendor };
       setVendor(json.data!);
       setEditOpen(false);
     } catch { setEditError(NETWORK_ERROR); }
@@ -233,6 +234,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
           </div>
 
           {/* Actions */}
+          {isAdmin && (
           <div className="flex items-center gap-2">
             <button
               onClick={openEdit}
@@ -247,6 +249,7 @@ export default function VendorDetailPage({ params }: { params: Promise<{ id: str
               <Trash2 className="h-3.5 w-3.5" />Remove
             </button>
           </div>
+          )}
         </div>
 
         {vendor.notes && (

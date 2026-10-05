@@ -112,6 +112,20 @@ export interface ParsedCivilWorkbook {
   managerNames: string[];
 }
 
+/** One job row of an import — also used by the browser to pre-check each row. */
+export const CivilImportJobInput = z.object({
+  jobNo: z.number().int().positive(),
+  jobDate: isoDate,
+  storeName: z.string().min(1),
+  heading: z.string().trim().min(1, 'Work heading is empty').max(200, 'Work heading is longer than 200 characters'),
+  remark: z.string().max(2000, 'Remark is longer than 2000 characters').nullable(),
+  managerName: z.string().trim().max(120, 'Manager name is longer than 120 characters').nullable(),
+  billNo: z.string().trim().max(100, 'Bill no. is longer than 100 characters').nullable(),
+  billDate: isoDate.nullable(),
+  lines: z.array(CivilJobLineInput).max(200, 'More than 200 amount lines'),
+});
+export type CivilImportJobInput = z.infer<typeof CivilImportJobInput>;
+
 export const CivilImportCommitInput = z.object({
   /** Store name in the sheet → where it lives in the app. */
   storeMap: z.array(z.object({
@@ -120,17 +134,7 @@ export const CivilImportCommitInput = z.object({
     cityName: z.string().trim().min(1).max(120),
     branchName: z.string().trim().min(1).max(200),
   })).min(1).max(500),
-  jobs: z.array(z.object({
-    jobNo: z.number().int().positive(),
-    jobDate: isoDate,
-    storeName: z.string().min(1),
-    heading: z.string().trim().min(1).max(200),
-    remark: z.string().max(2000).nullable(),
-    managerName: z.string().trim().max(120).nullable(),
-    billNo: z.string().trim().max(100).nullable(),
-    billDate: isoDate.nullable(),
-    lines: z.array(CivilJobLineInput).max(200),
-  })).min(1).max(5000),
+  jobs: z.array(CivilImportJobInput).min(1).max(5000),
 });
 export type CivilImportCommitInput = z.infer<typeof CivilImportCommitInput>;
 

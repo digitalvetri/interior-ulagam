@@ -7,6 +7,7 @@ import {
   measurementRounds, leadActivities, notifications,
 } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { enqueueBestEffort, JOB } from '@/jobs/queue';
 
 // DELETE /api/v1/site-visits/[id]
 export async function DELETE(
@@ -216,6 +217,15 @@ export async function PATCH(
         scheduledAt: newDate,
         status:      'pending',
         createdBy:   ctx.dbUserId ?? undefined,
+      });
+    }
+
+    // Re-arm reminders for the new time (start job replaces the pending ones;
+    // reminders also skip themselves for cancelled/no-show or stale times).
+    if (isReschedule && current.leadId) {
+      await enqueueBestEffort(JOB.siteVisitReminders, {
+        siteVisitId: id, tenantId: ctx.tenantId, leadId: current.leadId,
+        scheduledAt: updated.scheduledAt.toISOString(),
       });
     }
 

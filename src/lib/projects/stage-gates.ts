@@ -1,6 +1,11 @@
-import { and, count, eq, inArray, max, sum } from 'drizzle-orm';
+import { and, asc, count, eq, max, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { projects, milestones, snagItems, designDeliverables, purchaseOrders, siteLogs } from '@/lib/db/schema';
+import {
+  projects, milestones, snagItems, designDeliverables, deliverables, purchaseOrders, siteLogs, ledgerAdjustments,
+} from '@/lib/db/schema';
+import { loadProjectMoney } from '@/lib/project-money/server';
+import { projectDesignDeliverablesWhere } from './link';
+import { completionOutstanding, designApproved, secondMilestonePaid } from './gate-rules';
 
 export type ProjectStage =
   | 'design_pending' | 'design_in_progress' | 'design_approved' | 'procurement'
@@ -20,51 +25,33 @@ export async function stageGateError(
   currentStage: string,
   stage: ProjectStage,
 ): Promise<string | null> {
-  // Stage gate: design_approved requires all design deliverables to be approved
-  if (stage === 'design_approved') {
-    const [totalRow] = await db
-      .select({ total: count() })
-      .from(designDeliverables)
-      .where(and(
-        eq(designDeliverables.projectId, id),
-        eq(designDeliverables.tenantId, tenantId),
-      ));
-
-    if ((totalRow?.total ?? 0) > 0) {
-      const [unapprovedRow] = await db
-        .select({ unapproved: count() })
-        .from(designDeliverables)
-        .where(and(
-          eq(designDeliverables.projectId, id),
-          eq(designDeliverables.tenantId, tenantId),
-          inArray(designDeliverables.status, ['draft', 'shared', 'changes_requested']),
-        ));
-
-      if ((unapprovedRow?.unapproved ?? 0) > 0) {
-        return `Stage gate failed: ${unapprovedRow.unapproved} design deliverable(s) not yet approved — get client sign-off before advancing`;
-      }
-    }
+  // Stage gate: design_approved (and procurement) require every design
+  // deliverable to be approved. The UI's design system is design_deliverables
+  // (lead "Designs" tab, /designs/[id], client portal approvals); rows created
+  // on the lead before booking are matched through the project's lead_id. The
+  // older per-project `deliverables` checklist is checked too, so neither can
+  // be used to skip sign-off.
+  if (stage === 'design_approved' || stage === 'procurement') {
+    const designError = await designGateError(tenantId, id);
+    if (designError) return designError;
   }
 
-  // Stage gate: procurement requires design_approved AND at least one paid milestone
+  // Stage gate: procurement requires design approved AND milestone 2 paid
   if (stage === 'procurement') {
     if (currentStage !== 'design_approved') {
       return 'Stage gate failed: project must be in design_approved stage before moving to procurement';
     }
 
-    const paidMilestones = await db
-      .select({ id: milestones.id })
+    const ms = await db
+      .select({ sortOrder: milestones.sortOrder, createdAt: milestones.createdAt, paymentStatus: milestones.paymentStatus })
       .from(milestones)
-      .where(
-        and(
-          eq(milestones.projectId, id),
-          eq(milestones.paymentStatus, 'paid')
-        )
-      )
-      .limit(1);
+      .where(and(eq(milestones.projectId, id), eq(milestones.tenantId, tenantId)))
+      .orderBy(asc(milestones.sortOrder), asc(milestones.createdAt));
 
-    if (paidMilestones.length === 0) {
-      return 'Stage gate failed: at least one milestone must be paid before moving to procurement';
+    if (!secondMilestonePaid(ms)) {
+      return ms.length === 0
+        ? 'Stage gate failed: the project has no payment milestones — add them and collect milestone 2 before procurement'
+        : 'Stage gate failed: milestone 2 must be fully paid before moving to procurement';
     }
   }
 
@@ -107,6 +94,7 @@ export async function stageGateError(
       .where(
         and(
           eq(snagItems.projectId, id),
+          eq(snagItems.tenantId, tenantId),
           inArray(snagItems.status, ['open', 'in_progress']),
         ),
       );
@@ -116,25 +104,21 @@ export async function stageGateError(
     }
   }
 
-  // Stage gate: complete requires outstanding balance = 0
+  // Stage gate: complete requires nothing outstanding — measured with the
+  // project money engine (revised contract incl. additions and GST, less
+  // receipts, discounts and write-offs, plus refunds).
   if (stage === 'complete') {
-    const [proj] = await db
-      .select({ totalContractPaise: projects.totalContractPaise })
-      .from(projects)
-      .where(and(eq(projects.id, id), eq(projects.tenantId, tenantId)))
-      .limit(1);
-
-    if (proj?.totalContractPaise && proj.totalContractPaise > 0) {
-      const [paidRow] = await db
-        .select({ paidPaise: sum(milestones.amountPaise) })
-        .from(milestones)
-        .where(and(
-          eq(milestones.projectId, id),
-          eq(milestones.paymentStatus, 'paid'),
-        ));
-
-      const paidPaise    = Number(paidRow?.paidPaise ?? 0);
-      const outstanding  = proj.totalContractPaise - paidPaise;
+    const money = await loadProjectMoney(tenantId, id);
+    if (money) {
+      const adjustments = await db
+        .select({ kind: ledgerAdjustments.kind, amountPaise: ledgerAdjustments.amountPaise })
+        .from(ledgerAdjustments)
+        .where(and(eq(ledgerAdjustments.tenantId, tenantId), eq(ledgerAdjustments.projectId, id)));
+      const outstanding = completionOutstanding({
+        totalWithGstPaise: money.contract.totalWithGstPaise,
+        receivedPaise: money.billing.receivedPaise,
+        adjustments: adjustments.map(a => ({ kind: a.kind, amountPaise: Number(a.amountPaise) })),
+      });
       if (outstanding > 0) {
         const outstandingRupees = (outstanding / 100).toLocaleString('en-IN');
         return `Stage gate failed: ₹${outstandingRupees} still outstanding — collect full payment before marking complete`;
@@ -142,5 +126,31 @@ export async function stageGateError(
     }
   }
 
+  return null;
+}
+
+
+/** Unapproved design deliverables for a project (both deliverable systems). */
+async function designGateError(tenantId: string, projectId: string): Promise<string | null> {
+  const [proj] = await db
+    .select({ leadId: projects.leadId })
+    .from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)))
+    .limit(1);
+  if (!proj) return 'Stage gate failed: project not found';
+
+  const [design, legacy] = await Promise.all([
+    db.select({ status: designDeliverables.status })
+      .from(designDeliverables)
+      .where(projectDesignDeliverablesWhere(tenantId, projectId, proj.leadId)),
+    db.select({ status: deliverables.status })
+      .from(deliverables)
+      .where(and(eq(deliverables.tenantId, tenantId), eq(deliverables.projectId, projectId))),
+  ]);
+
+  const result = designApproved([...design, ...legacy].map(d => d.status));
+  if (!result.ok) {
+    return `Stage gate failed: ${result.pending} design deliverable(s) not yet approved — get client sign-off before advancing`;
+  }
   return null;
 }

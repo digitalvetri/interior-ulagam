@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { clientTokens, designDeliverables, deliverableComments } from '@/lib/db/schema';
+import { clientTokens, designDeliverables, deliverableComments, projects } from '@/lib/db/schema';
 import { checkRateLimit, clientPortalLimiter } from '@/lib/ratelimit';
+import { projectDesignDeliverablesWhere } from '@/lib/projects/link';
 
 const BodySchema = z.object({
   action:  z.enum(['approve', 'changes_requested']),
@@ -59,15 +60,20 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 });
     }
 
-    // Verify the deliverable belongs to this token's project
+    // Verify the deliverable belongs to this token's project (or its lead, if
+    // it was made before booking and not linked yet)
+    const [proj] = await db
+      .select({ leadId: projects.leadId })
+      .from(projects)
+      .where(and(eq(projects.id, tokenRow.projectId), eq(projects.tenantId, tokenRow.tenantId)))
+      .limit(1);
     const [deliverable] = await db
       .select({ id: designDeliverables.id, status: designDeliverables.status })
       .from(designDeliverables)
       .where(
         and(
           eq(designDeliverables.id, deliverableId),
-          eq(designDeliverables.projectId, tokenRow.projectId),
-          eq(designDeliverables.tenantId, tokenRow.tenantId),
+          projectDesignDeliverablesWhere(tokenRow.tenantId, tokenRow.projectId, proj?.leadId ?? null),
         ),
       )
       .limit(1);
@@ -92,7 +98,7 @@ export async function PATCH(
         status: newStatus,
         ...(action === 'approve' ? { approvedAt: new Date(), approvedByClient: 'client' } : {}),
       })
-      .where(eq(designDeliverables.id, deliverableId));
+      .where(and(eq(designDeliverables.id, deliverableId), eq(designDeliverables.tenantId, tokenRow.tenantId)));
 
     // Record comment if provided
     if (comment?.trim()) {

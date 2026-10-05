@@ -3,17 +3,38 @@
  * Client components only — never import from server code.
  */
 
+/**
+ * Turns a server `error` value into display text. Most routes send a string,
+ * but some send a Zod `flatten()` object ({ formErrors, fieldErrors }) or an
+ * `{ message }` object — rendering those raw crashes React.
+ */
+export function errorText(err: unknown): string | undefined {
+  if (typeof err === 'string') return err.trim() ? err : undefined;
+  if (!err || typeof err !== 'object') return undefined;
+  const o = err as { message?: unknown; formErrors?: unknown; fieldErrors?: unknown };
+  if (typeof o.message === 'string' && o.message.trim()) return o.message;
+  if (Array.isArray(o.formErrors)) {
+    const first = o.formErrors.find((m): m is string => typeof m === 'string' && m.trim() !== '');
+    if (first) return first;
+  }
+  if (o.fieldErrors && typeof o.fieldErrors === 'object') {
+    for (const [field, msgs] of Object.entries(o.fieldErrors as Record<string, unknown>)) {
+      if (Array.isArray(msgs)) {
+        const first = msgs.find((m): m is string => typeof m === 'string' && m.trim() !== '');
+        if (first) return `${field}: ${first}`;
+      }
+    }
+  }
+  return undefined;
+}
+
 /** A user-facing message for a failed fetch Response; prefers the server's `{ error }`. */
 export async function responseError(res: Response, fallback = 'Something went wrong. Please try again.'): Promise<string> {
   let message: string | undefined;
   try {
     const body: unknown = await res.json();
     if (body && typeof body === 'object' && 'error' in body) {
-      const err = (body as { error: unknown }).error;
-      if (typeof err === 'string' && err.trim()) message = err;
-      else if (err && typeof err === 'object' && 'message' in err && typeof (err as { message: unknown }).message === 'string') {
-        message = (err as { message: string }).message;
-      }
+      message = errorText((body as { error: unknown }).error);
     }
   } catch {
     // body was not JSON — fall through to the status-based message

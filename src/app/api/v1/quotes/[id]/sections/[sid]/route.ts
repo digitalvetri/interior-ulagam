@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { quotes, quoteSections } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { invalidateQuotePdf } from '@/lib/quotes/totals';
 
 const UpdateSectionSchema = z
   .object({
@@ -60,7 +61,10 @@ export async function PATCH(
 
   const parsed = UpdateSectionSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
@@ -80,6 +84,7 @@ export async function PATCH(
       .set(input)
       .where(and(eq(quoteSections.id, sid), eq(quoteSections.quoteId, id)))
       .returning();
+    await invalidateQuotePdf(id, ctx.tenantId);
 
     return NextResponse.json({ data: updated });
   } catch (err) {
@@ -100,7 +105,8 @@ export async function DELETE(
   const { id, sid } = await params;
 
   try {
-    const { error, status } = await getAuthorizedSection(id, sid, ctx.tenantId);
+    // Approved/sent quotes are frozen — revise (V+1) instead.
+    const { error, status } = await getAuthorizedSection(id, sid, ctx.tenantId, true);
     if (error) {
       return NextResponse.json({ error }, { status: status ?? 500 });
     }
@@ -109,6 +115,7 @@ export async function DELETE(
     await db
       .delete(quoteSections)
       .where(and(eq(quoteSections.id, sid), eq(quoteSections.quoteId, id)));
+    await invalidateQuotePdf(id, ctx.tenantId);
 
     return NextResponse.json({ message: 'Section deleted' });
   } catch (err) {

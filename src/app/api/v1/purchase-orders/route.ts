@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { purchaseOrders, projects, vendors } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and, count, desc } from 'drizzle-orm';
+import { eq, and, desc, like, sql } from 'drizzle-orm';
 import { withServerLineIds } from '@/lib/procurement/line-ids';
+import { hasPgCode, nextDocNumber } from '@/lib/procurement/receipts';
 
 const PO_STATUSES = [
   'draft',
@@ -114,37 +115,50 @@ export async function POST(request: NextRequest) {
 
   const parsed = CreatePurchaseOrderSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Validation error', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
 
   try {
-    // Auto-generate PO number: count all POs for this tenant + 1, format PO-YYYY-NNN
-    const [{ value: poCountRaw }] = await db
-      .select({ value: count() })
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.tenantId, ctx.tenantId));
-
-    const poSequence = Number(poCountRaw) + 1;
+    // PO number = one past the highest PO-YYYY-NNN for this tenant (a row
+    // count reused numbers after deletes). A per-tenant transaction lock
+    // serialises concurrent creates; 23505 (unique index from 0037) retries.
     const year = new Date().getFullYear();
-    const poNumber = `PO-${year}-${String(poSequence).padStart(3, '0')}`;
-
-    const [po] = await db
-      .insert(purchaseOrders)
-      .values({
-        tenantId: ctx.tenantId,
-        projectId: input.projectId,
-        vendorId: input.vendorId ?? null,
-        poNumber,
-        linesJson: withServerLineIds(input.linesJson),
-        status: 'draft',
-        advancePaidPaise: 0,
-        expectedDeliveryAt: input.expectedDeliveryAt
-          ? new Date(input.expectedDeliveryAt)
-          : null,
-      })
-      .returning();
+    let po: typeof purchaseOrders.$inferSelect | undefined;
+    for (let attempt = 0; attempt < 3 && !po; attempt++) {
+      try {
+        po = await db.transaction(async (tx) => {
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`po-number:${ctx.tenantId}`}))`);
+          const existing = await tx
+            .select({ n: purchaseOrders.poNumber })
+            .from(purchaseOrders)
+            .where(and(eq(purchaseOrders.tenantId, ctx.tenantId), like(purchaseOrders.poNumber, `PO-${year}-%`)));
+          const poNumber = nextDocNumber('PO', year, existing.map((r) => r.n));
+          const [row] = await tx
+            .insert(purchaseOrders)
+            .values({
+              tenantId: ctx.tenantId,
+              projectId: input.projectId,
+              vendorId: input.vendorId ?? null,
+              poNumber,
+              linesJson: withServerLineIds(input.linesJson),
+              status: 'draft',
+              advancePaidPaise: 0,
+              expectedDeliveryAt: input.expectedDeliveryAt
+                ? new Date(input.expectedDeliveryAt)
+                : null,
+            })
+            .returning();
+          return row;
+        });
+      } catch (err) {
+        if (!hasPgCode(err, '23505') || attempt === 2) throw err;
+      }
+    }
 
     return NextResponse.json({ data: po, message: 'Purchase order created' }, { status: 201 });
   } catch (err) {

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { projects, leads, customers } from '@/lib/db/schema';
 import { stageGateError } from '@/lib/projects/stage-gates';
+import { cancelHandoverSequence } from '@/jobs/workflows/schedule';
 import { applyStageMoneyEffects } from '@/lib/project-money/server';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
@@ -96,7 +97,10 @@ export async function PATCH(
 
   const parsed = UpdateProjectSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
@@ -146,6 +150,10 @@ export async function PATCH(
     // Same money effects as the Change stage action (milestones falling due, handover date).
     if (stageChanged && input.lifecycleStage) {
       await applyStageMoneyEffects(db, ctx.tenantId, id, input.lifecycleStage);
+      // Moved back out of handover: stop the pending auto-complete / NPS jobs.
+      if (current.lifecycleStage === 'handover' && input.lifecycleStage && input.lifecycleStage !== 'handover' && input.lifecycleStage !== 'complete') {
+        await cancelHandoverSequence(id).catch((err) => console.error('[cancelHandoverSequence]', err));
+      }
     }
 
     return NextResponse.json({ data: updated, message: 'Project updated' });

@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { quotes } from '@/lib/db/schema';
 import { requireUuid } from '@/lib/http';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 
 export async function POST(
   _request: NextRequest,
@@ -58,6 +58,16 @@ export async function POST(
       })
       .where(and(eq(quotes.id, id), eq(quotes.tenantId, ctx.tenantId)))
       .returning();
+
+    // An accepted revision supersedes the version it was made from.
+    if (updated?.parentQuoteId) {
+      await db.update(quotes).set({ status: 'revised' })
+        .where(and(
+          eq(quotes.id, updated.parentQuoteId),
+          eq(quotes.tenantId, ctx.tenantId),
+          inArray(quotes.status, ['sent', 'accepted', 'approved']),
+        ));
+    }
 
     // Return the accepted quote total so the UI can pre-fill the Won Flow modal
     return NextResponse.json({

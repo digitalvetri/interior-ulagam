@@ -1,11 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
-import { projects, leads } from '@/lib/db/schema';
+import { projects, leads, customers } from '@/lib/db/schema';
+import { stageGateError } from '@/lib/projects/stage-gates';
+import { applyStageMoneyEffects } from '@/lib/project-money/server';
 import { whatsapp } from '@/lib/whatsapp/send';
 import {
   scheduleHandoverComplete,
   scheduleHandoverNps,
+  cancelHandoverSequence,
 } from '@/jobs/workflows/schedule';
 
 /**
@@ -20,7 +23,8 @@ import {
 export interface HandoverData {
   projectId: string;
   tenantId: string;
-  contactPhone: string;
+  /** Null when the project has no lead/customer phone — the NPS ping is skipped. */
+  contactPhone: string | null;
   contactName: string;
 }
 
@@ -30,21 +34,27 @@ export const handoverReferralStart = defineJob(
   async ({ event }) => {
     const { projectId, tenantId } = event.data as { projectId: string; tenantId: string };
 
+    // Projects without a lead (standalone or imported) are valid — fall back to
+    // the customer record, and to no phone at all, rather than failing/retrying.
     const [row] = await db
-      .select({ contactPhone: leads.contactPhone, contactName: leads.contactName })
+      .select({
+        stage: projects.lifecycleStage,
+        leadPhone: leads.contactPhone, leadName: leads.contactName,
+        customerPhone: customers.phone, customerName: customers.fullName,
+      })
       .from(projects)
-      .innerJoin(leads, eq(projects.leadId, leads.id))
+      .leftJoin(leads, and(eq(projects.leadId, leads.id), eq(leads.tenantId, tenantId)))
+      .leftJoin(customers, and(eq(projects.customerId, customers.id), eq(customers.tenantId, tenantId)))
       .where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)));
 
-    if (!row) {
-      throw new Error(`No project/lead found for projectId=${projectId} tenantId=${tenantId}`);
-    }
+    if (!row) return { skipped: true, reason: 'project not found' };
+    if (row.stage !== 'handover') return { skipped: true, reason: `project is in ${row.stage}, not handover` };
 
     const data: HandoverData = {
       projectId,
       tenantId,
-      contactPhone: row.contactPhone,
-      contactName: row.contactName,
+      contactPhone: row.leadPhone ?? row.customerPhone ?? null,
+      contactName: row.leadName ?? row.customerName ?? 'there',
     };
     await scheduleHandoverComplete(data as unknown as Record<string, unknown>, projectId);
     return { scheduled: 'complete', projectId };
@@ -57,10 +67,38 @@ export const handoverComplete = defineJob(
   async ({ event }) => {
     const data = event.data as HandoverData;
 
-    await db
+    const [project] = await db
+      .select({ stage: projects.lifecycleStage })
+      .from(projects)
+      .where(and(eq(projects.id, data.projectId), eq(projects.tenantId, data.tenantId)));
+
+    // Completed by hand during the wait — still send the NPS ping a week later.
+    if (project?.stage === 'complete') {
+      await scheduleHandoverNps(data as unknown as Record<string, unknown>, data.projectId);
+      return { marked: 'already complete', projectId: data.projectId };
+    }
+    // The project was moved back out of handover during the wait.
+    if (project?.stage !== 'handover') {
+      await cancelHandoverSequence(data.projectId);
+      return { skipped: true, reason: `project is ${project?.stage ?? 'missing'}, not handover` };
+    }
+
+    // Same gate as a manual move: nothing may be outstanding at completion.
+    const gateError = await stageGateError(data.tenantId, data.projectId, 'handover', 'complete');
+    if (gateError) return { skipped: true, reason: gateError };
+
+    // Only move a project that is still in handover (guards a concurrent stage change).
+    const moved = await db
       .update(projects)
       .set({ lifecycleStage: 'complete' })
-      .where(and(eq(projects.id, data.projectId), eq(projects.tenantId, data.tenantId)));
+      .where(and(
+        eq(projects.id, data.projectId),
+        eq(projects.tenantId, data.tenantId),
+        eq(projects.lifecycleStage, 'handover'),
+      ))
+      .returning({ id: projects.id });
+    if (moved.length === 0) return { skipped: true, reason: 'project left handover' };
+    await applyStageMoneyEffects(db, data.tenantId, data.projectId, 'complete');
 
     await scheduleHandoverNps(data as unknown as Record<string, unknown>, data.projectId);
     return { marked: 'complete', projectId: data.projectId };
@@ -83,6 +121,7 @@ export const handoverNps = defineJob(
     if (project?.lifecycleStage !== 'complete') {
       return { skipped: true, reason: 'project is no longer complete' };
     }
+    if (!data.contactPhone) return { skipped: true, reason: 'no client phone' };
 
     await whatsapp.send({
       type: 'template',

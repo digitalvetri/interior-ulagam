@@ -49,6 +49,13 @@ function toNum(v: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/** Days are recorded in half-day steps (0, 0.5, 1, 1.5 …) — the API rejects anything else. */
+function isValidDays(v: string | undefined): boolean {
+  if (!v || !v.trim()) return true;
+  const n = Number(v.replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 && Number.isInteger(n * 2);
+}
+
 function gridFrom(week: StaffWeek): Grid {
   const g: Grid = {};
   for (const s of week.staff) g[s.id] = {};
@@ -139,6 +146,11 @@ export default function StaffDaysPage() {
   async function save() {
     if (!data) return;
     if (over.length) { setSaveError(`${over.map(s => s.fullName).join(', ')}: more than 7 days this week.`); return; }
+    const badNames = staff.filter(s => columns.some(c => !isValidDays(grid[s.id]?.[c.key]))).map(s => s.fullName);
+    if (badNames.length) {
+      setSaveError(`${badNames.join(', ')}: enter days in steps of 0.5 (e.g. 0.5, 1, 1.5).`);
+      return;
+    }
     const hadLogs = new Set(data.logs.map(l => l.userId));
     const rows: { userId: string; projectId: string | null; days: number }[] = [];
     for (const s of staff) {
@@ -296,7 +308,9 @@ export default function StaffDaysPage() {
                               onKeyDown={e => {
                                 if (e.key === 'Enter') { e.preventDefault(); focusCell(r + 1 < staff.length ? r + 1 : 0, ci); }
                               }}
-                              className="studio-input h-9 w-16 text-center text-sm tabular-nums"
+                              aria-invalid={!isValidDays(grid[s.id]?.[c.key])}
+                              title="Days in steps of 0.5"
+                              className={`studio-input h-9 w-16 text-center text-sm tabular-nums${isValidDays(grid[s.id]?.[c.key]) ? '' : ' border-red-500 ring-1 ring-red-500'}`}
                             />
                           </td>
                         ))}

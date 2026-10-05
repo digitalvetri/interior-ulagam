@@ -48,23 +48,29 @@ export async function POST(
 
   if (!po) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const vendorPhone = po.vendorPhone;
-  if (!vendorPhone) {
-    return NextResponse.json(
-      { error: 'No vendor phone number on this order. Add a vendor with a phone number first.' },
-      { status: 422 },
-    );
-  }
-
   const [tenantRow, vendorRow, projectRow] = await Promise.all([
     db.select().from(tenants).where(eq(tenants.id, ctx.tenantId)).then(r => r[0] ?? null),
     po.vendorId
-      ? db.select().from(vendors).where(eq(vendors.id, po.vendorId)).then(r => r[0] ?? null)
+      ? db.select().from(vendors)
+          .where(and(eq(vendors.id, po.vendorId), eq(vendors.tenantId, ctx.tenantId)))
+          .then(r => r[0] ?? null)
       : null,
     po.projectId
-      ? db.select().from(projects).where(eq(projects.id, po.projectId)).then(r => r[0] ?? null)
+      ? db.select().from(projects)
+          .where(and(eq(projects.id, po.projectId), eq(projects.tenantId, ctx.tenantId)))
+          .then(r => r[0] ?? null)
       : null,
   ]);
+
+  // po.vendor_phone is a legacy per-order override that nothing writes any
+  // more; the vendor record's phone is the normal source.
+  const vendorPhone = po.vendorPhone?.trim() || vendorRow?.phone?.trim() || null;
+  if (!vendorPhone) {
+    return NextResponse.json(
+      { error: 'No vendor phone number on this order. Add a phone number to the vendor first.' },
+      { status: 422 },
+    );
+  }
 
   const branding = (tenantRow?.brandingJson ?? {}) as BrandingJson;
   const rawLines = (Array.isArray(po.linesJson) ? po.linesJson : []) as RawLine[];

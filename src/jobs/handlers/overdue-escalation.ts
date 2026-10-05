@@ -1,12 +1,9 @@
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { milestones } from '@/lib/db/schema';
-
-interface OverdueMilestone {
-  id: string;
-  createdAt: Date;
-}
+import { loadProjectMoney } from '@/lib/project-money/server';
+import { shouldMarkOverdue } from '@/lib/finance/overdue';
 
 export const overdueEscalation = defineJob(
   {
@@ -15,46 +12,42 @@ export const overdueEscalation = defineJob(
   },
   { cron: '0 9 * * *' },
   async ({ step }) => {
-    // ── Step 1: Find all milestones that are pending or link_sent ─────────────
-    const overdueList = await step.run('find-overdue', async () => {
+    // ── Step 1: Projects (per tenant) with unpaid milestones ──────────────────
+    const projectsToCheck = await step.run('find-candidates', async () => {
       const rows = await db
-        .select({
-          id: milestones.id,
-          createdAt: milestones.createdAt,
-        })
+        .selectDistinct({ tenantId: milestones.tenantId, projectId: milestones.projectId })
         .from(milestones)
-        .where(
-          inArray(milestones.paymentStatus, ['link_sent', 'pending']),
-        );
-
-      return rows as OverdueMilestone[];
+        .where(inArray(milestones.paymentStatus, ['link_sent', 'pending']));
+      return rows;
     });
 
-    if (overdueList.length === 0) {
+    if (projectsToCheck.length === 0) {
       return { done: true, processed: 0 };
     }
 
-    // ── Step 2: Mark milestones overdue if age >= 3 days ──────────────────────
+    // ── Step 2: Flag the ones the money engine says are overdue ───────────────
+    // Overdue = fallen due (date or stage reached), past the grace days, balance unpaid.
     const updated = await step.run('process-overdue', async () => {
-      const now = Date.now();
-      const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
-
-      const overdueIds: string[] = overdueList
-        .filter((m) => now - new Date(m.createdAt).getTime() >= threeDaysMs)
-        .map((m) => m.id);
-
-      if (overdueIds.length === 0) {
-        return { markedOverdue: 0 } as const;
+      const ids: string[] = [];
+      for (const { tenantId, projectId } of projectsToCheck) {
+        const money = await loadProjectMoney(tenantId, projectId);
+        if (!money) continue;
+        const stored = await db.select({ id: milestones.id, paymentStatus: milestones.paymentStatus })
+          .from(milestones)
+          .where(and(eq(milestones.tenantId, tenantId), eq(milestones.projectId, projectId)));
+        const storedById = new Map(stored.map(s => [s.id, s.paymentStatus]));
+        const due = money.milestones
+          .filter(m => { const s = storedById.get(m.id); return !!s && shouldMarkOverdue(m, s); })
+          .map(m => m.id);
+        if (due.length === 0) continue;
+        await db.update(milestones)
+          .set({ paymentStatus: 'overdue' })
+          .where(and(eq(milestones.tenantId, tenantId), inArray(milestones.id, due), inArray(milestones.paymentStatus, ['link_sent', 'pending'])));
+        ids.push(...due);
       }
-
-      await db
-        .update(milestones)
-        .set({ paymentStatus: 'overdue' })
-        .where(inArray(milestones.id, overdueIds));
-
-      return { markedOverdue: overdueIds.length, ids: overdueIds } as const;
+      return { markedOverdue: ids.length, ids };
     });
 
-    return { done: true, processed: overdueList.length, ...updated };
+    return { done: true, processed: projectsToCheck.length, ...updated };
   },
 );

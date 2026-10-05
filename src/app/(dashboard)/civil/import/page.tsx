@@ -10,6 +10,7 @@ import { parseCivilWorkbook } from '@/lib/civil/import-parser';
 import { apiError, dmy } from '@/components/civil/format';
 import type { CivilBranchOption, CivilCity, CivilCompany } from '@/components/civil/types';
 import type { CivilImportCommitInput, ParsedCivilJob, ParsedCivilWorkbook } from '@/types/civil';
+import { findImportRowProblems } from '@/lib/civil/import-validate';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 
@@ -38,6 +39,21 @@ function titleCase(s: string): string {
 
 const norm = (s: string) => s.trim().toLowerCase();
 
+/** A parsed sheet row in the shape the import API validates. */
+function toCommitJob(j: ParsedCivilJob): CivilImportCommitInput['jobs'][number] {
+  return {
+    jobNo: j.jobNo,
+    jobDate: j.jobDate!,
+    storeName: j.storeName,
+    heading: j.heading,
+    remark: j.remark,
+    managerName: j.managerName,
+    billNo: j.billNo,
+    billDate: j.billDate,
+    lines: j.lines,
+  };
+}
+
 function branchIn(branches: CivilBranchOption[], s: StoreRow): boolean {
   return branches.some(b =>
     norm(b.companyName) === norm(s.companyName) && norm(b.cityName) === norm(s.cityName) && norm(b.name) === norm(s.branchName));
@@ -64,6 +80,8 @@ export default function CivilImportPage() {
   const [allCompany, setAllCompany] = useState('');
 
   const [committing, setCommitting] = useState(false);
+  // Rows with bad cells are only left out once the user explicitly agrees.
+  const [skipBadRows, setSkipBadRows] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
 
@@ -139,9 +157,15 @@ export default function CivilImportPage() {
     const mismatch = jobs.filter(j => j.mismatch);
     const noLines = jobs.filter(j => j.lines.length === 0);
     const duplicates = jobs.filter(j => (counts.get(j.jobNo) ?? 0) > 1);
-    const importable = jobs.filter(j => j.jobDate);
+    const dated = jobs.filter(j => j.jobDate);
+    // Per-row check with the server's own schema, so one bad cell (a negative
+    // amount, an over-long heading) can't fail the whole import.
+    const problems = findImportRowProblems(dated.map(toCommitJob));
+    const problemByJob = new Map(problems.map(p => [p.jobNo, p.messages]));
+    const invalid = dated.filter(j => problemByJob.has(j.jobNo));
+    const importable = dated.filter(j => !problemByJob.has(j.jobNo));
     const billed = importable.filter(j => j.billNo || j.billDate).length;
-    return { missingDate, mismatch, noLines, duplicates, importable, billed };
+    return { missingDate, mismatch, noLines, duplicates, importable, billed, invalid, problemByJob };
   }, [parsed]);
 
   const plan = useMemo(() => {
@@ -172,17 +196,7 @@ export default function CivilImportPage() {
         cityName: s.cityName.trim(),
         branchName: s.branchName.trim(),
       })),
-      jobs: review.importable.map((j: ParsedCivilJob) => ({
-        jobNo: j.jobNo,
-        jobDate: j.jobDate!,
-        storeName: j.storeName,
-        heading: j.heading,
-        remark: j.remark,
-        managerName: j.managerName,
-        billNo: j.billNo,
-        billDate: j.billDate,
-        lines: j.lines,
-      })),
+      jobs: review.importable.map(toCommitJob),
     };
     try {
       const res = await fetch('/api/v1/civil/import', {
@@ -200,7 +214,7 @@ export default function CivilImportPage() {
   }
 
   function restart() {
-    setStep(1); setParsed(null); setFileData(null); setStores([]); setResult(null); setFileName(''); setParseError(null); setCommitError(null);
+    setStep(1); setSkipBadRows(false); setParsed(null); setFileData(null); setStores([]); setResult(null); setFileName(''); setParseError(null); setCommitError(null);
     if (fileInput.current) fileInput.current.value = '';
   }
 
@@ -417,7 +431,7 @@ export default function CivilImportPage() {
 
           <Card>
             <h2 className="text-sm font-semibold" style={{ color: 'var(--text-heading)' }}>Jobs that need a look</h2>
-            {review.mismatch.length + review.missingDate.length + review.noLines.length + review.duplicates.length === 0 ? (
+            {review.mismatch.length + review.missingDate.length + review.noLines.length + review.duplicates.length + review.invalid.length === 0 ? (
               <p className="mt-2 flex items-center gap-2 text-sm" style={{ color: 'var(--success-text)' }}>
                 <CheckCircle2 className="h-4 w-4" />Everything looks consistent.
               </p>
@@ -425,6 +439,8 @@ export default function CivilImportPage() {
               <div className="mt-3 space-y-4">
                 <Issue title="Total doesn't match its lines (imported with the sum of the lines)" jobs={review.mismatch}
                   detail={j => `Sheet total ${formatRupees(j.statedTotalPaise ?? 0)} · lines ${formatRupees(j.lines.reduce((s, l) => s + l.amountPaise, 0))}`} />
+                <Issue title="Cells the app can't accept — these will be SKIPPED unless fixed in Excel" jobs={review.invalid} danger
+                  detail={j => (review.problemByJob.get(j.jobNo) ?? []).join('; ')} />
                 <Issue title="No date — these will be EXCLUDED" jobs={review.missingDate} danger
                   detail={() => 'Add a date in Excel and re-upload to include them'} />
                 <Issue title="No amount lines (imported as ₹0)" jobs={review.noLines}
@@ -442,12 +458,22 @@ export default function CivilImportPage() {
             </div>
           )}
 
+          {review.invalid.length > 0 && (
+            <label className="flex items-start gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <input type="checkbox" className="mt-1" checked={skipBadRows} onChange={e => setSkipBadRows(e.target.checked)} />
+              <span>
+                Import the {review.importable.length} good jobs and skip the {review.invalid.length} with bad cells
+                (fix them in Excel and import again later — jobs already imported are skipped).
+              </span>
+            </label>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" onClick={() => setStep(2)} disabled={committing}
               className="btn-secondary inline-flex items-center gap-1.5 px-4 py-2 text-sm">
               <ArrowLeft className="h-4 w-4" />Back to names
             </button>
-            <button type="button" onClick={() => void commit()} disabled={committing || review.importable.length === 0}
+            <button type="button" onClick={() => void commit()} disabled={committing || review.importable.length === 0 || (review.invalid.length > 0 && !skipBadRows)}
               className="btn-primary inline-flex items-center gap-1.5 px-5 py-2.5 text-sm disabled:opacity-50">
               {committing ? 'Importing…' : `Confirm import of ${review.importable.length} jobs`}
             </button>

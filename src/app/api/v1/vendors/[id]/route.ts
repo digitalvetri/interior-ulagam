@@ -4,19 +4,21 @@ import { db } from '@/lib/db';
 import { vendors } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { hasPgCode } from '@/lib/procurement/receipts';
 import { VENDOR_CATEGORY_MAX } from '@/lib/vendor-categories';
 import { findVendorCategory } from '@/lib/vendor-categories-server';
 
 const UpdateVendorSchema = z
   .object({
     name: z.string().min(1).optional(),
-    phone: z.string().optional(),
-    email: z.string().email().optional(),
-    gstin: z.string().optional(),
+    // Optional text fields: null or '' clears them (the edit form sends null).
+    phone: z.string().nullable().optional(),
+    email: z.union([z.string().email(), z.literal('')]).nullable().optional(),
+    gstin: z.string().nullable().optional(),
     // A studio vendor category name; null or '' clears it.
     category: z.string().trim().max(VENDOR_CATEGORY_MAX).nullable().optional(),
-    address: z.string().optional(),
-    notes: z.string().optional(),
+    address: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
   })
   .strict();
 
@@ -82,7 +84,15 @@ export async function PATCH(
   }
 
   const { category: rawCategory, ...rest } = input;
-  const values: typeof rest & { category?: string | null } = { ...rest };
+  const clear = (v: string | null | undefined) => (v === undefined ? undefined : v?.trim() || null);
+  const values: Partial<typeof vendors.$inferInsert> = {
+    ...(rest.name !== undefined && { name: rest.name }),
+    ...(rest.phone !== undefined && { phone: clear(rest.phone) }),
+    ...(rest.email !== undefined && { email: clear(rest.email) }),
+    ...(rest.gstin !== undefined && { gstin: clear(rest.gstin) }),
+    ...(rest.address !== undefined && { address: clear(rest.address) }),
+    ...(rest.notes !== undefined && { notes: clear(rest.notes) }),
+  };
   if (rawCategory !== undefined) values.category = rawCategory || null;
 
   try {
@@ -136,6 +146,12 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 });
   } catch (err) {
+    if (hasPgCode(err, '23503')) {
+      return NextResponse.json(
+        { error: 'This vendor is linked to work orders or other records, so it can’t be deleted.' },
+        { status: 409 },
+      );
+    }
     console.error('[vendors/:id DELETE]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

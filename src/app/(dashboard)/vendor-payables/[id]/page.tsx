@@ -4,6 +4,8 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, ExternalLink, Loader2, Plus, X } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
 import type { PurchaseOrder, POLine } from '@/types/purchase-orders';
 
 interface VendorPayment {
@@ -81,6 +83,8 @@ export default function VendorPayableDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { role, isAdmin } = useUser();
+  const isFinance = isAdmin || role === 'accountant'; // vendor-payments POST is FINANCE
 
   const [po, setPo]           = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,14 +152,19 @@ export default function VendorPayableDetailPage({
         }),
       });
       if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
-        setPayError((b as { error?: string }).error ?? 'Failed');
+        setPayError(await responseError(res, 'Failed to record payment.'));
         return;
       }
       setPayModal(false);
       void fetchVendorPays();
+      // The server re-syncs the PO's advance-paid figure; refresh it quietly
+      // (no page spinner) so "Advance Paid" / balance don't stay stale.
+      void fetch(`/api/v1/purchase-orders/${id}`)
+        .then(r => (r.ok ? r.json() as Promise<{ data: PurchaseOrder }> : null))
+        .then(b => { if (b?.data) setPo(b.data); })
+        .catch(() => { /* keep the current figures */ });
     } catch {
-      setPayError('Network error');
+      setPayError(NETWORK_ERROR);
     } finally {
       setPaySubmit(false);
     }
@@ -517,6 +526,7 @@ export default function VendorPayableDetailPage({
               style={{ background: 'var(--surface-muted)', borderBottom: '1px solid var(--border-subtle)' }}
             >
               <SectionHeading>Vendor Payments</SectionHeading>
+              {isFinance && (
               <button
                 onClick={openPayModal}
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white"
@@ -524,6 +534,7 @@ export default function VendorPayableDetailPage({
               >
                 <Plus className="h-3.5 w-3.5" /> Record
               </button>
+              )}
             </div>
             <div style={{ background: 'var(--surface-card)' }}>
               {vendorPays.length === 0 ? (

@@ -16,7 +16,7 @@ import {
 } from '@/lib/tally';
 
 const KINDS = [
-  'leads', 'projects', 'quotes', 'payments', 'materials', 'backup',
+  'leads', 'projects', 'quotes', 'payments', 'materials', 'invoices', 'expenses', 'backup',
   'tally-sales-csv', 'tally-sales-xml',
   'tally-receipts-csv', 'tally-receipts-xml',
 ] as const;
@@ -189,6 +189,14 @@ export async function GET(
       case 'materials': {
         const rows = await db.select().from(materials).where(eq(materials.tenantId, ctx.tenantId));
         return csvResponse(`materials_${today}.csv`, toCsv(rows));
+      }
+      case 'invoices': {
+        const rows = await db.select().from(invoices).where(eq(invoices.tenantId, ctx.tenantId));
+        return csvResponse(`invoices_${today}.csv`, toCsv(rows));
+      }
+      case 'expenses': {
+        const rows = await db.select().from(expenses).where(eq(expenses.tenantId, ctx.tenantId));
+        return csvResponse(`expenses_${today}.csv`, toCsv(rows));
       }
       case 'tally-sales-csv': {
         const rows = await loadTallyInvoices(ctx.tenantId, range.from, range.to);

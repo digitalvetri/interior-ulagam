@@ -72,3 +72,19 @@ export function fmtFollowUpDate(dateStr?: string | null): string {
   if (t.getTime() === yesterday.getTime()) return 'Yesterday';
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+/** Stages before a site visit has happened. Scheduling a visit advances these to 'site_visit'. */
+export const EARLY_STAGES: readonly LeadStage[] = ['new', 'contacted', 'qualified'];
+
+/** Stages from which completing a site visit may advance the lead to 'measurement'. */
+const PRE_MEASUREMENT_STAGES: readonly LeadStage[] = [
+  ...EARLY_STAGES, 'site_visit', 'site_visit_scheduled',
+];
+
+/**
+ * Stage a lead should move to after a site visit is completed, or null to leave it alone.
+ * Leads already past the visit (measured, quoted, booked, won, lost…) are never moved backwards.
+ */
+export function stageAfterVisitCompleted(current: string | null | undefined): LeadStage | null {
+  return PRE_MEASUREMENT_STAGES.includes((current ?? '') as LeadStage) ? 'measurement' : null;
+}

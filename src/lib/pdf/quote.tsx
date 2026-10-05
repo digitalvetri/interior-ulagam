@@ -40,6 +40,17 @@ export interface QuotePdfInput {
   gstPaise: number;
   totalPaise: number;
   terms?: string | null;
+  /** Per-quote payment terms typed on the quote; shown above the bank footer. */
+  paymentTerms?: string | null;
+}
+
+/**
+ * Validity date printed on a quote: the quote's own valid_until when set,
+ * otherwise issue date + the studio's default validity days.
+ */
+export function quoteValidUntil(validUntil: string | null | undefined, issuedAt: Date, validityDays: number): Date {
+  if (validUntil) return new Date(`${validUntil.slice(0, 10)}T00:00:00+05:30`);
+  return new Date(issuedAt.getTime() + validityDays * 24 * 60 * 60 * 1000);
 }
 
 const qs = StyleSheet.create({
@@ -60,6 +71,19 @@ const qs = StyleSheet.create({
   validUntil: {
     fontSize: 8,
     color: '#6b7280',
+  },
+  paymentTermsBox: {
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  paymentTermsLabel: {
+    fontSize: 8,
+    color: '#6b7280',
+    marginBottom: 3,
+  },
+  paymentTermsText: {
+    fontSize: 9,
+    color: '#111827',
   },
 });
 
@@ -127,6 +151,13 @@ function QuoteDocument({ input }: { input: QuotePdfInput }) {
           totalPaise={input.totalPaise}
           isInterstate={false}
         />
+
+        {input.paymentTerms ? (
+          <View style={qs.paymentTermsBox}>
+            <Text style={qs.paymentTermsLabel}>PAYMENT TERMS</Text>
+            <Text style={qs.paymentTermsText}>{input.paymentTerms}</Text>
+          </View>
+        ) : null}
 
         <BankFooter
           bank={input.studio}

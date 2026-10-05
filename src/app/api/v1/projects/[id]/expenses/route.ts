@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { expenses, projects } from '@/lib/db/schema';
 import { getAuthContext } from '@/lib/auth';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, isNull } from 'drizzle-orm';
 
 export async function GET(
   _request: NextRequest,
@@ -29,7 +29,7 @@ export async function GET(
     const rows = await db
       .select()
       .from(expenses)
-      .where(and(eq(expenses.projectId, projectId), eq(expenses.tenantId, ctx.tenantId)))
+      .where(and(eq(expenses.projectId, projectId), eq(expenses.tenantId, ctx.tenantId), isNull(expenses.voidedAt)))
       .orderBy(desc(expenses.createdAt));
 
     return NextResponse.json({ data: rows });

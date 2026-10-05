@@ -27,6 +27,11 @@ export interface Quote {
   leadStage?: string | null;
   leadBudgetBand?: string | null;
   parentQuoteId?: string | null;
+  quoteNumber?: string | null;
+  validUntil?: string | null;
+  paymentTerms?: string | null;
+  discountPaise?: number;
+  gstPct?: number;
   version: number;
   status: QuoteStatus;
   subtotalPaise: number;

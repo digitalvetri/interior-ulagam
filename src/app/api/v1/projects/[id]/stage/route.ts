@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { projects } from '@/lib/db/schema';
 import { stageGateError } from '@/lib/projects/stage-gates';
+import { cancelHandoverSequence } from '@/jobs/workflows/schedule';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { applyStageMoneyEffects } from '@/lib/project-money/server';
 
@@ -74,6 +75,10 @@ export async function PATCH(
     .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
     .returning();
   await applyStageMoneyEffects(db, ctx.tenantId, id, stage);
+  // Moved back out of handover: stop the pending auto-complete / NPS jobs.
+  if (project.lifecycleStage === 'handover' && stage && stage !== 'handover' && stage !== 'complete') {
+    await cancelHandoverSequence(id).catch((err) => console.error('[cancelHandoverSequence]', err));
+  }
 
   return NextResponse.json({ data: updatedProject });
 }

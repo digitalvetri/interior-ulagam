@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { leadFollowUps, leads } from '@/lib/db/schema';
+import { leadFollowUps, leads, leadActivities } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 
 export async function DELETE(
@@ -83,20 +83,44 @@ export async function PATCH(
   if (!body) return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
 
   const parsed = PatchSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+  if (!parsed.success) return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 });
 
   const now = new Date();
 
   try {
     if (parsed.data.action === 'mark_done') {
-      await db.transaction(async (tx) => {
-        await tx
+      const found = await db.transaction(async (tx) => {
+        const [done] = await tx
           .update(leadFollowUps)
           .set({ completedAt: now, updatedAt: now, updatedBy: ctx.dbUserId ?? undefined })
           .where(and(
             eq(leadFollowUps.id, followUpId),
             eq(leadFollowUps.tenantId, ctx.tenantId),
-          ));
+            eq(leadFollowUps.leadId, leadId),
+          ))
+          .returning({ followUpDate: leadFollowUps.followUpDate });
+        if (!done) return false;
+
+        // Complete the matching timeline activity created alongside this follow-up
+        // (createFollowUp writes a pending 'follow_up' activity at the same date).
+        const [activity] = await tx
+          .select({ id: leadActivities.id })
+          .from(leadActivities)
+          .where(and(
+            eq(leadActivities.tenantId, ctx.tenantId),
+            eq(leadActivities.leadId, leadId),
+            eq(leadActivities.type, 'follow_up'),
+            eq(leadActivities.status, 'pending'),
+            done.followUpDate ? eq(leadActivities.scheduledAt, done.followUpDate) : isNull(leadActivities.scheduledAt),
+          ))
+          .orderBy(asc(leadActivities.createdAt))
+          .limit(1);
+        if (activity) {
+          await tx
+            .update(leadActivities)
+            .set({ status: 'completed', completedAt: now })
+            .where(and(eq(leadActivities.id, activity.id), eq(leadActivities.tenantId, ctx.tenantId)));
+        }
 
         // BR-2/B: Recompute followUpDate from next pending row (if any)
         const [nextPending] = await tx
@@ -117,7 +141,9 @@ export async function PATCH(
             eq(leads.id, leadId),
             eq(leads.tenantId, ctx.tenantId),
           ));
+        return true;
       });
+      if (!found) return NextResponse.json({ error: 'Follow-up not found' }, { status: 404 });
     } else {
       const newDate = new Date(parsed.data.followUpDate);
       // Reject past-date reschedules using midnight IST — same convention as
@@ -154,6 +180,7 @@ export async function PATCH(
           .where(and(
             eq(leadFollowUps.id, followUpId),
             eq(leadFollowUps.tenantId, ctx.tenantId),
+            eq(leadFollowUps.leadId, leadId),
           ));
         await tx
           .update(leads)

@@ -15,6 +15,7 @@ import { FollowUpModal } from '@/components/leads/FollowUpModal';
 import { LeadViewModal } from '@/components/leads/LeadViewModal';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useUser } from '@/components/providers/user-provider';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 /* ── Types ──────────────────────────────────────────────────────────────────── */
 type FilterKey = LeadStage | 'all' | 'follow_up' | 'in_progress';
@@ -354,7 +355,7 @@ function ListConfirmDialog({ open, title, message, confirmLabel, danger, onConfi
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
       <div className="rounded-2xl p-6 max-w-sm w-full shadow-2xl" style={{ background: 'var(--surface-card)', border: '1px solid var(--border-subtle)' }}>
         <h3 className="text-base font-bold mb-2" style={{ color: 'var(--text-heading)' }}>{title}</h3>
-        <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>{message}</p>
+        <p className="text-sm mb-5 whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>{message}</p>
         <div className="flex gap-2 justify-end">
           <button type="button" onClick={onCancel} disabled={loading}
             className="px-4 py-2 text-sm rounded-lg border disabled:opacity-50"
@@ -396,6 +397,7 @@ export default function LeadsPage() {
   // List-level delete / archive
   const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'archive'; id: string; name: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Follow-up modals
   const [followUpLead, setFollowUpLead]         = useState<Lead | null>(null);
@@ -436,6 +438,7 @@ export default function LeadsPage() {
   async function confirmAction() {
     if (!pendingAction) return;
     setActionLoading(true);
+    setActionError(null);
     try {
       let res: Response;
       if (pendingAction.type === 'delete') {
@@ -447,11 +450,15 @@ export default function LeadsPage() {
           body: JSON.stringify({ archive: true }),
         });
       }
-      if (!res.ok) throw new Error('Request failed');
+      if (!res.ok) {
+        // Leave the dialog open with the reason so the user can act on it.
+        setActionError(await responseError(res, `Could not ${pendingAction.type} this lead.`));
+        return;
+      }
       setLeads(prev => prev.filter(l => l.id !== pendingAction.id));
       setPendingAction(null);
     } catch {
-      // silent – leave the dialog open so user can retry
+      setActionError(NETWORK_ERROR);
     } finally {
       setActionLoading(false);
     }
@@ -565,15 +572,16 @@ export default function LeadsPage() {
         open={!!pendingAction}
         title={pendingAction?.type === 'delete' ? 'Delete lead?' : 'Archive lead?'}
         message={
-          pendingAction?.type === 'delete'
+          (pendingAction?.type === 'delete'
             ? `"${pendingAction.name}" will be permanently deleted. This cannot be undone.`
             : `"${pendingAction?.name}" will be moved to the archive and hidden from the pipeline.`
+          ) + (actionError ? `\n\n⚠ ${actionError}` : '')
         }
         confirmLabel={pendingAction?.type === 'delete' ? 'Delete' : 'Archive'}
         danger={pendingAction?.type === 'delete'}
         loading={actionLoading}
         onConfirm={confirmAction}
-        onCancel={() => setPendingAction(null)}
+        onCancel={() => { setPendingAction(null); setActionError(null); }}
       />
 
         {/* ── Header ─────────────────────────────────────────────────────── */}

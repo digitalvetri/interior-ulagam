@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Drawer } from '@/components/ui/Drawer';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,8 @@ export interface RecordPaymentDrawerProps {
   defaultInvoiceId?: string | null;
   defaultProjectId?: string | null;
   defaultCustomerId?: string | null;
+  /** Apply the payment to this milestone (sent as an explicit allocation). */
+  defaultMilestoneId?: string | null;
   /** Label shown below the drawer title, e.g. "ABC Corp — Milestone 2" */
   contextLabel?: string;
 }
@@ -35,6 +37,23 @@ export interface RecordPaymentDrawerProps {
 function todayISO() {
   return istToday();
 }
+
+/** Paise → rupees text with up to 2 decimals (no float drift). */
+function paiseToRupeesText(paise: number): string {
+  const r = Math.floor(paise / 100);
+  const p = paise % 100;
+  return p === 0 ? String(r) : `${r}.${String(p).padStart(2, '0')}`;
+}
+
+/** Rupees text → integer paise, or null when not a valid amount (max 2 decimals). */
+function rupeesTextToPaise(text: string): number | null {
+  const t = text.replace(/,/g, '').trim();
+  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(t);
+  if (!m) return null;
+  return Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || 0);
+}
+
+interface ProjectOption { id: string; name: string }
 
 export function RecordPaymentDrawer({
   open,
@@ -44,11 +63,12 @@ export function RecordPaymentDrawer({
   defaultInvoiceId,
   defaultProjectId,
   defaultCustomerId,
+  defaultMilestoneId,
   contextLabel,
 }: RecordPaymentDrawerProps) {
-  const defaultRupees = defaultAmountPaise
-    ? String(Math.round(defaultAmountPaise / 100))
-    : '';
+  const defaultRupees = defaultAmountPaise ? paiseToRupeesText(defaultAmountPaise) : '';
+  // With no project, invoice or client given, the payment must be tied to a project.
+  const needsProject = !defaultInvoiceId && !defaultProjectId && !defaultCustomerId;
 
   const [amountRupees, setAmountRupees] = useState(defaultRupees);
   const [mode,         setMode]         = useState<Mode>('upi');
@@ -57,6 +77,33 @@ export function RecordPaymentDrawer({
   const [note,         setNote]         = useState('');
   const [submitting,   setSubmitting]   = useState(false);
   const [error,        setError]        = useState<string | null>(null);
+  const [projectId,    setProjectId]    = useState('');
+  const [projectList,  setProjectList]  = useState<ProjectOption[]>([]);
+
+  // Re-sync the form each time the drawer opens for a (possibly different) row.
+  // Adjusted during render rather than in an effect, per React's guidance.
+  const openKey = open ? `${defaultRupees}|${defaultInvoiceId ?? ''}|${defaultProjectId ?? ''}|${defaultMilestoneId ?? ''}` : '';
+  const [syncedKey, setSyncedKey] = useState('');
+  if (openKey !== syncedKey) {
+    setSyncedKey(openKey);
+    if (open) {
+      setAmountRupees(defaultRupees);
+      setMode('upi');
+      setReference('');
+      setReceivedDate(todayISO());
+      setNote('');
+      setError(null);
+      setProjectId('');
+    }
+  }
+
+  useEffect(() => {
+    if (!open || !needsProject || projectList.length) return;
+    fetch('/api/v1/projects?limit=500')
+      .then(r => (r.ok ? r.json() : null))
+      .then((body: { data?: ProjectOption[] } | null) => setProjectList((body?.data ?? []).map(p => ({ id: p.id, name: p.name }))))
+      .catch(() => {});
+  }, [open, needsProject, projectList.length]);
 
   function reset() {
     setAmountRupees(defaultRupees);
@@ -74,9 +121,13 @@ export function RecordPaymentDrawer({
 
   async function handleSubmit() {
     setError(null);
-    const rupees = Number(amountRupees.replace(/,/g, ''));
-    if (!Number.isFinite(rupees) || rupees <= 0) {
-      setError('Enter a valid amount in rupees.');
+    const amountPaise = rupeesTextToPaise(amountRupees);
+    if (amountPaise === null || amountPaise <= 0) {
+      setError('Enter a valid amount in rupees (up to 2 decimals).');
+      return;
+    }
+    if (needsProject && !projectId) {
+      setError('Pick the project this payment is for.');
       return;
     }
 
@@ -90,14 +141,15 @@ export function RecordPaymentDrawer({
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amountPaise: Math.round(rupees * 100),
+          amountPaise,
           mode,
           reference:   reference.trim() || undefined,
           receivedAt:  new Date(`${receivedDate}T12:00:00`).toISOString(),
           note:        note.trim() || undefined,
           invoiceId:   defaultInvoiceId   ?? undefined,
-          projectId:   defaultProjectId   ?? undefined,
+          projectId:   defaultProjectId ?? (projectId || undefined),
           customerId:  defaultCustomerId  ?? undefined,
+          allocations: defaultMilestoneId ? [{ milestoneId: defaultMilestoneId, amountPaise }] : undefined,
         }),
       });
 
@@ -157,13 +209,28 @@ export function RecordPaymentDrawer({
           </p>
         )}
 
+        {needsProject && (
+          <div className="space-y-1.5">
+            <Label htmlFor="rp-project">Project *</Label>
+            <select
+              id="rp-project"
+              className="studio-input w-full text-sm"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              <option value="">Select a project…</option>
+              {projectList.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
+
         {/* Amount */}
         <div className="space-y-1.5">
           <Label htmlFor="rp-amount">Amount (₹) *</Label>
           <Input
             id="rp-amount"
             type="text"
-            inputMode="numeric"
+            inputMode="decimal"
             placeholder="0"
             value={amountRupees}
             onChange={(e) => setAmountRupees(e.target.value)}

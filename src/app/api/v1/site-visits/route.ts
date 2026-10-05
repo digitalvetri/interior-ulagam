@@ -4,6 +4,9 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { siteVisits, leads, users, customers, notifications } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { EARLY_STAGES } from '@/lib/leads/stage-utils';
+import { enqueueBestEffort, JOB } from '@/jobs/queue';
+import type { LeadStage } from '@/types/leads';
 
 const VISIT_PURPOSE_VALUES = [
   'initial', 'measurement', 'design_review',
@@ -140,8 +143,7 @@ export async function POST(request: NextRequest) {
       .returning();
 
     // Auto-advance lead stage to site_visit if still in an early stage
-    const EARLY_STAGES = ['new', 'contacted', 'qualified'];
-    if (EARLY_STAGES.includes(currentLead.stage ?? '')) {
+    if (EARLY_STAGES.includes((currentLead.stage ?? '') as LeadStage)) {
       await db.update(leads)
         .set({ stage: 'site_visit', lastActivityAt: new Date() })
         .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId)));
@@ -162,6 +164,11 @@ export async function POST(request: NextRequest) {
         href:     `/site-visits/${visit.id}`,
       });
     }
+
+    await enqueueBestEffort(JOB.siteVisitReminders, {
+      siteVisitId: visit.id, tenantId: ctx.tenantId, leadId,
+      scheduledAt: visit.scheduledAt.toISOString(),
+    });
 
     return NextResponse.json({ data: visit, message: 'Site visit scheduled' }, { status: 201 });
   } catch (e) {

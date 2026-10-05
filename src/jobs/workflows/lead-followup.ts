@@ -30,7 +30,7 @@ export interface FollowupData {
 
 // Stages where nudging the client still makes sense — stop once won/lost
 const NUDGEABLE_STAGES = new Set([
-  'new', 'contacted', 'qualified', 'site_visit', 'measurement',
+  'new', 'contacted', 'qualified', 'site_visit', 'measurement', 'measured', 'booked',
   'quotation', 'negotiation',
   // legacy
   'site_visit_scheduled', 'consultation_done', 'proposal_sent',
@@ -38,10 +38,10 @@ const NUDGEABLE_STAGES = new Set([
 
 async function isLeadNudgeable(leadId: string, tenantId: string): Promise<boolean> {
   const [row] = await db
-    .select({ stage: leads.stage })
+    .select({ stage: leads.stage, archivedAt: leads.archivedAt })
     .from(leads)
     .where(and(eq(leads.id, leadId), eq(leads.tenantId, tenantId)));
-  return !!row && NUDGEABLE_STAGES.has(row.stage);
+  return !!row && row.archivedAt === null && NUDGEABLE_STAGES.has(row.stage);
 }
 
 async function sendNudge(

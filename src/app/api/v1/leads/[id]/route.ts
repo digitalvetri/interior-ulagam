@@ -22,6 +22,7 @@ const PatchLeadSchema = z.object({
   // Pipeline fields (terminal stages go through /stage endpoint)
   stage:        MidPipelineStageEnum,
   ownerId:      z.string().uuid().nullable(),
+  priority:     z.enum(['hot', 'warm', 'cold']).nullable(),
   followUpDate: z.union([z.string().datetime({ offset: true }), z.string().date(), z.null()]),
   // Contact edit fields
   contactName:     z.string().min(1).max(120),
@@ -232,6 +233,7 @@ export async function PATCH(
       updates.designerName = null;
     }
   }
+  if (d.priority     !== undefined) updates.priority   = d.priority;
   if (d.notes        !== undefined) updates.notes      = d.notes;
   if (d.budgetBand   !== undefined) updates.budgetBand = d.budgetBand;
   if (d.source       !== undefined) updates.source     = d.source;

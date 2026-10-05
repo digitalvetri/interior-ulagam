@@ -52,7 +52,8 @@ export async function GET(request: NextRequest) {
   const unpaid    = searchParams.get('unpaid') === 'true';
 
   try {
-    const conditions = [eq(expenses.tenantId, ctx.tenantId)];
+    // Voided expenses are excluded everywhere money is totalled.
+    const conditions = [eq(expenses.tenantId, ctx.tenantId), isNull(expenses.voidedAt)];
 
     if (projectId) conditions.push(eq(expenses.projectId, projectId));
     if (category && (EXPENSE_CATEGORIES as readonly string[]).includes(category)) {
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = CreateExpenseSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Validation error', details: parsed.error.flatten() }, { status: 422 });
   }
 
   const input = parsed.data;

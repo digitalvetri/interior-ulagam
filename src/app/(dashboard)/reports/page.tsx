@@ -7,6 +7,7 @@ import {
   ArrowRight, Minus,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { toExportRows, RUPEE_SUFFIX, RUPEE_FORMAT } from '@/lib/reports/export-rows';
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -31,7 +32,8 @@ interface ProfitabilityData {
   rows: {
     id: string; name: string; stage: string;
     contractPaise: number; expensesPaise: number; collectedPaise: number;
-    marginPaise: number; marginPct: number;
+    /** Owner-only — the API omits margin for accountants. */
+    marginPaise?: number; marginPct?: number;
   }[];
 }
 interface ActivityItem {
@@ -264,6 +266,15 @@ async function safeJson(r: Response) {
 
 function dlXlsx(data: Record<string, unknown>[], filename: string) {
   const ws = XLSX.utils.json_to_sheet(data);
+  // Rupee columns: real numbers with a ₹ display format (not paise-as-text).
+  const headers = Object.keys(data[0] ?? {});
+  headers.forEach((h, c) => {
+    if (!h.endsWith(RUPEE_SUFFIX)) return;
+    for (let r = 1; r <= data.length; r++) {
+      const cell = ws[XLSX.utils.encode_cell({ r, c })] as XLSX.CellObject | undefined;
+      if (cell && cell.t === 'n') cell.z = RUPEE_FORMAT;
+    }
+  });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Report');
   XLSX.writeFile(wb, filename);
@@ -271,6 +282,7 @@ function dlXlsx(data: Record<string, unknown>[], filename: string) {
 
 async function exportReport(report: string, from: string, to: string) {
   const res  = await fetch(`/api/v1/reports/${report}?from=${from}&to=${to}`);
+  if (!res.ok) return;
   const json = await res.json();
   const d    = json.data;
   if (!d) return;
@@ -279,7 +291,7 @@ async function exportReport(report: string, from: string, to: string) {
     : Array.isArray(d.byMonth)  ? d.byMonth
     : [];
   if (rows.length === 0) return;
-  dlXlsx(rows as Record<string, unknown>[], `konst-${report}-${from}-to-${to}.xlsx`);
+  dlXlsx(toExportRows(rows as Record<string, unknown>[]), `konst-${report}-${from}-to-${to}.xlsx`);
 }
 
 // ─── activity icon ────────────────────────────────────────────────────────────
@@ -315,6 +327,8 @@ export default function ReportsPage() {
   const [pipeline, setPipeline] = useState<PipelineData | null>(null);
   const [coll,     setColl]     = useState<CollectionsData | null>(null);
   const [profit,   setProfit]   = useState<ProfitabilityData | null>(null);
+  // Margin columns only exist for the owner (API strips them for accountants).
+  const showMargin = !!profit?.rows.some(r => r.marginPaise !== undefined);
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
 
   // ── init after mount — avoids hydration mismatch ──────────────────────────
@@ -430,8 +444,10 @@ export default function ReportsPage() {
                 'Contract (₹)': +(r.contractPaise / 100).toFixed(2),
                 'Collected (₹)': +(r.collectedPaise / 100).toFixed(2),
                 'Expenses (₹)': +(r.expensesPaise / 100).toFixed(2),
-                'Margin (₹)': +(r.marginPaise / 100).toFixed(2),
-                'Margin %': r.marginPct,
+                ...(r.marginPaise !== undefined && {
+                  'Margin (₹)': +(r.marginPaise / 100).toFixed(2),
+                  'Margin %': r.marginPct,
+                }),
               })), `konst-profitability-${from}-to-${to}.xlsx`);
             }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold"
@@ -766,7 +782,7 @@ export default function ReportsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                  {['Project','Stage','Contract','Collected','Expenses','Margin','Margin %'].map(h => (
+                  {['Project','Stage','Contract','Collected','Expenses', ...(showMargin ? ['Margin','Margin %'] : [])].map(h => (
                     <th key={h} className="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide whitespace-nowrap"
                       style={{ color: 'var(--text-tertiary)' }}>{h}</th>
                   ))}
@@ -788,6 +804,7 @@ export default function ReportsPage() {
                       style={{ color: 'var(--success)' }}>{fmtK(r.collectedPaise)}</td>
                     <td className="px-5 py-3 tabular-nums whitespace-nowrap"
                       style={{ color: 'var(--destructive)' }}>{fmtK(r.expensesPaise)}</td>
+                    {r.marginPaise !== undefined && r.marginPct !== undefined && (<>
                     <td className="px-5 py-3 tabular-nums font-semibold whitespace-nowrap"
                       style={{ color: r.marginPaise >= 0 ? 'var(--success)' : 'var(--destructive)' }}>
                       {r.marginPaise < 0 ? '-' : ''}{fmtK(Math.abs(r.marginPaise))}
@@ -805,6 +822,7 @@ export default function ReportsPage() {
                         {r.marginPct}%
                       </span>
                     </td>
+                    </>)}
                   </tr>
                 ))}
               </tbody>

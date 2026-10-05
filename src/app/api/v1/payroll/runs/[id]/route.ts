@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { users, payrollRuns, payslips } from '@/lib/db/schema';
 import { requireAuth, requireApiRole, ROLES } from '@/lib/auth';
+import { isAllowedRunTransition } from '@/lib/payroll/calculate';
 
 const StatusSchema = z.object({
   status: z.enum(['approved', 'paid']),
@@ -47,7 +48,7 @@ export async function GET(
     })
     .from(payslips)
     .innerJoin(users, eq(payslips.userId, users.id))
-    .where(eq(payslips.runId, id))
+    .where(and(eq(payslips.runId, id), eq(payslips.tenantId, ctx.tenantId)))
     .orderBy(users.fullName);
 
   return NextResponse.json({ data: { ...run, payslips: slips } });
@@ -65,10 +66,12 @@ export async function PATCH(
   }
   const { id } = await params;
 
-  const body = await request.json() as unknown;
+  let body: unknown;
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }); }
   const parsed = StatusSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 });
   }
 
   const [run] = await db
@@ -79,17 +82,57 @@ export async function PATCH(
 
   if (!run) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  // Enforce forward-only transitions: draft → approved → paid
-  const ORDER = { draft: 0, approved: 1, paid: 2 };
-  if (ORDER[parsed.data.status] <= ORDER[run.status]) {
-    return NextResponse.json({ error: 'Invalid status transition' }, { status: 400 });
+  // Enforce one step at a time: draft → approved → paid (no skipping approval)
+  if (!isAllowedRunTransition(run.status, parsed.data.status)) {
+    return NextResponse.json(
+      { error: run.status === 'draft' && parsed.data.status === 'paid'
+          ? 'Approve the payroll run before marking it paid'
+          : `Cannot change a ${run.status} run to ${parsed.data.status}` },
+      { status: 409 },
+    );
   }
 
   const [updated] = await db
     .update(payrollRuns)
     .set({ status: parsed.data.status })
-    .where(and(eq(payrollRuns.id, id), eq(payrollRuns.tenantId, ctx.tenantId)))
+    // Status guard in the WHERE makes a concurrent double transition a no-op
+    .where(and(eq(payrollRuns.id, id), eq(payrollRuns.tenantId, ctx.tenantId), eq(payrollRuns.status, run.status)))
     .returning();
 
+  if (!updated) {
+    return NextResponse.json({ error: 'The payroll run changed meanwhile — reload and try again' }, { status: 409 });
+  }
+
   return NextResponse.json({ data: updated });
+}
+
+// DELETE /api/v1/payroll/runs/[id] — owner only, draft runs only (payslips cascade)
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const ctx = await requireAuth();
+  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  if (denied) return denied;
+  const { id } = await params;
+  if (!z.string().uuid().safeParse(id).success) {
+    return NextResponse.json({ error: 'Invalid payroll run id' }, { status: 400 });
+  }
+
+  const [deleted] = await db
+    .delete(payrollRuns)
+    .where(and(eq(payrollRuns.id, id), eq(payrollRuns.tenantId, ctx.tenantId), eq(payrollRuns.status, 'draft')))
+    .returning({ id: payrollRuns.id });
+
+  if (!deleted) {
+    const [exists] = await db
+      .select({ status: payrollRuns.status })
+      .from(payrollRuns)
+      .where(and(eq(payrollRuns.id, id), eq(payrollRuns.tenantId, ctx.tenantId)))
+      .limit(1);
+    if (!exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ error: `Only draft runs can be deleted — this run is ${exists.status}` }, { status: 409 });
+  }
+
+  return NextResponse.json({ data: deleted, message: 'Payroll run deleted' });
 }

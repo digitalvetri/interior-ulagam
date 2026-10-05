@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { grns, purchaseOrders, users } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and, sum, sql, isNotNull } from 'drizzle-orm';
+import { eq, and, sum, sql, isNotNull, like } from 'drizzle-orm';
 import type { POLine } from '@/types/purchase-orders';
+import { nextDocNumber, pendingQty, receiptStatus, roundQty } from '@/lib/procurement/receipts';
 
 const CreateGRNSchema = z.object({
   deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
@@ -13,7 +14,8 @@ const CreateGRNSchema = z.object({
     .array(
       z.object({
         lineId:      z.string().uuid(),
-        receivedQty: z.number().int().positive(),
+        // Decimals allowed: PO lines can be fractional (e.g. 12.5 sqft). Stored as numeric(12,3).
+        receivedQty: z.number().positive().max(999_999_999),
       }),
     )
     .min(1, 'At least one line is required'),
@@ -138,28 +140,27 @@ export async function POST(
     for (const { lineId, receivedQty } of input.lines) {
       const line = linesMap.get(lineId)!;
       const already = alreadyReceived[lineId] ?? 0;
-      const pending = line.qty - already;
-      if (receivedQty > pending) {
+      const pending = pendingQty(Number(line.qty) || 0, already);
+      if (roundQty(receivedQty) > pending) {
         return NextResponse.json({
           error: `"${line.description}": cannot receive ${receivedQty} ${line.unit}. Only ${pending} pending.`,
         }, { status: 422 });
       }
     }
 
-    // 4. Generate GRN number — count DISTINCT non-null grnNumbers for this tenant
-    const [{ grnCount }] = await db
-      .select({ grnCount: sql<number>`count(distinct ${grns.grnNumber})` })
-      .from(grns)
-      .where(and(
-        eq(grns.tenantId, ctx.tenantId),
-        isNotNull(grns.grnNumber),
-      ));
-
+    // 4 + 5. Number the GRN, insert rows and recalculate PO status atomically.
+    // One GRN spans several rows (one per line) sharing a number, so a unique
+    // index can't guard it; a per-tenant transaction lock serialises numbering.
     const year = new Date().getFullYear();
-    const grnNumber = `GRN-${year}-${String(Number(grnCount) + 1).padStart(3, '0')}`;
-
-    // 5. Insert rows + recalculate PO status atomically
+    let grnNumber = '';
     const insertedRows = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`grn-number:${ctx.tenantId}`}))`);
+      const existing = await tx
+        .selectDistinct({ n: grns.grnNumber })
+        .from(grns)
+        .where(and(eq(grns.tenantId, ctx.tenantId), like(grns.grnNumber, `GRN-${year}-%`)));
+      grnNumber = nextDocNumber('GRN', year, existing.map((r) => r.n));
+
       const rows = await tx
         .insert(grns)
         .values(
@@ -167,7 +168,7 @@ export async function POST(
             tenantId:     ctx.tenantId,
             poId:         id,
             lineId,
-            deliveredQty: receivedQty,
+            deliveredQty: roundQty(receivedQty),
             photoProof:   [] as string[],
             notes:        input.notes ?? null,
             grnNumber,
@@ -178,8 +179,9 @@ export async function POST(
         )
         .returning();
 
-      // Per-line status recalculation (only for non-draft, non-cancelled POs)
-      if (po.status !== 'draft' && po.status !== 'cancelled') {
+      // Per-line status recalculation. A delivery against a draft PO (goods
+      // arrived before the PO was formally sent) still moves it to partial/complete.
+      if (po.status !== 'cancelled') {
         const refreshed = await tx
           .select({ lineId: grns.lineId, total: sum(grns.deliveredQty) })
           .from(grns)
@@ -196,9 +198,10 @@ export async function POST(
           if (r.lineId) receivedPerLine[r.lineId] = Number(r.total ?? 0);
         }
 
-        const allComplete = linesJson.every(l => (receivedPerLine[l.id] ?? 0) >= l.qty);
-        const anyReceived = linesJson.some(l => (receivedPerLine[l.id] ?? 0) > 0);
-        const newStatus   = allComplete ? 'complete' : anyReceived ? 'partial' : null;
+        const newStatus = receiptStatus(
+          linesJson.map(l => ({ id: l.id, qty: Number(l.qty) || 0 })),
+          receivedPerLine,
+        );
 
         if (newStatus && newStatus !== po.status) {
           await tx

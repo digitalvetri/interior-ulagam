@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, isNotNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   purchaseOrders, vendors, projects, vendorPayments,
@@ -139,6 +139,7 @@ export async function GET(request: NextRequest) {
       .from(expenses)
       .where(and(
         eq(expenses.tenantId, ctx.tenantId),
+        isNull(expenses.voidedAt),
         sql`${expenses.createdAt} >= ${sixMonthsAgo}`,
       ));
 

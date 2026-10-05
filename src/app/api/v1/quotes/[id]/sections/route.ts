@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { quotes, quoteSections } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, asc } from 'drizzle-orm';
+import { invalidateQuotePdf } from '@/lib/quotes/totals';
 
 const CreateSectionSchema = z.object({
   room: z.string().min(1),
@@ -63,7 +64,10 @@ export async function POST(
 
   const parsed = CreateSectionSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
@@ -94,6 +98,7 @@ export async function POST(
         sortOrder: input.sortOrder,
       })
       .returning();
+    await invalidateQuotePdf(id, ctx.tenantId);
 
     return NextResponse.json({ data: section }, { status: 201 });
   } catch (err) {

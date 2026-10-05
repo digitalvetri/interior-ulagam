@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
+import { splitGst } from '@/lib/finance/gst';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 type PaymentStatus = 'pending' | 'link_sent' | 'paid' | 'overdue' | 'partial';
@@ -31,11 +32,25 @@ interface InvoiceRow {
   irn: string | null;
   pdfUrl: string | null;
   paymentStatus: PaymentStatus | null;
+  paidPaise?: number;
+}
+
+/** Paise → rupees text with up to 2 decimals. */
+function paiseText(paise: number): string {
+  const r = Math.floor(paise / 100), p = paise % 100;
+  return p === 0 ? String(r) : `${r}.${String(p).padStart(2, '0')}`;
+}
+
+/** Rupees text → integer paise (max 2 decimals), or null. */
+function toPaise(text: string): number | null {
+  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(text.replace(/,/g, '').trim());
+  return m ? Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || 0) : null;
 }
 
 interface ProjOption {
   id: string;
   name: string;
+  gstPct?: number;
   customerFullName?: string | null;
   leadContactName?: string | null;
 }
@@ -231,14 +246,15 @@ export default function InvoicesPage() {
 
   async function handleRecordPayment() {
     if (!paymentDialog.inv) return;
-    const amountPaise = Math.round(parseFloat(paymentDialog.amount || '0') * 100);
-    if (amountPaise <= 0) { setPaymentDialog(p => ({ ...p, error: 'Enter a valid amount' })); return; }
+    const amountPaise = toPaise(paymentDialog.amount);
+    if (!amountPaise || amountPaise <= 0) { setPaymentDialog(p => ({ ...p, error: 'Enter a valid amount' })); return; }
     setPaymentDialog(p => ({ ...p, submitting: true, error: null }));
     try {
-      const res = await fetch(`/api/v1/invoices/${paymentDialog.inv.id}/payments`, {
+      // Same path as every other receipt: numbered, tied to project + client, allocated, invoice synced.
+      const res = await fetch('/api/v1/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amountPaise, note: `Recorded via invoice list — ${paymentDialog.mode}` }),
+        body: JSON.stringify({ amountPaise, mode: paymentDialog.mode, invoiceId: paymentDialog.inv.id }),
       });
       const json = await res.json() as { error?: string };
       if (!res.ok) { setPaymentDialog(p => ({ ...p, submitting: false, error: json.error ?? 'Failed' })); return; }
@@ -298,13 +314,12 @@ export default function InvoicesPage() {
   // ── Modal helpers ─────────────────────────────────────────────────────────
   function openModal() {
     const today = istToday();
-    const year  = new Date().getFullYear();
     setStep(1);
     setCreateError(null);
     setSelProjectId('');
     setSelMilestoneId('');
     setMilestoneList([]);
-    setInvNumber(`INV-${year}-${String(rows.length + 1).padStart(4, '0')}`);
+    setInvNumber(''); // blank → numbered by the server (INV-YYYY-NNNN, no collisions)
     setInvDate(today);
     setSubtotalInput('');
     setGstType(null);
@@ -352,11 +367,7 @@ export default function InvoicesPage() {
 
   async function handleCreate() {
     const subtotalPaise = Math.round(parseFloat(subtotalInput || '0') * 100);
-    if (subtotalPaise <= 0 || !invNumber.trim() || !invDate) return;
-
-    const cgst = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
-    const sgst = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
-    const igst = gstType === 'interstate' ? Math.round(subtotalPaise * 0.18) : 0;
+    if (subtotalPaise <= 0 || !invDate) return;
     const projName = projectList.find(p => p.id === selProjectId)?.name ?? 'Project';
 
     setCreating(true);
@@ -368,7 +379,7 @@ export default function InvoicesPage() {
         body: JSON.stringify({
           projectId:     selProjectId,
           milestoneId:   selMilestoneId || undefined,
-          invoiceNumber: invNumber.trim(),
+          invoiceNumber: invNumber.trim() || undefined,
           invoiceDate:   invDate,
           subtotalPaise,
           isInterstate: gstType === 'interstate',
@@ -377,9 +388,6 @@ export default function InvoicesPage() {
             hsnSac:      '9954',
             description: `Interior Design Works — ${projName}`,
             amountPaise: subtotalPaise,
-            cgstPaise:   cgst,
-            sgstPaise:   sgst,
-            igstPaise:   igst,
           }],
         }),
       });
@@ -396,11 +404,11 @@ export default function InvoicesPage() {
 
   // ── Derived values for GST preview ────────────────────────────────────────
   const subtotalPaise = Math.round(parseFloat(subtotalInput || '0') * 100);
-  const igstPaise   = gstType === 'interstate' ? Math.round(subtotalPaise * 0.18) : 0;
-  const cgstPaise   = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
-  const sgstPaise   = gstType === 'intrastate' ? Math.round(subtotalPaise * 0.09) : 0;
+  // Preview only — the server recomputes with the project's GST rate.
+  const selGstPct   = projectList.find(p => p.id === selProjectId)?.gstPct ?? 18;
+  const { igstPaise, cgstPaise, sgstPaise } = splitGst(subtotalPaise, selGstPct, { isInterstate: gstType === 'interstate', noGst: gstType === null });
   const totalPaise  = subtotalPaise + cgstPaise + sgstPaise + igstPaise;
-  const canCreate   = invNumber.trim().length > 0 && invDate.length > 0 && subtotalPaise > 0 && !!selProjectId;
+  const canCreate   = invDate.length > 0 && subtotalPaise > 0 && !!selProjectId;
 
   // ── Page KPIs ─────────────────────────────────────────────────────────────
   const filtered = rows.filter((r) => {
@@ -529,14 +537,14 @@ export default function InvoicesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
-                      Invoice Number *
+                      Invoice Number
                     </label>
                     <input
                       type="text"
                       value={invNumber}
                       onChange={(e) => setInvNumber(e.target.value)}
                       className={inputCls}
-                      placeholder="INV-2026-0001"
+                      placeholder="Auto (INV-YYYY-NNNN)"
                     />
                   </div>
                   <div>
@@ -582,7 +590,7 @@ export default function InvoicesPage() {
                           className="accent-purple-600"
                         />
                         <span className="text-sm" style={{ color: 'var(--text-heading)' }}>
-                          {type === 'intrastate' ? 'Intrastate — 9% CGST + 9% SGST' : 'Interstate — 18% IGST'}
+                          {type === 'intrastate' ? `Intrastate — CGST + SGST (${selGstPct}%)` : `Interstate — IGST (${selGstPct}%)`}
                         </span>
                       </label>
                     ))}
@@ -603,7 +611,7 @@ export default function InvoicesPage() {
                   </div>
                   {gstType === 'interstate' && (
                     <div className="flex justify-between text-sm">
-                      <span style={{ color: 'var(--text-secondary)' }}>IGST 18%</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>IGST {selGstPct}%</span>
                       <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                         {formatRupees(igstPaise)}
                       </span>
@@ -612,13 +620,13 @@ export default function InvoicesPage() {
                   {gstType === 'intrastate' && (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span style={{ color: 'var(--text-secondary)' }}>CGST 9%</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>CGST {selGstPct / 2}%</span>
                         <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                           {formatRupees(cgstPaise)}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span style={{ color: 'var(--text-secondary)' }}>SGST 9%</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>SGST {selGstPct / 2}%</span>
                         <span className="tabular-nums" style={{ color: 'var(--text-secondary)' }}>
                           {formatRupees(sgstPaise)}
                         </span>
@@ -910,7 +918,11 @@ export default function InvoicesPage() {
                       <td className="px-3 py-3.5 text-right" onClick={e => e.stopPropagation()}>
                         <InvoiceActionMenu
                           inv={inv}
-                          onPayment={(i) => setPaymentDialog({ open: true, inv: i, amount: '', mode: 'upi', submitting: false, error: null })}
+                          onPayment={(i) => setPaymentDialog({
+                            open: true, inv: i, mode: 'upi', submitting: false, error: null,
+                            // Prefill what is still owed incl. GST.
+                            amount: paiseText(Math.max(0, i.subtotalPaise + i.cgstPaise + i.sgstPaise + i.igstPaise - (i.paidPaise ?? 0))),
+                          })}
                           onVoid={(i) => setVoidDialog({ open: true, inv: i, reason: '', submitting: false, error: null })}
                           onDelete={(i) => setDeleteConfirm({ open: true, inv: i, deleting: false, error: null })}
                         />
@@ -944,8 +956,8 @@ export default function InvoicesPage() {
             <div className="space-y-1.5">
               <label className="text-[12px] font-medium" style={{ color: 'var(--text-heading)' }}>Amount received (₹) *</label>
               <input
-                type="number"
-                min="1"
+                type="text"
+                inputMode="decimal"
                 value={paymentDialog.amount}
                 onChange={e => setPaymentDialog(p => ({ ...p, amount: e.target.value }))}
                 placeholder="e.g. 50000"

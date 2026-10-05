@@ -2,7 +2,8 @@ import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, customers, tenants, leads } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { renderQuotePdf, type QuotePdfInput } from '@/lib/pdf/quote';
+import { renderQuotePdf, quoteValidUntil, type QuotePdfInput } from '@/lib/pdf/quote';
+import { quoteNumberOf } from '@/lib/quotes/number';
 import { extractBranding, extractTerms, extractValidityDays } from '@/lib/pdf/branding';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 import { whatsapp } from '@/lib/whatsapp/send';
@@ -29,6 +30,10 @@ export const quotePdf = defineJob(
           subtotalPaise: quotes.subtotalPaise,
           gstPaise:      quotes.gstPaise,
           totalPaise:    quotes.totalPaise,
+          quoteNumber:   quotes.quoteNumber,
+          termsText:     quotes.termsText,
+          validUntil:    quotes.validUntil,
+          paymentTerms:  quotes.paymentTerms,
           createdAt:     quotes.createdAt,
         })
         .from(quotes)
@@ -91,14 +96,13 @@ export const quotePdf = defineJob(
         .limit(1);
 
       const studio = extractBranding(tenant ?? { name: 'Interior Studio' });
-      const terms = extractTerms(tenant?.brandingJson, 'quotation');
+      const terms = quote.termsText ?? extractTerms(tenant?.brandingJson, 'quotation');
       const validityDays = extractValidityDays(tenant?.brandingJson);
       const issuedAt = new Date(quote.createdAt);
-      const validUntil = new Date(issuedAt);
-      validUntil.setDate(validUntil.getDate() + validityDays);
+      const validUntil = quoteValidUntil(quote.validUntil, issuedAt, validityDays);
 
       return {
-        quoteNumber:   `QUO-${quoteId.slice(-6).toUpperCase()}`,
+        quoteNumber:   quoteNumberOf({ id: quoteId, quoteNumber: quote.quoteNumber }),
         version:       quote.version,
         issuedAt,
         validUntil,
@@ -110,6 +114,7 @@ export const quotePdf = defineJob(
         gstPaise:      quote.gstPaise,
         totalPaise:    quote.totalPaise,
         terms,
+        paymentTerms:  quote.paymentTerms,
         clientPhone,
         quoteVersion:  quote.version,
       };

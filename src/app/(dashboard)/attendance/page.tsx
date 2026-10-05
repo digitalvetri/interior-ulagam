@@ -1,6 +1,6 @@
 'use client';
 
-import { addDaysToDateStr, istToday, IST_TIME_ZONE } from '@/lib/dates/ist';
+import { addDaysToDateStr, istToday, istStartOfDay, IST_TIME_ZONE } from '@/lib/dates/ist';
 import { mapsUrl } from '@/lib/attendance/geolocate';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -216,6 +216,13 @@ function KpiCard({ label, value, icon: Icon, color, bg }: {
   );
 }
 
+/** 'HH:mm' (24h) of an instant in IST — the value an <input type="time"> expects. */
+function istHHMM(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', hour12: false, timeZone: IST_TIME_ZONE,
+  });
+}
+
 // ─── Mark Attendance Dialog ───────────────────────────────────────────────────
 
 function MarkDialog({
@@ -232,8 +239,8 @@ function MarkDialog({
   onSaved: () => void;
 }) {
   const [status, setStatus]       = useState<AttendanceStatus>(existing?.status ?? 'present');
-  const [checkIn, setCheckIn]     = useState(existing?.checkInAt ? new Date(existing.checkInAt).toTimeString().slice(0, 5) : '09:00');
-  const [checkOut, setCheckOut]   = useState(existing?.checkOutAt ? new Date(existing.checkOutAt).toTimeString().slice(0, 5) : '18:00');
+  const [checkIn, setCheckIn]     = useState(existing?.checkInAt ? istHHMM(existing.checkInAt) : '09:00');
+  const [checkOut, setCheckOut]   = useState(existing?.checkOutAt ? istHHMM(existing.checkOutAt) : '18:00');
   const [notes, setNotes]         = useState(existing?.notes ?? '');
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
@@ -246,8 +253,8 @@ function MarkDialog({
     try {
       const toISO = (timeStr: string) => {
         const [h, m] = timeStr.split(':').map(Number);
-        const d = new Date(`${date}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`);
-        return d.toISOString();
+        // Times are entered as IST wall-clock, regardless of the browser's time zone.
+        return new Date(istStartOfDay(date).getTime() + (h * 60 + m) * 60_000).toISOString();
       };
 
       const body = {
@@ -523,6 +530,8 @@ function AddLeaveDialog({
 // ─── Daily Attendance Tab ─────────────────────────────────────────────────────
 
 function DailyTab() {
+  // Marking/editing attendance is owner-only (API is OWNER_ONLY); accountants view only.
+  const { isAdmin } = useUser();
   const [date, setDate]         = useState(todayISO());
   const [summary, setSummary]   = useState<DailySummary | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -608,7 +617,7 @@ function DailyTab() {
       key: 'action',
       header: '',
       align: 'right',
-      render: (row) => (
+      render: (row) => !isAdmin ? null : (
         <button
           onClick={() => setMarkTarget(row)}
           className="rounded-lg px-3 py-1.5 text-[12px] font-medium hover:opacity-80"
@@ -866,13 +875,15 @@ function LeavesTab({ staff }: { staff: StaffOption[] }) {
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold"
-          style={{ background: 'var(--accent-base)', color: '#fff' }}>
-          <Plus className="h-4 w-4" />
-          Add Leave
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold"
+            style={{ background: 'var(--accent-base)', color: '#fff' }}>
+            <Plus className="h-4 w-4" />
+            Add Leave
+          </button>
+        )}
       </div>
 
       <DataTable

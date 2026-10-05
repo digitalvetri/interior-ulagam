@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Search, Plus, Edit2, Trash2, Package, X, AlertTriangle } from 'lucide-react';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
 
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
@@ -203,6 +204,7 @@ function MaterialModal({
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function MaterialsPage() {
+  const { isAdmin } = useUser(); // catalogue add / edit / delete are owner-only on the API
   const [materials,       setMaterials]       = useState<Material[]>([]);
   const [loading,         setLoading]         = useState(true);
   const [search,          setSearch]          = useState('');
@@ -250,18 +252,19 @@ export default function MaterialsPage() {
     const currentRatePaise = Math.round(Number(form.currentRateRupees) * 100);
 
     if (editTarget) {
-      const body: Record<string, unknown> = { name: form.name.trim() };
+      const body: Record<string, unknown> = { name: form.name.trim(), category: form.category };
       if (form.unit)                                          body.unit  = form.unit;
       if (currentRatePaise !== editTarget.currentRatePaise)  body.currentRatePaise = currentRatePaise;
-      if (form.brand.trim())  body.brand  = form.brand.trim();
-      if (form.hsnSac.trim()) body.hsnSac = form.hsnSac.trim();
-      if (form.notes.trim())  body.notes  = form.notes.trim();
+      // Emptied fields are sent as null so the server clears them.
+      body.brand  = form.brand.trim()  || null;
+      body.hsnSac = form.hsnSac.trim() || null;
+      body.notes  = form.notes.trim()  || null;
 
       const res  = await fetch(`/api/v1/materials/${editTarget.id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => ({})) as { data?: Material; error?: unknown };
-      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : `Failed (${res.status})`);
+      if (!res.ok) throw new Error(await responseError(res, `Failed (${res.status})`));
+      const json = await res.json() as { data?: Material };
       setMaterials(prev => prev.map(m => m.id === editTarget.id ? json.data! : m));
     } else {
       const body: Record<string, unknown> = {
@@ -274,8 +277,8 @@ export default function MaterialsPage() {
       const res  = await fetch('/api/v1/materials', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      const json = await res.json().catch(() => ({})) as { data?: Material; error?: unknown };
-      if (!res.ok) throw new Error(typeof json.error === 'string' ? json.error : `Failed (${res.status})`);
+      if (!res.ok) throw new Error(await responseError(res, `Failed (${res.status})`));
+      const json = await res.json() as { data?: Material };
       setMaterials(prev => [json.data!, ...prev]);
     }
     setEditTarget(undefined);
@@ -377,6 +380,7 @@ export default function MaterialsPage() {
       </div>
 
       {/* Add item button */}
+      {isAdmin && (
       <div>
         <button type="button" onClick={openAdd}
           className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-muted)]"
@@ -384,6 +388,7 @@ export default function MaterialsPage() {
           <Plus className="h-4 w-4" />Add item (to catalog)
         </button>
       </div>
+      )}
 
       {/* Category pills + search */}
       <div className="rounded-2xl border p-4 space-y-3"
@@ -450,7 +455,7 @@ export default function MaterialsPage() {
               className="text-xs font-medium" style={{ color: 'var(--accent-base)' }}>
               Clear filters
             </button>
-          ) : (
+          ) : isAdmin && (
             <button type="button" onClick={openAdd} className="btn-secondary px-4 py-2 text-sm">
               Add first item
             </button>
@@ -541,7 +546,7 @@ export default function MaterialsPage() {
                               <X className="h-3.5 w-3.5" style={{ color: 'var(--text-tertiary)' }} />
                             </button>
                           </div>
-                        ) : (
+                        ) : isAdmin && (
                           <div className="flex items-center gap-1 justify-end">
                             <button type="button" onClick={() => openEdit(m)}
                               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:bg-[var(--surface-muted)]"

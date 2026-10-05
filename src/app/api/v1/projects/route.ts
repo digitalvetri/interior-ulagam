@@ -7,6 +7,7 @@ import { listRange, takePage } from '@/lib/pagination';
 import { upsertCustomerFromLead } from '@/lib/customers/sync';
 import { applyStageTransition } from '@/lib/leads/transitions';
 import { eq, and, desc, inArray, asc, ne, sql } from 'drizzle-orm';
+import { linkLeadDesignDeliverables } from '@/lib/projects/link';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -136,7 +137,10 @@ export async function POST(request: NextRequest) {
 
   const parsed = CreateProjectSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
@@ -218,8 +222,19 @@ export async function POST(request: NextRequest) {
           fullName: input.clientName!,
           phone:    input.clientPhone!,
         })
+        .onConflictDoNothing({ target: [customers.tenantId, customers.phone] })
         .returning({ id: customers.id });
-      customerId = customer?.id ?? null;
+      if (customer) {
+        customerId = customer.id;
+      } else {
+        // Phone already belongs to a client — link the project to that client.
+        const [existing] = await db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(and(eq(customers.tenantId, ctx.tenantId), eq(customers.phone, input.clientPhone!)))
+          .limit(1);
+        customerId = existing?.id ?? null;
+      }
     } catch (err) {
       console.error('[projects POST customer-create]', err);
       // Non-fatal
@@ -263,6 +278,15 @@ export async function POST(request: NextRequest) {
 
   if (!project) {
     return serverError('POST insert', new Error('Insert returned no rows'));
+  }
+
+  // ── Attach the lead's design deliverables to the new project ─────────────────
+  if (leadId) {
+    try {
+      await linkLeadDesignDeliverables(db, ctx.tenantId, leadId, project.id);
+    } catch (err) {
+      console.error('[projects POST link-deliverables]', err);
+    }
   }
 
   // ── Mark lead as won via the authoritative transition gate ───────────────────

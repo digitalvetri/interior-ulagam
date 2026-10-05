@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { materials } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
+import { hasPgCode } from '@/lib/procurement/receipts';
 
 interface PriceHistoryEntry {
   rate: number;
@@ -16,10 +17,12 @@ const UpdateMaterialSchema = z
     sellingRatePaise: z.number().int().nonnegative().optional(),
     vendorId: z.string().uuid().nullable().optional(),
     name: z.string().min(1).optional(),
-    brand: z.string().optional(),
+    category: z.enum(['laminate', 'hardware', 'furniture', 'fabric', 'lighting', 'flooring', 'sanitary', 'other']).optional(),
+    // null clears the field (the edit form sends null for an emptied input)
+    brand: z.string().nullable().optional(),
     unit: z.string().min(1).optional(),
-    hsnSac: z.string().optional(),
-    notes: z.string().optional(),
+    hsnSac: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
   })
   .strict();
 
@@ -73,7 +76,10 @@ export async function PATCH(
 
   const parsed = UpdateMaterialSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Validation error', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
@@ -96,10 +102,11 @@ export async function PATCH(
     const updateValues: Partial<typeof materials.$inferInsert> = {};
 
     if (input.name !== undefined) updateValues.name = input.name;
-    if (input.brand !== undefined) updateValues.brand = input.brand;
+    if (input.category !== undefined) updateValues.category = input.category;
+    if (input.brand !== undefined) updateValues.brand = input.brand?.trim() || null;
     if (input.unit !== undefined) updateValues.unit = input.unit;
-    if (input.hsnSac !== undefined) updateValues.hsnSac = input.hsnSac;
-    if (input.notes !== undefined) updateValues.notes = input.notes;
+    if (input.hsnSac !== undefined) updateValues.hsnSac = input.hsnSac?.trim() || null;
+    if (input.notes !== undefined) updateValues.notes = input.notes?.trim() || null;
     if (input.sellingRatePaise !== undefined) updateValues.sellingRatePaise = input.sellingRatePaise;
     if (input.vendorId !== undefined) updateValues.vendorId = input.vendorId;
 
@@ -158,6 +165,12 @@ export async function DELETE(
 
     return NextResponse.json({ data: { id: deleted.id } });
   } catch (err) {
+    if (hasPgCode(err, '23503')) {
+      return NextResponse.json(
+        { error: 'This material is used on quotes or orders, so it can’t be deleted. Edit it instead.' },
+        { status: 409 },
+      );
+    }
     console.error('[materials/:id DELETE]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

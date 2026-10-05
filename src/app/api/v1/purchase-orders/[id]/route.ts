@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { purchaseOrders, vendors, projects } from '@/lib/db/schema';
+import { purchaseOrders, vendors, projects, grns, expenses, vendorPayments } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNotNull, count } from 'drizzle-orm';
 import { withServerLineIds } from '@/lib/procurement/line-ids';
 
 const PO_STATUSES = [
@@ -77,7 +77,9 @@ export async function PATCH(
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const denied = requireApiRole(ctx, ROLES.OWNER_ONLY);
+  // Procurement staff move a PO through its workflow (send / acknowledge /
+  // cancel) and edit its lines; the advance figure is money, so owner-only.
+  const denied = requireApiRole(ctx, ROLES.PROCUREMENT);
   if (denied) return denied;
 
   const { id } = await params;
@@ -91,13 +93,21 @@ export async function PATCH(
 
   const parsed = UpdatePurchaseOrderSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Validation error', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const input = parsed.data;
 
   if (Object.keys(input).length === 0) {
     return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+  }
+
+  if (input.advancePaidPaise !== undefined) {
+    const ownerOnly = requireApiRole(ctx, ROLES.OWNER_ONLY);
+    if (ownerOnly) return ownerOnly;
   }
 
   try {
@@ -108,6 +118,30 @@ export async function PATCH(
 
     if (!existing) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 });
+    }
+
+    // A line that already has goods received against it can't be removed —
+    // its GRN rows would point at nothing and the PO would mis-report receipt.
+    if (input.linesJson !== undefined) {
+      const keptIds = new Set(
+        input.linesJson.map((l) => (typeof l.id === 'string' ? l.id : null)).filter((x): x is string => !!x),
+      );
+      const received = await db
+        .selectDistinct({ lineId: grns.lineId })
+        .from(grns)
+        .where(and(
+          eq(grns.poId, id),
+          eq(grns.tenantId, ctx.tenantId),
+          eq(grns.status, 'active'),
+          isNotNull(grns.lineId),
+        ));
+      const dropped = received.filter((r) => r.lineId && !keptIds.has(r.lineId));
+      if (dropped.length > 0) {
+        return NextResponse.json(
+          { error: 'A line with goods already received can’t be removed from this order. Void its GRN first or keep the line.' },
+          { status: 409 },
+        );
+      }
     }
 
     const updateValues: Partial<typeof purchaseOrders.$inferInsert> = {};
@@ -160,6 +194,23 @@ export async function DELETE(
     if (existing.status !== 'draft') {
       return NextResponse.json(
         { error: 'Only draft orders can be deleted. Cancel this order instead to preserve history.' },
+        { status: 409 },
+      );
+    }
+
+    // A draft can still carry deliveries or vendor bills; deleting it would
+    // cascade the GRNs away and orphan the bills. Cancel instead.
+    const [[grnCount], [billCount], [paymentCount]] = await Promise.all([
+      db.select({ n: count() }).from(grns)
+        .where(and(eq(grns.poId, id), eq(grns.tenantId, ctx.tenantId))),
+      db.select({ n: count() }).from(expenses)
+        .where(and(eq(expenses.poId, id), eq(expenses.tenantId, ctx.tenantId))),
+      db.select({ n: count() }).from(vendorPayments)
+        .where(and(eq(vendorPayments.purchaseOrderId, id), eq(vendorPayments.tenantId, ctx.tenantId))),
+    ]);
+    if (Number(grnCount?.n ?? 0) > 0 || Number(billCount?.n ?? 0) > 0 || Number(paymentCount?.n ?? 0) > 0) {
+      return NextResponse.json(
+        { error: 'This order has goods receipts, vendor bills or payments recorded against it. Cancel it instead of deleting.' },
         { status: 409 },
       );
     }

@@ -401,12 +401,13 @@ export const quotes = pgTable('quotes', {
   version: integer('version').notNull().default(1),
   status: text('status').notNull().default('draft'),
   quoteNumber: text('quote_number'),
-  subtotalPaise: integer('subtotal_paise').notNull().default(0),
-  discountPaise: integer('discount_paise').notNull().default(0),
+  // bigint since 0036_quote_money_bigint (int4 overflowed above ₹2.14 crore)
+  subtotalPaise: bigint('subtotal_paise', { mode: 'number' }).notNull().default(0),
+  discountPaise: bigint('discount_paise', { mode: 'number' }).notNull().default(0),
   gstPct: integer('gst_pct').notNull().default(18),
-  gstPaise: integer('gst_paise').notNull().default(0),
-  totalPaise: integer('total_paise').notNull().default(0),
-  marginPaise: integer('margin_paise').notNull().default(0),
+  gstPaise: bigint('gst_paise', { mode: 'number' }).notNull().default(0),
+  totalPaise: bigint('total_paise', { mode: 'number' }).notNull().default(0),
+  marginPaise: bigint('margin_paise', { mode: 'number' }).notNull().default(0),
   pdfUrl: text('pdf_url'),
   termsText: text('terms_text'),
   validUntil: date('valid_until'),
@@ -481,6 +482,8 @@ export const invoices = pgTable('invoices', {
 }, (t) => [
   index('invoices_status_tenant_idx').on(t.tenantId, t.status),
   index('invoices_due_date_idx').on(t.dueDate),
+  // Created by 0038 only once existing duplicates are cleared.
+  uniqueIndex('invoices_tenant_invoice_number_uq').on(t.tenantId, t.invoiceNumber),
 ]);
 
 export const milestones = pgTable('milestones', {
@@ -521,7 +524,7 @@ export const payments = pgTable('payments', {
   manualOverrideBy: uuid('manual_override_by').references(() => users.id),
   manualOverrideNote: text('manual_override_note'),
   // Finance v2 additions
-  receiptNumber: text('receipt_number').unique(),
+  receiptNumber: text('receipt_number'), // unique per tenant — see payments_tenant_receipt_number_uq
   mode: paymentModeEnum('mode'),
   reference: text('reference'),
   receivedAt: timestamp('received_at', { withTimezone: true }),
@@ -532,6 +535,7 @@ export const payments = pgTable('payments', {
   ...timestamps,
 }, (t) => [
   index('payments_received_at_tenant_idx').on(t.tenantId, t.receivedAt),
+  uniqueIndex('payments_tenant_receipt_number_uq').on(t.tenantId, t.receiptNumber),
   index('payments_customer_idx').on(t.customerId),
 ]);
 
@@ -580,7 +584,8 @@ export const grns = pgTable('grns', {
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   poId: uuid('po_id').notNull().references(() => purchaseOrders.id, { onDelete: 'cascade' }),
   lineId: uuid('line_id'),
-  deliveredQty: integer('delivered_qty').notNull(),
+  // numeric(12,3) since 0037 — PO lines can be fractional (e.g. 12.5 sqft).
+  deliveredQty: decimal('delivered_qty', { precision: 12, scale: 3, mode: 'number' }).notNull(),
   photoProof: text('photo_proof').array().notNull().default(sql`'{}'::text[]`),
   receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
   notes: text('notes'),

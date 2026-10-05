@@ -224,7 +224,8 @@ function SidebarBody({
                 <p className="truncate text-[12px]" style={{ color: 'var(--text-secondary)' }}>{roleLabel}</p>
               </div>
               <Link
-                href="/settings"
+                // Studio settings are owner-only; staff go to their own profile.
+                href={role === 'admin' ? '/settings' : '/my-space/profile'}
                 onClick={onNavigate}
                 aria-label="Help & settings"
                 title="Help & settings"

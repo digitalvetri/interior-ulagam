@@ -11,7 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Lead, LeadSource, LeadPriority, LeadStage } from '@/types/leads';
+import { Lead, LeadSource, LeadPriority, LeadStage, STAGE_LABELS } from '@/types/leads';
 
 function fromLead(lead: Lead): FormState {
   return {
@@ -75,12 +75,20 @@ const PRIORITY_OPTIONS: { value: LeadPriority; label: string }[] = [
   { value: 'cold', label: '🧊 Cold' },
 ];
 
+// Won/lost are terminal and set via the lead page's Won/Lost actions (the PATCH
+// endpoint rejects them), so the edit dialog only offers mid-pipeline stages.
 const STAGE_OPTIONS: { value: LeadStage; label: string }[] = [
   { value: 'new',        label: 'New Enquiry' },
   { value: 'site_visit', label: 'Site Visit'  },
-  { value: 'won',        label: 'Won'         },
-  { value: 'lost',       label: 'Lost'        },
 ];
+
+const TERMINAL_STAGES: LeadStage[] = ['won', 'lost'];
+
+function stageOptionsFor(current: LeadStage | ''): { value: LeadStage; label: string }[] {
+  if (!current || STAGE_OPTIONS.some(o => o.value === current)) return STAGE_OPTIONS;
+  // Keep the lead's current stage selectable so the field isn't blank.
+  return [{ value: current, label: STAGE_LABELS[current] ?? current }, ...STAGE_OPTIONS];
+}
 
 const SOURCE_OPTIONS: { value: LeadSource; label: string }[] = [
   { value: 'instagram', label: 'Instagram' },
@@ -346,13 +354,27 @@ export function NewLeadDialog({
     // Link to existing customer when one was selected
     if (!isEditMode && selectedCustomer?.id) payload.customerId = selectedCustomer.id;
 
-    if (form.contactEmail.trim())    payload.contactEmail    = form.contactEmail.trim();
-    if (form.propertyType)           payload.propertyType    = form.propertyType;
-    if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();
-    if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
-    if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
-    if (form.priority)               payload.priority        = form.priority;
-    if (form.stage)                  payload.stage           = form.stage;
+    if (isEditMode) {
+      // Edit: send cleared optional fields as null so the old value doesn't persist.
+      payload.contactEmail    = form.contactEmail.trim() || null;
+      payload.propertyType    = form.propertyType || null;
+      payload.contactCity     = form.contactCity.trim() || null;
+      payload.pincode         = form.pincode.trim() || null;
+      payload.projectLocation = form.projectLocation.trim() || null;
+      if (form.priority !== (editLead!.priority ?? '')) payload.priority = form.priority || null;
+      // Only send stage when actually changed; won/lost go through the dedicated stage actions.
+      if (form.stage && form.stage !== editLead!.stage && !TERMINAL_STAGES.includes(form.stage)) {
+        payload.stage = form.stage;
+      }
+    } else {
+      if (form.contactEmail.trim())    payload.contactEmail    = form.contactEmail.trim();
+      if (form.propertyType)           payload.propertyType    = form.propertyType;
+      if (form.contactCity.trim())     payload.contactCity     = form.contactCity.trim();
+      if (form.pincode.trim())         payload.pincode         = form.pincode.trim();
+      if (form.projectLocation.trim()) payload.projectLocation = form.projectLocation.trim();
+      if (form.priority)               payload.priority        = form.priority;
+      if (form.stage)                  payload.stage           = form.stage;
+    }
     if (form.expectedBudget)         payload.budgetBand      = form.expectedBudget;
 
     try {
@@ -661,11 +683,13 @@ export function NewLeadDialog({
                         </SelectContent>
                       </Select>
                     </Field>
-                    <Field id="ed-stage" label="Stage">
-                      <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}>
+                    <Field id="ed-stage" label="Stage"
+                      hint={TERMINAL_STAGES.includes(editLead!.stage) ? 'Closed lead' : undefined}>
+                      <Select value={form.stage} onValueChange={v => set('stage', v as LeadStage)}
+                        disabled={TERMINAL_STAGES.includes(editLead!.stage)}>
                         <SelectTrigger id="ed-stage" className={inputCls}><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {STAGE_OPTIONS.map(o => (
+                          {stageOptionsFor(editLead!.stage).map(o => (
                             <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                           ))}
                         </SelectContent>

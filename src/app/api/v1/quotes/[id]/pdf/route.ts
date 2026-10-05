@@ -3,7 +3,8 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { quotes, quoteLines, projects, leads, tenants } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
-import { renderQuotePdf } from '@/lib/pdf/quote';
+import { renderQuotePdf, quoteValidUntil } from '@/lib/pdf/quote';
+import { quoteNumberOf } from '@/lib/quotes/number';
 import { extractBranding, extractTerms, extractValidityDays } from '@/lib/pdf/branding';
 import { putObject, getPublicUrl, QUOTES_BUCKET } from '@/lib/storage/s3';
 
@@ -57,6 +58,8 @@ export async function POST(
         gstPaise: quotes.gstPaise,
         totalPaise: quotes.totalPaise,
         termsText: quotes.termsText,
+        validUntil: quotes.validUntil,
+        paymentTerms: quotes.paymentTerms,
         createdAt: quotes.createdAt,
         projectName: projects.name,
         leadContactName: leads.contactName,
@@ -92,10 +95,10 @@ export async function POST(
       .limit(1);
 
     // 4. Build QuotePdfInput
-    const quoteNumber = quote.quoteNumber ?? `QUO-${quoteId.slice(0, 8).toUpperCase()}`;
+    const quoteNumber = quoteNumberOf({ id: quoteId, quoteNumber: quote.quoteNumber });
     const validityDays = extractValidityDays(tenant?.brandingJson);
     const issuedAt = new Date(quote.createdAt);
-    const validUntil = new Date(issuedAt.getTime() + validityDays * 24 * 60 * 60 * 1000);
+    const validUntil = quoteValidUntil(quote.validUntil, issuedAt, validityDays);
 
     const studio = extractBranding(tenant ?? { name: 'Konst Design' });
     const projectName =
@@ -127,6 +130,7 @@ export async function POST(
       gstPaise: quote.gstPaise,
       totalPaise: quote.totalPaise,
       terms: quote.termsText ?? extractTerms(tenant?.brandingJson, 'quotation'),
+      paymentTerms: quote.paymentTerms,
     });
 
     // 5–6. Upload to QUOTES_BUCKET

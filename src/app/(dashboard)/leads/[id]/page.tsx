@@ -165,6 +165,7 @@ export default function LeadDetailPage() {
   const [reschedulingFuId, setReschedulingFuId]     = useState<string | null>(null);
   const [rescheduleInput, setRescheduleInput]       = useState('');
   const [followUpActionError, setFollowUpActionError] = useState<string | null>(null);
+  const [leadActionError, setLeadActionError] = useState<string | null>(null);
   const [quotedAmountInput, setQuotedAmountInput] = useState('');
   const [savingQuotedAmount, setSavingQuotedAmount] = useState(false);
   const [quotedAmountSaved, setQuotedAmountSaved] = useState(false);
@@ -389,7 +390,7 @@ export default function LeadDetailPage() {
       router.push('/leads');
     } catch (e) {
       setShowDeleteConfirm(false);
-      console.error(e instanceof Error ? e.message : 'Delete failed');
+      setLeadActionError(e instanceof Error ? e.message : 'Delete failed');
     } finally { setDeleting(false); }
   }
 
@@ -405,7 +406,7 @@ export default function LeadDetailPage() {
       router.push('/leads');
     } catch (e) {
       setShowArchiveConfirm(false);
-      console.error(e instanceof Error ? e.message : 'Archive failed');
+      setLeadActionError(e instanceof Error ? e.message : 'Archive failed');
     } finally { setArchiving(false); }
   }
 
@@ -521,6 +522,15 @@ export default function LeadDetailPage() {
     <div className="min-h-full" style={{ background: 'var(--surface-app)' }}>
 
       {/* â”€â”€ Dialogs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {leadActionError && (
+        <div role="alert" className="mx-6 mt-4 flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm"
+          style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C' }}>
+          <span>{leadActionError}</span>
+          <button type="button" onClick={() => setLeadActionError(null)} className="text-xs font-medium underline">
+            Dismiss
+          </button>
+        </div>
+      )}
       <ConfirmDialog
         open={showDeleteConfirm}
         title="Delete lead?"

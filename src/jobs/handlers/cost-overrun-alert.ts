@@ -1,7 +1,8 @@
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { defineJob } from '@/jobs/define';
 import { db } from '@/lib/db';
 import { projects, quotes, quoteLines, expenses, users } from '@/lib/db/schema';
+import { ACCEPTED_QUOTE_STATUSES } from '@/lib/quotes/status';
 
 interface ProjectRow {
   id: string;
@@ -62,7 +63,7 @@ export const costOverrunAlert = defineJob(
             and(
               eq(quotes.projectId, project.id),
               eq(quotes.tenantId, project.tenantId),
-              eq(quotes.status, 'approved'),
+              inArray(quotes.status, [...ACCEPTED_QUOTE_STATUSES]),
             ),
           );
 

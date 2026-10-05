@@ -3,6 +3,7 @@
 import { istToday } from '@/lib/dates/ist';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Building2, Users, Download, Loader2, Upload, Check,
   FileText, IndianRupee, Users2, ArrowUpRight, ChevronRight,
@@ -138,7 +139,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 async function downloadExport(url: string, filename: string) {
   const res = await fetch(url);
-  if (!res.ok) { const b = await res.json().catch(() => ({})) as { error?: string }; throw new Error(b.error ?? `Export failed`); }
+  if (!res.ok) throw new Error(await responseError(res, 'Export failed'));
   const blob = await res.blob();
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = filename;
@@ -149,7 +150,13 @@ async function downloadExport(url: string, filename: string) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { refresh: refreshUser, isAdmin } = useUser();
+  const { refresh: refreshUser, isAdmin, roleLoaded } = useUser();
+  const router = useRouter();
+  // Studio settings are owner-only; everyone else manages their own profile
+  // (details + password) on My Profile.
+  useEffect(() => {
+    if (roleLoaded && !isAdmin) router.replace('/my-space/profile');
+  }, [roleLoaded, isAdmin, router]);
   const [activeTab, setActiveTab]       = useState<SettingsTab>('profile');
   const [loading, setLoading]           = useState(true);
   const [employees, setEmployees]       = useState<Employee[]>([]);
@@ -278,14 +285,14 @@ export default function SettingsPage() {
     } catch { setStudioError(NETWORK_ERROR); } finally { setUploading(false); e.target.value = ''; }
   }
 
-  async function runExport(kind: string, ext: 'csv' | 'json') {
+  async function runExport(kind: string, ext: 'csv' | 'json' | 'xml') {
     setBusyExport(kind); setExportError(null);
     try { await downloadExport(`/api/v1/exports/${kind}`, `${kind}_${istToday()}.${ext}`); }
     catch (e) { setExportError(e instanceof Error ? e.message : 'Export failed'); }
     finally { setBusyExport(null); }
   }
 
-  if (loading) {
+  if (loading || !roleLoaded || !isAdmin) {
     return <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--text-tertiary)' }} /></div>;
   }
 
@@ -704,24 +711,27 @@ export default function SettingsPage() {
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                 Export your data at any time. Files are generated on demand.
               </p>
-              {[
-                { label: 'Leads (CSV)',          href: '/api/v1/exports?kind=leads&format=csv' },
-                { label: 'Projects (CSV)',        href: '/api/v1/exports?kind=projects&format=csv' },
-                { label: 'Invoices (CSV)',        href: '/api/v1/exports?kind=invoices&format=csv' },
-                { label: 'Expenses (CSV)',        href: '/api/v1/exports?kind=expenses&format=csv' },
-                { label: 'Tally XML (Payments)',  href: '/api/v1/accounts/tally-xml-push' },
-              ].map(item => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors hover:border-[var(--accent-base)]"
+              {exportError && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{exportError}</div>}
+              {([
+                { label: 'Leads (CSV)',          kind: 'leads',              ext: 'csv' },
+                { label: 'Projects (CSV)',       kind: 'projects',           ext: 'csv' },
+                { label: 'Invoices (CSV)',       kind: 'invoices',           ext: 'csv' },
+                { label: 'Expenses (CSV)',       kind: 'expenses',           ext: 'csv' },
+                { label: 'Tally XML (Payments)', kind: 'tally-receipts-xml', ext: 'xml' },
+              ] as const).map(item => (
+                <button
+                  key={item.kind}
+                  type="button"
+                  onClick={() => runExport(item.kind, item.ext)}
+                  disabled={busyExport === item.kind}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition-colors hover:border-[var(--accent-base)] disabled:opacity-60"
                   style={{ borderColor: 'var(--border-subtle)', backgroundColor: 'var(--surface-muted)' }}
                 >
                   <span className="text-sm font-medium" style={{ color: 'var(--text-heading)' }}>{item.label}</span>
-                  <Download className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--accent-base)' }} />
-                </a>
+                  {busyExport === item.kind
+                    ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" style={{ color: 'var(--accent-base)' }} />
+                    : <Download className="h-4 w-4 flex-shrink-0" style={{ color: 'var(--accent-base)' }} />}
+                </button>
               ))}
             </div>
           </Card>

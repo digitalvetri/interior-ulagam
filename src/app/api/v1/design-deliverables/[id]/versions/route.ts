@@ -41,7 +41,7 @@ export async function POST(
   try {
     // Verify deliverable belongs to tenant
     const [deliverable] = await db
-      .select({ id: designDeliverables.id })
+      .select({ id: designDeliverables.id, revisionCap: designDeliverables.revisionCap })
       .from(designDeliverables)
       .where(and(eq(designDeliverables.id, id), eq(designDeliverables.tenantId, ctx.tenantId)))
       .limit(1);
@@ -73,9 +73,16 @@ export async function POST(
     await db
       .update(designDeliverables)
       .set({ status: 'draft' })
-      .where(eq(designDeliverables.id, id));
+      .where(and(eq(designDeliverables.id, id), eq(designDeliverables.tenantId, ctx.tenantId)));
 
-    return NextResponse.json({ data: version }, { status: 201 });
+    // Business rule: a revision beyond the free cap needs a change-order quote.
+    // The UI counts every uploaded version as a revision ("Revision n of cap").
+    const changeOrderNeeded = nextVersionNumber > deliverable.revisionCap;
+
+    return NextResponse.json(
+      { data: version, ...(changeOrderNeeded ? { changeOrderNeeded: true, revisionCap: deliverable.revisionCap } : {}) },
+      { status: 201 },
+    );
   } catch (err) {
     console.error('[POST /api/v1/design-deliverables/[id]/versions]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

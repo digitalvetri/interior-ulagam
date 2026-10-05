@@ -5,6 +5,7 @@ import { eq, and, desc, asc, inArray, isNull, gt } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import type { ClientProjectSnapshot } from '@/types/snag';
 import { checkRateLimit, clientPortalLimiter } from '@/lib/ratelimit';
+import { projectDesignDeliverablesWhere } from '@/lib/projects/link';
 
 export async function GET(
   request: NextRequest,
@@ -53,6 +54,7 @@ export async function GET(
         lifecycleStage: projects.lifecycleStage,
         expectedEndAt: projects.expectedEndAt,
         tenantId: projects.tenantId,
+        leadId: projects.leadId,
       })
       .from(projects)
       .where(and(eq(projects.id, projectId), eq(projects.tenantId, tenantId)));
@@ -137,7 +139,7 @@ export async function GET(
         .from(designDeliverables)
         .where(
           and(
-            eq(designDeliverables.projectId, projectId),
+            projectDesignDeliverablesWhere(tenantId, projectId, project.leadId),
             eq(designDeliverables.status, 'shared'),
           ),
         ),

@@ -48,7 +48,7 @@ const UpdateProfileSchema = z.object({
   location:  z.string().max(200).optional().nullable(),
   emergencyContact: z.object({
     name:     z.string().min(1),
-    relation: z.string().min(1),
+    relation: z.string().max(80).optional().default(''),  // optional in the UI
     phone:    z.string().min(1),
   }).optional().nullable(),
 });

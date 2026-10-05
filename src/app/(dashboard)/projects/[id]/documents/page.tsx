@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { DocumentActions } from '@/components/ui/DocumentActions';
+import { quoteNumberOf } from '@/lib/quotes/number';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -202,7 +203,7 @@ export default function ProjectDocumentsPage({
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">
             {quotes.map(q => {
-              const docNum = q.quoteNumber ?? `QUO-V${q.version}`;
+              const docNum = quoteNumberOf(q);
               return (
                 <div key={q.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">

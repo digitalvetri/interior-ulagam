@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { milestones, invoices, payments, projects } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, sql } from 'drizzle-orm';
+import { toReceiptVoucherXml } from '@/lib/tally';
 
 export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
@@ -39,38 +40,13 @@ export async function GET(_request: NextRequest) {
         ),
       );
 
-    const tallymessages = rows
-      .map((row) => {
-        const date = row.reconciledAt
-          ? row.reconciledAt.toISOString().slice(0, 10).replace(/-/g, '')
-          : '';
-        const amount = (row.amountPaise / 100).toFixed(2);
-        const narration = `${row.milestoneLabel} ${row.razorpayPaymentId ?? ''}`.trim();
-
-        return `        <TALLYMESSAGE>
-          <VOUCHER VCHTYPE="Receipt" ACTION="Create">
-            <DATE>${date}</DATE>
-            <VOUCHERNUMBER>${row.invoiceNumber}</VOUCHERNUMBER>
-            <PARTYLEDGERNAME>${row.projectName}</PARTYLEDGERNAME>
-            <AMOUNT>${amount}</AMOUNT>
-            <NARRATION>${narration}</NARRATION>
-          </VOUCHER>
-        </TALLYMESSAGE>`;
-      })
-      .join('\n');
-
-    const xmlString = `<?xml version="1.0" encoding="UTF-8"?>
-<ENVELOPE>
-  <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>
-  <BODY>
-    <IMPORTDATA>
-      <REQUESTDESC><REPORTNAME>All Masters</REPORTNAME></REQUESTDESC>
-      <REQUESTDATA>
-${tallymessages}
-      </REQUESTDATA>
-    </IMPORTDATA>
-  </BODY>
-</ENVELOPE>`;
+    const xmlString = toReceiptVoucherXml(rows.map((row) => ({
+      date: row.reconciledAt ? row.reconciledAt.toISOString().slice(0, 10).replace(/-/g, '') : '',
+      voucherNumber: row.invoiceNumber,
+      partyLedgerName: row.projectName,
+      amountPaise: row.amountPaise,
+      narration: `${row.milestoneLabel} ${row.razorpayPaymentId ?? ''}`.trim(),
+    })));
 
     return new NextResponse(xmlString, {
       headers: {

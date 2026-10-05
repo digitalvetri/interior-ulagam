@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Banknote, AlertTriangle, Download } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Banknote, AlertTriangle, Download, RefreshCw, Trash2 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
@@ -96,6 +96,39 @@ export default function PayrollRunPage() {
     }
   }
 
+  async function recalculate() {
+    setUpdating(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/payroll/runs/${id}/recalculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (res.ok) await load();
+      else setActionError(await responseError(res, 'Could not recalculate the payroll run.'));
+    } catch {
+      setActionError(NETWORK_ERROR);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function deleteDraft() {
+    if (!window.confirm('Delete this draft payroll run? You can create it again afterwards.')) return;
+    setUpdating(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/v1/payroll/runs/${id}`, { method: 'DELETE' });
+      if (res.ok) { router.push('/payroll'); return; }
+      setActionError(await responseError(res, 'Could not delete the payroll run.'));
+    } catch {
+      setActionError(NETWORK_ERROR);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   function downloadCSV() {
     if (!run) return;
     const rows = [
@@ -147,7 +180,8 @@ export default function PayrollRunPage() {
   }
 
   const s = STATUS_STYLE[run.status];
-  const missingSalary = run.payslips.filter(p => !p.salaryPaise || p.salaryPaise === 0);
+  // Based on what was actually computed for this run, not the live salary.
+  const missingSalary = run.payslips.filter(p => p.grossPaise === 0);
 
   return (
     <div className="space-y-6 p-6 lg:p-8">
@@ -181,6 +215,22 @@ export default function PayrollRunPage() {
             Export CSV
           </button>
           {run.status === 'draft' && (
+            <>
+              <button type="button" onClick={() => void deleteDraft()} disabled={updating}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border transition-colors disabled:opacity-50"
+                style={{ borderColor: '#FCA5A5', color: '#B91C1C', background: 'var(--surface-card)' }}>
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Draft
+              </button>
+              <button type="button" onClick={() => void recalculate()} disabled={updating}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-medium border transition-colors disabled:opacity-50"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-heading)', background: 'var(--surface-card)' }}>
+                <RefreshCw className="h-3.5 w-3.5" />
+                Recalculate
+              </button>
+            </>
+          )}
+          {run.status === 'draft' && (
             <button type="button" onClick={() => void updateStatus('approved')} disabled={updating}
               className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] disabled:opacity-50">
               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -207,9 +257,11 @@ export default function PayrollRunPage() {
           style={{ background: 'rgba(251,191,36,0.10)', border: '1px solid rgba(251,191,36,0.30)', color: '#92400E' }}>
           <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
           <span>
-            {missingSalary.length} employee{missingSalary.length > 1 ? 's' : ''} have no salary set
-            ({missingSalary.map(p => p.fullName).join(', ')}).
-            Their net pay will be ₹0. Set salaries in the Employees page.
+            {missingSalary.length} employee{missingSalary.length > 1 ? 's have' : ' has'} ₹0 gross pay in this run
+            ({missingSalary.map(p => p.fullName).join(', ')}) — no salary set or no attendance recorded.
+            {run.status === 'draft'
+              ? ' Fix it in Employees / Attendance, then click Recalculate.'
+              : ' This run is no longer a draft.'}
           </span>
         </div>
       )}

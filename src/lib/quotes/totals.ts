@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { quotes, quoteLines } from '@/lib/db/schema';
 
@@ -67,6 +67,17 @@ export async function recalculateQuoteTotals(
 
   await tx
     .update(quotes)
-    .set({ subtotalPaise, gstPaise, totalPaise, marginPaise: quoteMarginPaise })
+    // Any change that moves the totals also makes the stored PDF stale.
+    .set({ subtotalPaise, gstPaise, totalPaise, marginPaise: quoteMarginPaise, pdfUrl: null })
     .where(eq(quotes.id, quoteId));
+}
+
+/**
+ * Drop the stored PDF after an edit that does not go through
+ * recalculateQuoteTotals (sections, validity, payment terms, number, terms) so
+ * the next download regenerates it instead of sending an out-of-date document.
+ */
+export async function invalidateQuotePdf(quoteId: string, tenantId: string, tx: DbHandle = db): Promise<void> {
+  await tx.update(quotes).set({ pdfUrl: null })
+    .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
 }

@@ -4,6 +4,7 @@ import { users, projects, quotes, quoteLines, deliverables } from '@/lib/db/sche
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, inArray, sql } from 'drizzle-orm';
 import type { DesignerMetrics } from '@/types/analytics';
+import { ACCEPTED_QUOTE_STATUSES } from '@/lib/quotes/status';
 
 export async function GET(_request: NextRequest) {
   const ctx = await getAuthContext();
@@ -55,7 +56,7 @@ export async function GET(_request: NextRequest) {
         .where(
           and(
             eq(quotes.tenantId, ctx.tenantId),
-            eq(quotes.status, 'approved'),
+            inArray(quotes.status, [...ACCEPTED_QUOTE_STATUSES]),
             inArray(quotes.projectId, allProjectIds),
           ),
         );

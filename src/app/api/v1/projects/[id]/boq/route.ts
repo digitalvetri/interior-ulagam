@@ -4,6 +4,7 @@ import { quotes, quoteLines, purchaseOrders, grns, projects } from '@/lib/db/sch
 import { getAuthContext } from '@/lib/auth';
 import { eq, and, sql, inArray } from 'drizzle-orm';
 import type { BOQSummary } from '@/types/purchase-orders';
+import { ACCEPTED_QUOTE_STATUSES } from '@/lib/quotes/status';
 
 export async function GET(
   _request: NextRequest,
@@ -31,7 +32,7 @@ export async function GET(
     const approvedQuotes = await db
       .select({ id: quotes.id })
       .from(quotes)
-      .where(and(eq(quotes.projectId, id), eq(quotes.status, 'approved')));
+      .where(and(eq(quotes.projectId, id), eq(quotes.tenantId, ctx.tenantId), inArray(quotes.status, [...ACCEPTED_QUOTE_STATUSES])));
 
     const approvedQuoteIds = approvedQuotes.map((q) => q.id);
 

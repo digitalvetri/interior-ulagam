@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, projects, invoices, payments, expenses } from '@/lib/db/schema';
 import { getEnrichedAuthContext } from '@/lib/auth/get-context';
+import { requireApiRole, ROLES } from '@/lib/auth';
 
 export type ActivityType = 'lead' | 'project' | 'invoice' | 'payment' | 'expense';
 
@@ -20,7 +21,9 @@ export interface ActivityItem {
 export async function GET() {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!ctx.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // Reports are finance views: owner + accountant (profit stays owner-only).
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
   const tid = ctx.tenantId;
 
   try {

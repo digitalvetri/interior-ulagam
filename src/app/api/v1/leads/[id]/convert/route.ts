@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, desc } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, customers, projects, quotes, milestones } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { contractFromQuote, splitMilestones } from '@/lib/projects/booking';
+import { linkLeadDesignDeliverables } from '@/lib/projects/link';
+import { ACCEPTED_QUOTE_STATUSES } from '@/lib/quotes/status';
 
 const ConvertSchema = z.object({
   projectName:  z.string().min(1).max(200),
@@ -36,7 +39,10 @@ export async function POST(
 
   const parsed = ConvertSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const { projectName, budgetPaise, projectType, siteCity, startDate, requirement, siteAddress } = parsed.data;
@@ -64,22 +70,38 @@ export async function POST(
       { status: 422 },
     );
   }
+  // Duplicate-project guard: a lead may already be linked to a project even if its stage isn't 'won'
+  const [existingProject] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(and(eq(projects.leadId, leadId), eq(projects.tenantId, ctx.tenantId)))
+    .limit(1);
+  if (existingProject) {
+    return NextResponse.json(
+      { error: 'This lead already has a project.', details: { projectId: existingProject.id } },
+      { status: 422 },
+    );
+  }
 
   // 2. Find accepted/approved quote (if any) to get the budget
   const [acceptedQuote] = await db
-    .select({ id: quotes.id, totalPaise: quotes.totalPaise })
+    .select({
+      id: quotes.id, subtotalPaise: quotes.subtotalPaise, discountPaise: quotes.discountPaise, gstPct: quotes.gstPct,
+    })
     .from(quotes)
     .where(and(
       eq(quotes.leadId, leadId),
       eq(quotes.tenantId, ctx.tenantId),
-      inArray(quotes.status, ['accepted', 'approved']),
+      inArray(quotes.status, [...ACCEPTED_QUOTE_STATUSES]),
     ))
-    .orderBy(quotes.createdAt)
+    .orderBy(desc(quotes.version), desc(quotes.createdAt))
     .limit(1);
 
+  // Contract is EXCLUDING GST (the money engine adds projects.gst_pct on top),
+  // so a quote contributes subtotal − discount, never its GST-inclusive total.
+  const quoteContractPaise = acceptedQuote ? contractFromQuote(acceptedQuote) : 0;
   const totalContractPaise =
-    budgetPaise ??
-    (acceptedQuote?.totalPaise && acceptedQuote.totalPaise > 0 ? acceptedQuote.totalPaise : undefined);
+    budgetPaise ?? (quoteContractPaise > 0 ? quoteContractPaise : undefined);
 
   // 3–8. All mutations in one atomic transaction (CX-1)
   let customerId = lead.customerId;
@@ -142,6 +164,7 @@ export async function POST(
         customerId:         customerId ?? undefined,
         leadId:             lead.id,
         totalContractPaise: totalContractPaise ?? null,
+        ...(acceptedQuote ? { gstPct: acceptedQuote.gstPct } : {}),
         lifecycleStage:     'design_pending',
         startedAt:          startDate ? new Date(startDate) : undefined,
       })
@@ -152,27 +175,22 @@ export async function POST(
     if (acceptedQuote) {
       await tx.update(quotes)
         .set({ projectId: project.id })
-        .where(eq(quotes.id, acceptedQuote.id));
+        .where(and(eq(quotes.id, acceptedQuote.id), eq(quotes.tenantId, ctx.tenantId)));
     }
 
-    // 7. Seed default milestones (10/40/40/10) if budget is set
+    // 6b. Attach the lead's design deliverables to the project
+    await linkLeadDesignDeliverables(tx, ctx.tenantId, lead.id, project.id);
+
+    // 7. Seed default milestones (10/40/40/10) on the ex-GST contract if budget is set
     if (totalContractPaise && totalContractPaise > 0) {
-      const defaults: Array<{ label: string; pctOfTotal: number }> = [
-        { label: 'Advance',         pctOfTotal: 10 },
-        { label: 'Design Approval', pctOfTotal: 40 },
-        { label: 'Work Completion', pctOfTotal: 40 },
-        { label: 'Handover',        pctOfTotal: 10 },
-      ];
-      for (const def of defaults) {
-        const amountPaise = Math.round((totalContractPaise * def.pctOfTotal) / 100);
-        await tx.insert(milestones).values({
-          tenantId:    ctx.tenantId,
-          projectId:   project.id,
-          label:       def.label,
-          pctOfTotal:  def.pctOfTotal,
-          amountPaise,
-        });
-      }
+      await tx.insert(milestones).values(splitMilestones(totalContractPaise).map(m => ({
+        tenantId:    ctx.tenantId,
+        projectId:   project.id,
+        label:       m.label,
+        pctOfTotal:  m.pctOfTotal,
+        amountPaise: m.amountPaise,
+        sortOrder:   m.sortOrder,
+      })));
     }
 
     // 8. Mark lead as won, clear followUpDate (BR-3/C), persist project type, requirement,

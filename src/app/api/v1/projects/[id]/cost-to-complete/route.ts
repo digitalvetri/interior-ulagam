@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { projects, quotes, quoteLines, expenses } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, inArray, sql } from 'drizzle-orm';
+import { ACCEPTED_QUOTE_STATUSES } from '@/lib/quotes/status';
 
 export async function GET(
   _request: NextRequest,
@@ -37,7 +38,7 @@ export async function GET(
         and(
           eq(quotes.projectId, projectId),
           eq(quotes.tenantId, ctx.tenantId),
-          eq(quotes.status, 'approved'),
+          inArray(quotes.status, [...ACCEPTED_QUOTE_STATUSES]),
         ),
       );
 

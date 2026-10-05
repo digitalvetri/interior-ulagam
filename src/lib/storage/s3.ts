@@ -77,6 +77,9 @@ const ALLOWED_CONTENT_TYPES = new Set([
   'text/csv',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  // Word documents — the document/customer-file upload routes accept them.
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/octet-stream',
 ]);
 

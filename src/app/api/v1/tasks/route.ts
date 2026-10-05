@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
   const parsed = CreateSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+  if (!parsed.success) return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 });
 
   const { title, assignedTo, relatedType, relatedId, dueAt, notes } = parsed.data;
 
@@ -111,7 +111,9 @@ export async function POST(request: NextRequest) {
     tenantId:    ctx.tenantId,
     title,
     status:      'pending',
-    assignedTo:  assignedTo ?? null,
+    // Non-owners only see tasks assigned to them, so an unassigned task they
+    // create defaults to themselves instead of vanishing from their list.
+    assignedTo:  assignedTo ?? (ctx.isAdmin ? null : ctx.userId),
     createdBy:   ctx.userId,
     relatedType: relatedType ?? null,
     relatedId:   relatedId ?? null,

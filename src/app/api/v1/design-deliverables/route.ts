@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { designDeliverables } from '@/lib/db/schema';
+import { designDeliverables, leads, projects } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { projectDesignDeliverablesWhere } from '@/lib/projects/link';
 
 const CreateDeliverableSchema = z.object({
   leadId: z.string().uuid().optional(),
@@ -33,7 +34,12 @@ export async function GET(request: NextRequest) {
   try {
     const conditions = [eq(designDeliverables.tenantId, ctx.tenantId)];
     if (leadId) conditions.push(eq(designDeliverables.leadId, leadId));
-    if (projectId) conditions.push(eq(designDeliverables.projectId, projectId));
+    if (projectId) {
+      // Deliverables made on the lead before booking count for its project too.
+      const [proj] = await db.select({ leadId: projects.leadId }).from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId))).limit(1);
+      conditions.push(projectDesignDeliverablesWhere(ctx.tenantId, projectId, proj?.leadId ?? null)!);
+    }
 
     const deliverables = await db
       .select()
@@ -71,12 +77,33 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    let leadId = parsed.data.leadId ?? null;
+    let projectId = parsed.data.projectId ?? null;
+    if (leadId) {
+      const [lead] = await db.select({ id: leads.id }).from(leads)
+        .where(and(eq(leads.id, leadId), eq(leads.tenantId, ctx.tenantId))).limit(1);
+      if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
+    }
+    if (projectId) {
+      const [proj] = await db.select({ id: projects.id, leadId: projects.leadId }).from(projects)
+        .where(and(eq(projects.id, projectId), eq(projects.tenantId, ctx.tenantId))).limit(1);
+      if (!proj) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+      leadId = leadId ?? proj.leadId;
+    } else if (leadId) {
+      // A lead that is already booked: attach the deliverable to its project so
+      // the design gate and the client portal see it.
+      const [proj] = await db.select({ id: projects.id }).from(projects)
+        .where(and(eq(projects.leadId, leadId), eq(projects.tenantId, ctx.tenantId)))
+        .orderBy(asc(projects.createdAt)).limit(1);
+      projectId = proj?.id ?? null;
+    }
+
     const [deliverable] = await db
       .insert(designDeliverables)
       .values({
         tenantId: ctx.tenantId,
-        leadId: parsed.data.leadId ?? null,
-        projectId: parsed.data.projectId ?? null,
+        leadId,
+        projectId,
         type: parsed.data.type,
         title: parsed.data.title,
         revisionCap: parsed.data.revisionCap,

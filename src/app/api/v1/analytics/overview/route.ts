@@ -3,6 +3,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, projects, quotes, invoices, payments } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { isAcceptedQuoteStatus } from '@/lib/quotes/status';
 
 export async function GET() {
   const ctx = await getAuthContext();
@@ -92,7 +93,7 @@ export async function GET() {
     for (const r of quoteRows) {
       const c = Number(r.count);
       const v = Number(r.totalPaise);
-      if (r.status === 'approved')     { quotesApproved += c; quotesApprovedValue += v; }
+      if (isAcceptedQuoteStatus(r.status)) { quotesApproved += c; quotesApprovedValue += v; }
       else if (r.status === 'rejected'){ quotesLost += c; }
       // Anything else is still open; byStatus below already reports those counts.
     }

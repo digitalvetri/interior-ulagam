@@ -702,29 +702,31 @@ function InvoicePaymentDialog({
   onSaved: () => void;
 }) {
   const [amountStr, setAmountStr] = useState(
-    outstandingPaise > 0 ? String(outstandingPaise / 100) : '',
+    outstandingPaise > 0 ? (outstandingPaise / 100).toFixed(2) : '',
   );
+  const [mode,   setMode]   = useState<'upi' | 'cash' | 'bank' | 'cheque' | 'card'>('bank');
   const [note,   setNote]   = useState('');
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState<string | null>(null);
 
   async function handleSave() {
     setError(null);
-    const parsed = parseFloat(amountStr);
-    if (!amountStr || isNaN(parsed) || parsed <= 0) {
+    const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(amountStr.replace(/,/g, '').trim());
+    const amountPaise = m ? Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || 0) : 0;
+    if (amountPaise <= 0) {
       setError('Please enter a valid amount'); return;
-    }
-    if (!note.trim()) {
-      setError('Please add a note (e.g. Bank transfer, UPI)'); return;
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/invoices/${invoiceId}/payments`, {
+      // Same path as every receipt: numbered, tied to project + client, allocated to the milestone.
+      const res = await fetch('/api/v1/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amountPaise: Math.round(parsed * 100),
-          note: note.trim(),
+          amountPaise,
+          mode,
+          invoiceId,
+          reference: note.trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -773,8 +775,18 @@ function InvoicePaymentDialog({
               className="studio-input w-full text-sm" autoFocus />
           </div>
           <div>
-            <label className="studio-label block mb-1.5">Payment Mode / Note</label>
-            <input type="text" placeholder="e.g. UPI, Bank transfer, Cheque #1234"
+            <label className="studio-label block mb-1.5">Payment Mode</label>
+            <select value={mode} onChange={e => setMode(e.target.value as typeof mode)} className="studio-input w-full text-sm">
+              <option value="bank">Bank transfer</option>
+              <option value="upi">UPI</option>
+              <option value="cash">Cash</option>
+              <option value="cheque">Cheque</option>
+              <option value="card">Card</option>
+            </select>
+          </div>
+          <div>
+            <label className="studio-label block mb-1.5">Reference (optional)</label>
+            <input type="text" placeholder="e.g. UTR, Cheque #1234"
               value={note} onChange={e => setNote(e.target.value)}
               className="studio-input w-full text-sm" />
           </div>

@@ -51,11 +51,11 @@ export async function cancelFollowupSequence(leadId: string): Promise<number> {
 
 // ── Site-visit reminders ─────────────────────────────────────────────────────
 
-export function scheduleVisitReminder24h(data: Record<string, unknown>, visitId: string) {
-  return schedule(JOB.siteVisitReminder24h, siteVisitJobId(visitId, '24h'), data, 20 * HOUR);
+export function scheduleVisitReminder24h(data: Record<string, unknown>, visitId: string, delayMs = 20 * HOUR) {
+  return schedule(JOB.siteVisitReminder24h, siteVisitJobId(visitId, '24h'), data, delayMs);
 }
-export function scheduleVisitReminder2h(data: Record<string, unknown>, visitId: string) {
-  return schedule(JOB.siteVisitReminder2h, siteVisitJobId(visitId, '2h'), data, 22 * HOUR);
+export function scheduleVisitReminder2h(data: Record<string, unknown>, visitId: string, delayMs = 22 * HOUR) {
+  return schedule(JOB.siteVisitReminder2h, siteVisitJobId(visitId, '2h'), data, delayMs);
 }
 export async function cancelVisitReminders(visitId: string): Promise<number> {
   const removed = await Promise.all(

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { siteVisits, notifications } from '@/lib/db/schema';
+import { siteVisits, notifications, leads } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { applyStageTransition } from '@/lib/leads/transitions';
+import { stageAfterVisitCompleted } from '@/lib/leads/stage-utils';
 import { createFollowUp } from '@/lib/leads/createFollowUp';
 import type { FollowUpStage, FollowUpClientStatus } from '@/lib/leads/createFollowUp';
 
@@ -74,6 +75,13 @@ export async function POST(
       return NextResponse.json({ error: 'Site visit not found' }, { status: 404 });
     }
 
+    if (visit.status === 'cancelled' || visit.status === 'no_show') {
+      return NextResponse.json(
+        { error: `Cannot complete a site visit that is marked ${visit.status === 'no_show' ? 'no-show' : 'cancelled'}` },
+        { status: 409 },
+      );
+    }
+
     if (visit.completedAt !== null) {
       return NextResponse.json(
         { error: 'Site visit is already marked as completed' },
@@ -97,8 +105,16 @@ export async function POST(
       .where(and(eq(siteVisits.id, id), eq(siteVisits.tenantId, ctx.tenantId)))
       .returning();
 
-    // Advance lead stage to measurement
-    await applyStageTransition(visit.leadId, ctx.tenantId, ctx.dbUserId ?? null, 'measurement');
+    // Advance lead stage to measurement — only from pre-visit stages, never backwards
+    const [lead] = await db
+      .select({ stage: leads.stage })
+      .from(leads)
+      .where(and(eq(leads.id, visit.leadId), eq(leads.tenantId, ctx.tenantId)))
+      .limit(1);
+    const nextStage = stageAfterVisitCompleted(lead?.stage);
+    if (nextStage) {
+      await applyStageTransition(visit.leadId, ctx.tenantId, ctx.dbUserId ?? null, nextStage);
+    }
 
     // Create optional follow-up via shared service
     let followUpWarning: string | undefined;

@@ -9,6 +9,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
+import { useUser } from '@/components/providers/user-provider';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 import type { POStatus, POLine } from '@/types/purchase-orders';
 import type { PurchaseOrder as BasePurchaseOrder } from '@/types/purchase-orders';
 
@@ -86,6 +88,7 @@ const PO_FILTER_PILLS: { key: POFilter; label: string }[] = [
 
 export default function PurchaseOrdersPage() {
   const router = useRouter();
+  const { isAdmin } = useUser(); // deleting a PO is owner-only on the API
 
   const [orders,   setOrders]   = useState<PurchaseOrder[]>([]);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -223,8 +226,8 @@ export default function PurchaseOrdersPage() {
       const res  = await fetch('/api/v1/purchase-orders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
       });
-      const json = await res.json() as { data?: PurchaseOrder; error?: unknown };
-      if (!res.ok) { setPoError(typeof json.error === 'string' ? json.error : 'Failed to create.'); return; }
+      if (!res.ok) { setPoError(await responseError(res, 'Failed to create.')); return; }
+      const json = await res.json() as { data?: PurchaseOrder };
       setOrders(prev => [json.data!, ...prev]);
       setPoDialog(false);
       router.push(`/purchase-orders/${json.data!.id}`);
@@ -238,13 +241,12 @@ export default function PurchaseOrdersPage() {
     try {
       const res = await fetch(`/api/v1/purchase-orders/${deletePO.id}`, { method: 'DELETE' });
       if (!res.ok) {
-        const b = await res.json() as { error?: string };
-        setDeletePOError(b.error ?? 'Failed to delete');
+        setDeletePOError(await responseError(res, 'Failed to delete'));
         return;
       }
       setOrders(prev => prev.filter(o => o.id !== deletePO.id));
       setDeletePO(null);
-    } catch { setDeletePOError('Network error'); }
+    } catch { setDeletePOError(NETWORK_ERROR); }
     finally  { setDeletePOBusy(false); }
   }
 
@@ -424,7 +426,7 @@ export default function PurchaseOrdersPage() {
                               : <span style={{ color: 'var(--text-tertiary)' }}>—</span>}
                           </td>
                           <td className="px-3 py-3">
-                            {po.status === 'draft' && (
+                            {isAdmin && po.status === 'draft' && (
                               <button type="button"
                                 onClick={e => { e.stopPropagation(); setDeletePOError(null); setDeletePO(po); }}
                                 className="opacity-0 group-hover:opacity-100 h-7 w-7 flex items-center justify-center rounded-lg hover:bg-red-50 transition-all">

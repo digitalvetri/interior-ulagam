@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
+import { pendingQty, roundQty } from '@/lib/procurement/receipts';
 import type { PurchaseOrder, GRN, GRNDeliveryGroup, POLine, POStatus } from '@/types/purchase-orders';
 import type { Expense } from '@/types/accounts';
 
@@ -115,6 +117,9 @@ export default function PurchaseOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { role, isAdmin } = useUser();
+  // Bill receipts are finance documents (owner + accountant APIs).
+  const canAttachReceipt = isAdmin || role === 'accountant';
 
   const [po, setPo]           = useState<EnrichedPO | null>(null);
   const [grns, setGrns]       = useState<GRN[]>([]);
@@ -193,11 +198,10 @@ export default function PurchaseOrderDetailPage({
     setWaMsg(null);
     try {
       const res  = await fetch(`/api/v1/purchase-orders/${id}/whatsapp`, { method: 'POST' });
-      const body = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok) {
         setWaMsg({ ok: true, text: 'Purchase order sent on WhatsApp.' });
       } else {
-        setWaMsg({ ok: false, text: body.error ?? 'Failed to send.' });
+        setWaMsg({ ok: false, text: await responseError(res, 'Failed to send.') });
       }
     } catch {
       setWaMsg({ ok: false, text: 'Network error — please try again.' });
@@ -234,7 +238,7 @@ export default function PurchaseOrderDetailPage({
     const receivedByLine: Record<string, number> = {};
     for (const grn of grns) {
       if (grn.lineId && grn.status !== 'void') {
-        receivedByLine[grn.lineId] = (receivedByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+        receivedByLine[grn.lineId] = roundQty((receivedByLine[grn.lineId] ?? 0) + Number(grn.deliveredQty));
       }
     }
 
@@ -242,7 +246,7 @@ export default function PurchaseOrderDetailPage({
     const pendingLines = lines
       .map(line => {
         const prev    = receivedByLine[line.id] ?? 0;
-        const pending = Math.max(0, line.qty - prev);
+        const pending = pendingQty(Number(line.qty) || 0, prev);
         return { lineId: line.id, description: line.description, unit: line.unit, orderedQty: line.qty, previouslyReceived: prev, pending, receivedNow: 0 };
       })
       .filter(l => l.pending > 0);
@@ -298,8 +302,7 @@ export default function PurchaseOrderDetailPage({
       });
 
       if (!res.ok) {
-        const { error } = (await res.json()) as { error?: string };
-        setGrnError(typeof error === 'string' ? error : 'Failed to record GRN.');
+        setGrnError(await responseError(res, 'Failed to record GRN.'));
         return;
       }
 
@@ -319,11 +322,11 @@ export default function PurchaseOrderDetailPage({
     const recvByLine: Record<string, number> = {};
     for (const grn of grns) {
       if (grn.lineId && grn.status !== 'void') {
-        recvByLine[grn.lineId] = (recvByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+        recvByLine[grn.lineId] = roundQty((recvByLine[grn.lineId] ?? 0) + Number(grn.deliveredQty));
       }
     }
-    const received = ls.reduce((s, l) => s + (recvByLine[l.id] ?? 0) * l.unitRatePaise, 0);
-    setBillAmountRs((received / 100).toFixed(0));
+    const received = Math.round(ls.reduce((s, l) => s + (recvByLine[l.id] ?? 0) * l.unitRatePaise, 0));
+    setBillAmountRs((received / 100).toFixed(2));
     setBillGstPct(18);
     setBillDueDate('');
     setBillDescription('');
@@ -355,15 +358,14 @@ export default function PurchaseOrderDetailPage({
         }),
       });
       if (!res.ok) {
-        const { error } = (await res.json()) as { error?: string };
-        setBillError(typeof error === 'string' ? error : 'Failed to create vendor bill.');
+        setBillError(await responseError(res, 'Failed to create vendor bill.'));
         return;
       }
       const { data: created } = (await res.json()) as { data?: { id: string } };
       // Upload receipt if one was selected
       // The bill already exists at this point, so a failed upload closes the
       // dialog anyway (retrying would create a duplicate bill) and says so.
-      if (billReceiptFile && created?.id) {
+      if (canAttachReceipt && billReceiptFile && created?.id) {
         const form = new FormData();
         form.append('file', billReceiptFile);
         try {
@@ -409,11 +411,11 @@ export default function PurchaseOrderDetailPage({
   const receivedByLine: Record<string, number> = {};
   for (const grn of grns) {
     if (grn.lineId && grn.status !== 'void') {
-      receivedByLine[grn.lineId] = (receivedByLine[grn.lineId] ?? 0) + grn.deliveredQty;
+      receivedByLine[grn.lineId] = roundQty((receivedByLine[grn.lineId] ?? 0) + Number(grn.deliveredQty));
     }
   }
 
-  const receivedPaise = lines.reduce((s, l) => s + (receivedByLine[l.id] ?? 0) * l.unitRatePaise, 0);
+  const receivedPaise = Math.round(lines.reduce((s, l) => s + (receivedByLine[l.id] ?? 0) * l.unitRatePaise, 0));
   const pendingPaise  = Math.max(0, totalPaise - receivedPaise);
 
   const sc       = STATUS_CFG[po.status];
@@ -740,7 +742,7 @@ export default function PurchaseOrderDetailPage({
                         </span>
                       )}
                       <span className="text-xs text-[var(--text-secondary)]">
-                        {group.rows.reduce((s, r) => s + r.deliveredQty, 0)} units · {group.rows.length} line{group.rows.length !== 1 ? 's' : ''}
+                        {roundQty(group.rows.reduce((s, r) => s + Number(r.deliveredQty), 0))} units · {group.rows.length} line{group.rows.length !== 1 ? 's' : ''}
                       </span>
                     </div>
                     {isExpanded
@@ -991,7 +993,8 @@ export default function PurchaseOrderDetailPage({
               />
             </div>
 
-            {/* Optional receipt attachment */}
+            {/* Optional receipt attachment — finance roles only (receipt API is FINANCE) */}
+            {canAttachReceipt && (
             <div className="space-y-1.5">
               <Label htmlFor="bill-receipt">
                 Receipt / Bill Document{' '}
@@ -1024,6 +1027,7 @@ export default function PurchaseOrderDetailPage({
                 onChange={e => setBillReceiptFile(e.target.files?.[0] ?? null)}
               />
             </div>
+            )}
 
             {billError && <p className="text-xs text-red-600">{billError}</p>}
           </div>
@@ -1080,11 +1084,11 @@ export default function PurchaseOrderDetailPage({
                           type="number"
                           min={0}
                           max={l.pending}
-                          step={1}
+                          step="any"
                           value={l.receivedNow || ''}
                           placeholder="0"
                           onChange={e => {
-                            const val = Math.min(l.pending, Math.max(0, parseInt(e.target.value) || 0));
+                            const val = Math.min(l.pending, Math.max(0, roundQty(parseFloat(e.target.value) || 0)));
                             setGrnLines(prev => prev.map(x => x.lineId === l.lineId ? { ...x, receivedNow: val } : x));
                           }}
                           className="h-8 w-20 text-right text-sm"

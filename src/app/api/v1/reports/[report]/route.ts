@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, lte, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   leads, projects, quotes, payments, expenses, invoices,
   purchaseOrders, vendors,
 } from '@/lib/db/schema';
 import { getEnrichedAuthContext } from '@/lib/auth/get-context';
+import { requireApiRole, ROLES } from '@/lib/auth';
 
 // GET /api/v1/reports/[report]?from=YYYY-MM-DD&to=YYYY-MM-DD
 // report: enquiry-funnel | quotation-conversion | project-pipeline |
@@ -16,7 +17,9 @@ export async function GET(
 ) {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!ctx.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // Reports are finance views: owner + accountant (profit stays owner-only).
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const { report } = await params;
   const sp  = request.nextUrl.searchParams;
@@ -167,23 +170,26 @@ export async function GET(
           const expenses_  = expByProject.get(p.id) ?? 0;
           const collected = paidByProject.get(p.id) ?? 0;
           const margin    = contract - expenses_;
-          return {
+          const base = {
             id:              p.id,
             name:            p.name,
             stage:           p.lifecycleStage,
             contractPaise:   contract,
             expensesPaise:   expenses_,
             collectedPaise:  collected,
-            marginPaise:     margin,
-            marginPct:       contract > 0 ? Math.round((margin / contract) * 100) : 0,
           };
+          // Profit / margin is owner-only; accountants get the money columns without it.
+          return ctx.isAdmin
+            ? { ...base, marginPaise: margin, marginPct: contract > 0 ? Math.round((margin / contract) * 100) : 0 }
+            : base;
         });
 
         return NextResponse.json({ data: { rows } });
       }
 
       case 'vendor-spend': {
-        const poFilters = [eq(purchaseOrders.tenantId, tid)];
+        // Cancelled orders are not spend.
+        const poFilters = [eq(purchaseOrders.tenantId, tid), ne(purchaseOrders.status, 'cancelled')];
         if (fromDate) poFilters.push(gte(purchaseOrders.createdAt, fromDate));
         if (toDate)   poFilters.push(lte(purchaseOrders.createdAt, toDate));
 
@@ -193,12 +199,19 @@ export async function GET(
             vendorName:   vendors.name,
             poCount:      sql<number>`count(*)::int`,
             advancePaise: sql<number>`coalesce(sum(advance_paid_paise), 0)::bigint`,
-            // Total ordered = sum of (qty × ratePaise) from linesJson
+            // Total ordered = sum of each PO line's totalPaise (falling back to
+            // qty × unitRatePaise, then the legacy ratePaise key, for old rows).
             totalPaise:   sql<number>`
               coalesce(
                 sum(
                   (
-                    select coalesce(sum((line->>'qty')::numeric * (line->>'ratePaise')::numeric), 0)
+                    select coalesce(sum(
+                      coalesce(
+                        (line->>'totalPaise')::numeric,
+                        coalesce((line->>'qty')::numeric, 0)
+                          * coalesce((line->>'unitRatePaise')::numeric, (line->>'ratePaise')::numeric, 0)
+                      )
+                    ), 0)
                     from jsonb_array_elements(lines_json) as line
                   )
                 ),

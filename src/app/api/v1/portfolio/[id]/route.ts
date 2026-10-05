@@ -58,7 +58,7 @@ export async function PATCH(
   catch { return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 }); }
 
   const parsed = UpdateSchema.safeParse(body);
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Validation error', details: parsed.error.flatten() }, { status: 422 });
 
   const updates: Partial<typeof portfolios.$inferInsert> = {};
   const d = parsed.data;

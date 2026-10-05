@@ -7,7 +7,8 @@ import {
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { CivilImportCommitInput } from '@/types/civil';
 import { sumLines } from '@/lib/civil/totals';
-import { findOrCreateCity, invalid, readJson, serverError } from '@/lib/civil/server';
+import { findOrCreateCity, readJson, serverError } from '@/lib/civil/server';
+import { describeImportError } from '@/lib/civil/import-validate';
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -53,8 +54,15 @@ export async function POST(request: NextRequest) {
   const denied = requireApiRole(ctx, ROLES.CIVIL);
   if (denied) return denied;
 
-  const parsed = CivilImportCommitInput.safeParse(await readJson(request));
-  if (!parsed.success) return invalid(parsed.error);
+  const body = await readJson(request);
+  const parsed = CivilImportCommitInput.safeParse(body);
+  if (!parsed.success) {
+    // Name the S.No and column, not an array index like "jobs.37.lines.2".
+    return NextResponse.json(
+      { error: describeImportError(parsed.error, body), details: parsed.error.flatten() },
+      { status: 422 },
+    );
+  }
   const { storeMap, jobs } = parsed.data;
   const tenantId = ctx.tenantId;
 

@@ -196,6 +196,7 @@ export default function SiteVisitDetailPage() {
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completing,   setCompleting]   = useState(false);
   const [completeErr,  setCompleteErr]  = useState<string | null>(null);
+  const [completeWarning, setCompleteWarning] = useState<string | null>(null);
   const [photosBusy,   setPhotosBusy]   = useState(false);
   const [completeForm, setCompleteForm] = useState<CompleteForm>({
     notes: '', outcome: '', photos: [],
@@ -347,9 +348,10 @@ export default function SiteVisitDetailPage() {
         setCompleteErr(typeof json.error === 'string' ? json.error : 'Failed to complete');
         return;
       }
-      if (json.followUpWarning) {
-        setCompleteErr(`Completed, but follow-up not created: ${json.followUpWarning}`);
-      }
+      // The dialog closes on success, so surface the warning on the page itself.
+      setCompleteWarning(json.followUpWarning
+        ? `Visit completed, but the follow-up was not created: ${json.followUpWarning}`
+        : null);
       setCompleteOpen(false);
       load();
     } catch {
@@ -378,6 +380,16 @@ export default function SiteVisitDetailPage() {
 
   return (
     <div className="px-6 py-6 space-y-6">
+
+      {completeWarning && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl px-4 py-3 text-sm"
+          style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+          <span>{completeWarning}</span>
+          <button type="button" onClick={() => setCompleteWarning(null)} className="text-xs font-medium underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Header */}
       <PageHeader

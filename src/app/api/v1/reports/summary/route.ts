@@ -3,13 +3,16 @@ import { and, eq, gte, lte, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { leads, projects, payments, customers, milestones } from '@/lib/db/schema';
 import { getEnrichedAuthContext } from '@/lib/auth/get-context';
+import { requireApiRole, ROLES } from '@/lib/auth';
 
 // GET /api/v1/reports/summary?from=YYYY-MM-DD&to=YYYY-MM-DD
 // KPI cards for the Reports Dashboard with current/previous period comparison.
 export async function GET(request: NextRequest) {
   const ctx = await getEnrichedAuthContext();
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (!ctx.isAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  // Reports are finance views: owner + accountant (profit stays owner-only).
+  const denied = requireApiRole(ctx, ROLES.FINANCE);
+  if (denied) return denied;
 
   const sp   = request.nextUrl.searchParams;
   const from = sp.get('from');

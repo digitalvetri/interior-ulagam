@@ -5,6 +5,7 @@ import { projects, leadActivities } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { applyStageMoneyEffects } from '@/lib/project-money/server';
 import { stageGateError } from '@/lib/projects/stage-gates';
+import { cancelHandoverSequence } from '@/jobs/workflows/schedule';
 import { eq, and } from 'drizzle-orm';
 
 const PROJECT_STAGES = [
@@ -44,7 +45,10 @@ export async function POST(
 
   const parsed = ChangeStageSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 422 });
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.flatten() },
+      { status: 422 },
+    );
   }
 
   const { newStage, note } = parsed.data;
@@ -74,6 +78,10 @@ export async function POST(
       .where(and(eq(projects.id, id), eq(projects.tenantId, ctx.tenantId)))
       .returning();
     await applyStageMoneyEffects(db, ctx.tenantId, id, newStage);
+    // Moved back out of handover: stop the pending auto-complete / NPS jobs.
+    if (project.lifecycleStage === 'handover' && newStage && newStage !== 'handover' && newStage !== 'complete') {
+      await cancelHandoverSequence(id).catch((err) => console.error('[cancelHandoverSequence]', err));
+    }
 
     // Log to lead activity history
     if (project.leadId) {

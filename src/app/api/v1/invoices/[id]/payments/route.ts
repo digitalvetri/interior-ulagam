@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { and, eq, ne, sql } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { invoices, payments } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
+import { recordClientPayment } from '@/lib/finance/payments-server';
 
-// Manual payment recording — used when a client pays outside the Razorpay
-// flow (cash, cheque, bank transfer confirmed by hand). The frontend is
-// responsible for disabling the submit button while pending to prevent
-// duplicate rows (no server-side idempotency key on manual entries).
+// Manual payment against one invoice (cash, cheque, bank transfer confirmed by
+// hand). Same rules as POST /api/v1/payments: receipt number, project + client,
+// milestone allocation, invoice status sync; void invoices are rejected.
 const RecordManualPaymentSchema = z.object({
   amountPaise: z.number().int().positive().max(1_000_000_00_000), // ₹10 Cr cap
-  note: z.string().min(1).max(500),
+  mode:        z.enum(['upi', 'cash', 'bank', 'cheque', 'card', 'razorpay']),
+  reference:   z.string().max(200).optional(),
+  receivedAt:  z.string().datetime().optional(),
+  note:        z.string().max(500).optional(),
 });
 
 export async function POST(
@@ -37,61 +37,19 @@ export async function POST(
 
   const parsed = RecordManualPaymentSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation error', details: parsed.error.flatten() },
-      { status: 422 },
-    );
+    return NextResponse.json({ error: 'Validation error', details: parsed.error.flatten() }, { status: 422 });
   }
+  const d = parsed.data;
 
   try {
-    // Verify invoice belongs to caller's tenant and fetch totals for status update.
-    const [invoice] = await db
-      .select({
-        id:            invoices.id,
-        subtotalPaise: invoices.subtotalPaise,
-        cgstPaise:     invoices.cgstPaise,
-        sgstPaise:     invoices.sgstPaise,
-        igstPaise:     invoices.igstPaise,
-      })
-      .from(invoices)
-      .where(and(eq(invoices.id, id), eq(invoices.tenantId, ctx.tenantId)))
-      .limit(1);
-    if (!invoice) {
-      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
-    }
-
-    const [inserted] = await db
-      .insert(payments)
-      .values({
-        tenantId:           ctx.tenantId,
-        invoiceId:          id,
-        amountPaise:        parsed.data.amountPaise,
-        status:             'captured',
-        reconciledAt:       new Date(),
-        manualOverrideBy:   ctx.dbUserId,
-        manualOverrideNote: parsed.data.note,
-      })
-      .returning();
-
-    // Update invoice lifecycle status based on total captured payments.
-    const totalInvoicePaise =
-      invoice.subtotalPaise + invoice.cgstPaise + invoice.sgstPaise + invoice.igstPaise;
-
-    const [{ paidPaise }] = await db
-      .select({ paidPaise: sql<number>`coalesce(sum(${payments.amountPaise}), 0)`.mapWith(Number) })
-      .from(payments)
-      .where(and(eq(payments.invoiceId, id), ne(payments.status, 'pending')));
-
-    const newStatus =
-      paidPaise >= totalInvoicePaise ? 'paid' :
-      paidPaise > 0                  ? 'part_paid' : 'issued';
-
-    await db
-      .update(invoices)
-      .set({ status: newStatus })
-      .where(eq(invoices.id, id));
-
-    return NextResponse.json({ data: inserted }, { status: 201 });
+    const result = await recordClientPayment(ctx.tenantId, ctx.userId, {
+      ...d,
+      invoiceId: id,
+      receivedAt: d.receivedAt ? new Date(d.receivedAt) : undefined,
+    });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    const { payment, allocatedPaise, advancePaise } = result;
+    return NextResponse.json({ data: { ...payment, allocatedPaise, advancePaise } }, { status: 201 });
   } catch (err) {
     console.error('[invoices/:id/payments POST]', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

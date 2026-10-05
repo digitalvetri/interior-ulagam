@@ -47,7 +47,7 @@ function buildPaidLeaveDates(leaves: LeaveRow[], userId: string): Set<string> {
     const end = new Date(leave.toDate);
     while (cursor <= end) {
       dates.add(cursor.toISOString().slice(0, 10));
-      cursor.setDate(cursor.getDate() + 1);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
   }
   return dates;
@@ -99,7 +99,9 @@ export function calcPayslip(
     ? Math.floor(grossPaise * EMPLOYER_ESI_BPS / 10_000)
     : 0;
 
-  const totalCostPaise = netPaise + employerPFPaise + employerESIPaise;
+  // Employer's cost = full gross (net pay + employee deductions remitted on the
+  // employee's behalf) + the employer's own PF/ESI contributions.
+  const totalCostPaise = grossPaise + employerPFPaise + employerESIPaise;
 
   return {
     userId: employee.id,
@@ -113,4 +115,24 @@ export function calcPayslip(
     employerESIPaise,
     totalCostPaise,
   };
+}
+
+/**
+ * First and last calendar day of a 'YYYY-MM' month as 'YYYY-MM-DD' strings.
+ * Computed in UTC so the result never depends on the server's time zone.
+ */
+export function monthBounds(month: string): { firstDay: string; lastDay: string } {
+  const [year, mon] = month.split('-').map(Number) as [number, number];
+  const lastDate = new Date(Date.UTC(year, mon, 0)).getUTCDate();
+  return {
+    firstDay: `${month}-01`,
+    lastDay: `${month}-${String(lastDate).padStart(2, '0')}`,
+  };
+}
+
+export type PayrollRunStatus = 'draft' | 'approved' | 'paid';
+
+/** Payroll runs move one step at a time: draft → approved → paid. */
+export function isAllowedRunTransition(from: PayrollRunStatus, to: PayrollRunStatus): boolean {
+  return (from === 'draft' && to === 'approved') || (from === 'approved' && to === 'paid');
 }

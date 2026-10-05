@@ -115,11 +115,15 @@ export default function EmployeeDetailPage({
   }
 
   async function remove() {
-    if (!confirm('Remove this employee? This cannot be undone.')) return;
+    if (!confirm('Remove this employee? They will be signed out and marked inactive; their attendance, payslips and work history are kept. (An employee with no history at all is deleted.)')) return;
     setRemoveError(null);
     try {
       const res = await fetch(`/api/v1/employees/${id}`, { method: 'DELETE' });
-      if (res.ok) window.location.href = '/employees';
+      if (res.ok) {
+        const json = await res.json().catch(() => ({})) as { message?: string; data?: { deactivated?: boolean } };
+        if (json.data?.deactivated && json.message) alert(json.message);
+        window.location.href = '/employees';
+      }
       else setRemoveError(await responseError(res, 'Could not remove this employee.'));
     } catch {
       setRemoveError(NETWORK_ERROR);
@@ -194,7 +198,7 @@ export default function EmployeeDetailPage({
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={remove} className="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700">
-              <Trash2 className="h-4 w-4" /> Remove
+              <Trash2 className="h-4 w-4" /> Remove (deactivate)
             </Button>
           </div>
         </div>

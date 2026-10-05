@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatRupees } from '@/lib/utils';
 import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
+import { useUser } from '@/components/providers/user-provider';
 import { categoryBadge } from '@/lib/vendor-categories';
 import {
   useVendorCategories, VendorCategorySelect, ManageVendorCategoriesDialog,
@@ -52,6 +53,7 @@ const OPEN_STATUSES = new Set(['draft', 'sent', 'acknowledged', 'partial']);
 /* ── Page ────────────────────────────────────────────────────────────────────── */
 
 export default function VendorsPage() {
+  const { isAdmin } = useUser(); // editing / removing a vendor is owner-only on the API
   const router = useRouter();
 
   const [vendors,  setVendors]  = useState<Vendor[]>([]);
@@ -151,19 +153,20 @@ export default function VendorsPage() {
     if (!form.name.trim()) { setSaveError('Vendor name is required.'); return; }
     setSaving(true); setSaveError(null);
     const body: Record<string, unknown> = { name: form.name.trim() };
-    if (form.phone.trim())   body.phone   = form.phone.trim();
-    if (form.email.trim())   body.email   = form.email.trim();
-    if (form.gstin.trim())   body.gstin   = form.gstin.trim();
+    // On edit an emptied field is sent as null so the server clears it.
+    for (const k of ['phone', 'email', 'gstin', 'address', 'notes'] as const) {
+      const v = form[k].trim();
+      if (v) body[k] = v;
+      else if (editTarget) body[k] = null;
+    }
     if (form.category)       body.category = form.category;
     else if (editTarget)     body.category = null;
-    if (form.address.trim()) body.address  = form.address.trim();
-    if (form.notes.trim())   body.notes    = form.notes.trim();
     try {
       const url    = editTarget ? `/api/v1/vendors/${editTarget.id}` : '/api/v1/vendors';
       const method = editTarget ? 'PATCH' : 'POST';
       const res    = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const json   = await res.json() as { data?: Vendor; error?: unknown };
-      if (!res.ok) { setSaveError(typeof json.error === 'string' ? json.error : 'Failed to save.'); return; }
+      if (!res.ok) { setSaveError(await responseError(res, 'Failed to save.')); return; }
+      const json   = await res.json() as { data?: Vendor };
       void reloadCategories(); // vendor counts per category
       setVendors(prev =>
         editTarget
@@ -335,6 +338,7 @@ export default function VendorsPage() {
                       </td>
 
                       <td className="px-3 py-3.5">
+                        {isAdmin && (
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={e => e.stopPropagation()}>
                           <button type="button" onClick={() => openEdit(v)}
@@ -347,6 +351,7 @@ export default function VendorsPage() {
                             <Trash2 className="h-3.5 w-3.5 text-red-400" />
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   );

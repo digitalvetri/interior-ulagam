@@ -8,6 +8,8 @@ import {
   IndianRupee, MoreVertical, Paperclip, Printer, Trash2, Upload, XCircle,
 } from 'lucide-react';
 import { formatRupees } from '@/lib/utils';
+import { useUser } from '@/components/providers/user-provider';
+import { responseError, NETWORK_ERROR } from '@/lib/client-feedback';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -92,6 +94,10 @@ export default function VendorBillDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { role, isAdmin } = useUser();
+  // Match the APIs: paying a bill and its receipt are FINANCE (owner +
+  // accountant); voiding is owner-only. Designers see the bill read-only.
+  const isFinance = isAdmin || role === 'accountant';
 
   const [data, setData]       = useState<BillDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,7 +154,7 @@ export default function VendorBillDetailPage({
 
   function openPayDialog() {
     if (!data) return;
-    setPayAmount((data.derived.balancePaise / 100).toFixed(0));
+    setPayAmount((data.derived.balancePaise / 100).toFixed(2));
     setPayMethod('');
     setPayRef('');
     setPayNote('');
@@ -175,13 +181,12 @@ export default function VendorBillDetailPage({
         }),
       });
       if (!res.ok) {
-        const { error } = (await res.json()) as { error?: string };
-        setPayError(typeof error === 'string' ? error : 'Failed to record payment.');
+        setPayError(await responseError(res, 'Failed to record payment.'));
         return;
       }
       setPayOpen(false);
       void load();
-    } catch { setPayError('Network error — please try again.'); }
+    } catch { setPayError(NETWORK_ERROR); }
     finally { setPaySubmit(false); }
   }
 
@@ -193,13 +198,12 @@ export default function VendorBillDetailPage({
     try {
       const res = await fetch(`/api/v1/vendor-bills/${id}`, { method: 'DELETE' });
       if (!res.ok) {
-        const { error } = (await res.json()) as { error?: string };
-        setVoidError(typeof error === 'string' ? error : 'Failed to void bill.');
+        setVoidError(await responseError(res, 'Failed to void bill.'));
         return;
       }
       setVoidOpen(false);
       void load();
-    } catch { setVoidError('Network error — please try again.'); }
+    } catch { setVoidError(NETWORK_ERROR); }
     finally { setVoidSubmit(false); }
   }
 
@@ -213,12 +217,11 @@ export default function VendorBillDetailPage({
       form.append('file', file);
       const res = await fetch(`/api/v1/vendor-bills/${id}/receipt`, { method: 'POST', body: form });
       if (!res.ok) {
-        const { error } = (await res.json()) as { error?: string };
-        setReceiptError(typeof error === 'string' ? error : 'Upload failed.');
+        setReceiptError(await responseError(res, 'Upload failed.'));
         return;
       }
       void load();
-    } catch { setReceiptError('Network error — please try again.'); }
+    } catch { setReceiptError(NETWORK_ERROR); }
     finally {
       setReceiptUploading(false);
       if (receiptInputRef.current) receiptInputRef.current.value = '';
@@ -249,8 +252,8 @@ export default function VendorBillDetailPage({
   const { bill, po, grnEvents, payments, derived } = data;
   const sc = STATUS_CFG[derived.status];
   const billDate = fmtDate(bill.createdAt);
-  const canPay   = derived.status === 'unpaid' || derived.status === 'partial';
-  const canVoid  = derived.status === 'unpaid';
+  const canPay   = isFinance && (derived.status === 'unpaid' || derived.status === 'partial');
+  const canVoid  = isAdmin && derived.status === 'unpaid';
   const progress = pct(derived.paidPaise, derived.totalPaise);
 
   return (
@@ -578,7 +581,8 @@ export default function VendorBillDetailPage({
             )}
           </div>
 
-          {/* Receipt / Bill Document */}
+          {/* Receipt / Bill Document — finance roles only (receipt API is FINANCE) */}
+          {isFinance && (
           <div className="premium-card px-5 py-5 space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
               Receipt / Document
@@ -617,6 +621,7 @@ export default function VendorBillDetailPage({
               PDF, JPEG, or PNG · max 10 MB
             </p>
           </div>
+          )}
 
           {/* Related + Actions */}
           <div className="premium-card px-5 py-5 space-y-4">

@@ -137,7 +137,8 @@ export async function POST(request: NextRequest) {
           tenantId: ctx.tenantId,
           title: body.taskTitle,
           status: 'pending',
-          assignedTo: body.assignToId ?? null,
+          // Non-owners only see their own tasks — default an unassigned task to the creator.
+          assignedTo: body.assignToId ?? (ctx.isAdmin ? null : ctx.userId),
           createdBy: ctx.userId,
           dueAt: body.dueAt ? new Date(body.dueAt) : null,
           notes: body.notes ?? null,

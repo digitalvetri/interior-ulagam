@@ -3,8 +3,12 @@ import { db } from '@/lib/db';
 import { payments, invoices, projects } from '@/lib/db/schema';
 import { getAuthContext, requireApiRole, ROLES } from '@/lib/auth';
 import { eq, and, sql } from 'drizzle-orm';
+import { escapeCsv, toReceiptVoucherXml } from '@/lib/tally';
 
-export async function GET(_request: NextRequest) {
+// GET /api/v1/accounts/tally-export?format=csv|xml
+// One row / voucher per captured payment, for the amount actually paid — a
+// part payment must not repeat the whole invoice total.
+export async function GET(request: NextRequest) {
   const ctx = await getAuthContext();
   if (!ctx) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -12,6 +16,8 @@ export async function GET(_request: NextRequest) {
 
   const denied = requireApiRole(ctx, ROLES.FINANCE);
   if (denied) return denied;
+
+  const format = request.nextUrl.searchParams.get('format') === 'xml' ? 'xml' : 'csv';
 
   try {
     const rows = await db
@@ -22,7 +28,9 @@ export async function GET(_request: NextRequest) {
         cgstPaise: invoices.cgstPaise,
         sgstPaise: invoices.sgstPaise,
         igstPaise: invoices.igstPaise,
+        amountPaise: payments.amountPaise,
         reconciledAt: payments.reconciledAt,
+        createdAt: payments.createdAt,
         razorpayPaymentId: payments.razorpayPaymentId,
       })
       .from(payments)
@@ -31,31 +39,46 @@ export async function GET(_request: NextRequest) {
       .where(
         and(
           eq(payments.tenantId, ctx.tenantId),
+          eq(invoices.tenantId, ctx.tenantId),
           sql`${payments.status} = 'captured'`,
         ),
       );
 
-    const csvHeader = 'invoice_number,project_name,subtotal_rs,gst_rs,total_rs,paid_at,razorpay_payment_id';
+    if (format === 'xml') {
+      const xml = toReceiptVoucherXml(rows.map((row) => ({
+        date: (row.reconciledAt ?? row.createdAt).toISOString().slice(0, 10).replace(/-/g, ''),
+        voucherNumber: row.invoiceNumber,
+        partyLedgerName: row.projectName,
+        amountPaise: row.amountPaise,
+        narration: `Payment against ${row.invoiceNumber}${row.razorpayPaymentId ? ` (${row.razorpayPaymentId})` : ''}`,
+      })));
+      return new NextResponse(xml, {
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Content-Disposition': 'attachment; filename=tally-export.xml',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
 
+    const csvHeader = 'invoice_number,project_name,payment_rs,invoice_total_rs,paid_at,razorpay_payment_id';
     const csvRows = rows.map((row) => {
-      const subtotalRs = (row.subtotalPaise / 100).toFixed(2);
-      const gstPaise = row.cgstPaise + row.sgstPaise + row.igstPaise;
-      const gstRs = (gstPaise / 100).toFixed(2);
-      const totalRs = ((row.subtotalPaise + gstPaise) / 100).toFixed(2);
-      const paidAt = row.reconciledAt ? row.reconciledAt.toISOString() : '';
-      const razorpayId = row.razorpayPaymentId ?? '';
-      // Wrap project_name in quotes to handle commas
-      const projectName = `"${row.projectName.replace(/"/g, '""')}"`;
-
-      return `${row.invoiceNumber},${projectName},${subtotalRs},${gstRs},${totalRs},${paidAt},${razorpayId}`;
+      const invoiceTotalPaise = row.subtotalPaise + row.cgstPaise + row.sgstPaise + row.igstPaise;
+      return [
+        escapeCsv(row.invoiceNumber),
+        escapeCsv(row.projectName),
+        (row.amountPaise / 100).toFixed(2),
+        (invoiceTotalPaise / 100).toFixed(2),
+        row.reconciledAt ? row.reconciledAt.toISOString() : '',
+        escapeCsv(row.razorpayPaymentId ?? ''),
+      ].join(',');
     });
 
-    const csvString = [csvHeader, ...csvRows].join('\n');
-
-    return new NextResponse(csvString, {
+    return new NextResponse([csvHeader, ...csvRows].join('\n'), {
       headers: {
-        'Content-Type': 'text/csv',
+        'Content-Type': 'text/csv; charset=utf-8',
         'Content-Disposition': 'attachment; filename=tally-export.csv',
+        'Cache-Control': 'no-store',
       },
     });
   } catch (err) {

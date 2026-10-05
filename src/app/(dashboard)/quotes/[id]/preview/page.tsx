@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Quote, QuoteLine } from '@/types/quotes';
+import { quoteNumberOf } from '@/lib/quotes/number';
 
 // ── Company identity ──────────────────────────────────────────────────────────
 // TODO: source these from a tenant settings API once the settings screen exists.
@@ -150,9 +151,14 @@ export default function QuotePreviewPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const quoteLabel  = `QUO-${quote.id.slice(-6).toUpperCase()}`;
+  const quoteLabel  = quoteNumberOf(quote);
   const issueDate   = new Date(quote.createdAt);
-  const validUntil  = new Date(issueDate.getTime() + VALIDITY_DAYS * 86_400_000);
+  // The quote's own valid-until date wins; otherwise the default validity window.
+  const validUntil  = quote.validUntil
+    ? new Date(`${quote.validUntil.slice(0, 10)}T00:00:00+05:30`)
+    : new Date(issueDate.getTime() + VALIDITY_DAYS * 86_400_000);
+  const termsAndConditions = TERMS_AND_CONDITIONS.map((t, i) =>
+    i === 0 ? `This quotation is valid until ${fmtDate(validUntil)}.` : t);
   const cgstPaise   = Math.round(quote.gstPaise / 2);
   const sgstPaise   = quote.gstPaise - cgstPaise;
   const tableRows   = buildTableRows(quote.lines ?? []);
@@ -429,7 +435,7 @@ export default function QuotePreviewPage({ params }: { params: Promise<{ id: str
                 Payment Schedule
               </p>
               <ul className="space-y-1.5">
-                {PAYMENT_TERMS.map((term) => (
+                {(quote.paymentTerms?.trim() ? quote.paymentTerms.split(/\r?\n/).filter(Boolean) : PAYMENT_TERMS).map((term) => (
                   <li key={term} className="flex gap-2 text-[12px]" style={{ color: '#374151' }}>
                     <span style={{ color: '#9CA3AF', flexShrink: 0 }}>•</span>
                     {term}
@@ -470,7 +476,7 @@ export default function QuotePreviewPage({ params }: { params: Promise<{ id: str
               Terms &amp; Conditions
             </p>
             <ol className="list-decimal list-outside pl-4 space-y-1.5">
-              {TERMS_AND_CONDITIONS.map((term, i) => (
+              {termsAndConditions.map((term, i) => (
                 <li key={i} className="text-[12px]" style={{ color: '#6B7280' }}>
                   {term}
                 </li>

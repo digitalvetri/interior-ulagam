@@ -66,14 +66,53 @@ function toTallyXmlDate(iso: string): string {
   return `${y}${m}${day}`;
 }
 
-function escapeCsv(v: string | number | null | undefined): string {
+export function escapeCsv(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return '';
   const s = String(v);
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
 
-function escapeXml(v: string | number | null | undefined): string {
+/**
+ * Simple Receipt voucher envelope (one voucher per captured payment) used by
+ * the Accounts "Tally XML" download. Every text value is XML-escaped.
+ */
+export interface ReceiptVoucherRow {
+  /** YYYYMMDD or '' */
+  date: string;
+  voucherNumber: string;
+  partyLedgerName: string;
+  amountPaise: number;
+  narration: string;
+}
+
+export function toReceiptVoucherXml(rows: ReceiptVoucherRow[]): string {
+  const msgs = rows
+    .map((r) => `        <TALLYMESSAGE>
+          <VOUCHER VCHTYPE="Receipt" ACTION="Create">
+            <DATE>${escapeXml(r.date)}</DATE>
+            <VOUCHERNUMBER>${escapeXml(r.voucherNumber)}</VOUCHERNUMBER>
+            <PARTYLEDGERNAME>${escapeXml(r.partyLedgerName)}</PARTYLEDGERNAME>
+            <AMOUNT>${(r.amountPaise / 100).toFixed(2)}</AMOUNT>
+            <NARRATION>${escapeXml(r.narration)}</NARRATION>
+          </VOUCHER>
+        </TALLYMESSAGE>`)
+    .join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<ENVELOPE>
+  <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>
+  <BODY>
+    <IMPORTDATA>
+      <REQUESTDESC><REPORTNAME>All Masters</REPORTNAME></REQUESTDESC>
+      <REQUESTDATA>
+${msgs}
+      </REQUESTDATA>
+    </IMPORTDATA>
+  </BODY>
+</ENVELOPE>`;
+}
+
+export function escapeXml(v: string | number | null | undefined): string {
   if (v === null || v === undefined) return '';
   return String(v)
     .replace(/&/g, '&amp;')
