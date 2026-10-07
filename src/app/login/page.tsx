@@ -4,42 +4,38 @@ import { LoginScene3DLazy } from '@/components/auth/LoginScene3DLazy';
 export default function LoginPage() {
   return (
     <div className="login-shell">
-      {/* ── Left: brand panel ─────────────────────────────────────────────── */}
+      {/* ── Left: the studio showcase — a live 3D interior ──────────────── */}
       <div className="login-hero">
         <div className="login-hero-grid" aria-hidden="true" />
         <div className="login-hero-glow" aria-hidden="true" />
+        <div className="login-hero-glow login-hero-glow--top" aria-hidden="true" />
 
         <div className="login-hero-content">
-          <div className="login-hero-brand">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white p-1.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/brand/logo-icon.png"
-                alt="Konst Design"
-                className="h-full w-full object-contain"
-                width={28}
-                height={28}
-              />
+          <div className="login-hero-brand login-rise" style={{ animationDelay: '0ms' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/kd-mark-white.png" alt="" className="h-9 w-auto" width={46} height={36} />
+            <div className="leading-tight">
+              <span className="block">Konst Design</span>
+              <span className="login-hero-brand-sub">Design &amp; Build · Coimbatore</span>
             </div>
-            <span>Konst Design</span>
+          </div>
+
+          <div className="login-hero-copy login-rise" style={{ animationDelay: '120ms' }}>
+            <p className="login-eyebrow">Studio workspace</p>
+            <h2>
+              Where spaces become <em>experiences.</em>
+            </h2>
           </div>
 
           <div className="login-hero-illustration">
             <LoginScene3DLazy />
+            <p className="login-scene-hint" aria-hidden="true">Move your cursor — the room follows</p>
           </div>
 
-          <div className="login-hero-copy">
-            <h2>Where spaces become experiences.</h2>
-            <p>
-              Design, track, and deliver every interior project — from the first
-              concept sketch to final handover — inside one studio workspace.
-            </p>
-          </div>
-
-          <div className="login-hero-stats">
+          <div className="login-hero-stats login-rise" style={{ animationDelay: '240ms' }}>
             <div>
               <strong>14+</strong>
-              <span>Years of expertise</span>
+              <span>Years of craft</span>
             </div>
             <div>
               <strong>4.9★</strong>
@@ -59,43 +55,24 @@ export default function LoginPage() {
         <div className="login-form-blob login-form-blob--b" aria-hidden="true" />
         <div className="login-form-blob login-form-blob--c" aria-hidden="true" />
 
-        <div className="w-full max-w-sm animate-fade-in login-glass-card">
-          {/* Brand mark — mobile only */}
-          <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
+        <div className="w-full max-w-sm login-glass-card login-rise" style={{ animationDelay: '80ms' }}>
+          <div className="mb-7 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-icon.png"
-              alt="Konst Design"
-              className="h-14 w-auto object-contain"
-              width={120}
-              height={56}
-            />
+            <img src="/brand/logo-icon.png" alt="Konst Design" className="h-14 w-auto object-contain lg:h-16" width={140} height={64} />
           </div>
 
-          {/* Logo shown on desktop right panel above form */}
-          <div className="mb-6 hidden lg:flex lg:flex-col lg:items-center lg:gap-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/brand/logo-icon.png"
-              alt="Konst Design"
-              className="h-16 w-auto object-contain"
-              width={140}
-              height={64}
-            />
-          </div>
-
-          <div className="mb-9">
+          <div className="mb-8 text-center">
             <h1 className="login-form-title">Welcome back</h1>
             <p className="login-form-subtitle">Sign in to your studio workspace</p>
           </div>
 
           <LoginForm />
-          <p className="mt-5 text-center text-xs text-[var(--text-tertiary)]">
+          <p className="mt-6 text-center text-xs text-[var(--text-tertiary)]">
             Forgot your password? Ask your studio owner to reset it from Employees.
           </p>
         </div>
 
-        <p className="login-form-footer">Built by DigitalVetri</p>
+        <p className="login-form-footer">Secure sign-in · Built by <span>DigitalVetri</span></p>
       </div>
     </div>
   );
